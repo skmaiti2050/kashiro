@@ -426,6 +426,39 @@ The owner's decision (spec §5 "Review depth slider"): a `ReviewDepth = 'light' 
   - **No editing:** nothing in the panel edits text.
 - [ ] **Step 5:** Run `npm test`. Check that the bundle size stays within the target (≤15 MB for the dictionary file). Manual check in `npm run tauri dev`.
 - [ ] **Step 6:** Commit: `feat(lookup): offline word lookup for review items and selections`
+### Task S3: Saved review sessions
+
+Owner's decision, spec §3 item 10.
+
+**Files:**
+- Create: `src/engine/sessionSnapshot.ts` (pure: snapshot/restore), `src/ui/state/sessionStore.ts` (persistence via plugin-store or app-data files), `src/ui/RecentReviews.tsx`
+- Modify: `src/ui/state/sessionController.ts` (autosave + resume), the Settings panel (keep pasted text; retention days), `src/engine/session.ts` (only if a small additive API is needed)
+- Test: `tests/engine/sessionSnapshot.test.ts`, `tests/ui/sessionStore.test.ts`, controller tests
+
+**Interfaces:**
+- `snapshot(session: CheckSession): SessionSnapshot` and `restore(paras: Paragraph[], snap: SessionSnapshot, opts, deps): Promise<{ session: CheckSession; restored: number; rechecked: number }>`.
+  - The snapshot holds each user decision, keyed by paragraph text hash + candidate identity (kind, original, offsets in the paragraph, replacement chosen). It also holds the change log, preset, depth and variant override.
+  - On restore, decisions are replayed only on paragraphs whose text hash matches. Reuse the existing `carryDecisions` logic from Task 11 instead of duplicating it.
+- `SessionStore`: `save(key, snap)`, `load(key)`, `list(): RecentReview[]` (name, path or "Pasted text", updated time, decisions made/left) and `prune(retentionDays)`.
+  - Key = SHA-256 of the file bytes plus the path, for files. Pasted text gets a random id, and is stored only when "Keep pasted text for resuming" is on.
+- Autosave is debounced (1 s after each decision) and flushes on close. Resume prompt: "Resume your review? (N decisions made, M left)", with buttons Resume / Start fresh.
+
+**Rules:**
+- **Never store a copy of a file.** Pasted text is stored only with the opt-in.
+- **Location:** all data stays in the app's data folder, with no network.
+- **Retention:** default 30 days; 0 means never keep. Prune at startup.
+- **Changed files:** if the file changed (fingerprint differs but the path matches), offer "This file changed since your last review. Resume where possible?". Restore unchanged paragraphs and re-check the rest.
+
+**Tests:**
+- snapshot → restore round-trips statuses exactly on an unchanged doc.
+- A changed paragraph drops its decisions; others keep theirs.
+- Pasted text isn't persisted when the opt-in is off.
+- prune removes old entries; retention 0 keeps nothing.
+- Autosave debounce.
+- The resume prompt counts.
+
+**Commit:** `feat(sessions): autosaved review sessions with resume and recent list`
+
 ## Milestone D: Optional "reads naturally" pass
 
 ### Task 12: LLM sidecar and model download
@@ -523,6 +556,7 @@ The owner's decision (spec §5 "Review depth slider"): a `ReviewDepth = 'light' 
 | §3.6 fact lock | 3, 5, 13 |
 | §3.7 change log + report | 6, 11 |
 | §3.9 word lookup (offline dictionary) | 11b |
+| §3.10 saved review sessions + unsaved-work guard | 11, S3 |
 | §3.8 / §9 trust suite | 7 (no-network), 10 |
 | §6 constraints (offline, no admin, 8 GB, instant) | 7, 11, 12, 14 |
 | §7 signing/staging | 14 (unsigned v1.0, Windows) |

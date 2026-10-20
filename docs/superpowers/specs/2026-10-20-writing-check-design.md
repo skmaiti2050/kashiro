@@ -72,6 +72,18 @@ Anyone who writes for an audience. Check every default against these five:
      time from a pinned release into a compact bundled file (target ≤15 MB compressed), loaded on first use.
      No network. English only; Hindi/Bengali lookup arrives with the Indian-languages stage.
 
+10. **Saved review sessions** *(owner's decision, 2026-10-20)*: the review is saved automatically as the
+   user works, on this device only.
+   - **Reopening the same file** offers "Resume your review? (N decisions made, M left)". If the file
+     changed since, decisions are restored on the unchanged paragraphs and the rest is re-checked.
+   - **What is stored** (in the app's own data folder): the decisions and the change log, plus the file's
+     path and a fingerprint (SHA-256) for files. Never a copy of the file.
+   - **Pasted or typed text** is resumable only if the user turns on "Keep pasted text for resuming"
+     (off by default), because that stores the text itself.
+   - **Start screen** shows "Recent reviews". Sessions older than 30 days are deleted automatically
+     (adjustable, including "never keep").
+   - **Unsaved-work guard:** opening, pasting or closing with unsaved changes asks Save / Discard / Cancel.
+
 ## 4. Non-goals and anti-goals
 
 **Non-goals for v1 (later, maybe):** dictation (planned v2 module, reusing Handy's MIT transcription
