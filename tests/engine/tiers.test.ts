@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import type { Candidate, Tier } from '@/engine/types';
 import { PRESETS } from '@/engine/presets';
 import type { Preset } from '@/engine/presets';
-import { tierOf, buildDecisions, findContractions } from '@/engine/tiers';
+import { tierOf, buildDecisions, findContractions, isLockedNameFlag } from '@/engine/tiers';
 import type { TierContext } from '@/engine/tiers';
 import { findLockedSpans } from '@/engine/factLock';
 import { findInvisible } from '@/engine/hygiene';
@@ -176,6 +176,41 @@ describe('findContractions', () => {
       ["WON'T", ['WILL NOT']],
     ]);
     expect(cs[0].id).toBe('0:0:5:Contraction');
+  });
+});
+
+describe('Task 10 budget tuning', () => {
+  it('(1) batch key lowercases the replacement: It\'s→Its and it\'s→its batch together', () => {
+    const a = cand({ original: "It's", replacements: ['Its'], kind: 'Agreement' });
+    const b = cand({ paraId: 1, original: "it's", replacements: ['its'], kind: 'Agreement' });
+    const { decisions } = buildDecisions([a, b], new Map([[a.id, 'review'], [b.id, 'review']]));
+    expect(decisions).toHaveLength(1);
+    expect(decisions[0].kind).toBe('batch');
+    expect(decisions[0].candidateIds).toEqual([a.id, b.id]);
+  });
+
+  it('(2) uppercase-start guard applies only to Spelling and Typo', () => {
+    const rep = cand({ original: 'The the', replacements: ['The'], kind: 'Repetition' });
+    expect(tierOf(rep, ctx())).toBe('safe');
+    expect(tierOf(cand({ original: 'Teh', replacements: ['The'], kind: 'Typo' }), ctx())).toBe('review');
+    expect(tierOf(cand({ original: 'Recieve', replacements: ['Receive'], kind: 'Spelling' }), ctx())).toBe('review');
+  });
+
+  it('(3) findContractions skips contractions inside locked spans', () => {
+    const text = 'He said "don\'t go" and didn\'t.';
+    const cs = findContractions({ id: 0, text }, findLockedSpans(text));
+    expect(cs.map((c) => c.original)).toEqual(["didn't"]);
+  });
+
+  it('(4) fact-locked name flags fold under "more"; a sentence-initial misspelling does not', () => {
+    const text = 'Recieve it. We met Anjali today.';
+    const locked = findLockedSpans(text);
+    const name = cand({ original: 'Anjali', span: { start: 19, end: 25 }, replacements: ['Alkali', 'Anal'] });
+    const typo = cand({ original: 'Recieve', span: { start: 0, end: 7 }, replacements: ['Receive', 'Relieve'] });
+    const fold = (c: Candidate) => isLockedNameFlag(c, locked);
+    const { decisions, folded } = buildDecisions([typo, name], new Map([[typo.id, 'review'], [name.id, 'review']]), fold);
+    expect(decisions.map((d) => d.id)).toEqual([typo.id]);
+    expect(folded.map((d) => d.id)).toEqual([name.id]);
   });
 });
 

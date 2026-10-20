@@ -107,6 +107,22 @@ describe('check-file CLI', () => {
     expect(applied.filter((e) => e.span.start === 0)).toHaveLength(1);
   });
 
+  it('acceptAllRules accepts only candidates with exactly one replacement', async () => {
+    const session = await CheckSession.start(
+      [{ id: 0, text: 'alpha beta gamma delta' }],
+      { preset: 'blog', variant: 'American', fallbackVariant: 'American', language: 'plaintext', dictionary: [] },
+    );
+    const base = { paraId: 0, kind: 'Style', message: 'm', source: 'rules' as const };
+    session.addCandidates([
+      { ...base, id: 'choice', span: { start: 0, end: 5 }, original: 'alpha', replacements: ['ad', 'and'] },
+      { ...base, id: 'one', span: { start: 6, end: 10 }, original: 'beta', replacements: ['BETA'] },
+    ]);
+    acceptAllRules(session);
+    const applied = session.acceptedEdits();
+    expect(applied.some((e) => e.span.start === 0)).toBe(false);
+    expect(applied.some((e) => e.span.start === 6 && e.replacement === 'BETA')).toBe(true);
+  });
+
   it('--accept-all-rules fixes typos but leaves fact-locked names alone', async () => {
     const input = path.join(dir, 'names.txt');
     const output = path.join(dir, 'names.out.txt');

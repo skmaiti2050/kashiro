@@ -40,13 +40,27 @@ const PATTERNS: RegExp[] = [
 const CAPITALISED = /(?<![\p{L}\p{N}'’])\p{Lu}\p{Ll}[\p{L}'’-]*/gu;
 const OPENERS = /["'(\[{“‘«]/;
 
+/** Abbreviations whose period does not end a sentence (lowercased, without the final period). */
+const ABBREVIATIONS = new Set([
+  'dr', 'mr', 'mrs', 'ms', 'prof', 'st', 'mt', 'jr', 'sr', 'e.g', 'i.e', 'etc', 'vs', 'no', 'fig', 'approx',
+]);
+
+/** True when the '.' at `dot` closes one of ABBREVIATIONS (a whole token, e.g. "Dr." but not "hello."). */
+function endsAbbreviation(text: string, dot: number): boolean {
+  let k = dot;
+  while (k > 0 && /[\p{L}.]/u.test(text[k - 1])) k--;
+  return ABBREVIATIONS.has(text.slice(k, dot).toLowerCase());
+}
+
 function isSentenceStart(text: string, i: number): boolean {
   if (i === 0) return true;
   if (OPENERS.test(text[i - 1])) return true;
   let j = i;
   while (j > 0 && /\s/.test(text[j - 1])) j--;
   if (j === i) return false; // glued to the previous word
-  return j === 0 || '.?!:'.includes(text[j - 1]);
+  if (j === 0) return true;
+  if (text[j - 1] === '.' && endsAbbreviation(text, j - 1)) return false;
+  return '.?!:'.includes(text[j - 1]);
 }
 
 /** Ranges that must never be auto-changed. Sorted, merged. */

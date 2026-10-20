@@ -127,6 +127,14 @@ describe('decisions, accept, undo', () => {
     expect(s.decisionCount()).toBe(top.length);
   });
 
+  it('mid-sentence name flags are folded under more, never in top', async () => {
+    const s = await start([{ id: 0, text: 'We met Anjali Kulkarni in Nashik today.' }]);
+    const { top, more } = s.decisions();
+    const label = (d: { label: string }) => d.label;
+    expect(top.map(label).join('|')).not.toMatch(/Anjali|Kulkarni|Nashik/);
+    expect(more.map(label).join('|')).toMatch(/Anjali/);
+  });
+
   it('reject marks every pending member rejected', async () => {
     const s = await start(paras, { preset: 'academic' });
     const batch = s.decisions().top.find((d) => d.kind === 'batch')!;

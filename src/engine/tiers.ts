@@ -22,6 +22,8 @@ export interface Decision {
 
 const SAFE_RULE_KINDS = new Set(['Spelling', 'Typo', 'Repetition', 'Punctuation', 'Capitalization', 'Formatting']);
 const UPPER_START = /^\p{Lu}/u;
+/** Kinds that rewrite a word into a dictionary word: on a capitalised original that is likely a name. */
+const WORD_REWRITE_KINDS = new Set(['Spelling', 'Typo']);
 
 export function overlapsLocked(c: Candidate, locked: Span[] | undefined): boolean {
   if (!locked) return false;
@@ -52,8 +54,8 @@ function baseTier(c: Candidate, ctx: TierContext): Tier {
 /**
  * Risk tier for one candidate (spec §5). User overrides (by kind) win over the
  * fixed rules and the preset, but nothing becomes safe if it is LLM output, touches
- * a fact-locked span, lacks exactly one replacement, starts with a capital (names,
- * acronyms; except kind Capitalization) or is a word of the document's variant.
+ * a fact-locked span, lacks exactly one replacement, is a Spelling/Typo fix of a word starting
+ * with a capital (names, acronyms) or is a word of the document's variant.
  */
 export function tierOf(c: Candidate, ctx: TierContext): Tier {
   const override = ctx.userTierOverrides?.[c.kind];
@@ -61,7 +63,7 @@ export function tierOf(c: Candidate, ctx: TierContext): Tier {
   if (tier !== 'safe') return tier;
   if (c.source === 'llm') return 'review';
   if (c.replacements.length !== 1) return 'review';
-  if (UPPER_START.test(c.original) && c.kind !== 'Capitalization') return 'review';
+  if (UPPER_START.test(c.original) && WORD_REWRITE_KINDS.has(c.kind)) return 'review';
   if (ctx.variantWords.has(c.original.toLowerCase())) return 'review';
   if (overlapsLocked(c, ctx.locked.get(c.paraId))) return 'review';
   return 'safe';
@@ -92,6 +94,15 @@ function isNameFlag(c: Candidate): boolean {
   return c.kind === 'Spelling' && UPPER_START.test(c.original);
 }
 
+/**
+ * A name flag on a fact-locked span: a capitalised word mid-sentence, which the fact lock already
+ * treats as a proper noun. These fold under "more" instead of competing for the top decisions
+ * (spec §10 budget); a sentence-initial capitalised misspelling is not locked and stays ranked.
+ */
+export function isLockedNameFlag(c: Candidate, locked: Span[] | undefined): boolean {
+  return isNameFlag(c) && overlapsLocked(c, locked);
+}
+
 function scoreOf(c: Candidate, batch: boolean): number {
   if (isNameFlag(c)) return 0;
   return (WEIGHTS[c.kind] ?? DEFAULT_WEIGHT) + (batch ? 1 : 0);
@@ -105,14 +116,18 @@ function singleLabel(c: Candidate): string {
 /**
  * Safe candidates become auto-applied ids; review-tier candidates become decisions.
  * Review candidates with exactly one replacement and the same
- * `kind + lower(original) + '→' + replacement` collapse into one batch decision.
- * Hidden candidates are dropped. Decisions are sorted by score desc, ties in input order.
+ * `kind + lower(original) + '→' + lower(replacement)` collapse into one batch decision (accepting
+ * it still applies each member's own replacement, so "It's → Its" keeps its capital).
+ * Hidden candidates are dropped. Candidates matching `fold` become single decisions in `folded`
+ * (shown under "more", never ranked into the top). Decisions are sorted by score desc, ties in input order.
  */
 export function buildDecisions(
   cands: Candidate[],
   tiers: Map<string, Tier>,
-): { safe: string[]; decisions: Decision[] } {
+  fold: (c: Candidate) => boolean = () => false,
+): { safe: string[]; decisions: Decision[]; folded: Decision[] } {
   const safe: string[] = [];
+  const folded: Decision[] = [];
   const groups = new Map<string, Candidate[]>();
   const order: { key: string | null; c: Candidate }[] = [];
 
@@ -123,8 +138,12 @@ export function buildDecisions(
       safe.push(c.id);
       continue;
     }
+    if (fold(c)) {
+      folded.push({ id: c.id, kind: 'single', candidateIds: [c.id], label: singleLabel(c), score: scoreOf(c, false) });
+      continue;
+    }
     if (c.replacements.length === 1) {
-      const key = c.kind + c.original.toLowerCase() + '→' + c.replacements[0];
+      const key = c.kind + c.original.toLowerCase() + '→' + c.replacements[0].toLowerCase();
       const g = groups.get(key);
       if (g) g.push(c);
       else {
@@ -152,7 +171,7 @@ export function buildDecisions(
 
   // Array.prototype.sort is stable, so equal scores keep first-appearance order.
   decisions.sort((a, b) => b.score - a.score);
-  return { safe, decisions };
+  return { safe, decisions, folded };
 }
 
 const CONTRACTIONS: Record<string, string[]> = {
@@ -212,8 +231,11 @@ function matchCase(original: string, full: string): string {
   return full;
 }
 
-/** Academic preset: flags contractions with their full forms (kind 'Contraction', source 'preset'). */
-export function findContractions(p: Paragraph): Candidate[] {
+/**
+ * Academic preset: flags contractions with their full forms (kind 'Contraction', source 'preset').
+ * Contractions inside `locked` spans (quotes, code, citations) are skipped.
+ */
+export function findContractions(p: Paragraph, locked: Span[] = []): Candidate[] {
   const out: Candidate[] = [];
   const re = /(?<![\p{L}\p{N}'’])[\p{L}]+['’][\p{L}]+(?![\p{L}\p{N}])/gu;
   for (const m of p.text.matchAll(re)) {
@@ -222,6 +244,7 @@ export function findContractions(p: Paragraph): Candidate[] {
     if (!full) continue;
     const start = m.index!;
     const end = start + original.length;
+    if (locked.some((s) => start < s.end && s.start < end)) continue;
     out.push({
       id: `${p.id}:${start}:${end}:Contraction`,
       paraId: p.id,

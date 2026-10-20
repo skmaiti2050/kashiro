@@ -70,6 +70,43 @@ describe('findLockedSpans', () => {
     }
   });
 
+  it.each([
+    ['Dr.', 'We thanked Dr. Anjali Rao for the data.', 'Anjali'],
+    ['Mr.', 'Ask Mr. Kumar first.', 'Kumar'],
+    ['Mrs.', 'Ask Mrs. Iyer first.', 'Iyer'],
+    ['Ms.', 'Ask Ms. Nair first.', 'Nair'],
+    ['Prof.', 'As Prof. Mehta argued, it holds.', 'Mehta'],
+    ['St.', 'They live on St. Marks Road.', 'Marks'],
+    ['Mt.', 'We climbed Mt. Abu last year.', 'Abu'],
+    ['Jr.', 'Sammy Davis Jr. Foundation funds it.', 'Foundation'],
+    ['Sr.', 'Ken Griffey Sr. Field opened.', 'Field'],
+    ['e.g.', 'Some cities, e.g. Pune, grew.', 'Pune'],
+    ['i.e.', 'The capital, i.e. Delhi, grew.', 'Delhi'],
+    ['etc.', 'Rice, dal etc. Tata supplied all.', 'Tata'],
+    ['vs.', 'It was India vs. Australia again.', 'Australia'],
+    ['No.', 'See item No. Seven below.', 'Seven'],
+    ['Fig.', 'As shown in Fig. Three below.', 'Three'],
+    ['approx.', 'It took approx. Twenty minutes.', 'Twenty'],
+  ])('a capitalised word after %s is not a sentence start', (_abbr, t, word) => {
+    expect(covered(t, word)).toBe(true);
+  });
+
+  it('sentence-initial "Dr." itself is still a sentence start, and real sentence ends still count', () => {
+    const t = 'Dr. Rao spoke. The hall was full.';
+    expect(covered(t, 'Rao')).toBe(true);
+    const spans = findLockedSpans(t);
+    const the = t.indexOf('The');
+    expect(spans.some((s) => s.start <= the && s.end > the)).toBe(false);
+    expect(spans.some((s) => s.start === 0)).toBe(false);
+  });
+
+  it('a word ending in an abbreviation-like suffix is still a sentence end', () => {
+    // "Hello." ends with "lo." not "No." — only whole tokens count.
+    const t = 'He said hello. Then he left.';
+    const i = t.indexOf('Then');
+    expect(findLockedSpans(t).some((s) => s.start <= i && s.end > i)).toBe(false);
+  });
+
   it('returns sorted, merged, non-overlapping spans', () => {
     const spans = findLockedSpans('a "see [12] and NASA" b 45%');
     for (let i = 1; i < spans.length; i++) expect(spans[i].start).toBeGreaterThan(spans[i - 1].end - 1);

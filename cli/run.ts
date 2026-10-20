@@ -66,16 +66,17 @@ function parseArgs(argv: string[]): Args {
   return a;
 }
 
-/**
- * Models the maximum opt-in (spec ง5): accept every pending decision except LLM output,
- * tracked-change-locked and fact-locked candidates. Batches are accepted member by member.
- */
 function sameFile(a: string, b: string): boolean {
   const ra = path.resolve(a);
   const rb = path.resolve(b);
   return process.platform === 'win32' ? ra.toLowerCase() === rb.toLowerCase() : ra === rb;
 }
 
+/**
+ * Models the maximum opt-in (spec ยง5): accept every pending decision except LLM output,
+ * tracked-change-locked and fact-locked candidates, and candidates offering a choice (more than
+ * one replacement: a user cannot "accept all" a choice). Batches are accepted member by member.
+ */
 export function acceptAllRules(session: CheckSession): void {
   const byId = new Map(session.candidates().map((c) => [c.id, c]));
   const isPending = (id: string) => session.outcomes().find((o) => o.candidate.id === id)?.status === 'pending';
@@ -87,7 +88,7 @@ export function acceptAllRules(session: CheckSession): void {
     tried.add(next.id);
     for (const id of next.candidateIds) {
       const c = byId.get(id)!;
-      if (c.source === 'llm' || c.replacements.length === 0 || session.touchesLocked(id)) continue;
+      if (c.source === 'llm' || c.replacements.length !== 1 || session.touchesLocked(id)) continue;
       // An earlier accept may have decided this member (e.g. superseded it); accept() would throw.
       if (next.candidateIds.length > 1 && !isPending(id)) continue;
       session.accept(id, 0);

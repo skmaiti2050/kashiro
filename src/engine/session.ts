@@ -3,7 +3,7 @@ import { detectVariant } from './variant';
 import { findInvisible } from './hygiene';
 import { findLockedSpans } from './factLock';
 import { PRESETS, type PresetId } from './presets';
-import { buildDecisions, overlapsLocked, findContractions, tierOf, type Decision, type TierContext } from './tiers';
+import { buildDecisions, overlapsLocked, findContractions, isLockedNameFlag, tierOf, type Decision, type TierContext } from './tiers';
 import type { Candidate, Paragraph, Span, Tier, Variant } from './types';
 
 export interface CheckOptions {
@@ -130,7 +130,7 @@ export class CheckSession {
     const found: Candidate[] = await linter.lintParagraphs(paras, opts.language);
     for (const p of paras) {
       found.push(...findInvisible(p));
-      if (preset.extraRules.includes('contractions')) found.push(...findContractions(p));
+      if (preset.extraRules.includes('contractions')) found.push(...findContractions(p, locked.get(p.id)));
     }
     found.sort(byPosition);
     session.addCandidates(found);
@@ -162,10 +162,11 @@ export class CheckSession {
       // A safe candidate is only pending after an undo/restore: offer it for review.
       tiers.set(c.id, t === 'safe' ? 'review' : t);
     }
-    const { decisions } = buildDecisions(pending, tiers);
+    // Name flags on fact-locked words (mid-sentence capitalised words) fold under `more`.
+    const { decisions, folded } = buildDecisions(pending, tiers, (c) => isLockedNameFlag(c, this.ctx.locked.get(c.paraId)));
     // Inside an existing tracked change: can't be applied, so never in `top`.
     const blocked = buildDecisions(tracked, tiers).decisions;
-    return { top: decisions.slice(0, TOP), more: [...decisions.slice(TOP), ...blocked] };
+    return { top: decisions.slice(0, TOP), more: [...decisions.slice(TOP), ...folded, ...blocked] };
   }
 
   /** True when the candidate overlaps a fact-locked span or an adapter-locked (tracked change) span. */
