@@ -111,7 +111,7 @@ Suggestions are sorted into tiers by risk, not shown as one long list.
   It counts as one decision. A repeated flag of the same word is always one batched decision.
 - **Review depth slider** *(owner's decision, 2026-10-20)*: Light / **Standard** (default) / Thorough /
   Everything, in Settings (saved per preset) and adjustable from the review panel. It sets how many decisions
-  are shown up front per 1,500 words (about 5 / 10 / 25 / all) and how many LLM rewrites run automatically
+  are shown up front per 1,500 words (about 5 / 10 / 25 / all, never fewer than 3 / 10 / 25 for short texts) and how many LLM rewrites run automatically
   (1 / 3 / 6 / on request only). It never changes what is auto-applied, the fact lock, or the rule that LLM
   suggestions need approval. The trust suite measures the Standard level.
 - The review list shows the **5-10 highest-value suggestions first**; the rest fold under "more".
