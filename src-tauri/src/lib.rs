@@ -43,30 +43,43 @@ fn create_temp_file(target: &Path) -> io::Result<(PathBuf, File)> {
 /// renaming it over the original, so a failure at any step leaves the original whole. Returns the
 /// backup's path; an error after the backup names it.
 fn overwrite_with_backup_at(path: &Path, bytes: &[u8]) -> io::Result<PathBuf> {
-    overwrite_with_backup_using(path, bytes, |from, to| fs::rename(from, to))
+    overwrite_with_backup_using(path, bytes, |target, bytes| replace_via_temp(target, bytes, |from, to| fs::rename(from, to)))
 }
 
-/// overwrite_with_backup_at with the final rename passed in, so a test can make it fail.
-fn overwrite_with_backup_using(path: &Path, bytes: &[u8], rename: impl FnOnce(&Path, &Path) -> io::Result<()>) -> io::Result<PathBuf> {
+/// overwrite_with_backup_at with the replace step passed in, so a test can make it fail. Every error
+/// after the backup exists names it, so the user knows where the copy is.
+fn overwrite_with_backup_using(path: &Path, bytes: &[u8], replace: impl FnOnce(&Path, &[u8]) -> io::Result<()>) -> io::Result<PathBuf> {
+    // Opened first: a missing or unreadable original leaves no empty backup behind.
+    let mut original = File::open(path)?;
     let (backup, mut backup_file) = create_backup_file(path)?;
-    io::copy(&mut File::open(path)?, &mut backup_file)?;
-    backup_file.sync_all()?;
+    let done = (|| {
+        io::copy(&mut original, &mut backup_file)?;
+        backup_file.sync_all()?;
+        drop(original);
+        replace(path, bytes)
+    })();
+    done.map(|_| backup.clone()).map_err(|e| {
+        let note = format!("{e}; the original is unchanged, and a backup copy was kept at {}", backup.display());
+        io::Error::new(e.kind(), note)
+    })
+}
 
-    let (temp, mut temp_file) = create_temp_file(path)?;
+/// Writes `bytes` to a fresh temporary sibling and renames it over `target` (`rename` passed in for
+/// tests), removing the temporary file if any step fails.
+fn replace_via_temp(target: &Path, bytes: &[u8], rename: impl FnOnce(&Path, &Path) -> io::Result<()>) -> io::Result<()> {
+    let (temp, mut temp_file) = create_temp_file(target)?;
     let written = (|| {
         temp_file.write_all(bytes)?;
         temp_file.sync_all()?;
         drop(temp_file);
         // On Windows std::fs::rename replaces an existing file (MoveFileExW with REPLACE_EXISTING);
         // it fails while another program (Word) holds the file open.
-        rename(&temp, path)
+        rename(&temp, target)
     })();
-    if let Err(e) = written {
-        let _ = fs::remove_file(&temp); // best effort: the error below is what the user needs
-        let note = format!("{e}; the original is unchanged, and a backup copy was kept at {}", backup.display());
-        return Err(io::Error::new(e.kind(), note));
+    if written.is_err() {
+        let _ = fs::remove_file(&temp); // best effort: the caller reports the error
     }
-    Ok(backup)
+    written
 }
 
 /// `encodeURIComponent` undone, for the path header (header values must be ASCII, paths may not be).
@@ -120,7 +133,7 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::{overwrite_with_backup_at, overwrite_with_backup_using, percent_decode};
+    use super::{overwrite_with_backup_at, overwrite_with_backup_using, percent_decode, replace_via_temp};
     use std::fs;
     use std::path::{Path, PathBuf};
 
@@ -163,12 +176,36 @@ mod tests {
         // As when Word holds the file open: the final rename is refused.
         let locked = |_: &Path, _: &Path| Err(std::io::Error::new(std::io::ErrorKind::PermissionDenied, "file in use"));
 
-        let e = overwrite_with_backup_using(&doc, b"checked", locked).unwrap_err();
+        let e = overwrite_with_backup_using(&doc, b"checked", |target, bytes| replace_via_temp(target, bytes, locked)).unwrap_err();
         assert!(e.to_string().contains("file in use"), "{e}");
         assert!(e.to_string().contains("notes.bak.txt"), "{e}");
         assert_eq!(fs::read(&doc).unwrap(), b"original");
         assert_eq!(fs::read(dir.join("notes.bak.txt")).unwrap(), b"original");
         assert_eq!(temp_files(&dir), 0);
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn any_failure_after_the_backup_names_it() {
+        let dir = scratch("overwrite-temp-fail");
+        let doc = dir.join("essay.docx");
+        fs::write(&doc, b"original").unwrap();
+        // As when the temporary file can't be created (disk full, folder became read-only).
+        let no_temp = |_: &Path, _: &[u8]| Err(std::io::Error::new(std::io::ErrorKind::StorageFull, "disk full"));
+
+        let e = overwrite_with_backup_using(&doc, b"checked", no_temp).unwrap_err();
+        assert!(e.to_string().contains("disk full"), "{e}");
+        assert!(e.to_string().contains("essay.bak.docx"), "{e}");
+        assert_eq!(fs::read(&doc).unwrap(), b"original");
+        assert_eq!(fs::read(dir.join("essay.bak.docx")).unwrap(), b"original");
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_missing_original_leaves_no_backup() {
+        let dir = scratch("overwrite-nobak");
+        assert!(overwrite_with_backup_at(&dir.join("gone.txt"), b"x").is_err());
+        assert!(!dir.join("gone.bak.txt").exists());
         fs::remove_dir_all(&dir).unwrap();
     }
 
