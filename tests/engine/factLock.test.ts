@@ -204,6 +204,8 @@ describe('code tokens', () => {
     ['Read window.location first.', 'window', 'location'],
     ['In 2020.the company grew.', '2020.', 'the'],
     ['Please recieve/send it.', 'recieve', 'send'],
+    ['Please recieve/send/get it.', 'recieve', 'get'],
+    ['Pick yes/no/maybe now.', 'yes', 'maybe'],
     ['Map input/ouput here.', 'input', 'ouput'],
     ['Mail sujit@home now.', 'sujit', 'home'],
   ])('plain words joined by ".", "/" or "@" are prose, not code: "%s"', (plain, left, right) => {

@@ -228,6 +228,7 @@ describe('code tokens and stray letters', () => {
 
   it.each([
     ['Please recieve/send it.', 'recieve', 'Spelling', ['receive']],
+    ['Please recieve/send/get it.', 'recieve', 'Spelling', ['receive']],
     ['Use teh/this one.', 'teh', 'Typo', ['the']],
     ['Pick adn/or that.', 'adn', 'Spelling', ['and']],
     ['Map input/ouput here.', 'ouput', 'Spelling', ['output']],

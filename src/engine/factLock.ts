@@ -65,7 +65,8 @@ const PATH_START = /^(?:\/|\.{1,2}\/|~\/|\p{L}:\\)/u;
 const EMAIL = /^[\p{L}\p{N}._%+-]+@[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)*\.\p{L}{2,}$/u;
 /** A handle: "@sujit". */
 const HANDLE = /^@[\p{L}\p{N}_]+$/u;
-const PATH_SEPARATOR = /[/\\]/g;
+/** A "/" or "\" path ending in a file name: "src/ui/app.tsx", "docs\notes.md" (not "recieve/send/get"). */
+const PATH_TO_FILE = /[/\\][\p{L}\p{N}_$-]+\.[\p{L}\p{N}]+$/u;
 const INNER_CAPITAL = /\p{Ll}\p{Lu}/u;
 /** One hyphen-separated part of an identifier: "q2", "mp4", "4K", "B2B", "COVID", "19" (not "y0u", "th9s"). */
 const IDENTIFIER_PART = /^(?:\p{L}+\p{N}+|\p{N}+\p{L}+|[\p{Lu}\p{N}]+|\p{L}+|\p{N}+)$/u;
@@ -92,15 +93,16 @@ function isCodePart(part: string): boolean {
 /**
  * True for a joined token that is code, not prose:
  * - "@": an email ("a@b.co") or a handle ("@sujit"), not "sujit@home";
- * - a path start ("/usr", "./build", "~/x", "C:\work"), "www.", or two or more "/" or "\" ("src/ui/app.tsx");
+ * - a path start ("/usr", "./build", "~/x", "C:\work"), "www.", or a path to a file ("src/ui/app.tsx");
  * - a known file extension ("report.docx");
  * - a part with an underscore, inner capital or letters+digits ("et.reportAllChanges", "v2.beta").
- * Plain words joined once ("home.then", "recieve/send", "2020.the") are prose: a missing space or a pair.
+ * Plain words joined by "." "/" or "\" ("home.then", "recieve/send/get", "2020.the") are prose: a missing
+ * space, a pair or a list of choices, however many separators.
  */
 export function isCodePath(token: string): boolean {
   if (token.includes('@')) return EMAIL.test(token) || HANDLE.test(token);
   if (PATH_START.test(token) || token.toLowerCase().startsWith('www.')) return true;
-  if ((token.match(PATH_SEPARATOR) ?? []).length >= 2) return true;
+  if (PATH_TO_FILE.test(token)) return true;
   const parts = token.split(/[./\\]/);
   if (parts.length < 2) return false;
   return FILE_EXTENSION.test(token) || parts.some(isCodePart);
