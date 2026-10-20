@@ -79,8 +79,9 @@ describe('Indian-English word list', () => {
   it.each(['American', 'British', 'Indian'] as const)('knows common Indian-English words under %s', async (v) => {
     const l = await createLinter(v);
     const text =
-      'The sarpanch of the gram panchayat met the tehsildar about the borewells, the nullah and two lakh rupees. ' +
-      'We ate dal, roti, poha and theplas at a dhaba near the godown, then preponed the meeting.';
+      // "gram" and "dal" are left out of the list on purpose (typo shapes of "ram" and "deal"; see TYPO_SHAPED below).
+      'The sarpanch of the panchayat met the tehsildar about the borewells, the nullah and two lakh rupees. ' +
+      'We ate khichdi, roti, poha and theplas at a dhaba near the godown, then preponed the meeting.';
     const spelling = (await l.lintParagraphs([para(text)], 'plaintext')).filter((x) => x.kind === 'Spelling' || x.kind === 'Typo');
     expect(spelling.map((x) => x.original)).toEqual([]);
   });
@@ -100,5 +101,29 @@ describe('EN_IN_WORDS list', () => {
     expect(new Set(EN_IN_WORDS).size).toBe(EN_IN_WORDS.length);
     expect([...EN_IN_WORDS].sort()).toEqual(EN_IN_WORDS);
     for (const w of EN_IN_WORDS) expect(w).toMatch(/^\p{Ll}[\p{Ll}-]*$/u);
+  });
+
+  // The list loads for every variant, so a short entry that is a typical typo of a common word
+  // ("lok" for "look") would hide that typo. Found by the neighbour check in the Task 10 report.
+  const TYPO_SHAPED = [
+    'aai', 'amma', 'amti', 'babu', 'beta', 'bua', 'chaat', 'chai', 'dal', 'dals', 'eid', 'ghat', 'gram',
+    'gully', 'gur', 'haat', 'hing', 'ji', 'lok', 'lota', 'lotas', 'moong', 'neta', 'pani', 'pav', 'rava',
+    'safa', 'seekh', 'sev', 'tai', 'taluk', 'teej', 'tur', 'usal', 'zaid',
+  ];
+
+  it('leaves out short words that are typical typos of common English words', async () => {
+    const { EN_IN_WORDS } = await import('@/engine/wordlists/en-IN');
+    expect(EN_IN_WORDS.filter((w) => TYPO_SHAPED.includes(w))).toEqual([]);
+  });
+
+  it('so "lok" for "look" is still flagged', async () => {
+    const l = await createLinter('British');
+    const c = await l.lintParagraphs([para('I will lok at the pani tomorrow.')], 'plaintext');
+    expect(c.map((x) => x.original)).toEqual(expect.arrayContaining(['lok', 'pani']));
+  });
+
+  it('lists singular and plural together (chapatti, chapattis; phera, pheras)', async () => {
+    const { EN_IN_WORDS } = await import('@/engine/wordlists/en-IN');
+    expect(EN_IN_WORDS).toEqual(expect.arrayContaining(['chapatti', 'chapattis', 'phera', 'pheras']));
   });
 });
