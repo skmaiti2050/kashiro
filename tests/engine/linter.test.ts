@@ -109,6 +109,14 @@ describe('TECH_WORDS list', () => {
     const c = await l.lintParagraphs([para(text)], 'plaintext');
     expect(c.filter((x) => x.kind === 'Spelling' || x.kind === 'Typo').map((x) => x.original)).toEqual([]);
   });
+
+  it('lowercase word+digit identifiers are not flagged (html5, python3, k8s…)', async () => {
+    const l = await createLinter('Indian');
+    const ids = 'html5 http2 http3 base64 python3 oauth2 k8s l10n a11y i18n utf8 mp3 mp4 h264 ipv4 ipv6 es6 win32 x86 x64 arm64 md5 sha256 web3';
+    const text = ids.split(' ').map((w) => `We use ${w} here.`).join(' ');
+    const c = await l.lintParagraphs([para(text)], 'plaintext');
+    expect(c.filter((x) => x.kind === 'Spelling' || x.kind === 'Typo').map((x) => x.original)).toEqual([]);
+  });
 });
 
 describe('EN_IN_WORDS list', () => {
