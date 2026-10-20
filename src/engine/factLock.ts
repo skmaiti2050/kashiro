@@ -3,6 +3,8 @@ import type { Span } from './types';
 const MONTH =
   '(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)';
 
+const AUTHOR_YEAR = String.raw`\p{Lu}[\p{L}'’.-]*(?:\s+(?:et al\.|and|&|\p{Lu}[\p{L}'’.-]*))*,?\s*\d{4}[a-z]?(?:,\s*pp?\.\s*\d+(?:[–-]\d+)?)?`;
+
 const URL_START = /^(?:https?:\/\/|www\.)/;
 
 const PATTERNS: RegExp[] = [
@@ -19,7 +21,11 @@ const PATTERNS: RegExp[] = [
   /“[^”\n]+”/g,
   // citations
   /\[\d+(?:\s*[,–-]\s*\d+)*\]/g,
-  /\(\p{Lu}[\p{L}'’.-]*(?:\s+(?:et al\.|and|&|\p{Lu}[\p{L}'’.-]*))*,?\s*\d{4}[a-z]?(?:,\s*pp?\.\s*\d+(?:[–-]\d+)?)?\)/gu,
+  // (Author, 2020), (Author et al., 2020, p. 4), (A, 2010; B and C, 2014)
+  new RegExp(
+    String.raw`\(${AUTHOR_YEAR}(?:;\s*${AUTHOR_YEAR})*\)`,
+    'gu',
+  ),
   // dates
   /\b\d{4}-\d{2}-\d{2}\b/g,
   new RegExp(String.raw`\b\d{1,2}(?:st|nd|rd|th)?\s+${MONTH}\.?(?:,?\s+\d{4})?\b`, 'g'),
@@ -33,11 +39,20 @@ const PATTERNS: RegExp[] = [
   /\d[\d,]*(?:\.\d+)?%/g,
   // bare numbers: integers, decimals, 1,200 / 1,20,000, negatives, ordinals, ranges
   /(?<![\p{L}\p{N}])-?\d+(?:,\d+)*(?:\.\d+)?(?:st|nd|rd|th)?(?:\s*[–-]\s*\d+(?:,\d+)*(?:\.\d+)?(?:st|nd|rd|th)?)?(?![\p{L}\p{N}])/gu,
-  // ALL-CAPS acronyms
-  /(?<![\p{L}\p{N}])\p{Lu}{2,}(?![\p{L}])/gu,
+  // codes mixing letters and digits: 234B, 44ADA, 80C, B2B
+  /(?<![\p{L}\p{N}])(?=[\p{L}\p{N}]*\p{N})(?=[\p{L}\p{N}]*\p{L})[\p{L}\p{N}]+(?![\p{L}\p{N}])/gu,
+  // the word after a title is part of a name, whatever its case: "Mr. and Mrs.", "Dr. smith"
+  /(?<=(?<![\p{L}])(?:Dr|Mr|Mrs|Ms|Prof|St|Mt)\.\s+)[\p{L}'’-]+/gu,
+  // decades and ages: 60s, 1990s, ’90s, 1990's
+  /(?<![\p{L}\p{N}])['’]?\d+['’]?s(?![\p{L}\p{N}])/gu,
+  // ALL-CAPS acronyms, also plural (FPOs)
+  /(?<![\p{L}\p{N}])\p{Lu}{2,}s?(?![\p{L}])/gu,
+  // initials: A. / R. K. / R.K.
+  /(?<![\p{L}\p{N}.])\p{Lu}\.(?:\s?\p{Lu}\.)*/gu,
 ];
 
-const CAPITALISED = /(?<![\p{L}\p{N}'’])\p{Lu}\p{Ll}[\p{L}'’-]*/gu;
+/** A capitalised word, including names like D'Souza and O’Brien. */
+const CAPITALISED = /(?<![\p{L}\p{N}'’])\p{Lu}(?:['’]\p{Lu})?\p{Ll}[\p{L}'’-]*/gu;
 const OPENERS = /["'(\[{“‘«]/;
 
 /** Abbreviations whose period does not end a sentence (lowercased, without the final period). */
@@ -45,11 +60,19 @@ const ABBREVIATIONS = new Set([
   'dr', 'mr', 'mrs', 'ms', 'prof', 'st', 'mt', 'jr', 'sr', 'e.g', 'i.e', 'etc', 'vs', 'no', 'fig', 'approx',
 ]);
 
-/** True when the '.' at `dot` closes one of ABBREVIATIONS (a whole token, e.g. "Dr." but not "hello."). */
+/** True when the '.' at `dot` closes one of ABBREVIATIONS or an initial (a whole token: "Dr.", "K.", not "hello."). */
 function endsAbbreviation(text: string, dot: number): boolean {
   let k = dot;
   while (k > 0 && /[\p{L}.]/u.test(text[k - 1])) k--;
-  return ABBREVIATIONS.has(text.slice(k, dot).toLowerCase());
+  const token = text.slice(k, dot);
+  return ABBREVIATIONS.has(token.toLowerCase()) || /^\p{Lu}$/u.test(token);
+}
+
+/** True when `text` before index `i` (ignoring spaces) ends with an abbreviation or initial, e.g. "Mr. |and". */
+export function followsAbbreviation(text: string, i: number): boolean {
+  let j = i;
+  while (j > 0 && /\s/.test(text[j - 1])) j--;
+  return j > 0 && text[j - 1] === '.' && endsAbbreviation(text, j - 1);
 }
 
 function isSentenceStart(text: string, i: number): boolean {

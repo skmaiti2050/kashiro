@@ -23,11 +23,15 @@ describe('findLockedSpans', () => {
     '[12]',
     '(Smith, 2020)',
     '(Smith et al., 2020, p. 4)',
+    '(Afridi, 2010; Singh et al., 2014)',
+    '(Joshi and Pawar, 2020; Shah, 2009a)',
     '`code`',
     '$x^2$',
     String.raw`$$\int f$$`,
     String.raw`\cite{key}`,
     'NASA',
+    'FPOs',
+    'MSMEs',
   ])('locks %s fully', (needle) => {
     const text = `Before ${needle} after`;
     expect(covered(text, needle)).toBe(true);
@@ -39,6 +43,10 @@ describe('findLockedSpans', () => {
       expect(covered(`we saw ${needle} here`, needle)).toBe(true);
     },
   );
+
+  it.each(['60s', '1990s', "’90s", "1990's"])('locks decade or age %s', (needle) => {
+    expect(covered(`RAMESH (${needle}) waits`, needle)).toBe(true);
+  });
 
   it('leaves an ordinary word next to a number unlocked', () => {
     const t = 'teh 5 cats';
@@ -89,6 +97,24 @@ describe('findLockedSpans', () => {
     ['approx.', 'It took approx. Twenty minutes.', 'Twenty'],
   ])('a capitalised word after %s is not a sentence start', (_abbr, t, word) => {
     expect(covered(t, word)).toBe(true);
+  });
+
+  it.each(["D'Souza", 'O’Brien', '234B', '44ADA', '80C', 'e521', 'B2B'])('locks %s mid-sentence', (needle) => {
+    expect(covered(`under the rule ${needle} we go`, needle)).toBe(true);
+  });
+
+  it('locks the word right after a title, whatever its case', () => {
+    expect(covered('We thank Mr. and Mrs. Qureshi today.', 'and')).toBe(true);
+    expect(covered('We thank Mr. and Mrs. Qureshi today.', 'Qureshi')).toBe(true);
+    expect(covered('We met Dr. smith at noon.', 'smith')).toBe(true);
+  });
+
+  it('locks initials like "A." and "R.K."', () => {
+    const t = 'Joshi, A. and Pawar, R. K. wrote it with Mehta, S.';
+    expect(covered(t, 'A.')).toBe(true);
+    expect(covered(t, 'R. K.')).toBe(true);
+    expect(covered(t, 'S.')).toBe(true);
+    expect(covered('We read R. K. Narayan today.', 'Narayan')).toBe(true);
   });
 
   it('sentence-initial "Dr." itself is still a sentence start, and real sentence ends still count', () => {

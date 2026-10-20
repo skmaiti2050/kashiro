@@ -11,8 +11,14 @@ interface TextHandle {
   lengths: number[];
 }
 
-/** Paragraphs are blocks separated by blank (empty or whitespace-only) lines. Line endings are kept inside a paragraph. */
-function split(text: string): { paras: Paragraph[]; offsets: number[]; lengths: number[] } {
+const FENCE_OPEN = /^ {0,3}(`{3,}|~{3,})/;
+
+/**
+ * Paragraphs are blocks separated by blank (empty or whitespace-only) lines. Line endings are kept inside a paragraph.
+ * With `fences` (Markdown), blank lines inside a ``` or ~~~ code block do not split it, so the whole block reaches
+ * the linter as one paragraph that its Markdown parser skips as code.
+ */
+function split(text: string, fences: boolean): { paras: Paragraph[]; offsets: number[]; lengths: number[] } {
   const paras: Paragraph[] = [];
   const offsets: number[] = [];
   const lengths: number[] = [];
@@ -26,16 +32,27 @@ function split(text: string): { paras: Paragraph[]; offsets: number[]; lengths: 
     start = -1;
   };
   let pos = 0;
+  /** The open fence marker (e.g. "```"), or null outside a code block. */
+  let fence: string | null = null;
   while (pos <= text.length) {
     const nl = text.indexOf('\n', pos);
     const lineEnd = nl === -1 ? text.length : nl;
     const contentEnd = lineEnd > pos && text[lineEnd - 1] === '\r' ? lineEnd - 1 : lineEnd;
-    if (/^\s*$/.test(text.slice(pos, contentEnd))) {
-      flush();
-    } else {
+    const line = text.slice(pos, contentEnd);
+    const blank = /^\s*$/.test(line);
+    let closes = false;
+    if (fences) {
+      const m = FENCE_OPEN.exec(line);
+      if (fence === null) fence = m ? m[1] : null;
+      else closes = !!m && m[1][0] === fence[0] && m[1].length >= fence.length && /^\s*$/.test(line.slice(m[0].length));
+    }
+    if (!blank) {
       if (start < 0) start = pos;
       end = contentEnd;
+    } else if (fence === null) {
+      flush(); // a blank line inside a code block belongs to the paragraph
     }
+    if (closes) fence = null;
     if (nl === -1) break;
     pos = nl + 1;
   }
@@ -56,7 +73,7 @@ function make(exts: string[], language: 'plaintext' | 'markdown'): FormatAdapter
       }
       const bom = text.charCodeAt(0) === 0xfeff;
       if (bom) text = text.slice(1);
-      const { paras, offsets, lengths } = split(text);
+      const { paras, offsets, lengths } = split(text, language === 'markdown');
       const handle: TextHandle = { text, bom, offsets, lengths };
       return { paras, handle };
     },

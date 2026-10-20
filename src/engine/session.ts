@@ -3,7 +3,7 @@ import { detectVariant } from './variant';
 import { findInvisible } from './hygiene';
 import { findLockedSpans } from './factLock';
 import { PRESETS, type PresetId } from './presets';
-import { buildDecisions, overlapsLocked, findContractions, isLockedNameFlag, tierOf, type Decision, type TierContext } from './tiers';
+import { buildDecisions, overlapsLocked, findContractions, foldsUnderMore, tierOf, type Decision, type TierContext } from './tiers';
 import type { Candidate, Paragraph, Span, Tier, Variant } from './types';
 
 export interface CheckOptions {
@@ -123,7 +123,8 @@ export class CheckSession {
     const locked = new Map<number, Span[]>();
     for (const p of paras) locked.set(p.id, [...findLockedSpans(p.text), ...(p.locked ?? [])]);
     const preset = PRESETS[opts.preset];
-    const ctx: TierContext = { locked, variantWords, preset, userTierOverrides: opts.tierOverrides };
+    const paraText = new Map(paras.map((p) => [p.id, p.text]));
+    const ctx: TierContext = { locked, variantWords, preset, userTierOverrides: opts.tierOverrides, paraText };
 
     const session = new CheckSession(paras, variant, mixed, ctx, deps.now ?? (() => new Date()));
 
@@ -163,7 +164,9 @@ export class CheckSession {
       tiers.set(c.id, t === 'safe' ? 'review' : t);
     }
     // Name flags on fact-locked words (mid-sentence capitalised words) fold under `more`.
-    const { decisions, folded } = buildDecisions(pending, tiers, (c) => isLockedNameFlag(c, this.ctx.locked.get(c.paraId)));
+    const { decisions, folded } = buildDecisions(pending, tiers, (c) =>
+      foldsUnderMore(c, this.ctx.locked.get(c.paraId), this.paras.get(c.paraId)?.text),
+    );
     // Inside an existing tracked change: can't be applied, so never in `top`.
     const blocked = buildDecisions(tracked, tiers).decisions;
     return { top: decisions.slice(0, TOP), more: [...decisions.slice(TOP), ...folded, ...blocked] };

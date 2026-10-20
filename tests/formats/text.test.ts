@@ -80,6 +80,20 @@ describe('text adapter', () => {
     }
   });
 
+  it('markdown: blank lines inside a fenced code block do not split it', async () => {
+    const md = adapterFor('a.md')!;
+    const fence = '```python\ndef f():\n\n    return 1\n```';
+    const tilde = '~~~\na\n\nb\n~~~';
+    const { paras } = await md.read(enc(`Intro.\n\n${fence}\n\n${tilde}\n\nAfter.`));
+    expect(paras.map((p) => p.text)).toEqual(['Intro.', fence, tilde, 'After.']);
+  });
+
+  it('markdown: an unclosed fence runs to the end; plain text ignores fences', async () => {
+    const md = adapterFor('a.md')!;
+    expect((await md.read(enc('```\na\n\nb'))).paras.map((p) => p.text)).toEqual(['```\na\n\nb']);
+    expect((await txt.read(enc('```\na\n\nb\n```'))).paras.map((p) => p.text)).toEqual(['```\na', 'b\n```']);
+  });
+
   it('registry: language and extensions', () => {
     expect(adapterFor('x.MD')!.language).toBe('markdown');
     expect(adapterFor('x.markdown')!.language).toBe('markdown');

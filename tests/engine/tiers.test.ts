@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import type { Candidate, Tier } from '@/engine/types';
 import { PRESETS } from '@/engine/presets';
 import type { Preset } from '@/engine/presets';
-import { tierOf, buildDecisions, findContractions, isLockedNameFlag } from '@/engine/tiers';
+import { tierOf, buildDecisions, findContractions, foldsUnderMore } from '@/engine/tiers';
 import type { TierContext } from '@/engine/tiers';
 import { findLockedSpans } from '@/engine/factLock';
 import { findInvisible } from '@/engine/hygiene';
@@ -202,12 +202,86 @@ describe('Task 10 budget tuning', () => {
     expect(cs.map((c) => c.original)).toEqual(["didn't"]);
   });
 
+  it('safety: a Spelling/Typo fix is safe only one edit away and without adding a space', () => {
+    const t = (original: string, r: string, kind = 'Spelling') => tierOf(cand({ original, replacements: [r], kind }), ctx());
+    expect(t('teh', 'the', 'Typo')).toBe('safe'); // transposition
+    expect(t('occured', 'occurred')).toBe('safe'); // insertion
+    expect(t('wierd', 'weird')).toBe('safe');
+    expect(t('panchayat', 'penchant')).toBe('review');
+    expect(t('jugaad', 'jugged')).toBe('review');
+    expect(t('borewell', 'bore well', 'Typo')).toBe('review');
+    expect(t('arived', 'a rived', 'Typo')).toBe('review');
+    // other safe kinds are unaffected by the distance rule
+    expect(t('is is', 'is', 'Repetition')).toBe('safe');
+    // joining or splitting words (space or hyphen) is a style choice, not a slip
+    expect(t('up stairs', 'upstairs')).toBe('review');
+    expect(t('mid-day', 'midday')).toBe('review');
+    expect(t('re-check', 'recheck')).toBe('review');
+    expect(t('dont', "don't")).toBe('safe');
+  });
+
+  it('safety: a Capitalization fix right after an abbreviation is not safe', () => {
+    const text = 'We thank Mr. and Mrs. Rao. the end.';
+    const and = cand({ original: 'and', span: { start: 13, end: 16 }, replacements: ['And'], kind: 'Capitalization' });
+    const the = cand({ original: 'the', span: { start: 27, end: 30 }, replacements: ['The'], kind: 'Capitalization' });
+    const c = ctx({ paraText: new Map([[0, text]]) });
+    expect(tierOf(and, c)).toBe('review');
+    expect(tierOf(the, c)).toBe('safe');
+    // and it folds under "more": the linter misread the abbreviation as a sentence end
+    expect(foldsUnderMore(and, [], text)).toBe(true);
+    expect(foldsUnderMore(the, [], text)).toBe(false);
+  });
+
+  it('(4) repeats of an unknown word that cannot batch fold; the first stays ranked', () => {
+    const a = cand({ original: 'talukas', replacements: ['talks', 'talus'] });
+    const b = cand({ paraId: 1, original: 'Talukas', replacements: ['Talks', 'Talus'] });
+    const other = cand({ paraId: 2, original: 'siltation', replacements: ['salvation', 'situation'] });
+    const all = [a, b, other];
+    const { decisions, folded } = buildDecisions(all, new Map(all.map((c) => [c.id, 'review' as Tier])));
+    expect(decisions.map((d) => d.id)).toEqual([a.id, other.id]);
+    expect(folded.map((d) => d.id)).toEqual([b.id]);
+  });
+
+  it('(4) repeats of the same flag without a single fix fold, for any kind', () => {
+    const msg = { kind: 'Regionalism', replacements: [], message: "`coriander` isn't used in Indian English." };
+    const a = cand({ ...msg, original: 'coriander' });
+    const b = cand({ ...msg, paraId: 3, original: 'coriander' });
+    const { decisions, folded } = buildDecisions([a, b], new Map([[a.id, 'review'], [b.id, 'review']]));
+    expect(decisions.map((d) => d.id)).toEqual([a.id]);
+    expect(folded.map((d) => d.id)).toEqual([b.id]);
+  });
+
+  it('(4) a sentence-initial flag of a word that is fact-locked elsewhere folds too', () => {
+    const text = 'Marathwada is dry. Rain in Marathwada fell.';
+    const locked = findLockedSpans(text);
+    const first = cand({ original: 'Marathwada', span: { start: 0, end: 10 }, replacements: ['Maratha', "Maratha's"] });
+    const second = cand({ original: 'Marathwada', span: { start: 27, end: 37 }, replacements: ['Maratha', "Maratha's"] });
+    const teh = cand({ original: 'Teh', span: { start: 0, end: 3 }, paraId: 1, replacements: ['The', 'Tech'] });
+    const all = [first, second, teh];
+    const { decisions, folded } = buildDecisions(
+      all,
+      new Map(all.map((c) => [c.id, 'review' as Tier])),
+      (c) => c.paraId === 0 && foldsUnderMore(c, locked),
+    );
+    expect(decisions.map((d) => d.id)).toEqual([teh.id]);
+    expect(folded.map((d) => d.id).sort()).toEqual([first.id, second.id].sort());
+  });
+
+  it('(4) any candidate on a fact-locked span folds', () => {
+    const text = 'See pages 41-48 now.';
+    const locked = findLockedSpans(text);
+    const dash = cand({ original: '-', span: { start: 12, end: 13 }, replacements: ['–'], kind: 'Formatting' });
+    const { decisions, folded } = buildDecisions([dash], new Map([[dash.id, 'review']]), (c) => foldsUnderMore(c, locked));
+    expect(decisions).toEqual([]);
+    expect(folded.map((d) => d.id)).toEqual([dash.id]);
+  });
+
   it('(4) fact-locked name flags fold under "more"; a sentence-initial misspelling does not', () => {
     const text = 'Recieve it. We met Anjali today.';
     const locked = findLockedSpans(text);
     const name = cand({ original: 'Anjali', span: { start: 19, end: 25 }, replacements: ['Alkali', 'Anal'] });
     const typo = cand({ original: 'Recieve', span: { start: 0, end: 7 }, replacements: ['Receive', 'Relieve'] });
-    const fold = (c: Candidate) => isLockedNameFlag(c, locked);
+    const fold = (c: Candidate) => foldsUnderMore(c, locked);
     const { decisions, folded } = buildDecisions([typo, name], new Map([[typo.id, 'review'], [name.id, 'review']]), fold);
     expect(decisions.map((d) => d.id)).toEqual([typo.id]);
     expect(folded.map((d) => d.id)).toEqual([name.id]);

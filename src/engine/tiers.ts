@@ -1,5 +1,6 @@
 import type { Candidate, Paragraph, Span, Tier } from './types';
 import type { Preset } from './presets';
+import { followsAbbreviation } from './factLock';
 
 export interface TierContext {
   /** paraId → fact-locked spans (findLockedSpans + adapter Paragraph.locked). */
@@ -9,6 +10,8 @@ export interface TierContext {
   preset: Preset;
   /** Keyed by candidate kind. */
   userTierOverrides?: Partial<Record<string, Tier>>;
+  /** paraId → paragraph text, for context-dependent safety rules. */
+  paraText?: Map<number, string>;
 }
 
 export interface Decision {
@@ -55,7 +58,8 @@ function baseTier(c: Candidate, ctx: TierContext): Tier {
  * Risk tier for one candidate (spec §5). User overrides (by kind) win over the
  * fixed rules and the preset, but nothing becomes safe if it is LLM output, touches
  * a fact-locked span, lacks exactly one replacement, is a Spelling/Typo fix of a word starting
- * with a capital (names, acronyms) or is a word of the document's variant.
+ * with a capital (names, acronyms) or more than one letter away (see isSlipFix), or is a word
+ * of the document's variant.
  */
 export function tierOf(c: Candidate, ctx: TierContext): Tier {
   const override = ctx.userTierOverrides?.[c.kind];
@@ -63,7 +67,10 @@ export function tierOf(c: Candidate, ctx: TierContext): Tier {
   if (tier !== 'safe') return tier;
   if (c.source === 'llm') return 'review';
   if (c.replacements.length !== 1) return 'review';
-  if (UPPER_START.test(c.original) && WORD_REWRITE_KINDS.has(c.kind)) return 'review';
+  if (WORD_REWRITE_KINDS.has(c.kind) && (UPPER_START.test(c.original) || !isSlipFix(c))) return 'review';
+  // "Mr. and Mrs. Rao": the linter reads the abbreviation's period as a sentence end.
+  const text = ctx.paraText?.get(c.paraId);
+  if (c.kind === 'Capitalization' && text !== undefined && followsAbbreviation(text, c.span.start)) return 'review';
   if (ctx.variantWords.has(c.original.toLowerCase())) return 'review';
   if (overlapsLocked(c, ctx.locked.get(c.paraId))) return 'review';
   return 'safe';
@@ -95,12 +102,45 @@ function isNameFlag(c: Candidate): boolean {
 }
 
 /**
- * A name flag on a fact-locked span: a capitalised word mid-sentence, which the fact lock already
- * treats as a proper noun. These fold under "more" instead of competing for the top decisions
- * (spec §10 budget); a sentence-initial capitalised misspelling is not locked and stays ranked.
+ * Candidates on a fact-locked span (names mid-sentence, numbers, quotes, citations) fold under
+ * "more" instead of competing for the top decisions (spec §10 budget): the app protects those
+ * spans, so it should not lead with offers to change them. A sentence-initial capitalised
+ * misspelling is not locked and stays ranked. A Capitalization flag right after an abbreviation
+ * ("Mr. and") is the linter misreading the period as a sentence end, so it folds too.
  */
-export function isLockedNameFlag(c: Candidate, locked: Span[] | undefined): boolean {
-  return isNameFlag(c) && overlapsLocked(c, locked);
+export function foldsUnderMore(c: Candidate, locked: Span[] | undefined, text?: string): boolean {
+  if (c.kind === 'Capitalization' && text !== undefined && followsAbbreviation(text, c.span.start)) return true;
+  return overlapsLocked(c, locked);
+}
+
+/** Damerau-Levenshtein (optimal string alignment) distance, case-insensitive, stopping early above 1. */
+function withinOneEdit(a: string, b: string): boolean {
+  a = a.toLowerCase();
+  b = b.toLowerCase();
+  if (Math.abs(a.length - b.length) > 1) return false;
+  const d: number[][] = Array.from({ length: a.length + 1 }, (_, i) => [i, ...new Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+    }
+  }
+  return d[a.length][b.length] <= 1;
+}
+
+const PLAIN_WORD = /^[\p{L}'’]+$/u;
+
+/**
+ * A dictionary fix is only safe when it is a plain slip of one letter inside one word (teh → the,
+ * occured → occurred, dont → don't). Bigger jumps (panchayat → penchant) usually mean an unknown word,
+ * not a typo, and joining or splitting words (borewell → bore well, up stairs → upstairs,
+ * mid-day → midday) is a meaning or style choice: auto-applying them can change meaning.
+ */
+function isSlipFix(c: Candidate): boolean {
+  const r = c.replacements[0];
+  return PLAIN_WORD.test(c.original) && PLAIN_WORD.test(r) && withinOneEdit(c.original, r);
 }
 
 function scoreOf(c: Candidate, batch: boolean): number {
@@ -118,8 +158,10 @@ function singleLabel(c: Candidate): string {
  * Review candidates with exactly one replacement and the same
  * `kind + lower(original) + '→' + lower(replacement)` collapse into one batch decision (accepting
  * it still applies each member's own replacement, so "It's → Its" keeps its capital).
- * Hidden candidates are dropped. Candidates matching `fold` become single decisions in `folded`
- * (shown under "more", never ranked into the top). Decisions are sorted by score desc, ties in input order.
+ * Hidden candidates are dropped. These become single decisions in `folded` (shown under "more", never
+ * ranked into the top): candidates matching `fold`; Spelling/Typo flags of a word that `fold` matched
+ * elsewhere; and repeats (after the first) of an unknown word with several suggestions or of a no-fix
+ * note on the same text. Decisions are sorted by score desc, ties in input order.
  */
 export function buildDecisions(
   cands: Candidate[],
@@ -128,8 +170,12 @@ export function buildDecisions(
 ): { safe: string[]; decisions: Decision[]; folded: Decision[] } {
   const safe: string[] = [];
   const folded: Decision[] = [];
+  const seenWords = new Set<string>();
   const groups = new Map<string, Candidate[]>();
   const order: { key: string | null; c: Candidate }[] = [];
+  const wordOf = (c: Candidate) => (WORD_REWRITE_KINDS.has(c.kind) ? c.kind + c.original.toLowerCase() : null);
+  // A word the document uses as a fact-locked name somewhere is a name everywhere (e.g. sentence-initial).
+  const lockedWords = new Set(cands.filter((c) => wordOf(c) !== null && fold(c)).map((c) => wordOf(c)!));
 
   for (const c of cands) {
     const t = tiers.get(c.id) ?? 'review';
@@ -138,10 +184,17 @@ export function buildDecisions(
       safe.push(c.id);
       continue;
     }
-    if (fold(c)) {
+    // A repeat of an unknown word (Spelling/Typo with a choice) or of a no-fix note on the same text is
+    // the same question again (one dictionary add or one answer resolves all), so only the first ranks.
+    // Grammar choices like "Its → It's / It has" depend on context and are never folded.
+    const sameQuestion = c.replacements.length === 0 || (c.replacements.length > 1 && WORD_REWRITE_KINDS.has(c.kind));
+    const wordKey = sameQuestion ? c.kind + '\u0000' + c.original.toLowerCase() : null;
+    const lockedWord = wordOf(c) !== null && lockedWords.has(wordOf(c)!);
+    if (fold(c) || lockedWord || (wordKey !== null && seenWords.has(wordKey))) {
       folded.push({ id: c.id, kind: 'single', candidateIds: [c.id], label: singleLabel(c), score: scoreOf(c, false) });
       continue;
     }
+    if (wordKey !== null) seenWords.add(wordKey);
     if (c.replacements.length === 1) {
       const key = c.kind + c.original.toLowerCase() + '→' + c.replacements[0].toLowerCase();
       const g = groups.get(key);
