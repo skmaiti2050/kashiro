@@ -67,7 +67,10 @@ function parseArgs(argv: string[]): Args {
   return a;
 }
 
-/** Accept every pending decision (top and more) except LLM-sourced and tracked-change-locked ones. */
+/**
+ * Models the maximum opt-in (spec §5): accept every pending decision except LLM output,
+ * tracked-change-locked and fact-locked candidates. Batches are accepted member by member.
+ */
 function acceptAllRules(session: CheckSession): void {
   const byId = new Map(session.candidates().map((c) => [c.id, c]));
   const tried = new Set<string>();
@@ -76,9 +79,11 @@ function acceptAllRules(session: CheckSession): void {
     const next = [...top, ...more].find((d) => !tried.has(d.id));
     if (!next) return;
     tried.add(next.id);
-    const members = next.candidateIds.map((id) => byId.get(id)!);
-    if (members.some((c) => c.source === 'llm' || c.replacements.length === 0)) continue;
-    session.accept(next.id, 0); // tracked-change-locked members stay pending (session records the reason)
+    for (const id of next.candidateIds) {
+      const c = byId.get(id)!;
+      if (c.source === 'llm' || c.replacements.length === 0 || session.touchesLocked(id)) continue;
+      session.accept(id, 0);
+    }
   }
 }
 

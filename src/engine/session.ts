@@ -3,7 +3,7 @@ import { detectVariant } from './variant';
 import { findInvisible } from './hygiene';
 import { findLockedSpans } from './factLock';
 import { PRESETS, type PresetId } from './presets';
-import { buildDecisions, findContractions, tierOf, type Decision, type TierContext } from './tiers';
+import { buildDecisions, overlapsLocked, findContractions, tierOf, type Decision, type TierContext } from './tiers';
 import type { Candidate, Paragraph, Span, Tier, Variant } from './types';
 
 export interface CheckOptions {
@@ -166,6 +166,13 @@ export class CheckSession {
     // Inside an existing tracked change: can't be applied, so never in `top`.
     const blocked = buildDecisions(tracked, tiers).decisions;
     return { top: decisions.slice(0, TOP), more: [...decisions.slice(TOP), ...blocked] };
+  }
+
+  /** True when the candidate overlaps a fact-locked span or an adapter-locked (tracked change) span. */
+  touchesLocked(candidateId: string): boolean {
+    const c = this.cands.get(candidateId);
+    if (!c) throw new Error(`unknown candidate ${candidateId}`);
+    return this.inTrackedChange.has(c.id) || overlapsLocked(c, this.ctx.locked.get(c.paraId));
   }
 
   decisionCount(): number {

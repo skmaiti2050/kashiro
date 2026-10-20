@@ -64,6 +64,18 @@ describe('check-file CLI', () => {
     expect(fs.readFileSync(report, 'utf8')).toContain('# Writing check report');
   });
 
+  it('--accept-all-rules fixes typos but leaves fact-locked names alone', async () => {
+    const input = path.join(dir, 'names.txt');
+    const output = path.join(dir, 'names.out.txt');
+    fs.writeFileSync(input, 'We met Anjali Sharma in Pune. I think teh cat sat.\n');
+    capture();
+    expect(await run([input, output, '--variant', 'American', '--accept-all-rules'])).toBe(0);
+    const text = fs.readFileSync(output, 'utf8');
+    expect(text).toContain('Anjali Sharma');
+    expect(text).toContain('the cat');
+    expect(text).not.toContain('teh');
+  });
+
   it('exits 1 with a message for unknown extension and non-UTF-8', async () => {
     const { err } = capture();
     const bad = path.join(dir, 'x.xyz');

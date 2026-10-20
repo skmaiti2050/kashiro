@@ -23,7 +23,7 @@ export interface Decision {
 const SAFE_RULE_KINDS = new Set(['Spelling', 'Typo', 'Repetition', 'Punctuation', 'Capitalization', 'Formatting']);
 const UPPER_START = /^\p{Lu}/u;
 
-function overlapsLocked(c: Candidate, locked: Span[] | undefined): boolean {
+export function overlapsLocked(c: Candidate, locked: Span[] | undefined): boolean {
   if (!locked) return false;
   const { start, end } = c.span;
   return locked.some((s) =>
