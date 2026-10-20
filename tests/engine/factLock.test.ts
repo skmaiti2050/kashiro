@@ -179,3 +179,11 @@ describe('abbreviation edge cases', () => {
     expect(unlocked('Pay under 234C. The amounts add up.', 'The')).toBe(true);
   });
 });
+
+describe('identifiers mixing letters and digits', () => {
+  const text = 'Plan for q2 and mp4 files, P0 bugs, the v2 API, 4K video, B2B sales, COVID-19 rules, A4 paper.';
+
+  it.each(['q2', 'mp4', 'P0', 'v2', '4K', 'B2B', 'COVID-19', 'A4'])('locks %s', (token) => {
+    expect(covered(text, token)).toBe(true);
+  });
+});

@@ -7,6 +7,13 @@ export const WORD_REWRITE_KINDS = new Set(['Spelling', 'Typo']);
 /** A capital then lowercase letters ("Teh", "Priya"; not "NPCI", "MEGHNA" or "A."). */
 export const TITLE_CASE_WORD = /^\p{Lu}\p{Ll}+$/u;
 const PLAIN_WORD = /^[\p{L}'’]+$/u;
+/** An identifier mixing letters and digits, also hyphenated ("q2", "mp4", "B2B", "COVID-19"): not a misspelling. */
+const LETTERS_AND_DIGITS = /^(?=.*\p{N})(?=.*\p{L})[\p{L}\p{N}]+(?:-[\p{L}\p{N}]+)*$/u;
+
+/** A Spelling/Typo flag of an identifier: the fact lock protects it, and its suggestions ("q2 → qr") are noise. */
+export function isIdentifierFlag(c: Candidate): boolean {
+  return WORD_REWRITE_KINDS.has(c.kind) && LETTERS_AND_DIGITS.test(c.original);
+}
 
 /** Capitalised-word Spelling/Typo flags are almost always names (spec §5 names card). */
 export function isNameFlag(c: Candidate): boolean {

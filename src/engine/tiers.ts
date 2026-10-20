@@ -1,7 +1,7 @@
 import type { Candidate, Span, Tier, Variant } from './types';
 import type { Preset } from './presets';
 import { followsAbbreviation, overlapsLocked } from './factLock';
-import { isSlipFix, UPPER_START, WORD_REWRITE_KINDS } from './wordFlags';
+import { isIdentifierFlag, isSlipFix, UPPER_START, WORD_REWRITE_KINDS } from './wordFlags';
 
 // Public paths stay `engine/tiers`; the implementations live next to their own helpers.
 export { buildDecisions, foldsUnderMore, type Decision } from './decisions';
@@ -86,9 +86,10 @@ function baseTier(c: Candidate, ctx: TierContext): Tier {
  * fixed rules and the preset, but nothing becomes safe if it is LLM output, touches
  * a fact-locked span, lacks exactly one replacement, is a Spelling/Typo fix of a word starting
  * with a capital (names, acronyms) or more than one letter away (see isSlipFix), or is a word
- * of the document's variant.
+ * of the document's variant. A Spelling/Typo flag of an identifier ("q2", "mp4") is always hidden.
  */
 export function tierOf(c: Candidate, ctx: TierContext): Tier {
+  if (isIdentifierFlag(c)) return 'hidden';
   const override = ctx.userTierOverrides?.[c.kind];
   const tier = override ?? baseTier(c, ctx);
   if (tier !== 'safe') return tier;

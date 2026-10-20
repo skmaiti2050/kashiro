@@ -148,6 +148,32 @@ describe('tierOf: review rules', () => {
   });
 });
 
+describe('identifiers mixing letters and digits', () => {
+  it.each(['q2', 'mp4', 'P0', 'v2', '4K', 'B2B', 'COVID-19', 'A4'])('a Spelling/Typo flag of %s is hidden, whatever the overrides', (original) => {
+    for (const kind of ['Spelling', 'Typo']) {
+      const c = cand({ original, kind, replacements: ['qr'] });
+      expect(tierOf(c, ctx())).toBe('hidden');
+      expect(tierOf(c, ctx({ userTierOverrides: { [kind]: 'review' } }))).toBe('hidden');
+    }
+  });
+
+  it('other kinds on such a token are still tiered as usual', () => {
+    expect(tierOf(cand({ original: 'q2', kind: 'Grammar', replacements: ['Q2'] }), ctx())).toBe('review');
+  });
+
+  it('a plain misspelling is not an identifier', () => {
+    expect(tierOf(cand({ original: 'teh', replacements: ['the'] }), ctx())).toBe('safe');
+  });
+
+  it('with Harper: no decision offers to respell an identifier', async () => {
+    const { CheckSession } = await import('@/engine/session');
+    const text = 'Plan for q2 and mp4 files, P0 bugs, the v2 API, 4K video, B2B sales, COVID-19 rules, A4 paper.';
+    const s = await CheckSession.start([{ id: 0, text }], { preset: 'business', variant: 'American', fallbackVariant: 'American', language: 'plaintext', dictionary: [] });
+    const { top, more } = s.decisions();
+    expect([...top, ...more]).toEqual([]);
+  });
+});
+
 describe('presets', () => {
   const style = cand({ original: 'very unique', replacements: ['unique'], kind: 'Style' });
   const read = cand({ original: 'long', replacements: [], kind: 'Readability' });

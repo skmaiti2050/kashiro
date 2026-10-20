@@ -39,8 +39,8 @@ const PATTERNS: RegExp[] = [
   /\d[\d,]*(?:\.\d+)?%/g,
   // bare numbers: integers, decimals, 1,200 / 1,20,000, negatives, ordinals, ranges
   /(?<![\p{L}\p{N}])-?\d+(?:,\d+)*(?:\.\d+)?(?:st|nd|rd|th)?(?:\s*[–-]\s*\d+(?:,\d+)*(?:\.\d+)?(?:st|nd|rd|th)?)?(?![\p{L}\p{N}])/gu,
-  // codes mixing letters and digits: 234B, 44ADA, 80C, B2B
-  /(?<![\p{L}\p{N}])(?=[\p{L}\p{N}]*\p{N})(?=[\p{L}\p{N}]*\p{L})[\p{L}\p{N}]+(?![\p{L}\p{N}])/gu,
+  // codes and identifiers mixing letters and digits, also hyphenated: 234B, 44ADA, B2B, q2, mp4, COVID-19
+  /(?<![\p{L}\p{N}-])(?=[\p{L}\p{N}-]*\p{N})(?=[\p{L}\p{N}-]*\p{L})[\p{L}\p{N}]+(?:-[\p{L}\p{N}]+)*(?![\p{L}\p{N}])/gu,
   // the word after a title is part of a name, whatever its case: "Mr. and Mrs.", "Dr. smith"
   /(?<=(?<![\p{L}])(?:Dr|Mr|Mrs|Ms|Prof|St|Mt)\.\s+)[\p{L}'’-]+/gu,
   // decades and ages: 60s, 1990s, ’90s, 1990's
