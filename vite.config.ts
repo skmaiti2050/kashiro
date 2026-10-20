@@ -12,6 +12,9 @@ export default defineConfig(() => ({
   },
   // Tauri: keep Rust errors visible, fixed port, don't watch src-tauri
   clearScreen: false,
+  // The app passes harper.js/binary (a separate .wasm) to createLinter, so the engine's fallback import
+  // of the 25 MB inlined binary never runs there: keep it out of the bundle.
+  build: { rolldownOptions: { external: ["harper.js/binaryInlined"] } },
   server: {
     port: 1420,
     strictPort: true,
