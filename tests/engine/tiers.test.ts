@@ -65,6 +65,15 @@ describe('tierOf: safe rules', () => {
     },
   );
 
+  // "an there was no rice" is a typo of "and": swapping to "a" changes the meaning.
+  it.each([
+    'who', 'what', 'when', 'where', 'why', 'how', 'which', 'there', 'here', 'then', 'than',
+    'now', 'also', 'just', 'only', 'very', 'still', 'even', 'never', 'always', 'often', 'soon', 'too',
+    "isn't", 'don’t', "o'clock",
+  ])('a/an before the function word or contraction "%s" is review', (word) => {
+    expect(article(`an ${word} more`)).toBe('review');
+  });
+
   it('a/an without paragraph text is review', () => {
     expect(tierOf(cand({ original: 'a', replacements: ['an'], kind: 'Miscellaneous' }), ctx())).toBe('review');
   });
@@ -287,7 +296,7 @@ describe('Task 10 budget tuning', () => {
     const second = cand({ original: 'Marathwada', span: { start: 27, end: 37 }, replacements: ['Maratha', "Maratha's"] });
     const teh = cand({ original: 'Teh', span: { start: 0, end: 3 }, paraId: 1, replacements: ['The', 'Tech'] });
     const all = [first, second, teh];
-    const r = buildDecisions(all, new Map(all.map((c) => [c.id, 'review' as Tier])), (c) => c.paraId === 0 && foldsUnderMore(c, locked));
+    const r = buildDecisions(all, new Map(all.map((c) => [c.id, 'review' as Tier])), { fold: (c) => c.paraId === 0 && foldsUnderMore(c, locked) });
     expect(r.decisions).toHaveLength(1);
     expect(r.decisions[0]).toMatchObject({ kind: 'names', candidateIds: [first.id, second.id, teh.id], label: '2 names and places' });
   });
@@ -296,18 +305,19 @@ describe('Task 10 budget tuning', () => {
     const text = 'See pages 41-48 now.';
     const locked = findLockedSpans(text);
     const dash = cand({ original: '-', span: { start: 12, end: 13 }, replacements: ['–'], kind: 'Formatting' });
-    const { ids, demotedIds } = rankedIds(buildDecisions([dash], new Map([[dash.id, 'review']]), (c) => foldsUnderMore(c, locked)));
+    const { ids, demotedIds } = rankedIds(buildDecisions([dash], new Map([[dash.id, 'review']]), { fold: (c) => foldsUnderMore(c, locked) }));
     expect(ids).toEqual([dash.id]);
     expect(demotedIds).toEqual([dash.id]);
   });
 
-  it('(4) the names card ranks after a lowercase misspelling', () => {
-    const text = 'recieve it. We met Anjali today.';
+  it('(4) the names card ranks after a sentence-initial misspelling', () => {
+    const text = 'Recieve it. We met Anjali today.';
     const locked = findLockedSpans(text);
     const name = cand({ original: 'Anjali', span: { start: 19, end: 25 }, replacements: ['Alkali', 'Anal'] });
-    const typo = cand({ original: 'recieve', span: { start: 0, end: 7 }, replacements: ['receive', 'relieve'] });
+    const typo = cand({ original: 'Recieve', span: { start: 0, end: 7 }, replacements: ['Receive', 'Relieve'] });
     const fold = (c: Candidate) => foldsUnderMore(c, locked);
-    const { decisions } = buildDecisions([name, typo], new Map([[typo.id, 'review'], [name.id, 'review']]), fold);
+    const tiers = new Map<string, Tier>([[typo.id, 'review'], [name.id, 'review']]);
+    const { decisions } = buildDecisions([name, typo], tiers, { fold, paraText: new Map([[0, text]]) });
     expect(decisions.map((d) => d.id)).toEqual([typo.id, 'names']);
   });
 });
@@ -480,6 +490,7 @@ describe('names card (spec §5)', () => {
       candidateIds: [rao1.id, kulkarni.id, rao2.id],
       label: '2 names and places',
       score: 0,
+      nearDuplicates: [],
     });
     expect(decisions.filter((d) => d.kind === 'names')).toHaveLength(1);
     expect(decisions).toHaveLength(3);
@@ -487,7 +498,7 @@ describe('names card (spec §5)', () => {
 
   it('words marked as typos leave the card and get their own ranked decision', () => {
     const all = [rao1, kulkarni, rao2, agr];
-    const { decisions } = buildDecisions(all, review(all), () => false, new Set(['kulkarni']));
+    const { decisions } = buildDecisions(all, review(all), { typoWords: new Set(['kulkarni']) });
     const names = decisions.find((d) => d.kind === 'names')!;
     expect(names.candidateIds).toEqual([rao1.id, rao2.id]);
     expect(names.label).toBe('1 name or place');
@@ -496,10 +507,74 @@ describe('names card (spec §5)', () => {
     expect(typo.score).toBeGreaterThan(0);
   });
 
-  it('a sentence-initial capitalised typo is in the card too (the user unticks it)', () => {
-    const teh = cand({ original: 'Teh', replacements: ['The', 'Tech'] });
-    const { decisions } = buildDecisions([teh], review([teh]));
+  it('typoWords only affects Spelling/Typo flags: another kind on a fact-locked span stays demoted', () => {
+    const agrRao = cand({ paraId: 5, original: 'Rao', replacements: ['Raos'], kind: 'Agreement' });
+    const r = buildDecisions([agrRao], review([agrRao]), { fold: () => true, typoWords: new Set(['rao']) });
+    expect(r.demoted).toEqual([agrRao.id]);
+    expect(r.decisions[0].score).toBe(0);
+  });
+
+  /** "Teh dog ran. Goverment staff met Pirya and Priya." as Harper flags it. */
+  const text = 'Teh dog ran. Goverment staff met Pirya and Priya.';
+  const teh = cand({ original: 'Teh', span: { start: 0, end: 3 }, replacements: ['The', 'Tech'] });
+  const goverment = cand({ original: 'Goverment', span: { start: 13, end: 22 }, replacements: ['Government'] });
+  const pirya = cand({ original: 'Pirya', span: { start: 33, end: 38 }, replacements: ['Pirate'] });
+  const priya = cand({ original: 'Priya', span: { start: 43, end: 48 }, replacements: ['Pria'] });
+  const paraText = new Map([[0, text]]);
+
+  it('a sentence-initial capitalised word with a one-letter fix, never capitalised mid-sentence, is a likely typo', () => {
+    const all = [teh, goverment, pirya, priya];
+    const { decisions } = buildDecisions(all, review(all), { paraText });
+    expect(decisions.map((d) => d.id)).toEqual([teh.id, goverment.id, 'names']);
+    expect(decisions[0]).toMatchObject({ kind: 'single', label: 'Teh → The / Tech' });
+    expect(decisions[0].score).toBeGreaterThan(0);
+    expect(decisions[2]).toMatchObject({ candidateIds: [pirya.id, priya.id], nearDuplicates: [['Pirya', 'Priya']] });
+  });
+
+  it('likely typos of the same word batch into one decision', () => {
+    const t = 'Teh dog ran. Teh cat sat.';
+    const a = cand({ original: 'Teh', span: { start: 0, end: 3 }, replacements: ['The'] });
+    const b = cand({ original: 'Teh', span: { start: 13, end: 16 }, replacements: ['The'] });
+    const { decisions } = buildDecisions([a, b], review([a, b]), { paraText: new Map([[0, t]]) });
+    expect(decisions).toEqual([expect.objectContaining({ kind: 'batch', candidateIds: [a.id, b.id] })]);
+  });
+
+  it.each([
+    ['used capitalised mid-sentence elsewhere', 'Rao left. We met Rao.', 'Rao', ['Rad']],
+    ['no one-letter fix', 'Kalsubai is high.', 'Kalsubai', ['Kalahari']],
+    ['not at a sentence start', 'We met Raoo today.', 'Raoo', ['Rao']],
+    // all capitals is not a sentence-start capital: an acronym or a script's speaker label
+    ['written in capitals', 'NPCI runs UPI.', 'NPCI', ['NPC']],
+    ['a speaker label in capitals', 'MEGHNA: Welcome back.', 'MEGHNA', ['Meghan']],
+  ])('stays on the names card when %s', (_why, t, word, replacements) => {
+    const c = cand({ original: word, span: { start: t.indexOf(word), end: t.indexOf(word) + word.length }, replacements });
+    const { decisions } = buildDecisions([c], review([c]), { paraText: new Map([[0, t]]) });
     expect(decisions.map((d) => d.kind)).toEqual(['names']);
+  });
+
+  it('nearDuplicates skips initials, acronyms and plurals (A./R., CGST/SGST, WUA/WUAs)', () => {
+    const words = ['A.', 'R.', 'CGST', 'SGST', 'WUA', 'WUAs', 'Pirya', 'Priya'];
+    const cs = words.map((original, i) => cand({ paraId: 10 + i, original, replacements: [] }));
+    const { decisions } = buildDecisions(cs, review(cs));
+    expect(decisions[0].nearDuplicates).toEqual([['Pirya', 'Priya']]);
+  });
+
+  it('after a sentence end and an opening quote, a word is still at a sentence start', () => {
+    const t = 'He spoke. "Goverment plans';
+    const c = cand({ original: 'Goverment', span: { start: 11, end: 20 }, replacements: ['Government'] });
+    const { decisions } = buildDecisions([c], review([c]), { paraText: new Map([[0, t]]) });
+    expect(decisions.map((d) => d.kind)).toEqual(['single']);
+  });
+
+  it('blocked name flags join the one names card; other blocked candidates are returned apart', () => {
+    const blockedName = cand({ paraId: 6, original: 'Nashik', replacements: ['Nasik'] });
+    const blockedAgr = cand({ paraId: 6, original: 'have', replacements: ['has'], kind: 'Agreement' });
+    const all = [rao1, blockedName, blockedAgr, agr];
+    const isBlocked = (c: Candidate) => c.paraId === 6;
+    const r = buildDecisions(all, review(all), { blocked: isBlocked });
+    expect(r.decisions.map((d) => d.id)).toEqual([agr.id, 'names']);
+    expect(r.decisions[1].candidateIds).toEqual([rao1.id, blockedName.id]);
+    expect(r.blocked.map((d) => d.id)).toEqual([blockedAgr.id]);
   });
 });
 

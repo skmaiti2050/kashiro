@@ -1,6 +1,6 @@
 import type { Candidate, Paragraph, Span, Tier, Variant } from './types';
 import type { Preset } from './presets';
-import { followsAbbreviation } from './factLock';
+import { followsAbbreviation, isSentenceStart } from './factLock';
 
 export interface TierContext {
   /** paraId → fact-locked spans (findLockedSpans + adapter Paragraph.locked). */
@@ -23,6 +23,11 @@ export interface Decision {
   candidateIds: string[];
   label: string;
   score: number;
+  /**
+   * Names card only: pairs of its words one edit apart, in order of appearance (["Pirya", "Priya"]).
+   * One of each pair is probably a typo of the other, so the UI pre-unticks it.
+   */
+  nearDuplicates?: [string, string][];
 }
 
 const SAFE_RULE_KINDS = new Set(['Spelling', 'Typo', 'Repetition', 'Punctuation', 'Capitalization', 'Formatting']);
@@ -38,31 +43,37 @@ export function overlapsLocked(c: Candidate, locked: Span[] | undefined): boolea
   );
 }
 
-/** Words after which an a/an swap is likely the wrong fix (e.g. "an they" is a typo of "and"). */
+/** Words after which an a/an swap is likely the wrong fix ("an there was" is a typo of "and there was"). */
 const FUNCTION_WORDS = new Set(
   (
     'i you he she it we they me him her us them my your his its our their mine yours ours theirs ' +
-    'this that these those who whom whose what which ' +
+    'this that these those who whom whose what which when where why how there here ' +
     'and or but nor so yet if because as than then while although though unless whether ' +
     'a an the some any every each no all both either neither much many few more most other another such ' +
     'is are was were be been being am do does did done have has had will would shall should can could may might must ' +
-    'not of in on at to for with by from into onto upon about over under'
+    'not of in on at to for with by from into onto upon about over under ' +
+    'now also just only very still even never always often soon too'
   ).split(' '),
 );
 
+/** The word right after an article, e.g. "apple" in "a apple fell". */
+const NEXT_WORD = /^\s+([\p{L}\p{N}'’-]+)/u;
+/** A lowercase word without apostrophes ("apple", "well-known"; not "isn't", "Rao", "8"). */
+const LOWERCASE_PLAIN_WORD = /^\p{Ll}[\p{Ll}-]*$/u;
+
 /**
  * a ↔ an, only when the next word is a lowercase content word ("a apple"). Before a function word,
- * punctuation, the end of the text, a capitalised name, an acronym or a number the "fix" is often
- * wrong ("an they" means "and they"), so it is not an article swap for safety purposes.
+ * a contraction, punctuation, the end of the text, a capitalised name, an acronym or a number the
+ * "fix" is often wrong ("an they" means "and they"), so it is not an article swap for safety purposes.
  */
 function isArticleSwap(c: Candidate, text: string | undefined): boolean {
   if (c.kind !== 'Miscellaneous' || c.replacements.length !== 1 || text === undefined) return false;
   const o = c.original.toLowerCase();
   const r = c.replacements[0].toLowerCase();
   if (!((o === 'a' && r === 'an') || (o === 'an' && r === 'a'))) return false;
-  const next = /^\s+([\p{L}\p{N}'’-]+)/u.exec(text.slice(c.span.end))?.[1];
-  if (!next || !/^\p{Ll}[\p{Ll}'’-]*$/u.test(next)) return false;
-  return !FUNCTION_WORDS.has(next.toLowerCase());
+  const next = NEXT_WORD.exec(text.slice(c.span.end))?.[1];
+  if (!next || !LOWERCASE_PLAIN_WORD.test(next)) return false;
+  return !FUNCTION_WORDS.has(next);
 }
 
 /** Harper asks for the Oxford comma in every variant; British and Indian English usually omit it. */
@@ -137,11 +148,51 @@ function isNameFlag(c: Candidate): boolean {
   return WORD_REWRITE_KINDS.has(c.kind) && UPPER_START.test(c.original);
 }
 
+/** A capital then lowercase letters ("Teh", "Priya"; not "NPCI", "MEGHNA" or "A."). */
+const TITLE_CASE_WORD = /^\p{Lu}\p{Ll}+$/u;
+
+/** Id of the names card decision (there is at most one). */
+export const NAMES_CARD_ID = 'names';
+
 /** The names card: every name flag in the document as one decision, counted once (spec §5). */
 function namesCard(names: Candidate[]): Decision {
-  const distinct = new Set(names.map((c) => c.original.toLowerCase())).size;
-  const label = distinct === 1 ? '1 name or place' : `${distinct} names and places`;
-  return { id: 'names', kind: 'names', candidateIds: names.map((c) => c.id), label, score: 0 };
+  const firstSpelling = new Map<string, string>(); // lowercased → first spelling seen
+  for (const c of names) if (!firstSpelling.has(c.original.toLowerCase())) firstSpelling.set(c.original.toLowerCase(), c.original);
+  const words = [...firstSpelling.values()];
+  const label = words.length === 1 ? '1 name or place' : `${words.length} names and places`;
+  // Initials ("A.", "R.") and acronyms ("CGST", "SGST") are often one edit apart without being typos.
+  const comparable = words.filter((w) => TITLE_CASE_WORD.test(w) && w.length >= 4);
+  const nearDuplicates: [string, string][] = [];
+  for (let i = 0; i < comparable.length; i++) {
+    for (let j = i + 1; j < comparable.length; j++) {
+      if (withinOneEdit(comparable[i], comparable[j])) nearDuplicates.push([comparable[i], comparable[j]]);
+    }
+  }
+  return { id: NAMES_CARD_ID, kind: 'names', candidateIds: names.map((c) => c.id), label, score: 0, nearDuplicates };
+}
+
+/** True when `word` (exact case) appears somewhere in the document other than at a sentence start. */
+function usedMidSentence(word: string, paraText: ReadonlyMap<number, string>): boolean {
+  const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // The whole word, e.g. "Rao" in "met Rao." but not in "Raona".
+  const wholeWord = new RegExp(`(?<![\\p{L}\\p{N}'’])${escaped}(?![\\p{L}\\p{N}'’])`, 'gu');
+  for (const text of paraText.values()) {
+    for (const m of text.matchAll(wholeWord)) if (!isSentenceStart(text, m.index!)) return true;
+  }
+  return false;
+}
+
+/**
+ * A capitalised flag that is probably a typo, not a name: it starts a sentence (so its capital says
+ * nothing), it has a one-letter fix ("Teh" → "The"), and the document never capitalises it mid-sentence,
+ * where a name would be capitalised too. A word in capitals ("NPCI", a speaker label "MEGHNA") is never
+ * one: its capitals are not from the sentence start. Without paragraph text nothing counts as a likely typo.
+ */
+function isLikelyTypo(c: Candidate, paraText: ReadonlyMap<number, string> | undefined): boolean {
+  const text = paraText?.get(c.paraId);
+  if (!paraText || text === undefined || !isNameFlag(c) || !TITLE_CASE_WORD.test(c.original)) return false;
+  if (!isSentenceStart(text, c.span.start) || !c.replacements.some((r) => isSlip(c.original, r))) return false;
+  return !usedMidSentence(c.original, paraText);
 }
 
 /**
@@ -182,8 +233,11 @@ const PLAIN_WORD = /^[\p{L}'’]+$/u;
  * mid-day → midday) is a meaning or style choice: auto-applying them can change meaning.
  */
 function isSlipFix(c: Candidate): boolean {
-  const r = c.replacements[0];
-  return PLAIN_WORD.test(c.original) && PLAIN_WORD.test(r) && withinOneEdit(c.original, r);
+  return isSlip(c.original, c.replacements[0]);
+}
+
+function isSlip(original: string, replacement: string): boolean {
+  return PLAIN_WORD.test(original) && PLAIN_WORD.test(replacement) && withinOneEdit(original, replacement);
 }
 
 function scoreOf(c: Candidate, batch: boolean): number {
@@ -219,6 +273,39 @@ function batchLabel(c: Candidate, n: number): string {
   return `${singleLabel(c)} (${n} places)`;
 }
 
+export interface DecisionOptions {
+  /** Candidates on fact-locked spans: demoted (see buildDecisions). */
+  fold?: (c: Candidate) => boolean;
+  /** Lowercased words the user unticked on the names card: real typos, ranked as words. */
+  typoWords?: ReadonlySet<string>;
+  /** paraId → paragraph text, to tell a sentence-initial typo from a name (isLikelyTypo). */
+  paraText?: ReadonlyMap<number, string>;
+  /** Candidates that cannot be applied (inside an existing tracked change): returned in `blocked`. */
+  blocked?: (c: Candidate) => boolean;
+}
+
+/** Decisions grouped by batch key, in first-appearance order. */
+class DecisionGroups {
+  private readonly groups = new Map<string, Candidate[]>();
+
+  add(c: Candidate): void {
+    const key = batchKey(c);
+    const g = this.groups.get(key);
+    if (g) g.push(c);
+    else this.groups.set(key, [c]);
+  }
+
+  toDecisions(score: (c: Candidate, batch: boolean) => number): Decision[] {
+    return [...this.groups].map(([key, g]): Decision => {
+      const c = g[0];
+      if (g.length > 1) {
+        return { id: `batch:${key}`, kind: 'batch', candidateIds: g.map((x) => x.id), label: batchLabel(c, g.length), score: score(c, true) };
+      }
+      return { id: c.id, kind: 'single', candidateIds: [c.id], label: singleLabel(c), score: score(c, false) };
+    });
+  }
+}
+
 /**
  * Safe candidates become auto-applied ids; review-tier candidates become decisions, batched by
  * `batchKey` (members in input order). Hidden candidates are dropped. Decisions are sorted by score
@@ -228,22 +315,25 @@ function batchLabel(c: Candidate, n: number): string {
  * rank after every other decision, so they only reach the top when there is room. `demoted` lists
  * their decision ids.
  * Names: every capitalised Spelling/Typo flag goes on one names card, ranked last (spec §5), except
- * words in `typoWords` (lowercased), which the user marked as real typos: those rank like any word.
+ * likely typos (isLikelyTypo) and Spelling/Typo flags of words in `typoWords`: those rank like any word.
+ * Blocked candidates go into `blocked` (scored and sorted the same way), except name flags, which join
+ * the one names card: adding a name to the dictionary changes no text.
  */
 export function buildDecisions(
   cands: Candidate[],
   tiers: Map<string, Tier>,
-  fold: (c: Candidate) => boolean = () => false,
-  typoWords: ReadonlySet<string> = new Set(),
-): { safe: string[]; decisions: Decision[]; demoted: string[] } {
+  { fold = () => false, typoWords = new Set(), paraText, blocked = () => false }: DecisionOptions = {},
+): { safe: string[]; decisions: Decision[]; demoted: string[]; blocked: Decision[] } {
   const safe: string[] = [];
   const wordOf = (c: Candidate) => (WORD_REWRITE_KINDS.has(c.kind) ? c.kind + c.original.toLowerCase() : null);
   // A word the document uses as a fact-locked name somewhere is a name everywhere (e.g. sentence-initial).
   const lockedWords = new Set(cands.filter((c) => wordOf(c) !== null && fold(c)).map((c) => wordOf(c)!));
+  const rankedAsWord = (c: Candidate) =>
+    WORD_REWRITE_KINDS.has(c.kind) && (typoWords.has(c.original.toLowerCase()) || isLikelyTypo(c, paraText));
 
-  const group = () => ({ groups: new Map<string, Candidate[]>(), order: [] as string[] });
-  const normal = group();
-  const demoted = group();
+  const normal = new DecisionGroups();
+  const demoted = new DecisionGroups();
+  const blockedGroups = new DecisionGroups();
   const names: Candidate[] = [];
   for (const c of cands) {
     const t = tiers.get(c.id) ?? 'review';
@@ -252,41 +342,27 @@ export function buildDecisions(
       safe.push(c.id);
       continue;
     }
-    const markedTypo = typoWords.has(c.original.toLowerCase());
-    if (isNameFlag(c) && !markedTypo) {
-      names.push(c);
-      continue;
-    }
-    const isDemoted = !markedTypo && (fold(c) || (wordOf(c) !== null && lockedWords.has(wordOf(c)!)));
-    const into = isDemoted ? demoted : normal;
-    const key = batchKey(c);
-    const g = into.groups.get(key);
-    if (g) g.push(c);
-    else {
-      into.groups.set(key, [c]);
-      into.order.push(key);
-    }
+    const asWord = rankedAsWord(c);
+    if (isNameFlag(c) && !asWord) names.push(c);
+    else if (blocked(c)) blockedGroups.add(c);
+    else if (!asWord && (fold(c) || (wordOf(c) !== null && lockedWords.has(wordOf(c)!)))) demoted.add(c);
+    else normal.add(c);
   }
 
-  const toDecisions = ({ groups, order }: ReturnType<typeof group>, score: (c: Candidate, batch: boolean) => number) =>
-    order.map((key): Decision => {
-      const g = groups.get(key)!;
-      const c = g[0];
-      if (g.length > 1) {
-        return { id: `batch:${key}`, kind: 'batch', candidateIds: g.map((x) => x.id), label: batchLabel(c, g.length), score: score(c, true) };
-      }
-      return { id: c.id, kind: 'single', candidateIds: [c.id], label: singleLabel(c), score: score(c, false) };
-    });
-
-  // A word the user marked as a typo is ranked like any other word, not as a name.
+  // A likely or user-marked typo is ranked like any other word, not as a name.
   const scoreFor = (c: Candidate, batch: boolean) =>
-    typoWords.has(c.original.toLowerCase()) ? (WEIGHTS[c.kind] ?? DEFAULT_WEIGHT) + (batch ? 1 : 0) : scoreOf(c, batch);
-  const decisions = toDecisions(normal, scoreFor);
+    rankedAsWord(c) ? (WEIGHTS[c.kind] ?? DEFAULT_WEIGHT) + (batch ? 1 : 0) : scoreOf(c, batch);
   // Array.prototype.sort is stable, so equal scores keep first-appearance order.
-  decisions.sort((a, b) => b.score - a.score);
-  const demotedDecisions = toDecisions(demoted, () => 0);
+  const byScore = (a: Decision, b: Decision) => b.score - a.score;
+  const decisions = normal.toDecisions(scoreFor).sort(byScore);
+  const demotedDecisions = demoted.toDecisions(() => 0);
   const card = names.length ? [namesCard(names)] : [];
-  return { safe, decisions: [...decisions, ...demotedDecisions, ...card], demoted: demotedDecisions.map((d) => d.id) };
+  return {
+    safe,
+    decisions: [...decisions, ...demotedDecisions, ...card],
+    demoted: demotedDecisions.map((d) => d.id),
+    blocked: blockedGroups.toDecisions(scoreFor).sort(byScore),
+  };
 }
 
 const CONTRACTIONS: Record<string, string[]> = {

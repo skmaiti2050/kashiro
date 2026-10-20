@@ -3,7 +3,16 @@ import { detectVariant } from './variant';
 import { findInvisible } from './hygiene';
 import { findLockedSpans } from './factLock';
 import { PRESETS, type PresetId } from './presets';
-import { buildDecisions, overlapsLocked, findContractions, foldsUnderMore, tierOf, type Decision, type TierContext } from './tiers';
+import {
+  buildDecisions,
+  overlapsLocked,
+  findContractions,
+  foldsUnderMore,
+  tierOf,
+  NAMES_CARD_ID,
+  type Decision,
+  type TierContext,
+} from './tiers';
 import type { Candidate, Paragraph, Span, Tier, Variant } from './types';
 
 export interface CheckOptions {
@@ -159,25 +168,23 @@ export class CheckSession {
 
   decisions(): { top: Decision[]; more: Decision[] } {
     const pending: Candidate[] = [];
-    const tracked: Candidate[] = [];
     const tiers = new Map<string, Tier>();
     for (const c of this.cands.values()) {
       if (this.status.get(c.id) !== 'pending' || this.unplaceable.has(c.id)) continue;
       const t = this.tiers.get(c.id)!;
       if (t === 'hidden') continue;
-      (this.inTrackedChange.has(c.id) ? tracked : pending).push(c);
+      pending.push(c);
       // A safe candidate is only pending after an undo/restore: offer it for review.
       tiers.set(c.id, t === 'safe' ? 'review' : t);
     }
-    // Candidates on fact-locked spans (names, numbers, quotes…) are demoted: ranked last, never dropped.
-    const { decisions } = buildDecisions(
-      pending,
-      tiers,
-      (c) => foldsUnderMore(c, this.ctx.locked.get(c.paraId), this.paras.get(c.paraId)?.text),
-      this.typoWords,
-    );
-    // Inside an existing tracked change: can't be applied, so never in `top`.
-    const blocked = buildDecisions(tracked, tiers).decisions;
+    const { decisions, blocked } = buildDecisions(pending, tiers, {
+      // Candidates on fact-locked spans (names, numbers, quotes…) are demoted: ranked last, never dropped.
+      fold: (c) => foldsUnderMore(c, this.ctx.locked.get(c.paraId), this.paras.get(c.paraId)?.text),
+      typoWords: this.typoWords,
+      paraText: this.ctx.paraText,
+      // Inside an existing tracked change: can't be applied, so never in `top`.
+      blocked: (c) => this.inTrackedChange.has(c.id),
+    });
     return { top: decisions.slice(0, TOP), more: [...decisions.slice(TOP), ...blocked] };
   }
 
@@ -200,7 +207,8 @@ export class CheckSession {
    */
   rankedDecisionCount(): number {
     const { top, more } = this.decisions();
-    return top.length + more.filter((d) => !d.candidateIds.some((id) => this.inTrackedChange.has(id))).length;
+    // The names card may hold tracked-change names too; it is blocked only when all of it is.
+    return top.length + more.filter((d) => !d.candidateIds.every((id) => this.inTrackedChange.has(id))).length;
   }
 
   log(): LogEntry[] {
@@ -249,6 +257,8 @@ export class CheckSession {
    * a flagged word with different suggestions in different places cannot be "fixed for all" by index.
    */
   accept(decisionId: string, replacementIndex = 0): void {
+    // Replacing names with dictionary words by index would damage them (spec §5).
+    if (decisionId === NAMES_CARD_ID) throw new Error('the names card is answered with acceptNames(keepAsTypos), not accept');
     const members = this.members(decisionId);
     for (const c of members) {
       if (c.replacements[replacementIndex] === undefined) {

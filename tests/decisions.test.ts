@@ -11,6 +11,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { CheckSession, TRACKED_CHANGE_REASON } from '@/engine/session';
+import type { Decision } from '@/engine/tiers';
 import { createLinter, type RulesLinter } from '@/engine/linter';
 import type { PresetId } from '@/engine/presets';
 import type { Candidate } from '@/engine/types';
@@ -81,9 +82,10 @@ beforeAll(async () => {
 const overlaps = (c: Candidate, a: Answer) =>
   c.paraId === a.at.para && c.span.start < a.at.end && a.at.start < c.span.end;
 
-/** What a ranked decision is "about", for the drivers column: names, unknown words, or the lint kind. */
-function driverOf(c: Candidate): string {
-  if (c.kind === 'Spelling' || c.kind === 'Typo') return /^\p{Lu}/u.test(c.original) ? 'names' : 'unknown words';
+/** What a ranked decision is "about", for the drivers column: the names card, likely typos, unknown words, or the lint kind. */
+function driverOf(d: Decision, c: Candidate): string {
+  if (d.kind === 'names') return 'names';
+  if (c.kind === 'Spelling' || c.kind === 'Typo') return /^\p{Lu}/u.test(c.original) ? 'likely typos' : 'unknown words';
   return c.kind;
 }
 
@@ -102,10 +104,11 @@ async function measureDoc(doc: Doc): Promise<Measure> {
   const { top: topD, more } = session.decisions();
   const byId = new Map(session.candidates().map((c) => [c.id, c]));
   const tracked = new Set(session.outcomes().filter((o) => o.reason === TRACKED_CHANGE_REASON).map((o) => o.candidate.id));
-  const rankedDecisions = [...topD, ...more].filter((d) => !d.candidateIds.some((id) => tracked.has(id)));
+  // As rankedDecisionCount: the names card may mix tracked-change names with others.
+  const rankedDecisions = [...topD, ...more].filter((d) => !d.candidateIds.every((id) => tracked.has(id)));
   const counts = new Map<string, number>();
   for (const d of rankedDecisions) {
-    const k = driverOf(byId.get(d.candidateIds[0])!);
+    const k = driverOf(d, byId.get(d.candidateIds[0])!);
     counts.set(k, (counts.get(k) ?? 0) + 1);
   }
   const drivers = [...counts].sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(', ');

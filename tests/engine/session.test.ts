@@ -431,4 +431,34 @@ describe('names card in a session', () => {
     }
     expect(s.rankedDecisionCount()).toBe(1);
   });
+
+  it('sentence-initial typos are ranked decisions; near-duplicate names are flagged on the card', async () => {
+    const s = await start([{ id: 0, text: 'Teh dog ran. Goverment staff met Pirya and Priya.' }]);
+    const { top } = s.decisions();
+    expect(top.map((d) => d.label.split(' ')[0])).toEqual(['Teh', 'Goverment', '2']);
+    expect(top.slice(0, 2).every((d) => d.kind === 'single' && d.score > 0)).toBe(true);
+    const card = top[2];
+    expect(card.candidateIds.map((id) => s.candidates().find((c) => c.id === id)!.original)).toEqual(['Pirya', 'Priya']);
+    expect(card.nearDuplicates).toEqual([['Pirya', 'Priya']]);
+  });
+
+  it('accept refuses the names card (it is answered with acceptNames)', async () => {
+    const s = await start([{ id: 0, text }]);
+    expect(() => s.accept('names', 0)).toThrow(/acceptNames/);
+    expect(s.acceptedEdits()).toEqual([]);
+  });
+
+  it('there is one names card, even with names inside a tracked change, and it is counted', async () => {
+    const paras = [
+      { id: 0, text },
+      { id: 1, text: 'Ask Sujit now.', locked: [{ start: 4, end: 9 }] },
+    ];
+    const s = await start(paras);
+    const { top, more } = s.decisions();
+    const ids = [...top, ...more].map((d) => d.id);
+    expect(ids.filter((id) => id === 'names')).toHaveLength(1);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(top.find((d) => d.id === 'names')!.label).toBe('5 names and places');
+    expect(s.rankedDecisionCount()).toBe(1);
+  });
 });

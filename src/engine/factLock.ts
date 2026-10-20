@@ -82,7 +82,8 @@ export function followsAbbreviation(text: string, i: number): boolean {
   return j > 0 && text[j - 1] === '.' && endsAbbreviation(text, j - 1, i);
 }
 
-function isSentenceStart(text: string, i: number): boolean {
+/** True when the word at `i` starts the paragraph or a sentence (not after an abbreviation such as "Mr."). */
+export function isSentenceStart(text: string, i: number): boolean {
   if (i === 0) return true;
   if (OPENERS.test(text[i - 1])) return true;
   let j = i;
