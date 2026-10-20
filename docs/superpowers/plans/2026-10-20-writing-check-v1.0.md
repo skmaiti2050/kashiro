@@ -330,6 +330,33 @@
 - [ ] **Step 4:** Run `npm test` and `npm run trust`. Expected: all pass. If the decision budget fails, tune the ranking/hiding in Task 5 (not the test).
 - [ ] **Step 5:** Commit: `test: trust suite and review-budget gate`
 
+### Task S2: Review depth (engine)
+
+The owner's decision (spec §5 "Review depth slider"): a `ReviewDepth = 'light' | 'standard' | 'thorough' | 'everything'` setting.
+
+| Depth | Up-front decisions per 1,500 words | Automatic LLM rewrites per 1,500 words |
+|---|---|---|
+| light | 5 | 1 |
+| standard (default) | 10 | 3 |
+| thorough | 25 | 6 |
+| everything | all ranked decisions | 0 automatic (only an explicit "check more" request) |
+
+**Interfaces:**
+- `CheckOptions.depth?: ReviewDepth` (default `'standard'`), plus `CheckSession.setDepth(d: ReviewDepth): void` so the UI can change it live without restarting the session.
+- `decisions()` returns `top` = the first `max(1, round(perK × words / 1500))` ranked decisions (all of them for `everything`), and `more` = the rest. Today `top` is a fixed 10. The names card and blocked tracked-change decisions keep their existing placement rules.
+- `decisionCount()` = `top.length`, the spec §10 definition. `rankedDecisionCount()` is unchanged.
+- The LLM first-run budget (src/engine/llm/select.ts) uses the depth's rewrite rate and the depth's up-front budget for the "remaining room" rule. `everything` → the first run sends 0 sentences. An explicit `more: true` call uses the depth's rate, or 3 for `everything`.
+- One constant table `DEPTHS` in a single place (e.g. `src/engine/depth.ts`). No other magic numbers.
+
+**Tests:**
+- Each depth gives the right `top` size for a 1,500-word and a 3,000-word document.
+- `setDepth` changes `decisions()` without changing any statuses.
+- Depth never changes `tier()` of any candidate, auto-applied edits, or `acceptedEdits()` (property test over a reference doc at all 4 depths).
+- Each depth gives the right LLM first-run budget, including `everything` = 0.
+- The trust suite and decisions test keep measuring `standard` (assert it explicitly).
+
+**Commit:** `feat(engine): review depth setting (light/standard/thorough/everything)`
+
 ## Milestone C: Desktop app
 
 ### Task 11: App shell: open, check, review, save
@@ -349,6 +376,7 @@
 - **Right:** the review panel with the counter "N decisions". It shows one decision at a time as a before/after diff with Accept / Reject / (for names) Add to dictionary. Batches have "Apply all / See each", and the rest sits under "More (N)".
 - **Bottom drawer:** the change log with per-entry Undo and "Export report".
 - **Settings:** a small panel with the default variant, the default save mode, the personal dictionary (list with remove), and "auto-apply these too" checkboxes per kind (writes `tierOverrides`; LLM and fact-locked are not offered).
+- **Review depth:** a Light / Standard / Thorough / Everything slider in the review panel header and in Settings (per preset), calling `CheckSession.setDepth` (Task S2).
 - **Help:** the "Google Docs" help dialog: File → Download → .docx, drop here, fix, then File → Open → Upload in Docs. It has a drop zone.
 
 - [ ] **Step 1:** Write hook tests:
