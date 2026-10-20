@@ -1,7 +1,7 @@
 import type { Candidate, Span, Tier, Variant } from './types';
 import type { Preset } from './presets';
 import { followsAbbreviation, overlapsLocked } from './factLock';
-import { isIdentifierFlag, isSlipFix, UPPER_START, WORD_REWRITE_KINDS } from './wordFlags';
+import { HAS_DIGIT, isCodeNoiseFlag, isSlipFix, UPPER_START, WORD_REWRITE_KINDS } from './wordFlags';
 
 // Public paths stay `engine/tiers`; the implementations live next to their own helpers.
 export { buildDecisions, foldsUnderMore, type Decision } from './decisions';
@@ -86,13 +86,16 @@ function baseTier(c: Candidate, ctx: TierContext): Tier {
  * fixed rules and the preset, but nothing becomes safe if it is LLM output, touches
  * a fact-locked span, lacks exactly one replacement, is a Spelling/Typo fix of a word starting
  * with a capital (names, acronyms) or more than one letter away (see isSlipFix), or is a word
- * of the document's variant. A Spelling/Typo flag of an identifier ("q2", "mp4") is always hidden.
+ * of the document's variant, or holds a digit ("y0u"). Spelling/Typo/Capitalization flags on code tokens
+ * ("q2", "preventDefault", "src/ui") and respellings of stray single letters are always hidden.
  */
 export function tierOf(c: Candidate, ctx: TierContext): Tier {
-  if (isIdentifierFlag(c)) return 'hidden';
+  if (isCodeNoiseFlag(c, ctx.paraText?.get(c.paraId))) return 'hidden';
   const override = ctx.userTierOverrides?.[c.kind];
   const tier = override ?? baseTier(c, ctx);
   if (tier !== 'safe') return tier;
+  // "y0u" → "you" is likely right, but a token with a digit may be a code nobody recognised: ask first.
+  if (WORD_REWRITE_KINDS.has(c.kind) && HAS_DIGIT.test(c.original)) return 'review';
   if (c.source === 'llm') return 'review';
   if (c.replacements.length !== 1) return 'review';
   if (WORD_REWRITE_KINDS.has(c.kind) && (UPPER_START.test(c.original) || !isSlipFix(c))) return 'review';

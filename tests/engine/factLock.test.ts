@@ -187,3 +187,16 @@ describe('identifiers mixing letters and digits', () => {
     expect(covered(text, token)).toBe(true);
   });
 });
+
+describe('code tokens', () => {
+  const text = 'Call preventDefault with et.reportAllChanges via window.location in src/ui, save file.docx, see iPhone and DevTools.';
+
+  it.each(['preventDefault', 'et.reportAllChanges', 'window.location', 'src/ui', 'file.docx', 'iPhone', 'DevTools'])('locks %s', (token) => {
+    expect(covered(text, token)).toBe(true);
+  });
+
+  it('does not lock a sentence end followed by a capital, or plain lowercase words', () => {
+    const plain = 'I went home.Then we ate rice and dal.';
+    expect(covered(plain, 'home') || covered(plain, 'rice')).toBe(false);
+  });
+});

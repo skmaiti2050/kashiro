@@ -1,4 +1,4 @@
-import type { Candidate } from './types';
+import type { Candidate, Span } from './types';
 import { isSentenceStart, OPENERS } from './factLock';
 
 export const UPPER_START = /^\p{Lu}/u;
@@ -7,12 +7,55 @@ export const WORD_REWRITE_KINDS = new Set(['Spelling', 'Typo']);
 /** A capital then lowercase letters ("Teh", "Priya"; not "NPCI", "MEGHNA" or "A."). */
 export const TITLE_CASE_WORD = /^\p{Lu}\p{Ll}+$/u;
 const PLAIN_WORD = /^[\p{L}'’]+$/u;
-/** An identifier mixing letters and digits, also hyphenated ("q2", "mp4", "B2B", "COVID-19"): not a misspelling. */
-const LETTERS_AND_DIGITS = /^(?=.*\p{N})(?=.*\p{L})[\p{L}\p{N}]+(?:-[\p{L}\p{N}]+)*$/u;
 
-/** A Spelling/Typo flag of an identifier: the fact lock protects it, and its suggestions ("q2 → qr") are noise. */
-export function isIdentifierFlag(c: Candidate): boolean {
-  return WORD_REWRITE_KINDS.has(c.kind) && LETTERS_AND_DIGITS.test(c.original);
+/** One hyphen-separated part of an identifier: "q2", "mp4", "4K", "B2B", "COVID", "19" (not "y0u", "th9s"). */
+const IDENTIFIER_PART = /^(?:\p{L}+\p{N}+|\p{N}+\p{L}+|[\p{Lu}\p{N}]+|\p{L}+|\p{N}+)$/u;
+const HAS_LETTER = /\p{L}/u;
+export const HAS_DIGIT = /\p{N}/u;
+/** A capital right after a lowercase letter: "preventDefault", "iPhone", "DevTools". */
+const INNER_CAPITAL = /\p{Ll}\p{Lu}/u;
+/** Dotted or slashed code, lowercase after each separator: "et.reportAllChanges", "src/ui", "file.docx". */
+const CODE_PATH = /^[\p{L}_$][\p{L}\p{N}_$]*(?:[./][\p{Ll}_$][\p{L}\p{N}_$]*)+$/u;
+/** Characters a code token may hold; the token around a flag grows over them ("et" → "et.reportAllChanges"). */
+const TOKEN_CHAR = /[\p{L}\p{N}_$./-]/u;
+/** Separators at the edges of a grown token, e.g. the sentence's full stop in "file.docx." */
+const EDGE_SEPARATORS = /^[./-]+|[./-]+$/gu;
+/** A single letter, e.g. "s", "x" (after dropping "z."'s full stop). */
+const SINGLE_LETTER = /^\p{L}$/u;
+/** Single letters that are words: "a", "I" (and a lone "i", which should become "I"). */
+const ONE_LETTER_WORDS = new Set(['a', 'A', 'I', 'i']);
+/** Kinds whose suggestions on a code token are noise: respellings, splits ("max Length"), capitals. */
+const CODE_NOISE_KINDS = new Set(['Spelling', 'Typo', 'Capitalization']);
+
+/**
+ * True for code and identifiers rather than prose: camelCase ("preventDefault", "iPhone"), dotted or
+ * slashed paths ("window.location", "src/ui"), and letters-with-digits identifiers ("q2", "mp4",
+ * "B2B", "COVID-19"). A digit inside a word ("y0u", "th9s") is a typo, not an identifier.
+ */
+export function looksLikeCode(token: string): boolean {
+  if (INNER_CAPITAL.test(token) || CODE_PATH.test(token)) return true;
+  return HAS_LETTER.test(token) && HAS_DIGIT.test(token) && token.split('-').every((part) => IDENTIFIER_PART.test(part));
+}
+
+/** The token around `span`: grown over code characters, without separators at its edges. */
+function tokenAround(text: string, span: Span): string {
+  let start = span.start;
+  let end = span.end;
+  while (start > 0 && TOKEN_CHAR.test(text[start - 1])) start--;
+  while (end < text.length && TOKEN_CHAR.test(text[end])) end++;
+  return text.slice(start, end).replace(EDGE_SEPARATORS, '');
+}
+
+/**
+ * A flag whose suggestions are noise because the text is not a prose word: a respelling, split or
+ * capital on a code token (`paraText` gives the token around it: "et" in "et.reportAllChanges"), or a
+ * respelling of a stray single letter (a variable, list marker or unit: "x", "s", "z."). The fact lock
+ * protects these tokens too; this keeps them out of review altogether.
+ */
+export function isCodeNoiseFlag(c: Candidate, paraText?: string): boolean {
+  const token = paraText === undefined ? c.original.replace(EDGE_SEPARATORS, '') : tokenAround(paraText, c.span);
+  if (CODE_NOISE_KINDS.has(c.kind) && looksLikeCode(token)) return true;
+  return WORD_REWRITE_KINDS.has(c.kind) && SINGLE_LETTER.test(token) && !ONE_LETTER_WORDS.has(token);
 }
 
 /** Capitalised-word Spelling/Typo flags are almost always names (spec §5 names card). */

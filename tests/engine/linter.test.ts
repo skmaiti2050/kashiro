@@ -93,6 +93,24 @@ describe('Indian-English word list', () => {
   });
 });
 
+describe('TECH_WORDS list', () => {
+  it('is a plain sorted list of at most 150 unique lowercase words', async () => {
+    const { TECH_WORDS } = await import('@/engine/wordlists/tech');
+    expect(TECH_WORDS.length).toBeGreaterThanOrEqual(50);
+    expect(TECH_WORDS.length).toBeLessThanOrEqual(150);
+    expect(new Set(TECH_WORDS).size).toBe(TECH_WORDS.length);
+    expect([...TECH_WORDS].sort()).toEqual(TECH_WORDS);
+    for (const w of TECH_WORDS) expect(w).toMatch(/^\p{Ll}[\p{Ll}\p{N}]*$/u);
+  });
+
+  it.each(['American', 'British'] as const)('lowercase tech words are not flagged (%s)', async (variant) => {
+    const l = await createLinter(variant);
+    const text = 'The ai and api need a json url, a pdf or csv, a wireframe, a dropdown, the frontend and backend, a login, signup and onboarding workflow, a dataset with a timestamp, the codebase and devops.';
+    const c = await l.lintParagraphs([para(text)], 'plaintext');
+    expect(c.filter((x) => x.kind === 'Spelling' || x.kind === 'Typo').map((x) => x.original)).toEqual([]);
+  });
+});
+
 describe('EN_IN_WORDS list', () => {
   it('is a plain sorted list of 600-800 unique lowercase words', async () => {
     const { EN_IN_WORDS } = await import('@/engine/wordlists/en-IN');

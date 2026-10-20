@@ -157,6 +157,11 @@ describe('identifiers mixing letters and digits', () => {
     }
   });
 
+  it.each(['y0u', 'th9s', 'abc123def'])('a digit inside a word (%s) is a typo, not an identifier: reviewed, never hidden or auto-fixed', (original) => {
+    expect(tierOf(cand({ original, replacements: ['you'] }), ctx())).toBe('review');
+    expect(tierOf(cand({ original, replacements: ['you'], kind: 'Typo' }), ctx())).toBe('review');
+  });
+
   it('other kinds on such a token are still tiered as usual', () => {
     expect(tierOf(cand({ original: 'q2', kind: 'Grammar', replacements: ['Q2'] }), ctx())).toBe('review');
   });
@@ -171,6 +176,62 @@ describe('identifiers mixing letters and digits', () => {
     const s = await CheckSession.start([{ id: 0, text }], { preset: 'business', variant: 'American', fallbackVariant: 'American', language: 'plaintext', dictionary: [] });
     const { top, more } = s.decisions();
     expect([...top, ...more]).toEqual([]);
+  });
+});
+
+describe('code tokens and stray letters', () => {
+  /** A candidate for `original` at its first place in `text`, with the paragraph text in the context. */
+  const inText = (text: string, original: string, kind: string, replacements: string[]) => {
+    const start = text.indexOf(original);
+    const c = cand({ original, kind, replacements, span: { start, end: start + original.length } });
+    return tierOf(c, ctx({ paraText: new Map([[0, text]]) }));
+  };
+
+  it.each([
+    ['maxLength', 'Typo', ['max Length']],
+    ['linkedinUrl', 'Spelling', []],
+    ['DevTools', 'Spelling', ['Retools']],
+    ['preventDefault', 'Typo', ['prevent Default']],
+    ['iPhone', 'Spelling', ['Phone']],
+    ['YouTube', 'Spelling', ['Youtube']],
+  ])('camelCase %s (%s) is an identifier: hidden', (original, kind, replacements) => {
+    expect(inText(`Call ${original} here.`, original, kind, replacements)).toBe('hidden');
+  });
+
+  it.each([
+    ['Use et.reportAllChanges now.', 'et', 'Spelling', ['eat']],
+    ['Use et.reportAllChanges now.', 'reportAllChanges', 'Capitalization', ['ReportAllChanges']],
+    ['Read window.location first.', 'location', 'Capitalization', ['Location']],
+    ['Open src/ui today.', 'src', 'Spelling', ['sac']],
+    ['Open src/ui today.', 'ui', 'Spelling', ['uh']],
+    ['Save it as file.docx.', 'docx', 'Spelling', ['docs']],
+  ])('in "%s", %s is part of a code token: hidden', (text, original, kind, replacements) => {
+    expect(inText(text, original, kind, replacements)).toBe('hidden');
+  });
+
+  it.each([
+    ['Item s here.', 's'],
+    ['Press z. then go.', 'z.'],
+    ['Let x be big.', 'x'],
+  ])('a stray single letter ("%s") gets no spelling suggestion', (text, original) => {
+    expect(inText(text, original, 'Spelling', ['a', 'AA'])).toBe('hidden');
+  });
+
+  it('a lone "i" still becomes "I", and ordinary words are untouched', () => {
+    expect(inText('and i think so.', 'i', 'Capitalization', ['I'])).toBe('safe');
+    expect(inText('I think teh cat is here.', 'teh', 'Spelling', ['the'])).toBe('safe');
+    expect(inText('He went home. the end.', 'the', 'Capitalization', ['The'])).toBe('safe');
+  });
+
+  it('with Harper: code tokens, stray letters and identifiers get no spelling decisions; real typos still do', async () => {
+    const { CheckSession } = await import('@/engine/session');
+    const text =
+      'Call preventDefault and maxLength on linkedinUrl with et.reportAllChanges in DevTools on an iPhone or YouTube via window.location and src/ui or file.docx. Press z. and x here, and i think y0u are late.';
+    const s = await CheckSession.start([{ id: 0, text }], { preset: 'business', variant: 'American', fallbackVariant: 'American', language: 'plaintext', dictionary: [] });
+    const { top, more } = s.decisions();
+    const flagged = [...top, ...more].flatMap((d) => d.candidateIds).map((id) => s.candidates().find((c) => c.id === id)!.original);
+    const applied = s.outcomes().filter((o) => o.status === 'applied').map((o) => o.candidate.original);
+    expect([...flagged, ...applied].sort()).toEqual(['i', 'y0u']);
   });
 });
 

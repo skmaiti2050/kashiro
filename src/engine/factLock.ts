@@ -41,6 +41,10 @@ const PATTERNS: RegExp[] = [
   /(?<![\p{L}\p{N}])-?\d+(?:,\d+)*(?:\.\d+)?(?:st|nd|rd|th)?(?:\s*[–-]\s*\d+(?:,\d+)*(?:\.\d+)?(?:st|nd|rd|th)?)?(?![\p{L}\p{N}])/gu,
   // codes and identifiers mixing letters and digits, also hyphenated: 234B, 44ADA, B2B, q2, mp4, COVID-19
   /(?<![\p{L}\p{N}-])(?=[\p{L}\p{N}-]*\p{N})(?=[\p{L}\p{N}-]*\p{L})[\p{L}\p{N}]+(?:-[\p{L}\p{N}]+)*(?![\p{L}\p{N}])/gu,
+  // camelCase and inner capitals: preventDefault, iPhone, DevTools (lookahead from a word start: linear)
+  /(?<![\p{L}\p{N}])(?=[\p{L}\p{N}]*\p{Ll}\p{Lu})[\p{L}\p{N}]+/gu,
+  // dotted or slashed code, lowercase after each separator: et.reportAllChanges, src/ui, file.docx (not "home.Then")
+  /(?<![\p{L}\p{N}_$./])[\p{L}_$][\p{L}\p{N}_$]*(?:[./][\p{Ll}_$][\p{L}\p{N}_$]*)+/gu,
   // the word after a title is part of a name, whatever its case: "Mr. and Mrs.", "Dr. smith"
   /(?<=(?<![\p{L}])(?:Dr|Mr|Mrs|Ms|Prof|St|Mt)\.\s+)[\p{L}'’-]+/gu,
   // decades and ages: 60s, 1990s, ’90s, 1990's
