@@ -13,7 +13,7 @@ formatting, and never sends text off the device.
 Premium, ProWritingAid: private text leaves the machine, often banned on work laptops) or local rule
 engines with no document support and no "reads naturally" help (Harper, Vale). AI "cleanup" tools
 (Wispr Flow's auto-edit, QuillBot, "humanizers") rewrite silently and change meaning. An audit of one
-such tool (Turnitout, see `D:\Projects\turnitout-audit\FINDINGS.md`) showed added hedges on statistical
+such tool (Turnitout; its findings are kept outside this repo) showed added hedges on statistical
 claims, broken grammar and false marketing claims. The gap: **fix a whole document offline, keep its
 formatting and its meaning, and only review what actually needs a human.**
 
@@ -142,7 +142,7 @@ Suggestions are sorted into tiers by risk, not shown as one long list.
 - **Google Docs:** download/re-upload in v1; add-on later.
 - **English first**, Indian languages later.
 - **"Reads naturally" AI pass ships in v1** as an optional download.
-- **Name:** `writing-check` (working title). Project lives at `D:\Projects\writing-check`.
+- **Name:** `writing-check` (working title). Project folder: `writing-check`.
 - **Signing:** ship unsigned at first (document the SmartScreen "Run anyway" / macOS "Open Anyway"
   steps); apply for free open-source signing (SignPath Foundation) before the public release. Never try
   to get around organisational policies that block unsigned software; the locked-down promise is "no
@@ -169,7 +169,7 @@ Suggestions are sorted into tiers by risk, not shown as one long list.
 
 ## 9. Trust suite
 
-Port `D:\Projects\turnitout-audit` (`make_corpus.py`, `analyze.py`) into the repo as the release gate.
+Port the Turnitout audit kit (`make_corpus.py`, `analyze.py`; kept outside this repo) into the repo as the release gate.
 Every release runs it against the app's own output and publishes the results:
 - all planted facts survive; fact-locked spans unchanged;
 - .docx/.odt structure and formatting identical apart from intended text edits;

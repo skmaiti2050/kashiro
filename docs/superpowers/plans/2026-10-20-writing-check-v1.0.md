@@ -46,7 +46,7 @@
 - Produces: `npm test` (vitest, Node env), `npm run tauri dev`, path alias `@/` → `src/`.
 
 - [ ] **Step 1: Prerequisites (owner does these by hand; they need an installer and possibly admin on the dev machine, which is fine for development only).** Install Visual Studio 2022 Build Tools with the "Desktop development with C++" workload, then rustup (`winget install Rustlang.Rustup`). Verify with `rustc --version` and `cargo --version` in a new shell. WebView2 ships with Windows 11.
-- [ ] **Step 2:** In `D:\Projects\writing-check`, run `git init`. Scaffold Tauri 2 + React + TS into the existing folder, keeping `docs/`. Set the app identifier `app.writingcheck.desktop`, productName `writing-check`, and window title "writing-check".
+- [ ] **Step 2:** In the project folder, run `git init`. Scaffold Tauri 2 + React + TS into the existing folder, keeping `docs/`. Set the app identifier `app.writingcheck.desktop`, productName `writing-check`, and window title "writing-check".
 - [ ] **Step 3:** Add deps: `harper.js@2.13.0`, `jszip@3.10.2`, `@codemirror/state`, `@codemirror/view`, `@tauri-apps/plugin-dialog`, `@tauri-apps/plugin-fs`, `@tauri-apps/plugin-store`, `@tauri-apps/plugin-upload`. Dev deps: `vitest@3`, `fast-xml-parser` (XML well-formedness checks in tests), `tsx`.
 - [ ] **Step 4:** Write `tests/smoke.test.ts` asserting `new LocalLinter({ binary: binaryInlined }).lint("teh cat")` returns one lint of kind `Typo` with suggestion `the`. Import `binaryInlined` from `harper.js/binaryInlined`.
 - [ ] **Step 5:** Run `npm test`. Expected: 1 passed. Run `npm run tauri dev`. Expected: an empty window titled "writing-check".
@@ -247,7 +247,7 @@
 - [ ] **Step 2:** Write the CLI test: run the CLI on a fixture with `globalThis.fetch`, `http.request`, `https.request` and `net.connect` patched to throw, and assert exit code 0 (the no-network check from spec §9).
 - [ ] **Step 3:** Run. Expected: FAIL.
 - [ ] **Step 4:** Implement.
-- [ ] **Step 5:** Run `npm test`. Expected: all PASS. Manually run `npx tsx cli/check-file.ts D:\Projects\turnitout-audit\corpus\prose.txt %TEMP%\prose.checked.txt` and read the JSON.
+- [ ] **Step 5:** Run `npm test`. Expected: all PASS. Manually run `npx tsx cli/check-file.ts <audit-kit>/corpus/prose.txt <temp>/prose.checked.txt` and read the JSON.
 - [ ] **Step 6:** Commit: `feat(formats): text/markdown adapter and headless CLI`
 
 ## Milestone B: .docx in place with tracked changes
@@ -305,13 +305,13 @@
 - [ ] **Step 2:** Run. Expected: FAIL.
 - [ ] **Step 3:** Implement: map each edit to pieces, then build replacement XML for the affected runs, then splice into the original string right-to-left. Use the `w:date` from an injectable clock.
 - [ ] **Step 4:** Run. Expected: PASS.
-- [ ] **Step 5:** Run the CLI on `D:\Projects\turnitout-audit\corpus` .docx in both modes. **Owner check:** open both outputs in Word. Tracked edits show in Review → Track Changes with author "writing-check". Upload the tracked file to Google Docs: the edits show as Suggestions.
+- [ ] **Step 5:** Run the CLI on the audit kit's corpus .docx in both modes. **Owner check:** open both outputs in Word. Tracked edits show in Review → Track Changes with author "writing-check". Upload the tracked file to Google Docs: the edits show as Suggestions.
 - [ ] **Step 6:** Commit: `feat(docx): tracked-changes and clean writer`
 
 ### Task 10: Trust suite as the release gate
 
 **Files:**
-- Create: `trust/make_corpus.py`, `trust/analyze.py` (ported from `D:\Projects\turnitout-audit`), `trust/run_trust.ps1`, `trust/README.md`, `trust/reference/<preset>/*.{docx,md}` (5 per preset = 20 docs)
+- Create: `trust/make_corpus.py`, `trust/analyze.py` (ported from the Turnitout audit kit), `trust/run_trust.ps1`, `trust/README.md`, `trust/reference/<preset>/*.{docx,md}` (5 per preset = 20 docs)
 - Test: `tests/decisions.test.ts`
 
 **Interfaces:**
