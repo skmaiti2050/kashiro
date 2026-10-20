@@ -29,28 +29,36 @@ export async function createLinter(
       for (const p of paras) {
         const lints = await linter.lint(p.text, { language });
         for (const lint of lints) {
-          const { start, end } = lint.span();
-          const original = p.text.slice(start, end);
-          const kind = lint.lint_kind();
-          const replacements: string[] = [];
-          for (const s of lint.suggestions()) {
-            const k = s.kind();
-            if (k === SuggestionKind.Remove) replacements.push('');
-            else if (k === SuggestionKind.InsertAfter) replacements.push(original + s.get_replacement_text());
-            else replacements.push(s.get_replacement_text());
-            s.free();
+          try {
+            const sp = lint.span();
+            const { start, end } = sp;
+            sp.free();
+            const original = p.text.slice(start, end);
+            const kind = lint.lint_kind();
+            const replacements: string[] = [];
+            for (const s of lint.suggestions()) {
+              try {
+                const k = s.kind();
+                if (k === SuggestionKind.Remove) replacements.push('');
+                else if (k === SuggestionKind.InsertAfter) replacements.push(original + s.get_replacement_text());
+                else replacements.push(s.get_replacement_text());
+              } finally {
+                s.free();
+              }
+            }
+            out.push({
+              id: `${p.id}:${start}:${end}:${kind}`,
+              paraId: p.id,
+              span: { start, end },
+              original,
+              replacements,
+              kind,
+              message: lint.message(),
+              source: 'rules',
+            });
+          } finally {
+            lint.free();
           }
-          out.push({
-            id: `${p.id}:${start}:${end}:${kind}`,
-            paraId: p.id,
-            span: { start, end },
-            original,
-            replacements,
-            kind,
-            message: lint.message(),
-            source: 'rules',
-          });
-          lint.free();
         }
       }
       return out;
