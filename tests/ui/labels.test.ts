@@ -41,4 +41,10 @@ describe('decisionTitle', () => {
     expect(decisionTitle(batch, c)).toBe("can't → cannot (2 places)");
     expect(decisionTitle(single(cand('very', [''])), cand('very', ['']))).toBe('very → (delete)');
   });
+
+  it('the names and terms cards show their own label', () => {
+    const c = cand('dosha', ['dosa']);
+    const terms: Decision = { id: 'terms', kind: 'terms', candidateIds: ['a'], label: '2 terms used in this document', score: 0 };
+    expect(decisionTitle(terms, c)).toBe('2 terms used in this document');
+  });
 });

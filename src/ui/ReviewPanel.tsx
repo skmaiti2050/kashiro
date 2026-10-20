@@ -4,6 +4,7 @@ import type { Candidate } from '@/engine/types';
 import { DecisionCard } from './DecisionCard';
 import { DepthSlider } from './DepthSlider';
 import { NamesCard } from './NamesCard';
+import { TermsCard } from './TermsCard';
 import { decisionTitle } from './state/labels';
 import type { ControllerState, SessionController } from './state/sessionController';
 
@@ -24,7 +25,8 @@ export function ReviewPanel({ controller, state, onLocate }: Props) {
   const cardSlot = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (reveal === 0) return;
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // matchMedia is missing in some test and embedded environments.
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
     cardSlot.current?.scrollIntoView({ block: 'start', behavior: reduceMotion ? 'auto' : 'smooth' });
     cardSlot.current?.focus({ preventScroll: true });
   }, [reveal]);
@@ -64,7 +66,8 @@ export function ReviewPanel({ controller, state, onLocate }: Props) {
 
       <div ref={cardSlot} className="card-slot" role="group" tabIndex={-1} aria-label="Current decision">
         {current?.kind === 'names' && <NamesCard key={current.id} controller={controller} card={current} candidates={candidates} />}
-        {current && current.kind !== 'names' && (
+        {current?.kind === 'terms' && <TermsCard key={current.id} controller={controller} card={current} />}
+        {current && current.kind !== 'names' && current.kind !== 'terms' && (
           <DecisionCard
             key={current.id}
             controller={controller}

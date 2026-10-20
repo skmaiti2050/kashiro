@@ -4,7 +4,8 @@
  * ≤ 10, so a long tail cannot pass by being capped out of the default view. Also, always enforced:
  *   - no auto-applied or accept-all edit touches a fact-locked span;
  *   - recall: no planted error the engine detects is hidden. A planted safe error must be auto-applied
- *     or ranked; a planted judgment error must be ranked (never auto-applied, never dropped).
+ *     or ranked; a planted judgment error must be ranked (never auto-applied, never dropped), and no
+ *     planted error lands on the terms card.
  * Writes trust/out/decisions.md (gitignored) with the per-document table for the release report.
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
@@ -68,6 +69,8 @@ interface Measure {
   undetected: string[];
   hidden: string[];
   judgmentAuto: string[];
+  /** Planted errors on the terms card (a typo would be added to the dictionary with one click). */
+  plantedAsTerms: string[];
   autoOnLocked: string[];
   acceptedOnLocked: string[];
 }
@@ -82,9 +85,9 @@ beforeAll(async () => {
 const overlaps = (c: Candidate, a: Answer) =>
   c.paraId === a.at.para && c.span.start < a.at.end && a.at.start < c.span.end;
 
-/** What a ranked decision is "about", for the drivers column: the names card, likely typos, unknown words, or the lint kind. */
+/** What a ranked decision is "about", for the drivers column: the names or terms card, likely typos, unknown words, or the lint kind. */
 function driverOf(d: Decision, c: Candidate): string {
-  if (d.kind === 'names') return 'names';
+  if (d.kind === 'names' || d.kind === 'terms') return d.kind;
   if (c.kind === 'Spelling' || c.kind === 'Typo') return /^\p{Lu}/u.test(c.original) ? 'likely typos' : 'unknown words';
   return c.kind;
 }
@@ -124,12 +127,15 @@ async function measureDoc(doc: Doc): Promise<Measure> {
   const undetected: string[] = [];
   const hidden: string[] = [];
   const judgmentAuto: string[] = [];
+  const termIds = new Set([...topD, ...more].filter((d) => d.kind === 'terms').flatMap((d) => d.candidateIds));
+  const plantedAsTerms: string[] = [];
   for (const a of doc.answers) {
     const hits = all.filter((c) => overlaps(c, a));
     if (hits.length === 0) {
       undetected.push(`${a.type}:${a.wrong}`);
       continue;
     }
+    if (hits.some((c) => termIds.has(c.id))) plantedAsTerms.push(`${a.type}:${a.wrong}`);
     const isAuto = hits.some((c) => autoIds.has(c.id));
     const isRanked = hits.some((c) => rankedIds.has(c.id));
     if (a.type === 's') {
@@ -161,6 +167,7 @@ async function measureDoc(doc: Doc): Promise<Measure> {
     undetected,
     hidden,
     judgmentAuto,
+    plantedAsTerms,
     autoOnLocked,
     acceptedOnLocked,
   };
@@ -219,6 +226,7 @@ describe('recall and fact lock (always enforced)', () => {
       const m = await measure(doc);
       expect(m.words).toBe(doc.words);
       expect({ hidden: m.hidden, judgmentAuto: m.judgmentAuto }).toEqual({ hidden: [], judgmentAuto: [] });
+      expect(m.plantedAsTerms).toEqual([]);
       expect(m.autoOnLocked).toEqual([]);
       expect(m.acceptedOnLocked).toEqual([]);
     },

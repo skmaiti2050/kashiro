@@ -12,6 +12,9 @@ import type { ControllerState, SessionController } from './state/sessionControll
  */
 const AUTO_APPLY_KINDS = ['Agreement', 'Grammar', 'Usage', 'WordChoice', 'Redundancy', 'Style', 'Readability', 'Contraction'];
 
+/** The terms card's repeat count (the engine accepts 2–5). */
+const TERM_REPEAT_CHOICES = [2, 3, 4, 5];
+
 interface Props {
   controller: SessionController;
   state: ControllerState;
@@ -69,6 +72,17 @@ export function SettingsPanel({ controller, state, onClose }: Props) {
             />
           ))}
         </fieldset>
+
+        <label className="field">
+          <span>Treat an unknown lowercase word as a term once it is used</span>
+          <select value={settings.termMinRepeats} onChange={(e) => controller.changeSettings({ termMinRepeats: Number(e.target.value) })}>
+            {TERM_REPEAT_CHOICES.map((n) => (
+              <option key={n} value={n}>
+                {n} times
+              </option>
+            ))}
+          </select>
+        </label>
 
         <fieldset>
           <legend>Auto-apply these too</legend>

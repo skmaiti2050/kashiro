@@ -1,5 +1,6 @@
 import type { ReviewDepth } from '@/engine/depth';
 import type { PresetId } from '@/engine/presets';
+import { DEFAULT_TERM_MIN_REPEATS } from '@/engine/terms';
 import type { Tier, Variant } from '@/engine/types';
 import type { SaveMode } from '@/formats/types';
 
@@ -19,6 +20,8 @@ export interface Settings {
   modelPath: string | null;
   /** Review depth per preset (spec §5); a preset without one uses the engine's default. */
   depthByPreset: Partial<Record<PresetId, ReviewDepth>>;
+  /** Uses after which an unknown lowercase word goes on the terms card (2–5). */
+  termMinRepeats: number;
 }
 
 /** Region → variant, for English locales; India also covers hi-IN, bn-IN and other Indian locales. */
@@ -46,5 +49,6 @@ export function defaultSettings(locale: string): Settings {
     tierOverrides: {},
     modelPath: null,
     depthByPreset: {},
+    termMinRepeats: DEFAULT_TERM_MIN_REPEATS,
   };
 }

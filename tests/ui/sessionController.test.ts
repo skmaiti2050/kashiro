@@ -180,6 +180,27 @@ describe('SessionController: review', () => {
     expect([...top, ...more].find((d) => d.kind === 'names')).toBeUndefined();
   });
 
+  const TERMS = 'Each dosha has a role. The dosha shifts with the season, and a dosha can rise.';
+
+  it('acceptTerms adds the terms to the saved personal dictionary', async () => {
+    const { controller, saved } = makeController({ createLinter: (v, words) => createLinter(v, words) });
+    await controller.openText(TERMS);
+    await controller.acceptTerms([]);
+    expect(saved.at(-1)!.dictionary).toEqual(['dosha']);
+    const { top, more } = controller.getState().session!.decisions();
+    expect([...top, ...more].find((d) => d.kind === 'terms')).toBeUndefined();
+  });
+
+  it('the terms repeat setting is saved and checks again with it', async () => {
+    const { controller, saved } = makeController();
+    await controller.openText(TERMS);
+    const hasCard = () => controller.getState().session!.decisions().top.some((d) => d.kind === 'terms');
+    expect(hasCard()).toBe(true);
+    controller.changeSettings({ termMinRepeats: 4 });
+    await vi.waitFor(() => expect(hasCard()).toBe(false));
+    expect(saved.at(-1)!.termMinRepeats).toBe(4);
+  });
+
   it('removing a dictionary word rebuilds the linter and checks again', async () => {
     const created: string[][] = [];
     const { controller, saved } = makeController({

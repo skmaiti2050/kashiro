@@ -9,7 +9,7 @@ const sameFlag = (a: Candidate, b: Candidate) =>
  * candidates in paragraphs whose text did not change (`unchanged`: old paragraph id → new id).
  * Accepted stays accepted with the same replacement, rejected stays rejected, and an undone auto-fix
  * stays undone. Words added to the dictionary come back through the dictionary itself, and the
- * names-card "real typo" ticks are not carried (the card is offered again).
+ * "real typo" ticks on the names and terms cards are not carried (the card is offered again).
  */
 export function carryDecisions(before: CheckSession, after: CheckSession, unchanged: Map<number, number>): void {
   const statusAfter = new Map(after.outcomes().map((o) => [o.candidate.id, o.status]));

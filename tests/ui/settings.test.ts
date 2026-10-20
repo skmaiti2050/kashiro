@@ -27,6 +27,7 @@ describe('defaultSettings', () => {
       tierOverrides: {},
       modelPath: null,
       depthByPreset: {},
+      termMinRepeats: 3,
     });
   });
 });

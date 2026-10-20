@@ -1,11 +1,12 @@
 import type { Candidate, Span, Tier } from './types';
 import { followsAbbreviation, overlapsLocked } from './factLock';
 import { isLikelyTypo, isNameFlag, TITLE_CASE_WORD, WORD_REWRITE_KINDS, withinOneEdit } from './wordFlags';
+import { DEFAULT_TERM_MIN_REPEATS, findTerms, isLowercaseWordFlag } from './terms';
 
 export interface Decision {
-  /** `batch:<key>` for a batch, the candidate id for a single, `names` for the names card. */
+  /** `batch:<key>` for a batch, the candidate id for a single, `names` / `terms` for the two cards. */
   id: string;
-  kind: 'single' | 'batch' | 'names';
+  kind: 'single' | 'batch' | 'names' | 'terms';
   candidateIds: string[];
   label: string;
   score: number;
@@ -14,6 +15,8 @@ export interface Decision {
    * One of each pair is probably a typo of the other, so the UI pre-unticks it.
    */
   nearDuplicates?: [string, string][];
+  /** Terms card only: each term (lowercased) → its uses in the document ({ sarpanch: 5 }). */
+  counts?: Record<string, number>;
 }
 
 const WEIGHTS: Record<string, number> = {
@@ -54,6 +57,18 @@ function namesCard(names: Candidate[]): Decision {
     }
   }
   return { id: NAMES_CARD_ID, kind: 'names', candidateIds: names.map((c) => c.id), label, score: 0, nearDuplicates };
+}
+
+/** Id of the terms card decision (there is at most one). */
+export const TERMS_CARD_ID = 'terms';
+
+/** The terms card: every flag of a term (see findTerms) as one decision, counted once (spec §5). */
+function termsCard(flags: Candidate[], uses: Map<string, number>): Decision {
+  const counts: Record<string, number> = {};
+  for (const c of flags) counts[c.original.toLowerCase()] = uses.get(c.original.toLowerCase())!;
+  const n = Object.keys(counts).length;
+  const label = `${n} ${n === 1 ? 'term' : 'terms'} used in this document`;
+  return { id: TERMS_CARD_ID, kind: 'terms', candidateIds: flags.map((c) => c.id), label, score: 0, counts };
 }
 
 /**
@@ -110,6 +125,8 @@ interface DecisionOptions {
   paraText?: ReadonlyMap<number, string>;
   /** Candidates that cannot be applied (inside an existing tracked change): returned in `blocked`. */
   blocked?: (c: Candidate) => boolean;
+  /** Uses a lowercase unknown word needs to count as a term (default 3); needs `paraText`. */
+  termMinRepeats?: number;
 }
 
 /** Decisions grouped by batch key, in first-appearance order. */
@@ -144,14 +161,25 @@ class DecisionGroups {
  * their decision ids.
  * Names: every capitalised Spelling/Typo flag goes on one names card, ranked last (spec §5), except
  * likely typos (isLikelyTypo) and Spelling/Typo flags of words in `typoWords`: those rank like any word.
- * Blocked candidates go into `blocked` (scored and sorted the same way), except name flags, which join
- * the one names card: adding a name to the dictionary changes no text.
+ * Terms: lowercase Spelling/Typo flags of a term (findTerms, needs `paraText`) go on one terms card,
+ * ranked just above the names card (spec §5).
+ * Blocked candidates go into `blocked` (scored and sorted the same way), except name and term flags,
+ * which join their card: adding a word to the dictionary changes no text.
  */
 export function buildDecisions(
   cands: Candidate[],
   tiers: Map<string, Tier>,
-  { fold = () => false, typoWords = new Set(), paraText, blocked = () => false }: DecisionOptions = {},
+  {
+    fold = () => false,
+    typoWords = new Set(),
+    paraText,
+    blocked = () => false,
+    termMinRepeats = DEFAULT_TERM_MIN_REPEATS,
+  }: DecisionOptions = {},
 ): { safe: string[]; decisions: Decision[]; demoted: string[]; blocked: Decision[] } {
+  const reviewFlags = cands.filter((c) => (tiers.get(c.id) ?? 'review') === 'review');
+  const terms = paraText ? findTerms(reviewFlags, paraText, termMinRepeats, typoWords) : new Map<string, number>();
+  const isTermFlag = (c: Candidate) => isLowercaseWordFlag(c) && terms.has(c.original.toLowerCase());
   const safe: string[] = [];
   const wordOf = (c: Candidate) => (WORD_REWRITE_KINDS.has(c.kind) ? c.kind + c.original.toLowerCase() : null);
   // A word the document uses as a fact-locked name somewhere is a name everywhere (e.g. sentence-initial).
@@ -163,6 +191,7 @@ export function buildDecisions(
   const demoted = new DecisionGroups();
   const blockedGroups = new DecisionGroups();
   const names: Candidate[] = [];
+  const termFlags: Candidate[] = [];
   for (const c of cands) {
     const t = tiers.get(c.id) ?? 'review';
     if (t === 'hidden') continue;
@@ -171,7 +200,8 @@ export function buildDecisions(
       continue;
     }
     const asWord = rankedAsWord(c);
-    if (isNameFlag(c) && !asWord) names.push(c);
+    if (isTermFlag(c)) termFlags.push(c);
+    else if (isNameFlag(c) && !asWord) names.push(c);
     else if (blocked(c)) blockedGroups.add(c);
     else if (!asWord && (fold(c) || (wordOf(c) !== null && lockedWords.has(wordOf(c)!)))) demoted.add(c);
     else normal.add(c);
@@ -184,10 +214,12 @@ export function buildDecisions(
   const byScore = (a: Decision, b: Decision) => b.score - a.score;
   const decisions = normal.toDecisions(scoreFor).sort(byScore);
   const demotedDecisions = demoted.toDecisions(() => 0);
-  const card = names.length ? [namesCard(names)] : [];
+  const cards: Decision[] = [];
+  if (termFlags.length) cards.push(termsCard(termFlags, terms));
+  if (names.length) cards.push(namesCard(names));
   return {
     safe,
-    decisions: [...decisions, ...demotedDecisions, ...card],
+    decisions: [...decisions, ...demotedDecisions, ...cards],
     demoted: demotedDecisions.map((d) => d.id),
     blocked: blockedGroups.toDecisions(scoreFor).sort(byScore),
   };

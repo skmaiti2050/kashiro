@@ -242,6 +242,7 @@ export class SessionController {
       dictionary: settings.dictionary,
       tierOverrides: settings.tierOverrides,
       depth: this.currentDepth(),
+      termMinRepeats: settings.termMinRepeats,
     };
   }
 
@@ -279,6 +280,11 @@ export class SessionController {
     await this.actAsync((s) => s.acceptNames(keepAsTypos));
   }
 
+  /** The terms card: every term joins the dictionary except `keepAsTypos`, which become their own decisions. */
+  async acceptTerms(keepAsTypos: string[]): Promise<void> {
+    await this.actAsync((s) => s.acceptTerms(keepAsTypos));
+  }
+
   /** Review depth for `preset` (default: the current one), saved per preset; the current one applies at once. */
   setDepth(depth: ReviewDepth, preset: PresetId = this.state.settings.preset): void {
     const { settings } = this.state;
@@ -297,10 +303,15 @@ export class SessionController {
     void this.recheck();
   }
 
-  /** Settings that need no new check (save mode, overwrite) or that do (auto-apply kinds, default variant). */
-  changeSettings(patch: Partial<Pick<Settings, 'saveMode' | 'overwrite' | 'fallbackVariant' | 'tierOverrides'>>): void {
+  /**
+   * Settings that need no new check (save mode, overwrite) or that do (auto-apply kinds, default variant,
+   * terms repeat count).
+   */
+  changeSettings(
+    patch: Partial<Pick<Settings, 'saveMode' | 'overwrite' | 'fallbackVariant' | 'tierOverrides' | 'termMinRepeats'>>,
+  ): void {
     this.updateSettings(patch);
-    if (patch.tierOverrides || patch.fallbackVariant) void this.recheck();
+    if (patch.tierOverrides || patch.fallbackVariant || patch.termMinRepeats) void this.recheck();
   }
 
   /** Harper can't forget an imported word, so the linter is rebuilt without it. */
