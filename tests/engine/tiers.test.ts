@@ -201,6 +201,14 @@ describe('userTierOverrides', () => {
     expect(tierOf(c, ctx({ userTierOverrides: { Miscellaneous: 'safe' } }))).toBe('review');
   });
 
+  it('Spelling: safe override never makes capitalised words or variant words safe', () => {
+    const c = ctx({ variantWords: new Set(['colour']), userTierOverrides: { Spelling: 'safe' } });
+    expect(tierOf(cand({ original: 'Ramesh', replacements: ['Rameses'] }), c)).toBe('review');
+    expect(tierOf(cand({ original: 'colour', replacements: ['color'] }), c)).toBe('review');
+    // control: ordinary lowercase single-suggestion spelling is still safe
+    expect(tierOf(cand({ original: 'teh', replacements: ['the'] }), c)).toBe('safe');
+  });
+
   it('override can demote safe kinds to review and unhide preset-hidden kinds', () => {
     const teh = cand({ original: 'teh', replacements: ['the'] });
     expect(tierOf(teh, ctx({ userTierOverrides: { Spelling: 'review' } }))).toBe('review');

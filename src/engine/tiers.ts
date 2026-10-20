@@ -46,16 +46,14 @@ function baseTier(c: Candidate, ctx: TierContext): Tier {
   const safeKind =
     c.source === 'hygiene' ||
     (c.source === 'rules' && (SAFE_RULE_KINDS.has(c.kind) || isArticleSwap(c)));
-  if (!safeKind) return 'review';
-  if (UPPER_START.test(c.original) && c.kind !== 'Capitalization') return 'review';
-  if (ctx.variantWords.has(c.original.toLowerCase())) return 'review';
-  return 'safe';
+  return safeKind ? 'safe' : 'review';
 }
 
 /**
  * Risk tier for one candidate (spec §5). User overrides (by kind) win over the
  * fixed rules and the preset, but nothing becomes safe if it is LLM output, touches
- * a fact-locked span, or lacks exactly one replacement to apply.
+ * a fact-locked span, lacks exactly one replacement, starts with a capital (names,
+ * acronyms; except kind Capitalization) or is a word of the document's variant.
  */
 export function tierOf(c: Candidate, ctx: TierContext): Tier {
   const override = ctx.userTierOverrides?.[c.kind];
@@ -63,6 +61,8 @@ export function tierOf(c: Candidate, ctx: TierContext): Tier {
   if (tier !== 'safe') return tier;
   if (c.source === 'llm') return 'review';
   if (c.replacements.length !== 1) return 'review';
+  if (UPPER_START.test(c.original) && c.kind !== 'Capitalization') return 'review';
+  if (ctx.variantWords.has(c.original.toLowerCase())) return 'review';
   if (overlapsLocked(c, ctx.locked.get(c.paraId))) return 'review';
   return 'safe';
 }
