@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { findLockedSpans } from '../../src/engine/factLock';
+import { findLockedSpans, followsAbbreviation } from '../../src/engine/factLock';
 
 function covered(text: string, needle: string, from = 0): boolean {
   const start = text.indexOf(needle, from);
@@ -92,7 +92,6 @@ describe('findLockedSpans', () => {
     ['i.e.', 'The capital, i.e. Delhi, grew.', 'Delhi'],
     ['etc.', 'Rice, dal etc. Tata supplied all.', 'Tata'],
     ['vs.', 'It was India vs. Australia again.', 'Australia'],
-    ['No.', 'See item No. Seven below.', 'Seven'],
     ['Fig.', 'As shown in Fig. Three below.', 'Three'],
     ['approx.', 'It took approx. Twenty minutes.', 'Twenty'],
   ])('a capitalised word after %s is not a sentence start', (_abbr, t, word) => {
@@ -141,5 +140,25 @@ describe('findLockedSpans', () => {
 
   it('returns nothing for plain lowercase prose', () => {
     expect(findLockedSpans('just some plain words here')).toEqual([]);
+  });
+});
+
+describe('abbreviation edge cases', () => {
+  const unlocked = (t: string, word: string) => {
+    const i = t.indexOf(word);
+    return !findLockedSpans(t).some((s) => s.start <= i && s.end > i);
+  };
+
+  it('"No." is an abbreviation only as case-sensitive "No." before a digit', () => {
+    expect(unlocked('He said No. Then he left.', 'Then')).toBe(true);
+    expect(unlocked('I said no. Then he left.', 'Then')).toBe(true);
+    expect(followsAbbreviation('see No. 5 here', 8)).toBe(true);
+    expect(followsAbbreviation('I said no. the end', 11)).toBe(false);
+  });
+
+  it('a single capital initial counts only before a capitalised word', () => {
+    // "Plan B. the end": the linter is right to want "The".
+    expect(followsAbbreviation('We chose Plan B. the end', 17)).toBe(false);
+    expect(followsAbbreviation('Mr. and Mrs. Rao', 4)).toBe(true);
   });
 });

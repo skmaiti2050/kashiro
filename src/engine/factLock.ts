@@ -55,24 +55,31 @@ const PATTERNS: RegExp[] = [
 const CAPITALISED = /(?<![\p{L}\p{N}'’])\p{Lu}(?:['’]\p{Lu})?\p{Ll}[\p{L}'’-]*/gu;
 const OPENERS = /["'(\[{“‘«]/;
 
-/** Abbreviations whose period does not end a sentence (lowercased, without the final period). */
+/** Abbreviations whose period does not end a sentence (lowercased, without the final period). "No." is special-cased. */
 const ABBREVIATIONS = new Set([
-  'dr', 'mr', 'mrs', 'ms', 'prof', 'st', 'mt', 'jr', 'sr', 'e.g', 'i.e', 'etc', 'vs', 'no', 'fig', 'approx',
+  'dr', 'mr', 'mrs', 'ms', 'prof', 'st', 'mt', 'jr', 'sr', 'e.g', 'i.e', 'etc', 'vs', 'fig', 'approx',
 ]);
 
-/** True when the '.' at `dot` closes one of ABBREVIATIONS or an initial (a whole token: "Dr.", "K.", not "hello."). */
-function endsAbbreviation(text: string, dot: number): boolean {
+/**
+ * True when the '.' at `dot` closes an abbreviation, given the next word starts at `next`:
+ * one of ABBREVIATIONS ("Dr.", not "hello."); "No." (case-sensitive) only before a digit ("No. 5");
+ * a single capital initial ("K.") only before a capitalised word ("R. K. Narayan", not "Plan B. the").
+ */
+function endsAbbreviation(text: string, dot: number, next: number): boolean {
   let k = dot;
   while (k > 0 && /[\p{L}.]/u.test(text[k - 1])) k--;
   const token = text.slice(k, dot);
-  return ABBREVIATIONS.has(token.toLowerCase()) || /^\p{Lu}$/u.test(token);
+  const after = text[next] ?? '';
+  if (token === 'No') return /\d/.test(after);
+  if (/^\p{Lu}$/u.test(token)) return /\p{Lu}/u.test(after);
+  return ABBREVIATIONS.has(token.toLowerCase());
 }
 
 /** True when `text` before index `i` (ignoring spaces) ends with an abbreviation or initial, e.g. "Mr. |and". */
 export function followsAbbreviation(text: string, i: number): boolean {
   let j = i;
   while (j > 0 && /\s/.test(text[j - 1])) j--;
-  return j > 0 && text[j - 1] === '.' && endsAbbreviation(text, j - 1);
+  return j > 0 && text[j - 1] === '.' && endsAbbreviation(text, j - 1, i);
 }
 
 function isSentenceStart(text: string, i: number): boolean {
@@ -82,7 +89,7 @@ function isSentenceStart(text: string, i: number): boolean {
   while (j > 0 && /\s/.test(text[j - 1])) j--;
   if (j === i) return false; // glued to the previous word
   if (j === 0) return true;
-  if (text[j - 1] === '.' && endsAbbreviation(text, j - 1)) return false;
+  if (text[j - 1] === '.' && endsAbbreviation(text, j - 1, i)) return false;
   return '.?!:'.includes(text[j - 1]);
 }
 

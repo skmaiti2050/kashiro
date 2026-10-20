@@ -1,4 +1,4 @@
-import type { Candidate, Paragraph, Span, Tier } from './types';
+import type { Candidate, Paragraph, Span, Tier, Variant } from './types';
 import type { Preset } from './presets';
 import { followsAbbreviation } from './factLock';
 
@@ -12,6 +12,8 @@ export interface TierContext {
   userTierOverrides?: Partial<Record<string, Tier>>;
   /** paraId → paragraph text, for context-dependent safety rules. */
   paraText?: Map<number, string>;
+  /** The document's spelling variant (some suggestions are wrong for some variants). */
+  variant?: Variant;
 }
 
 export interface Decision {
@@ -36,21 +38,51 @@ export function overlapsLocked(c: Candidate, locked: Span[] | undefined): boolea
   );
 }
 
-function isArticleSwap(c: Candidate): boolean {
-  if (c.kind !== 'Miscellaneous' || c.replacements.length !== 1) return false;
+/** Words after which an a/an swap is likely the wrong fix (e.g. "an they" is a typo of "and"). */
+const FUNCTION_WORDS = new Set(
+  (
+    'i you he she it we they me him her us them my your his its our their mine yours ours theirs ' +
+    'this that these those who whom whose what which ' +
+    'and or but nor so yet if because as than then while although though unless whether ' +
+    'a an the some any every each no all both either neither much many few more most other another such ' +
+    'is are was were be been being am do does did done have has had will would shall should can could may might must ' +
+    'not of in on at to for with by from into onto upon about over under'
+  ).split(' '),
+);
+
+/**
+ * a ↔ an, only when the next word is a lowercase content word ("a apple"). Before a function word,
+ * punctuation, the end of the text, a capitalised name, an acronym or a number the "fix" is often
+ * wrong ("an they" means "and they"), so it is not an article swap for safety purposes.
+ */
+function isArticleSwap(c: Candidate, text: string | undefined): boolean {
+  if (c.kind !== 'Miscellaneous' || c.replacements.length !== 1 || text === undefined) return false;
   const o = c.original.toLowerCase();
   const r = c.replacements[0].toLowerCase();
-  return (o === 'a' && r === 'an') || (o === 'an' && r === 'a');
+  if (!((o === 'a' && r === 'an') || (o === 'an' && r === 'a'))) return false;
+  const next = /^\s+([\p{L}\p{N}'’-]+)/u.exec(text.slice(c.span.end))?.[1];
+  if (!next || !/^\p{Ll}[\p{Ll}'’-]*$/u.test(next)) return false;
+  return !FUNCTION_WORDS.has(next.toLowerCase());
+}
+
+/** Harper asks for the Oxford comma in every variant; British and Indian English usually omit it. */
+function isUnwantedOxfordComma(c: Candidate, variant: Variant | undefined): boolean {
+  return (
+    (variant === 'British' || variant === 'Indian') &&
+    c.kind === 'Style' &&
+    c.message.startsWith('An Oxford comma is necessary')
+  );
 }
 
 function baseTier(c: Candidate, ctx: TierContext): Tier {
   const { preset } = ctx;
+  if (isUnwantedOxfordComma(c, ctx.variant)) return 'hidden';
   if (preset.hiddenKinds.includes(c.kind)) return 'hidden';
   if (preset.reviewKinds.includes(c.kind)) return 'review';
 
   const safeKind =
     c.source === 'hygiene' ||
-    (c.source === 'rules' && (SAFE_RULE_KINDS.has(c.kind) || isArticleSwap(c)));
+    (c.source === 'rules' && (SAFE_RULE_KINDS.has(c.kind) || isArticleSwap(c, ctx.paraText?.get(c.paraId))));
   return safeKind ? 'safe' : 'review';
 }
 
@@ -158,18 +190,19 @@ function singleLabel(c: Candidate): string {
  * Review candidates with exactly one replacement and the same
  * `kind + lower(original) + '→' + lower(replacement)` collapse into one batch decision (accepting
  * it still applies each member's own replacement, so "It's → Its" keeps its capital).
- * Hidden candidates are dropped. These become single decisions in `folded` (shown under "more", never
- * ranked into the top): candidates matching `fold`; Spelling/Typo flags of a word that `fold` matched
- * elsewhere; and repeats (after the first) of an unknown word with several suggestions or of a no-fix
- * note on the same text. Decisions are sorted by score desc, ties in input order.
+ * Hidden candidates are dropped. Decisions are sorted by score desc, ties in input order.
+ * Demoted (never dropped): candidates matching `fold`; Spelling/Typo flags of a word that `fold`
+ * matched elsewhere; and repeats (after the first) of an unknown word with several suggestions or of a
+ * no-fix note on the same text. They become single decisions with score 0, ranked after every other
+ * decision, so they only reach the top when there is room. `demoted` lists their ids.
  */
 export function buildDecisions(
   cands: Candidate[],
   tiers: Map<string, Tier>,
   fold: (c: Candidate) => boolean = () => false,
-): { safe: string[]; decisions: Decision[]; folded: Decision[] } {
+): { safe: string[]; decisions: Decision[]; demoted: string[] } {
   const safe: string[] = [];
-  const folded: Decision[] = [];
+  const demotedDecisions: Decision[] = [];
   const seenWords = new Set<string>();
   const groups = new Map<string, Candidate[]>();
   const order: { key: string | null; c: Candidate }[] = [];
@@ -186,12 +219,12 @@ export function buildDecisions(
     }
     // A repeat of an unknown word (Spelling/Typo with a choice) or of a no-fix note on the same text is
     // the same question again (one dictionary add or one answer resolves all), so only the first ranks.
-    // Grammar choices like "Its → It's / It has" depend on context and are never folded.
+    // Grammar choices like "Its → It's / It has" depend on context and are never demoted.
     const sameQuestion = c.replacements.length === 0 || (c.replacements.length > 1 && WORD_REWRITE_KINDS.has(c.kind));
     const wordKey = sameQuestion ? c.kind + '\u0000' + c.original.toLowerCase() : null;
     const lockedWord = wordOf(c) !== null && lockedWords.has(wordOf(c)!);
     if (fold(c) || lockedWord || (wordKey !== null && seenWords.has(wordKey))) {
-      folded.push({ id: c.id, kind: 'single', candidateIds: [c.id], label: singleLabel(c), score: scoreOf(c, false) });
+      demotedDecisions.push({ id: c.id, kind: 'single', candidateIds: [c.id], label: singleLabel(c), score: 0 });
       continue;
     }
     if (wordKey !== null) seenWords.add(wordKey);
@@ -224,7 +257,7 @@ export function buildDecisions(
 
   // Array.prototype.sort is stable, so equal scores keep first-appearance order.
   decisions.sort((a, b) => b.score - a.score);
-  return { safe, decisions, folded };
+  return { safe, decisions: [...decisions, ...demotedDecisions], demoted: demotedDecisions.map((d) => d.id) };
 }
 
 const CONTRACTIONS: Record<string, string[]> = {

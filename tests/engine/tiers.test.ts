@@ -46,9 +46,27 @@ describe('tierOf: safe rules', () => {
     expect(tierOf(c, ctx())).toBe('safe');
   });
 
-  it('a ↔ an (Miscellaneous) is safe both ways', () => {
-    expect(tierOf(cand({ original: 'a', replacements: ['an'], kind: 'Miscellaneous' }), ctx())).toBe('safe');
-    expect(tierOf(cand({ original: 'an', replacements: ['a'], kind: 'Miscellaneous' }), ctx())).toBe('safe');
+  /** a/an candidate on the article at the start of `text`, with the paragraph text in ctx. */
+  const article = (text: string) => {
+    const original = text.match(/^an?(?![a-z])/)![0];
+    const c = cand({ original, replacements: [original === 'a' ? 'an' : 'a'], kind: 'Miscellaneous' });
+    return tierOf(c, ctx({ paraText: new Map([[0, text]]) }));
+  };
+
+  it('a ↔ an (Miscellaneous) is safe both ways before a lowercase content word', () => {
+    expect(article('a apple fell')).toBe('safe');
+    expect(article('an banana fell')).toBe('safe');
+  });
+
+  it.each(['an they', 'an the', 'an we', 'an not', 'an is', 'an and', 'a it', 'an', 'an.', 'an NASA', 'an Rao', 'an 8', 'an "apple"'])(
+    'a/an before %s is review',
+    (text) => {
+      expect(article(text)).toBe('review');
+    },
+  );
+
+  it('a/an without paragraph text is review', () => {
+    expect(tierOf(cand({ original: 'a', replacements: ['an'], kind: 'Miscellaneous' }), ctx())).toBe('review');
   });
 
   it('other Miscellaneous is review', () => {
@@ -232,59 +250,66 @@ describe('Task 10 budget tuning', () => {
     expect(foldsUnderMore(the, [], text)).toBe(false);
   });
 
-  it('(4) repeats of an unknown word that cannot batch fold; the first stays ranked', () => {
+  /** Ids in ranked order, and the ids that were demoted (which must be last, with score 0). */
+  const rankedIds = (r: ReturnType<typeof buildDecisions>) => {
+    const ids = r.decisions.map((d) => d.id);
+    const demotedIds = r.demoted;
+    expect(ids.slice(ids.length - demotedIds.length)).toEqual(demotedIds);
+    for (const d of r.decisions) if (demotedIds.includes(d.id)) expect(d.score).toBe(0);
+    return { ids, demotedIds };
+  };
+
+  it('(4) repeats of an unknown word that cannot batch are demoted; the first keeps its rank', () => {
     const a = cand({ original: 'talukas', replacements: ['talks', 'talus'] });
     const b = cand({ paraId: 1, original: 'Talukas', replacements: ['Talks', 'Talus'] });
     const other = cand({ paraId: 2, original: 'siltation', replacements: ['salvation', 'situation'] });
     const all = [a, b, other];
-    const { decisions, folded } = buildDecisions(all, new Map(all.map((c) => [c.id, 'review' as Tier])));
-    expect(decisions.map((d) => d.id)).toEqual([a.id, other.id]);
-    expect(folded.map((d) => d.id)).toEqual([b.id]);
+    const { ids, demotedIds } = rankedIds(buildDecisions(all, new Map(all.map((c) => [c.id, 'review' as Tier]))));
+    expect(ids).toEqual([a.id, other.id, b.id]);
+    expect(demotedIds).toEqual([b.id]);
   });
 
-  it('(4) repeats of the same flag without a single fix fold, for any kind', () => {
+  it('(4) repeats of the same flag without a single fix are demoted, for any kind', () => {
     const msg = { kind: 'Regionalism', replacements: [], message: "`coriander` isn't used in Indian English." };
     const a = cand({ ...msg, original: 'coriander' });
     const b = cand({ ...msg, paraId: 3, original: 'coriander' });
-    const { decisions, folded } = buildDecisions([a, b], new Map([[a.id, 'review'], [b.id, 'review']]));
-    expect(decisions.map((d) => d.id)).toEqual([a.id]);
-    expect(folded.map((d) => d.id)).toEqual([b.id]);
+    const { ids, demotedIds } = rankedIds(buildDecisions([a, b], new Map([[a.id, 'review'], [b.id, 'review']])));
+    expect(ids).toEqual([a.id, b.id]);
+    expect(demotedIds).toEqual([b.id]);
   });
 
-  it('(4) a sentence-initial flag of a word that is fact-locked elsewhere folds too', () => {
+  it('(4) a sentence-initial flag of a word that is fact-locked elsewhere is demoted too', () => {
     const text = 'Marathwada is dry. Rain in Marathwada fell.';
     const locked = findLockedSpans(text);
     const first = cand({ original: 'Marathwada', span: { start: 0, end: 10 }, replacements: ['Maratha', "Maratha's"] });
     const second = cand({ original: 'Marathwada', span: { start: 27, end: 37 }, replacements: ['Maratha', "Maratha's"] });
     const teh = cand({ original: 'Teh', span: { start: 0, end: 3 }, paraId: 1, replacements: ['The', 'Tech'] });
     const all = [first, second, teh];
-    const { decisions, folded } = buildDecisions(
-      all,
-      new Map(all.map((c) => [c.id, 'review' as Tier])),
-      (c) => c.paraId === 0 && foldsUnderMore(c, locked),
+    const { ids, demotedIds } = rankedIds(
+      buildDecisions(all, new Map(all.map((c) => [c.id, 'review' as Tier])), (c) => c.paraId === 0 && foldsUnderMore(c, locked)),
     );
-    expect(decisions.map((d) => d.id)).toEqual([teh.id]);
-    expect(folded.map((d) => d.id).sort()).toEqual([first.id, second.id].sort());
+    expect(ids[0]).toBe(teh.id);
+    expect([...demotedIds].sort()).toEqual([first.id, second.id].sort());
   });
 
-  it('(4) any candidate on a fact-locked span folds', () => {
+  it('(4) a demoted candidate still fills an empty ranking (any candidate on a fact-locked span)', () => {
     const text = 'See pages 41-48 now.';
     const locked = findLockedSpans(text);
     const dash = cand({ original: '-', span: { start: 12, end: 13 }, replacements: ['–'], kind: 'Formatting' });
-    const { decisions, folded } = buildDecisions([dash], new Map([[dash.id, 'review']]), (c) => foldsUnderMore(c, locked));
-    expect(decisions).toEqual([]);
-    expect(folded.map((d) => d.id)).toEqual([dash.id]);
+    const { ids, demotedIds } = rankedIds(buildDecisions([dash], new Map([[dash.id, 'review']]), (c) => foldsUnderMore(c, locked)));
+    expect(ids).toEqual([dash.id]);
+    expect(demotedIds).toEqual([dash.id]);
   });
 
-  it('(4) fact-locked name flags fold under "more"; a sentence-initial misspelling does not', () => {
+  it('(4) fact-locked name flags rank after a sentence-initial misspelling', () => {
     const text = 'Recieve it. We met Anjali today.';
     const locked = findLockedSpans(text);
     const name = cand({ original: 'Anjali', span: { start: 19, end: 25 }, replacements: ['Alkali', 'Anal'] });
     const typo = cand({ original: 'Recieve', span: { start: 0, end: 7 }, replacements: ['Receive', 'Relieve'] });
     const fold = (c: Candidate) => foldsUnderMore(c, locked);
-    const { decisions, folded } = buildDecisions([typo, name], new Map([[typo.id, 'review'], [name.id, 'review']]), fold);
-    expect(decisions.map((d) => d.id)).toEqual([typo.id]);
-    expect(folded.map((d) => d.id)).toEqual([name.id]);
+    const { ids, demotedIds } = rankedIds(buildDecisions([name, typo], new Map([[typo.id, 'review'], [name.id, 'review']]), fold));
+    expect(ids).toEqual([typo.id, name.id]);
+    expect(demotedIds).toEqual([name.id]);
   });
 });
 
@@ -413,10 +438,26 @@ describe('with Harper', () => {
     const l = await createLinter('American');
     const text = 'Sujit saw teh dog and a apple.';
     const cs = await l.lintParagraphs([{ id: 0, text }], 'plaintext');
-    const c = ctx({ locked: new Map([[0, findLockedSpans(text)]]) });
+    const c = ctx({ locked: new Map([[0, findLockedSpans(text)]]), paraText: new Map([[0, text]]) });
     const by = (o: string) => cs.find((x) => x.original === o)!;
     expect(tierOf(by('teh'), c)).toBe('safe');
     expect(tierOf(by('Sujit'), c)).toBe('review');
     expect(tierOf(by('a'), c)).toBe('safe');
+  });
+});
+
+describe('Oxford comma', () => {
+  const oxford = cand({ original: 'sugar', replacements: ['sugar,'], kind: 'Style', message: 'An Oxford comma is necessary here.' });
+  it.each([
+    ['British', 'hidden'],
+    ['Indian', 'hidden'],
+    ['American', 'review'],
+  ] as const)('under %s is %s', (variant, tier) => {
+    expect(tierOf(oxford, ctx({ variant }))).toBe(tier);
+  });
+
+  it('other Style candidates are unaffected', () => {
+    const other = cand({ original: 'very', replacements: [''], kind: 'Style', message: 'Avoid intensifiers.' });
+    expect(tierOf(other, ctx({ variant: 'British' }))).toBe('review');
   });
 });

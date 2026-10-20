@@ -124,7 +124,7 @@ export class CheckSession {
     for (const p of paras) locked.set(p.id, [...findLockedSpans(p.text), ...(p.locked ?? [])]);
     const preset = PRESETS[opts.preset];
     const paraText = new Map(paras.map((p) => [p.id, p.text]));
-    const ctx: TierContext = { locked, variantWords, preset, userTierOverrides: opts.tierOverrides, paraText };
+    const ctx: TierContext = { locked, variantWords, preset, userTierOverrides: opts.tierOverrides, paraText, variant };
 
     const session = new CheckSession(paras, variant, mixed, ctx, deps.now ?? (() => new Date()));
 
@@ -163,13 +163,13 @@ export class CheckSession {
       // A safe candidate is only pending after an undo/restore: offer it for review.
       tiers.set(c.id, t === 'safe' ? 'review' : t);
     }
-    // Name flags on fact-locked words (mid-sentence capitalised words) fold under `more`.
-    const { decisions, folded } = buildDecisions(pending, tiers, (c) =>
+    // Candidates on fact-locked spans (names, numbers, quotes…) are demoted: ranked last, never dropped.
+    const { decisions } = buildDecisions(pending, tiers, (c) =>
       foldsUnderMore(c, this.ctx.locked.get(c.paraId), this.paras.get(c.paraId)?.text),
     );
     // Inside an existing tracked change: can't be applied, so never in `top`.
     const blocked = buildDecisions(tracked, tiers).decisions;
-    return { top: decisions.slice(0, TOP), more: [...decisions.slice(TOP), ...folded, ...blocked] };
+    return { top: decisions.slice(0, TOP), more: [...decisions.slice(TOP), ...blocked] };
   }
 
   /** True when the candidate overlaps a fact-locked span or an adapter-locked (tracked change) span. */
@@ -179,8 +179,19 @@ export class CheckSession {
     return this.inTrackedChange.has(c.id) || overlapsLocked(c, this.ctx.locked.get(c.paraId));
   }
 
+  /** Decisions in the default view (spec §10): the top of the ranking (at most TOP). */
   decisionCount(): number {
     return this.decisions().top.length;
+  }
+
+  /**
+   * Every ranked pending decision (top and more), excluding only candidates that cannot be applied
+   * (inside an existing tracked change). The trust suite's review budget uses this stricter count,
+   * so a long tail under "more" cannot pass by being capped out of view.
+   */
+  rankedDecisionCount(): number {
+    const { top, more } = this.decisions();
+    return top.length + more.filter((d) => !d.candidateIds.some((id) => this.inTrackedChange.has(id))).length;
   }
 
   log(): LogEntry[] {

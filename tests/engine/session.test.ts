@@ -127,12 +127,26 @@ describe('decisions, accept, undo', () => {
     expect(s.decisionCount()).toBe(top.length);
   });
 
-  it('mid-sentence name flags are folded under more, never in top', async () => {
+  it('demoted items (names) rank last but fill empty top slots', async () => {
     const s = await start([{ id: 0, text: 'We met Anjali Kulkarni in Nashik today.' }]);
+    const { top } = s.decisions();
+    expect(top.map((d) => d.label).join('|')).toMatch(/Anjali/);
+    expect(top.every((d) => d.score === 0)).toBe(true);
+    expect(s.rankedDecisionCount()).toBe(top.length);
+  });
+
+  it('real errors that are demoted are never hidden: an all-quote sentence still fills top', async () => {
+    const s = await start([{ id: 0, text: 'He said, "I recieve teh money tommorow and it dont matter."' }]);
+    expect(s.decisionCount()).toBeGreaterThan(0);
+  });
+
+  it('rankedDecisionCount counts top and more, but not tracked-change-locked candidates', async () => {
+    const words = Array.from({ length: 14 }, (_, i) => `wrd${'q'.repeat(i)}x`).join(' ');
+    const s = await start([{ id: 0, text: `${words} teh end`, locked: [{ start: 0, end: 4 }] }]);
     const { top, more } = s.decisions();
-    const label = (d: { label: string }) => d.label;
-    expect(top.map(label).join('|')).not.toMatch(/Anjali|Kulkarni|Nashik/);
-    expect(more.map(label).join('|')).toMatch(/Anjali/);
+    const blocked = s.candidates().filter((c) => c.span.start < 4).length;
+    expect(s.rankedDecisionCount()).toBe(top.length + more.length - blocked);
+    expect(s.rankedDecisionCount()).toBeGreaterThan(s.decisionCount());
   });
 
   it('reject marks every pending member rejected', async () => {

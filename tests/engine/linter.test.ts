@@ -74,3 +74,20 @@ describe('createLinter', () => {
     expect(c.filter((x) => x.kind === 'Spelling')).toHaveLength(0);
   });
 });
+
+describe('Indian-English word list', () => {
+  it.each(['American', 'British', 'Indian'] as const)('knows common Indian-English words under %s', async (v) => {
+    const l = await createLinter(v);
+    const text =
+      'The sarpanch of the gram panchayat met the tehsildar about the borewells, the nullah and two lakh rupees. ' +
+      'We ate dal, roti, poha and theplas at a dhaba near the godown, then preponed the meeting.';
+    const spelling = (await l.lintParagraphs([para(text)], 'plaintext')).filter((x) => x.kind === 'Spelling' || x.kind === 'Typo');
+    expect(spelling.map((x) => x.original)).toEqual([]);
+  });
+
+  it('still flags real misspellings', async () => {
+    const l = await createLinter('Indian');
+    const c = await l.lintParagraphs([para('The goverment recieved it.')], 'plaintext');
+    expect(c.map((x) => x.original)).toEqual(expect.arrayContaining(['goverment', 'recieved']));
+  });
+});

@@ -1,6 +1,7 @@
 import { Dialect, LocalLinter, SuggestionKind } from 'harper.js';
 import type { BinaryModule, LintConfig } from 'harper.js';
 import type { Candidate, Paragraph, Variant } from './types';
+import { EN_IN_WORDS } from './wordlists/en-IN';
 
 export interface RulesLinter {
   lintParagraphs(paras: Paragraph[], language: 'plaintext' | 'markdown'): Promise<Candidate[]>;
@@ -74,7 +75,8 @@ export async function createLinter(
   opts: { binary?: BinaryModule } = {},
 ): Promise<RulesLinter> {
   const binary = opts.binary ?? (await import('harper.js/binaryInlined')).binaryInlined;
-  const known: string[] = [...words];
+  // Indian-English vocabulary is real vocabulary for Indian writers in every variant.
+  const known: string[] = [...EN_IN_WORDS, ...words];
   const full = new Map<Variant, Promise<LocalLinter>>();
   const spell = new Map<Variant, Promise<LocalLinter>>();
   let spellOnly: LintConfig | undefined;
