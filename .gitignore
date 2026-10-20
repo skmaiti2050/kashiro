@@ -3,3 +3,5 @@ dist/
 .superpowers/
 src-tauri/target/
 src-tauri/binaries/
+*.log
+.vscode/
