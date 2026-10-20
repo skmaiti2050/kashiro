@@ -7,13 +7,9 @@ const noPersonal = { personal: new Set<string>() };
 
 describe('dictionary lookup (real file)', () => {
   let dictionary: Dictionary;
-  let loadAndFirstLookupMs = 0;
 
   beforeAll(async () => {
-    const start = performance.now();
     dictionary = await loadDictionary(new Uint8Array(readFileSync(DICTIONARY_PATH)));
-    dictionary.lookup('affect', noPersonal);
-    loadAndFirstLookupMs = performance.now() - start;
   });
 
   const partsOfSpeech = (word: string) => dictionary.lookup(word, noPersonal).senses.map((s) => s.pos);
@@ -85,16 +81,5 @@ describe('dictionary lookup (real file)', () => {
     expect(dictionary.lookup('Zorblax', { personal: new Set(['zorblax']) }).inPersonalDictionary).toBe(true);
     expect(dictionary.lookup('zorblax', noPersonal).inPersonalDictionary).toBe(false);
   });
-
-  // Target is 300 ms (about 230-265 ms when run alone, see the task report). The suite runs files in parallel and
-  // wall time then stretches up to 8x, so this only guards against a gross regression.
-  it('loads and answers the first lookup in under 3 s', () => {
-    expect(loadAndFirstLookupMs).toBeLessThan(3000);
-  });
-
-  it('answers a lookup in under 50 ms', () => {
-    const start = performance.now();
-    dictionary.lookup('studies', noPersonal);
-    expect(performance.now() - start).toBeLessThan(50);
-  });
+  // The load and lookup timing tests live in tests/timing (run on their own, after the rest of the suite).
 });
