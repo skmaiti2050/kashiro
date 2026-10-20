@@ -53,6 +53,18 @@ describe('createLinter', () => {
     expect(uk.some((x) => x.original === 'colour')).toBe(false);
   });
 
+  it('lintSpelling flags only spelling, under the given variant, and leaves the current variant', async () => {
+    const l = await createLinter('American');
+    await l.addWords(['Sujit']);
+    const text = 'Sujit said the colour of teh car is is red.';
+    const us = await l.lintSpelling([para(text)], 'American');
+    expect(us.map((x) => x.original)).toContain('colour');
+    expect(us.some((x) => x.original === 'Sujit' || x.original === 'is is')).toBe(false);
+    const uk = await l.lintSpelling([para(text)], 'British');
+    expect(uk.some((x) => x.original === 'colour')).toBe(false);
+    expect(l.variant).toBe('American');
+  });
+
   it('keeps added words across setVariant', async () => {
     const l = await createLinter('American');
     await l.addWords(['Sujit']);

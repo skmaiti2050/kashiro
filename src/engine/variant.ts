@@ -13,8 +13,8 @@ export interface VariantResult {
 
 /**
  * Lint with each dialect, pick the one with the fewest Spelling lints.
- * Ties: `fallback` if tied, else the first in ORDER. One linter is reused
- * via setVariant; a caller-supplied linter gets its original variant back.
+ * Ties: `fallback` if tied, else the first in ORDER. Uses the linter's
+ * spell-check-only pass per dialect; a caller-supplied linter keeps its variant.
  */
 export async function detectVariant(
   paras: Paragraph[],
@@ -22,20 +22,13 @@ export async function detectVariant(
   opts: { linter?: RulesLinter } = {},
 ): Promise<VariantResult> {
   const linter = opts.linter ?? (await createLinter(fallback));
-  const original = linter.variant;
-
   const flagged = new Map<Variant, Set<string>>();
   const counts = new Map<Variant, number>();
-  try {
-    for (const v of ORDER) {
-      await linter.setVariant(v);
-      const cands = await linter.lintParagraphs(paras, 'plaintext');
-      const spelling = cands.filter((c) => c.kind === 'Spelling');
-      counts.set(v, spelling.length);
-      flagged.set(v, new Set(spelling.map((c) => c.original.toLowerCase())));
-    }
-  } finally {
-    if (opts.linter) await linter.setVariant(original);
+  for (const v of ORDER) {
+    const cands = await linter.lintSpelling(paras, v);
+    const spelling = cands.filter((c) => c.kind === 'Spelling');
+    counts.set(v, spelling.length);
+    flagged.set(v, new Set(spelling.map((c) => c.original.toLowerCase())));
   }
 
   const min = Math.min(...counts.values());
