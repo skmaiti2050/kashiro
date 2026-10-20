@@ -52,4 +52,13 @@ describe('createLinter', () => {
     const uk = await l.lintParagraphs([para(text)], 'plaintext');
     expect(uk.some((x) => x.original === 'colour')).toBe(false);
   });
+
+  it('keeps added words across setVariant', async () => {
+    const l = await createLinter('American');
+    await l.addWords(['Sujit']);
+    await l.setVariant('British');
+    await l.setVariant('American');
+    const c = await l.lintParagraphs([{ id: 0, text: 'Sujit went home.' }], 'plaintext');
+    expect(c.filter((x) => x.kind === 'Spelling')).toHaveLength(0);
+  });
 });

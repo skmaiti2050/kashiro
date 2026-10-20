@@ -20,6 +20,7 @@ describe('detectVariant', () => {
     const r = await detectVariant([para('The colour and the color')], 'American');
     expect(r.mixed).toBe(true);
     expect(r.variantWords.size).toBeGreaterThan(0);
+    expect(r.variantWords.has(r.variant === 'American' ? 'colour' : 'color')).toBe(true);
   });
 
   it('returns the fallback when there are no variant-specific words', async () => {
@@ -33,11 +34,20 @@ describe('detectVariant', () => {
   it('never treats a typo as a variant word', async () => {
     const r = await detectVariant([para('The colour of teh thing, and the color too')], 'American');
     expect(r.variantWords.has('teh')).toBe(false);
+    expect([...r.variantWords].some((w) => w === 'colour' || w === 'color')).toBe(true);
   });
 
   it('restores the variant of a shared linter', async () => {
     const linter = await createLinter('Indian');
     await detectVariant([para('The color of the organised behaviour')], 'Indian', { linter });
     expect(linter.variant).toBe('Indian');
+  });
+
+  it('keeps the personal dictionary on a shared linter', async () => {
+    const linter = await createLinter('American');
+    await linter.addWords(['Sujit']);
+    await detectVariant([para('The colour of it.')], 'American', { linter });
+    const c = await linter.lintParagraphs([para('Sujit went home.')], 'plaintext');
+    expect(c.filter((x) => x.kind === 'Spelling')).toHaveLength(0);
   });
 });

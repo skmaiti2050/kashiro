@@ -22,7 +22,8 @@ export async function createLinter(
   const binary = opts.binary ?? (await import('harper.js/binaryInlined')).binaryInlined;
   const linter = new LocalLinter({ binary, dialect: Dialect[variant] });
   await linter.setup();
-  if (words.length) await linter.importWords(words);
+  const known: string[] = [...words];
+  if (known.length) await linter.importWords(known);
 
   let current = variant;
   return {
@@ -69,11 +70,14 @@ export async function createLinter(
       return out;
     },
     async addWords(w) {
+      known.push(...w);
       await linter.importWords(w);
     },
     async setVariant(v) {
       await linter.setDialect(Dialect[v]);
       current = v;
+      // setDialect drops imported words, so re-import them.
+      if (known.length) await linter.importWords(known);
     },
   };
 }
