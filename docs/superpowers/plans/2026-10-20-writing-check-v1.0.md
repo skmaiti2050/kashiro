@@ -362,6 +362,42 @@
 - [ ] **Step 4:** Run `npm test`. Expected: PASS. Run `npm run tauri dev`, open the corpus .docx, accept 2 items, undo 1, save, and open the output in Word.
 - [ ] **Step 5:** Commit: `feat(ui): open/check/review/save desktop flow`
 
+### Task 11b: Offline word lookup
+
+**Files:**
+- Create: `scripts/build-dictionary.ts`, `src/engine/dictionary/lookup.ts`, `src/ui/LookupPanel.tsx`, `resources/dictionary/oewn.json.gz` (generated, committed), `resources/dictionary/ATTRIBUTION.md`
+- Modify: `src/ui/ReviewPanel.tsx` ("Look up" toggle), `src/ui/DocumentView.tsx` (Ctrl+D and right-click → Look up on the selected word), the About text (attribution)
+- Test: `tests/engine/dictionary/lookup.test.ts`, `tests/scripts/build-dictionary.test.ts`
+
+**Interfaces:**
+- Consumes: `Candidate` (original + replacements), the personal dictionary and `src/engine/wordlists/en-IN.ts` (Task 10).
+- Produces:
+  ```ts
+  interface Sense { pos: 'noun' | 'verb' | 'adjective' | 'adverb'; definition: string; example?: string; synonyms: string[] }
+  interface LookupResult { word: string; lemma: string; senses: Sense[]; inPersonalDictionary: boolean; inIndianEnglishList: boolean }
+  function loadDictionary(bytes: Uint8Array): Promise<Dictionary>;          // gunzip + index, once
+  interface Dictionary { lookup(word: string, opts: { personal: Set<string> }): LookupResult }
+  ```
+  `npm run build:dictionary -- <oewn-release.xml.gz>` writes `resources/dictionary/oewn.json.gz`.
+
+- [ ] **Step 1:** The build script takes a pinned Open English WordNet WN-LMF XML release (record version, URL and sha256 in the script header; the owner downloads it once). It writes `{ lemma: [[posCode, definition, example?, synonyms[]]...] }`, keeping at most 3 senses and 5 synonyms per POS, then gzips. Test it on a 3-entry WN-LMF fixture: exact JSON shape, sense and synonym caps.
+- [ ] **Step 2:** Write the lookup tests:
+  - `affect` and `effect` both return verb/noun senses.
+  - Inflections reach their lemma: `running` → `run`, `studies` → `study`, `better` → `good` via WordNet's exception lists, kept in the build output.
+  - Case-insensitive.
+  - Unknown word → `senses: []`.
+  - `panchayat` → `inIndianEnglishList: true`.
+  - A personal word → `inPersonalDictionary: true`.
+  - The first lookup on the real file returns in < 300 ms after load.
+- [ ] **Step 3:** Run. Expected: FAIL. Implement, then run. Expected: PASS.
+- [ ] **Step 4:** UI:
+  - **Review item:** "Look up" shows two columns (original | suggestion), each with up to 3 senses.
+  - **Document view:** Ctrl+D or right-click on the current selection (expanded to the word under the cursor if empty) opens the panel. Esc closes it.
+  - **Data loading:** the file loads lazily via `resolveResource`, with a "Loading dictionary…" state.
+  - **About:** the About dialog shows the CC BY 4.0 attribution.
+  - **No editing:** nothing in the panel edits text.
+- [ ] **Step 5:** Run `npm test`. Check that the bundle size stays within the target (≤15 MB for the dictionary file). Manual check in `npm run tauri dev`.
+- [ ] **Step 6:** Commit: `feat(lookup): offline word lookup for review items and selections`
 ## Milestone D: Optional "reads naturally" pass
 
 ### Task 12: LLM sidecar and model download
@@ -458,6 +494,7 @@
 | §3.5 presets | 5 |
 | §3.6 fact lock | 3, 5, 13 |
 | §3.7 change log + report | 6, 11 |
+| §3.9 word lookup (offline dictionary) | 11b |
 | §3.8 / §9 trust suite | 7 (no-network), 10 |
 | §6 constraints (offline, no admin, 8 GB, instant) | 7, 11, 12, 14 |
 | §7 signing/staging | 14 (unsigned v1.0, Windows) |

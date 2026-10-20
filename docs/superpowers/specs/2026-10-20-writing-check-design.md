@@ -58,6 +58,19 @@ Anyone who writes for an audience. Check every default against these five:
    No automatic change may alter them; any suggestion touching them is always shown for review.
 7. **Change log with undo** for every applied change, automatic or manual, exportable as a report.
 8. **Trust suite**: the Turnitout audit kit becomes this app's public test suite (§9).
+9. **Word lookup (offline dictionary)** *(added 2026-10-20 at the owner's request)*: a reference to help
+   the writer decide, not a writing aid.
+   - **While reviewing:** every review item has a "Look up" toggle that shows the definitions of the
+     original word and of the suggested word side by side (the affect/effect, its/it's case).
+   - **Any selected word:** select a word in the document view and press `Ctrl+D` (or right-click →
+     Look up) to open the same panel.
+   - **Shows:** part of speech, 1-3 short definitions, one example, a few synonyms. If the word is in the
+     personal dictionary or the built-in Indian-English list, the panel says so, even without a definition.
+   - **Read-only in v1:** synonyms are not clickable replacements; the lookup informs the decision and never
+     edits the text.
+   - **Data** *(Claude's call)*: Open English WordNet (CC BY 4.0; attribution in About), converted at build
+     time from a pinned release into a compact bundled file (target ≤15 MB compressed), loaded on first use.
+     No network. English only; Hindi/Bengali lookup arrives with the Indian-languages stage.
 
 ## 4. Non-goals and anti-goals
 
@@ -93,6 +106,9 @@ Suggestions are sorted into tiers by risk, not shown as one long list.
   (American / British / others Harper supports), with a per-document override and an app default taken
   from the OS locale. Never auto-convert between variants; a mixed document is flagged for review once,
   as a batch.
+- **Names card** *(owner's decision, 2026-10-20)*: all unknown capitalised words (people, places, brands)
+  are reviewed together on one card with checkboxes ("Add all to my dictionary", untick any real typos).
+  It counts as one decision. A repeated flag of the same word is always one batched decision.
 - The review list shows the **5-10 highest-value suggestions first**; the rest fold under "more".
 - Every applied change is undoable individually from the change log.
 - Settings let a user move categories between tiers, up to "auto-accept everything except the LLM and
