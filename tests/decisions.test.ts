@@ -43,25 +43,14 @@ const PER_WORDS = 1500;
  * fact-lock checks are enforced for every document.
  */
 const KNOWN_OVER_BUDGET = new Set<string>([
-  'academic/groundwater-marathwada.md',
   'academic/heat-stress-construction.md',
   'academic/midday-meal-attendance.docx',
-  'academic/upi-small-merchants.docx',
-  'academic/vernacular-edtech-review.md',
   'academic/water-user-associations-vidarbha.md',
-  'blog/first-home-loan.md',
-  'blog/freelancer-taxes.docx',
-  'blog/monsoon-trek-kalsubai.md',
   'blog/sourdough-bengaluru.docx',
-  'blog/sunday-market-pune.md',
   'blog/village-ganeshotsav-homecoming.docx',
-  'business/board-update-fy25.md',
   'business/cloud-migration-proposal.docx',
   'business/payments-incident-postmortem.md',
-  'business/q3-sales-review.docx',
   'script/gst-explainer-video.docx',
-  'script/podcast-founders-ep12.md',
-  'script/product-launch-keynote.md',
   'script/short-film-chai-stall.docx',
   'script/wedding-toast.md',
 ]);
