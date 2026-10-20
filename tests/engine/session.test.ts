@@ -127,10 +127,10 @@ describe('decisions, accept, undo', () => {
     expect(s.decisionCount()).toBe(top.length);
   });
 
-  it('demoted items (names) rank last but fill empty top slots', async () => {
+  it('the names card ranks last but fills an empty top', async () => {
     const s = await start([{ id: 0, text: 'We met Anjali Kulkarni in Nashik today.' }]);
     const { top } = s.decisions();
-    expect(top.map((d) => d.label).join('|')).toMatch(/Anjali/);
+    expect(top.map((d) => d.label)).toEqual(['3 names and places']);
     expect(top.every((d) => d.score === 0)).toBe(true);
     expect(s.rankedDecisionCount()).toBe(top.length);
   });
@@ -356,7 +356,7 @@ describe('word batches (round 2)', () => {
 
   it('accept(batch, i) applies each member its own replacement when they share the text', async () => {
     const s = await start(paras3);
-    s.addCandidates([word('a', 0, 'word', ['ward', 'wired']), word('b', 1, 'Word', ['Ward', 'Wired'])]);
+    s.addCandidates([word('a', 0, 'word', ['ward', 'wired']), word('b', 1, 'word', ['Ward', 'Wired'])]);
     const d = batchOf(s, 'a');
     expect(d.kind).toBe('batch');
     s.accept(d.id, 1);
@@ -404,5 +404,31 @@ describe('word batches (round 2)', () => {
     const s = await start([{ id: 0, text: TEH }]);
     s.addCandidates([{ ...word('x', 0, 'is is', ['is']), kind: 'Repetition' }]);
     await expect(s.addToDictionary('x')).rejects.toThrow(/not a word/);
+  });
+});
+
+describe('names card in a session', () => {
+  const text = 'We met Anjali, Kulkarni and Rao in Nashik. Later Rao left.';
+
+  it('counts as one ranked decision', async () => {
+    const s = await start([{ id: 0, text }]);
+    const names = s.decisions().top.filter((d) => d.kind === 'names');
+    expect(names).toHaveLength(1);
+    expect(names[0].label).toBe('4 names and places');
+    expect(s.rankedDecisionCount()).toBe(1);
+  });
+
+  it('acceptNames adds every name to the dictionary except the typos, which split out', async () => {
+    const s = await CheckSession.start([{ id: 0, text }], opts()); // own linter: words are added to it
+    await s.acceptNames(['nashik']);
+    expect(s.addedWords().sort()).toEqual(['Anjali', 'Kulkarni', 'Rao']);
+    const left = [...s.decisions().top, ...s.decisions().more];
+    expect(left.map((d) => d.kind)).not.toContain('names');
+    const nashik = left.find((d) => d.label.startsWith('Nashik'))!;
+    expect(nashik.kind).toBe('single');
+    for (const c of s.candidates().filter((x) => x.original === 'Rao')) {
+      expect(lastLog(s, c.id)!.reason).toMatch(/dictionary/);
+    }
+    expect(s.rankedDecisionCount()).toBe(1);
   });
 });

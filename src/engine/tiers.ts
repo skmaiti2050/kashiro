@@ -17,9 +17,9 @@ export interface TierContext {
 }
 
 export interface Decision {
-  /** `batch:<key>` for a batch, the candidate id for a single. */
+  /** `batch:<key>` for a batch, the candidate id for a single, `names` for the names card. */
   id: string;
-  kind: 'single' | 'batch';
+  kind: 'single' | 'batch' | 'names';
   candidateIds: string[];
   label: string;
   score: number;
@@ -74,8 +74,12 @@ function isUnwantedOxfordComma(c: Candidate, variant: Variant | undefined): bool
   );
 }
 
+/** Harper's title-case advice for headings is a house-style choice (spec §2: don't nag bloggers about it). */
+const HEADING_TITLE_CASE = 'Try to use title case in headings.';
+
 function baseTier(c: Candidate, ctx: TierContext): Tier {
   const { preset } = ctx;
+  if (c.kind === 'Capitalization' && c.message === HEADING_TITLE_CASE) return 'hidden';
   if (isUnwantedOxfordComma(c, ctx.variant)) return 'hidden';
   if (preset.hiddenKinds.includes(c.kind)) return 'hidden';
   if (preset.reviewKinds.includes(c.kind)) return 'review';
@@ -128,9 +132,16 @@ const WEIGHTS: Record<string, number> = {
 /** Kinds not in the table (e.g. a lowercase Spelling with several suggestions). */
 const DEFAULT_WEIGHT = 2;
 
-/** Capitalised-word Spelling flags are almost always names: rank them last. */
+/** Capitalised-word Spelling/Typo flags are almost always names (spec §5 names card). */
 function isNameFlag(c: Candidate): boolean {
-  return c.kind === 'Spelling' && UPPER_START.test(c.original);
+  return WORD_REWRITE_KINDS.has(c.kind) && UPPER_START.test(c.original);
+}
+
+/** The names card: every name flag in the document as one decision, counted once (spec §5). */
+function namesCard(names: Candidate[]): Decision {
+  const distinct = new Set(names.map((c) => c.original.toLowerCase())).size;
+  const label = distinct === 1 ? '1 name or place' : `${distinct} names and places`;
+  return { id: 'names', kind: 'names', candidateIds: names.map((c) => c.id), label, score: 0 };
 }
 
 /**
@@ -216,11 +227,14 @@ function batchLabel(c: Candidate, n: number): string {
  * word that `fold` matched elsewhere (a name everywhere). They batch among themselves, get score 0 and
  * rank after every other decision, so they only reach the top when there is room. `demoted` lists
  * their decision ids.
+ * Names: every capitalised Spelling/Typo flag goes on one names card, ranked last (spec §5), except
+ * words in `typoWords` (lowercased), which the user marked as real typos: those rank like any word.
  */
 export function buildDecisions(
   cands: Candidate[],
   tiers: Map<string, Tier>,
   fold: (c: Candidate) => boolean = () => false,
+  typoWords: ReadonlySet<string> = new Set(),
 ): { safe: string[]; decisions: Decision[]; demoted: string[] } {
   const safe: string[] = [];
   const wordOf = (c: Candidate) => (WORD_REWRITE_KINDS.has(c.kind) ? c.kind + c.original.toLowerCase() : null);
@@ -230,6 +244,7 @@ export function buildDecisions(
   const group = () => ({ groups: new Map<string, Candidate[]>(), order: [] as string[] });
   const normal = group();
   const demoted = group();
+  const names: Candidate[] = [];
   for (const c of cands) {
     const t = tiers.get(c.id) ?? 'review';
     if (t === 'hidden') continue;
@@ -237,7 +252,12 @@ export function buildDecisions(
       safe.push(c.id);
       continue;
     }
-    const isDemoted = fold(c) || (wordOf(c) !== null && lockedWords.has(wordOf(c)!));
+    const markedTypo = typoWords.has(c.original.toLowerCase());
+    if (isNameFlag(c) && !markedTypo) {
+      names.push(c);
+      continue;
+    }
+    const isDemoted = !markedTypo && (fold(c) || (wordOf(c) !== null && lockedWords.has(wordOf(c)!)));
     const into = isDemoted ? demoted : normal;
     const key = batchKey(c);
     const g = into.groups.get(key);
@@ -258,11 +278,15 @@ export function buildDecisions(
       return { id: c.id, kind: 'single', candidateIds: [c.id], label: singleLabel(c), score: score(c, false) };
     });
 
-  const decisions = toDecisions(normal, scoreOf);
+  // A word the user marked as a typo is ranked like any other word, not as a name.
+  const scoreFor = (c: Candidate, batch: boolean) =>
+    typoWords.has(c.original.toLowerCase()) ? (WEIGHTS[c.kind] ?? DEFAULT_WEIGHT) + (batch ? 1 : 0) : scoreOf(c, batch);
+  const decisions = toDecisions(normal, scoreFor);
   // Array.prototype.sort is stable, so equal scores keep first-appearance order.
   decisions.sort((a, b) => b.score - a.score);
   const demotedDecisions = toDecisions(demoted, () => 0);
-  return { safe, decisions: [...decisions, ...demotedDecisions], demoted: demotedDecisions.map((d) => d.id) };
+  const card = names.length ? [namesCard(names)] : [];
+  return { safe, decisions: [...decisions, ...demotedDecisions, ...card], demoted: demotedDecisions.map((d) => d.id) };
 }
 
 const CONTRACTIONS: Record<string, string[]> = {

@@ -261,7 +261,7 @@ describe('Task 10 budget tuning', () => {
 
   it('(round 2) Spelling flags of the same word batch into one decision, whatever the suggestions', () => {
     const a = cand({ original: 'talukas', replacements: ['talks', 'talus'] });
-    const b = cand({ paraId: 1, original: 'Talukas', replacements: ['Talks', 'Talus'] });
+    const b = cand({ paraId: 1, original: 'talukas', replacements: ['tasks'] });
     const c = cand({ paraId: 4, original: 'talukas', replacements: [] });
     const other = cand({ paraId: 2, original: 'siltation', replacements: ['salvation', 'situation'] });
     const all = [a, b, other, c];
@@ -280,7 +280,7 @@ describe('Task 10 budget tuning', () => {
     expect(decisions.map((d) => d.candidateIds)).toEqual([[a.id, b.id], [otherMsg.id]]);
   });
 
-  it('(4) a name flag that is fact-locked somewhere is demoted everywhere, as one batch', () => {
+  it('(4) capitalised flags go on the names card whether fact-locked or not (spec §5)', () => {
     const text = 'Marathwada is dry. Rain in Marathwada fell.';
     const locked = findLockedSpans(text);
     const first = cand({ original: 'Marathwada', span: { start: 0, end: 10 }, replacements: ['Maratha', "Maratha's"] });
@@ -288,10 +288,8 @@ describe('Task 10 budget tuning', () => {
     const teh = cand({ original: 'Teh', span: { start: 0, end: 3 }, paraId: 1, replacements: ['The', 'Tech'] });
     const all = [first, second, teh];
     const r = buildDecisions(all, new Map(all.map((c) => [c.id, 'review' as Tier])), (c) => c.paraId === 0 && foldsUnderMore(c, locked));
-    const { ids, demotedIds } = rankedIds(r);
-    expect(ids[0]).toBe(teh.id);
-    expect(demotedIds).toHaveLength(1);
-    expect(r.decisions.at(-1)!.candidateIds).toEqual([first.id, second.id]);
+    expect(r.decisions).toHaveLength(1);
+    expect(r.decisions[0]).toMatchObject({ kind: 'names', candidateIds: [first.id, second.id, teh.id], label: '2 names and places' });
   });
 
   it('(4) a demoted candidate still fills an empty ranking (any candidate on a fact-locked span)', () => {
@@ -303,15 +301,14 @@ describe('Task 10 budget tuning', () => {
     expect(demotedIds).toEqual([dash.id]);
   });
 
-  it('(4) fact-locked name flags rank after a sentence-initial misspelling', () => {
-    const text = 'Recieve it. We met Anjali today.';
+  it('(4) the names card ranks after a lowercase misspelling', () => {
+    const text = 'recieve it. We met Anjali today.';
     const locked = findLockedSpans(text);
     const name = cand({ original: 'Anjali', span: { start: 19, end: 25 }, replacements: ['Alkali', 'Anal'] });
-    const typo = cand({ original: 'Recieve', span: { start: 0, end: 7 }, replacements: ['Receive', 'Relieve'] });
+    const typo = cand({ original: 'recieve', span: { start: 0, end: 7 }, replacements: ['receive', 'relieve'] });
     const fold = (c: Candidate) => foldsUnderMore(c, locked);
-    const { ids, demotedIds } = rankedIds(buildDecisions([name, typo], new Map([[typo.id, 'review'], [name.id, 'review']]), fold));
-    expect(ids).toEqual([typo.id, name.id]);
-    expect(demotedIds).toEqual([name.id]);
+    const { decisions } = buildDecisions([name, typo], new Map([[typo.id, 'review'], [name.id, 'review']]), fold);
+    expect(decisions.map((d) => d.id)).toEqual([typo.id, 'names']);
   });
 });
 
@@ -462,5 +459,64 @@ describe('Oxford comma', () => {
   it('other Style candidates are unaffected', () => {
     const other = cand({ original: 'very', replacements: [''], kind: 'Style', message: 'Avoid intensifiers.' });
     expect(tierOf(other, ctx({ variant: 'British' }))).toBe('review');
+  });
+});
+
+describe('names card (spec §5)', () => {
+  const review = (cs: Candidate[]) => new Map(cs.map((c) => [c.id, 'review' as Tier]));
+  const rao1 = cand({ original: 'Rao', replacements: ['Rad', 'Rag'] });
+  const rao2 = cand({ paraId: 1, original: 'Rao', replacements: ['Rad', 'Rag'] });
+  const kulkarni = cand({ paraId: 2, original: 'Kulkarni', replacements: ['Bulgari'] });
+  const word = cand({ paraId: 3, original: 'talukas', replacements: ['talks', 'talus'] });
+  const agr = cand({ paraId: 4, original: 'has', replacements: ['have'], kind: 'Agreement' });
+
+  it('all capitalised Spelling/Typo flags form one names decision, ranked last', () => {
+    const all = [rao1, word, kulkarni, agr, rao2];
+    const { decisions } = buildDecisions(all, review(all));
+    const last = decisions.at(-1)!;
+    expect(last).toEqual({
+      id: 'names',
+      kind: 'names',
+      candidateIds: [rao1.id, kulkarni.id, rao2.id],
+      label: '2 names and places',
+      score: 0,
+    });
+    expect(decisions.filter((d) => d.kind === 'names')).toHaveLength(1);
+    expect(decisions).toHaveLength(3);
+  });
+
+  it('words marked as typos leave the card and get their own ranked decision', () => {
+    const all = [rao1, kulkarni, rao2, agr];
+    const { decisions } = buildDecisions(all, review(all), () => false, new Set(['kulkarni']));
+    const names = decisions.find((d) => d.kind === 'names')!;
+    expect(names.candidateIds).toEqual([rao1.id, rao2.id]);
+    expect(names.label).toBe('1 name or place');
+    const typo = decisions.find((d) => d.candidateIds.includes(kulkarni.id))!;
+    expect(typo.kind).toBe('single');
+    expect(typo.score).toBeGreaterThan(0);
+  });
+
+  it('a sentence-initial capitalised typo is in the card too (the user unticks it)', () => {
+    const teh = cand({ original: 'Teh', replacements: ['The', 'Tech'] });
+    const { decisions } = buildDecisions([teh], review([teh]));
+    expect(decisions.map((d) => d.kind)).toEqual(['names']);
+  });
+});
+
+describe('heading title case (spec §2: no nagging about house style)', () => {
+  const heading = cand({
+    original: '## The flat and the numbers',
+    replacements: ['## The Flat and the Numbers'],
+    kind: 'Capitalization',
+    message: 'Try to use title case in headings.',
+  });
+  it.each(['academic', 'blog', 'script', 'business'] as const)('is hidden by default under %s', (p) => {
+    expect(tierOf(heading, ctx({ preset: PRESETS[p] }))).toBe('hidden');
+  });
+  it('a user tier override for Capitalization brings it back', () => {
+    expect(tierOf(heading, ctx({ userTierOverrides: { Capitalization: 'review' } }))).toBe('review');
+  });
+  it('other Capitalization fixes are unaffected', () => {
+    expect(tierOf(cand({ original: 'i', replacements: ['I'], kind: 'Capitalization' }), ctx())).toBe('safe');
   });
 });

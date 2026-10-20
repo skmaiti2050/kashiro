@@ -91,3 +91,14 @@ describe('Indian-English word list', () => {
     expect(c.map((x) => x.original)).toEqual(expect.arrayContaining(['goverment', 'recieved']));
   });
 });
+
+describe('EN_IN_WORDS list', () => {
+  it('is a plain sorted list of 600-800 unique lowercase words', async () => {
+    const { EN_IN_WORDS } = await import('@/engine/wordlists/en-IN');
+    expect(EN_IN_WORDS.length).toBeGreaterThanOrEqual(600);
+    expect(EN_IN_WORDS.length).toBeLessThanOrEqual(800);
+    expect(new Set(EN_IN_WORDS).size).toBe(EN_IN_WORDS.length);
+    expect([...EN_IN_WORDS].sort()).toEqual(EN_IN_WORDS);
+    for (const w of EN_IN_WORDS) expect(w).toMatch(/^\p{Ll}[\p{Ll}-]*$/u);
+  });
+});

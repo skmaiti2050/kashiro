@@ -90,6 +90,8 @@ export class CheckSession {
   private readonly supersededBy = new Map<string, string>();
   private readonly entries: LogEntry[] = [];
   private readonly added: string[] = [];
+  /** Lowercased words the user unticked on the names card: real typos, ranked as words. */
+  private readonly typoWords = new Set<string>();
 
   private constructor(
     paras: Paragraph[],
@@ -168,8 +170,11 @@ export class CheckSession {
       tiers.set(c.id, t === 'safe' ? 'review' : t);
     }
     // Candidates on fact-locked spans (names, numbers, quotes…) are demoted: ranked last, never dropped.
-    const { decisions } = buildDecisions(pending, tiers, (c) =>
-      foldsUnderMore(c, this.ctx.locked.get(c.paraId), this.paras.get(c.paraId)?.text),
+    const { decisions } = buildDecisions(
+      pending,
+      tiers,
+      (c) => foldsUnderMore(c, this.ctx.locked.get(c.paraId), this.paras.get(c.paraId)?.text),
+      this.typoWords,
     );
     // Inside an existing tracked change: can't be applied, so never in `top`.
     const blocked = buildDecisions(tracked, tiers).decisions;
@@ -287,7 +292,32 @@ export class CheckSession {
     if (!WORD_FLAG_KINDS.has(first.kind) || members.some((c) => c.original.toLowerCase() !== first.original.toLowerCase())) {
       throw new Error(`${decisionId} is not a word flag (Spelling/Typo of one word)`);
     }
-    const word = first.original;
+    await this.addWord(first.original);
+  }
+
+  /**
+   * Accepts the names card (spec §5): every distinct name on it goes into the dictionary (as
+   * addToDictionary does), except the words in `keepAsTypos` (any case), which leave the card and
+   * become their own per-word decisions so the user can fix them.
+   */
+  async acceptNames(keepAsTypos: string[]): Promise<void> {
+    const { top, more } = this.decisions();
+    const card = [...top, ...more].find((d) => d.kind === 'names');
+    if (!card) throw new Error('there is no names card to accept: no unknown names are pending');
+    const typos = new Set(keepAsTypos.map((w) => w.toLowerCase()));
+    const words = new Map<string, string>(); // lowercased → first spelling seen
+    for (const id of card.candidateIds) {
+      const original = this.cands.get(id)!.original;
+      if (!words.has(original.toLowerCase())) words.set(original.toLowerCase(), original);
+    }
+    for (const [lower, word] of words) {
+      if (typos.has(lower)) this.typoWords.add(lower);
+      else await this.addWord(word);
+    }
+  }
+
+  /** Adds `word` to the linter and rejects every pending Spelling/Typo flag of it. */
+  private async addWord(word: string): Promise<void> {
     await this.linter.addWords([word]);
     this.added.push(word);
     const reason = `"${word}" added to dictionary`;
@@ -299,7 +329,7 @@ export class CheckSession {
     }
   }
 
-  /** Words added with addToDictionary, in order. */
+  /** Words added with addToDictionary or acceptNames, in order. */
   addedWords(): string[] {
     return [...this.added];
   }

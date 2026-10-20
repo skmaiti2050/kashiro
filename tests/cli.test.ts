@@ -147,3 +147,14 @@ describe('check-file CLI', () => {
     expect(err.join('\n')).toContain('not UTF-8 text');
   });
 });
+
+describe('accept-all and the names card', () => {
+  it('--accept-all-rules never accepts a name, even with a single suggestion at sentence start', async () => {
+    const input = path.join(dir, 'names-card.txt');
+    const output = path.join(dir, 'names-card.out.txt');
+    fs.writeFileSync(input, 'Jalyukt helped many farmers.\n');
+    capture();
+    expect(await run([input, output, '--variant', 'American', '--accept-all-rules'])).toBe(0);
+    expect(fs.readFileSync(output, 'utf8')).toBe('Jalyukt helped many farmers.\n');
+  });
+});

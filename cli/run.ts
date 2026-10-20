@@ -86,6 +86,8 @@ export function acceptAllRules(session: CheckSession): void {
     const next = [...top, ...more].find((d) => !tried.has(d.id));
     if (!next) return;
     tried.add(next.id);
+    // The names card is answered with acceptNames, never by replacing a name with a dictionary word.
+    if (next.kind === 'names') continue;
     for (const id of next.candidateIds) {
       const c = byId.get(id)!;
       if (c.source === 'llm' || c.replacements.length !== 1 || session.touchesLocked(id)) continue;
