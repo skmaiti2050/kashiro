@@ -432,8 +432,7 @@ describe('names card in a session', () => {
   });
 
   it('sentence-initial typos are ranked decisions; near-duplicate names are flagged on the card', async () => {
-    // 'everything': a nine-word text would otherwise show one decision up front.
-    const s = await start([{ id: 0, text: 'Teh dog ran. Goverment staff met Pirya and Priya.' }], { depth: 'everything' });
+    const s = await start([{ id: 0, text: 'Teh dog ran. Goverment staff met Pirya and Priya.' }]);
     const { top } = s.decisions();
     expect(top.map((d) => d.label.split(' ')[0])).toEqual(['Teh', 'Goverment', '2']);
     expect(top.slice(0, 2).every((d) => d.kind === 'single' && d.score > 0)).toBe(true);

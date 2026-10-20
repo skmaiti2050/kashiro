@@ -8,6 +8,8 @@ const WORDS_PER_BUDGET = 1500;
 interface DepthRates {
   /** Decisions shown up front per 1,500 words; 'all' shows every ranked decision. */
   decisionsPer1500: number | 'all';
+  /** Fewest decisions shown up front, however short the text; 'all' has no floor. */
+  decisionsFloor: number | 'all';
   /** Local-LLM rewrites sent automatically per 1,500 words. */
   rewritesPer1500: number;
   /** Rewrites per 1,500 words for an explicit "check more" request. */
@@ -15,17 +17,17 @@ interface DepthRates {
 }
 
 export const DEPTHS: Record<ReviewDepth, DepthRates> = {
-  light: { decisionsPer1500: 5, rewritesPer1500: 1, moreRewritesPer1500: 1 },
-  standard: { decisionsPer1500: 10, rewritesPer1500: 3, moreRewritesPer1500: 3 },
-  thorough: { decisionsPer1500: 25, rewritesPer1500: 6, moreRewritesPer1500: 6 },
-  everything: { decisionsPer1500: 'all', rewritesPer1500: 0, moreRewritesPer1500: 3 },
+  light: { decisionsPer1500: 5, decisionsFloor: 3, rewritesPer1500: 1, moreRewritesPer1500: 1 },
+  standard: { decisionsPer1500: 10, decisionsFloor: 10, rewritesPer1500: 3, moreRewritesPer1500: 3 },
+  thorough: { decisionsPer1500: 25, decisionsFloor: 25, rewritesPer1500: 6, moreRewritesPer1500: 6 },
+  everything: { decisionsPer1500: 'all', decisionsFloor: 'all', rewritesPer1500: 0, moreRewritesPer1500: 3 },
 };
 
-/** Decisions in the default view: at least 1, so a short text never opens empty. */
+/** Decisions in the default view: the per-1,500 rate scaled to the length, never below the depth's floor. */
 export function upFrontCount(depth: ReviewDepth, words: number): number {
-  const perK = DEPTHS[depth].decisionsPer1500;
-  if (perK === 'all') return Infinity;
-  return Math.max(1, Math.round((perK * words) / WORDS_PER_BUDGET));
+  const { decisionsPer1500: perK, decisionsFloor: floor } = DEPTHS[depth];
+  if (perK === 'all' || floor === 'all') return Infinity;
+  return Math.max(floor, Math.round((perK * words) / WORDS_PER_BUDGET));
 }
 
 /** Whole decisions the document may hold up front (rounded down): the room the first LLM run must leave. */

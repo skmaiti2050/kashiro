@@ -86,7 +86,22 @@ describe('decisions() size by depth', () => {
     expect(s.decisions().top).toHaveLength(10);
   });
 
-  it('a tiny document still shows one decision up front', async () => {
+  it('a 9-word document shows min(floor, ranked) up front: floors 3 / 10 / 25, everything all', async () => {
+    const floors: [ReviewDepth, number][] = [['light', 3], ['standard', 10], ['thorough', 25], ['everything', 99]];
+    for (const [depth, floor] of floors) {
+      const s = await lintedDoc(9, { depth });
+      // lintedDoc puts one lint on word 0 only, so add more to exceed every floor.
+      const extra: Candidate[] = Array.from({ length: 30 }, (_, i) => ({
+        id: `short:${i}`, paraId: 0, span: { start: 0, end: 1 }, original: 't', replacements: [],
+        kind: 'Grammar', message: `Short ${i}`, source: 'rules' as const,
+      }));
+      s.addCandidates(extra);
+      const ranked = s.rankedDecisionCount();
+      expect(s.decisions().top).toHaveLength(depth === 'everything' ? ranked : floor);
+    }
+  });
+
+  it('a short document with few decisions shows them all (floor is a cap on nothing)', async () => {
     const s = await start([{ id: 0, text: 'We met Anjali Kulkarni in Nashik today.' }], { depth: 'light' });
     expect(s.decisions().top).toHaveLength(1);
   });
