@@ -19,6 +19,11 @@ function checkInvariants(xml: string, out: DocxPara[]) {
         expect(raw.startsWith('<')).toBe(true);
         expect(raw.endsWith('>')).toBe(true);
       }
+      if (xml.startsWith('<m:', pc.xmlStart)) {
+        // math sits outside runs: its "run" range is the element itself
+        expect([pc.runStart, pc.runEnd]).toEqual([pc.xmlStart, pc.xmlEnd]);
+        continue;
+      }
       expect(xml.slice(pc.runStart, pc.runStart + 5)).toMatch(/^<w:r[\s>/]/);
       expect(xml.slice(pc.runEnd - 6, pc.runEnd)).toMatch(/(<\/w:r>|\/>)$/);
       expect(pc.runStart <= pc.xmlStart && pc.xmlEnd <= pc.runEnd).toBe(true);
@@ -53,6 +58,10 @@ describe('tokenize', () => {
     expect(decodeXmlText('&lt;&gt;&amp;&quot;&apos;&#65;&#x42;&#x1F600;')).toBe('<>&"\'AB\u{1F600}');
     expect(decodeXmlText('a<![CDATA[<&amp;>]]>b<!-- x -->c')).toBe('a<&amp;>bc');
     expect(() => decodeXmlText('&nbsp;')).toThrow();
+    for (const bad of ['&#0;', '&#x1;', '&#xD800;', '&#xDFFF;', '&#xFFFE;', '&#x110000;']) {
+      expect(() => decodeXmlText(bad)).toThrow(/illegal/);
+    }
+    expect(decodeXmlText('&#9;&#xA;&#13;')).toBe('\t\n\r');
   });
 
   it('throws on mismatched tags', () => {
@@ -217,16 +226,80 @@ describe('extractDocx', () => {
     ) + p(r(t('next')));
     const out = ex(body, 1);
     expect(out.map((d) => [d.para.id, d.para.text])).toEqual([
-      [1, 'outer text'],
+      [1, 'outer ￼text'],
       [2, 'in box'],
       [3, 'next'],
     ]);
   });
 
-  it('runs with no text contribute nothing; self-closing w:t and empty w:t give no piece', () => {
-    const out = ex(p(r('<w:footnoteReference w:id="1"/>') + r('<w:t/>') + r('<w:t></w:t>') + r('<w:drawing/>') + r(t('x'))));
+  it('textless runs contribute nothing; self-closing w:t and empty w:t give no piece', () => {
+    const out = ex(p(r('<w:lastRenderedPageBreak/>') + r('<w:t/>') + r('<w:t></w:t>') + r('<w:rPr><w:b/></w:rPr>') + r(t('x'))));
     expect(texts(out)).toEqual(['x']);
     expect(out[0].pieces).toHaveLength(1);
+  });
+
+  it('inline math between words is one locked placeholder covering the element', () => {
+    const math = '<m:oMath><m:r><m:t>⟨x⟩</m:t></m:r></m:oMath>';
+    const body = p(r(t('where ')) + math + r(t(' is')));
+    const xml = documentXml(body);
+    const out = ex(body);
+    expect(texts(out)).toEqual(['where ￼ is']);
+    expect(out[0].para.locked).toEqual([{ start: 6, end: 7 }]);
+    const pc = out[0].pieces[1];
+    expect(pc).toMatchObject({ kind: 'special', length: 1, rPr: '' });
+    expect(xml.slice(pc.xmlStart, pc.xmlEnd)).toBe(math);
+  });
+
+  it('display math (oMathPara) is a single placeholder', () => {
+    const mp = '<m:oMathPara><m:oMath><m:r><m:t>a</m:t></m:r></m:oMath><m:oMath><m:r><m:t>b</m:t></m:r></m:oMath></m:oMathPara>';
+    const body = p(mp);
+    const xml = documentXml(body);
+    const out = ex(body);
+    expect(texts(out)).toEqual(['￼']);
+    expect(xml.slice(out[0].pieces[0].xmlStart, out[0].pieces[0].xmlEnd)).toBe(mp);
+  });
+
+  it('inline drawing in a run is a locked placeholder in that run', () => {
+    const drawing = '<w:drawing><wp:inline><a:graphic/></wp:inline></w:drawing>';
+    const body = p(r(t('see ')) + r(drawing, '<w:rPr><w:noProof/></w:rPr>') + r(t(' here')));
+    const xml = documentXml(body);
+    const out = ex(body);
+    expect(texts(out)).toEqual(['see ￼ here']);
+    const pc = out[0].pieces[1];
+    expect(xml.slice(pc.xmlStart, pc.xmlEnd)).toBe(drawing);
+    expect(xml.slice(pc.runStart, pc.runEnd)).toBe(r(drawing, '<w:rPr><w:noProof/></w:rPr>'));
+    expect(pc.rPr).toBe('<w:rPr><w:noProof/></w:rPr>');
+    expect(out[0].para.locked).toEqual([{ start: 4, end: 5 }]);
+  });
+
+  it('footnote, endnote and comment references and pict/object are placeholders', () => {
+    const out = ex(
+      p(
+        r(t('fact')) +
+          r('<w:footnoteReference w:id="1"/>') +
+          r('<w:endnoteReference w:id="2"/>') +
+          r('<w:commentReference w:id="3"/>') +
+          r('<w:pict><v:shape/></w:pict>') +
+          r('<w:object><w:drawing/></w:object>') +
+          r(t('.')),
+      ),
+    );
+    expect(texts(out)).toEqual(['fact￼￼￼￼￼.']);
+    expect(out[0].para.locked).toEqual([{ start: 4, end: 9 }]);
+  });
+
+  it('a text-box drawing is a placeholder in the outer paragraph and its paragraphs stay separate', () => {
+    const body = p(r(t('a ')) + r(`<w:drawing><wps:txbx><w:txbxContent>${p(r(t('box')))}</w:txbxContent></wps:txbx></w:drawing>`) + r(t(' b')));
+    expect(texts(ex(body))).toEqual(['a ￼ b', 'box']);
+  });
+
+  it('hidden (vanish) text is included but locked; vanish w:val="0" is not hidden', () => {
+    const out = ex(
+      p(r(t('shown ')) + r(t('secret'), '<w:rPr><w:vanish/></w:rPr>') + r(t(' visible'), '<w:rPr><w:vanish w:val="0"/></w:rPr>')),
+    );
+    expect(texts(out)).toEqual(['shown secret visible']);
+    expect(out[0].para.locked).toEqual([{ start: 6, end: 12 }]);
+    expect(out[0].pieces[1].container).toBe('plain');
   });
 
   it('CDATA and comments inside w:t keep offsets right', () => {

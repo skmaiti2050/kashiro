@@ -8,6 +8,7 @@ const NS = [
   'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"',
   'xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape"',
   'xmlns:v="urn:schemas-microsoft-com:vml"',
+  'xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"',
 ].join(' ');
 
 /** A complete word/document.xml string wrapping `bodyXml` (the children of <w:body>). */

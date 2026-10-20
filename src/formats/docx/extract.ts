@@ -47,6 +47,24 @@ const SPECIAL: Record<string, string> = {
 };
 
 /**
+ * Inline objects with no w:t of their own that still occupy a position in the line. Each becomes ONE locked
+ * U+FFFC special covering the whole element, so neighbouring words are never glued together (and an edit
+ * like a double-space fix can't swallow the gap). Text-box paragraphs inside a drawing are still extracted
+ * as their own Paragraphs.
+ */
+const PLACEHOLDER_IN_RUN = new Set([
+  'w:drawing',
+  'w:pict',
+  'w:object',
+  'w:footnoteReference',
+  'w:endnoteReference',
+  'w:commentReference',
+]);
+/** Math sits directly in the paragraph, not in a run. An m:oMath inside m:oMathPara is covered by the outer placeholder. */
+const PLACEHOLDER_MATH = new Set(['m:oMath', 'm:oMathPara']);
+const OBJECT_CHAR = '￼';
+
+/**
  * Subtrees whose text is not part of the visible document. mc:Fallback duplicates mc:Choice, so
  * paragraphs inside it are skipped too (editing both copies would double-apply).
  * w:delText / w:instrText are never read anyway (only w:t is), listed for clarity.
@@ -57,6 +75,17 @@ interface RunState {
   start: number;
   rPr: string;
   pieces: TextPiece[];
+  /** Paragraph the run belongs to (a text-box paragraph's runs nest inside an outer run). */
+  para: ParaState | undefined;
+  /** rPr has <w:vanish/>: hidden text is extracted but locked. */
+  hidden: boolean;
+}
+
+interface OpenPlaceholder {
+  para: ParaState | undefined;
+  /** The emitted piece, or null if it was suppressed (invisible, or nested in another placeholder). */
+  piece: TextPiece | null;
+  math: boolean;
 }
 
 interface ParaState {
@@ -70,7 +99,7 @@ interface Frame {
   start: number;
   /** End of the open tag. */
   openEnd: number;
-  role?: 'para' | 'run' | 'rPr' | 't' | 'special' | 'excluded' | 'fallback' | 'hyperlink' | 'ins' | 'fldSimple';
+  role?: 'para' | 'run' | 'rPr' | 't' | 'special' | 'placeholder' | 'excluded' | 'fallback' | 'hyperlink' | 'ins' | 'fldSimple';
 }
 
 /** Merge a span into a sorted list, coalescing touching/overlapping spans. Spans arrive in order. */
@@ -98,12 +127,23 @@ export function extractDocx(documentXml: string, firstId: number): DocxPara[] {
    */
   const fields: ('instr' | 'result')[] = [];
 
-  const visible = () => excluded === 0 && paras.length > 0 && runs.length > 0 && fields.every((f) => f === 'result');
+  const placeholders: OpenPlaceholder[] = [];
 
-  function emit(kind: 'text' | 'special', value: string, xmlStart: number, xmlEnd: number) {
-    if (!visible() || value.length === 0) return;
-    const p = paras[paras.length - 1];
+  const curPara = () => paras[paras.length - 1] as ParaState | undefined;
+  /** Innermost run, if it belongs to the current paragraph. */
+  const curRun = () => {
     const run = runs[runs.length - 1];
+    return run && run.para === curPara() ? run : undefined;
+  };
+  const visible = () => excluded === 0 && paras.length > 0 && fields.every((f) => f === 'result');
+
+  /**
+   * Append a piece to the current paragraph. With `run`, the piece is attached to it (runStart now, runEnd
+   * and rPr when it closes). Without (math), runStart/runEnd are the element's own range.
+   */
+  function emit(kind: 'text' | 'special', value: string, xmlStart: number, xmlEnd: number, run: RunState | undefined): TextPiece | null {
+    if (!visible() || value.length === 0) return null;
+    const p = paras[paras.length - 1];
     const container: TextPiece['container'] =
       ins > 0 ? 'ins' : fields.length > 0 || fldSimple > 0 ? 'field' : hyperlink > 0 ? 'hyperlink' : 'plain';
     const piece: TextPiece = {
@@ -111,18 +151,25 @@ export function extractDocx(documentXml: string, firstId: number): DocxPara[] {
       length: value.length,
       xmlStart,
       xmlEnd,
-      runStart: run.start,
-      runEnd: -1, // filled when the run closes
+      runStart: run ? run.start : xmlStart,
+      runEnd: run ? -1 : xmlEnd, // a run's end is filled when it closes
       rPr: '',
       kind,
       container,
     };
     p.text += value;
-    if (kind === 'special' || container === 'ins' || container === 'field') {
+    if (kind === 'special' || container === 'ins' || container === 'field' || run?.hidden) {
       addLocked(p.locked, { start: piece.paraOffset, end: piece.paraOffset + piece.length });
     }
-    run.pieces.push(piece);
+    run?.pieces.push(piece);
     p.dp.pieces.push(piece);
+    return piece;
+  }
+
+  /** Text and run-level specials need a run in the current paragraph. */
+  function emitInRun(kind: 'text' | 'special', value: string, xmlStart: number, xmlEnd: number) {
+    const run = curRun();
+    if (run) emit(kind, value, xmlStart, xmlEnd, run);
   }
 
   function onFldChar(tok: Token & { kind: 'open' }) {
@@ -134,7 +181,7 @@ export function extractDocx(documentXml: string, firstId: number): DocxPara[] {
   }
 
   /** Handle an open tag; returns the frame role (for non-self-closing tags pushed on the stack). */
-  function open(tok: Token & { kind: 'open' }, parent: string | undefined): Frame['role'] {
+  function open(tok: Token & { kind: 'open' }, parent: string | undefined, grandparent: string | undefined): Frame['role'] {
     const name = tok.name;
     if (name === 'mc:Fallback') {
       excluded++;
@@ -151,6 +198,24 @@ export function extractDocx(documentXml: string, firstId: number): DocxPara[] {
       return 'excluded';
     }
     if (excluded > 0) return undefined;
+    const math = PLACEHOLDER_MATH.has(name);
+    if (math || PLACEHOLDER_IN_RUN.has(name)) {
+      const para = curPara();
+      const run = math ? undefined : curRun();
+      // One placeholder per object: anything nested in an open placeholder of the same paragraph
+      // (m:oMath in m:oMathPara, a drawing in an object) is already covered by the outer one.
+      const nested = placeholders.some((ph) => ph.para === para);
+      const piece = !nested && (math || run) ? emit('special', OBJECT_CHAR, tok.start, tok.end, run) : null;
+      if (tok.selfClosing) return undefined;
+      placeholders.push({ para, piece, math });
+      return 'placeholder';
+    }
+    if (name === 'w:vanish' && parent === 'w:rPr' && grandparent === 'w:r') {
+      const run = runs[runs.length - 1];
+      const val = attr(xml, tok, 'w:val');
+      if (run && val !== '0' && val !== 'false' && val !== 'off') run.hidden = true;
+      return undefined;
+    }
     switch (name) {
       case 'w:p': {
         const dp: DocxPara = { para: { id: firstId + out.length, text: '' }, pieces: [] };
@@ -159,7 +224,7 @@ export function extractDocx(documentXml: string, firstId: number): DocxPara[] {
         return 'para';
       }
       case 'w:r':
-        runs.push({ start: tok.start, rPr: '', pieces: [] });
+        runs.push({ start: tok.start, rPr: '', pieces: [], para: curPara(), hidden: false });
         return 'run';
       case 'w:rPr':
         if (parent === 'w:r') {
@@ -181,7 +246,7 @@ export function extractDocx(documentXml: string, firstId: number): DocxPara[] {
         return 'fldSimple';
     }
     if (name in SPECIAL && parent === 'w:r') {
-      if (tok.selfClosing) emit('special', SPECIAL[name], tok.start, tok.end);
+      if (tok.selfClosing) emitInRun('special', SPECIAL[name], tok.start, tok.end);
       return 'special';
     }
     return undefined;
@@ -214,11 +279,19 @@ export function extractDocx(documentXml: string, firstId: number): DocxPara[] {
         if (runs.length) runs[runs.length - 1].rPr = xml.slice(frame.start, closeTok.end);
         break;
       case 't':
-        emit('text', decodeXmlText(xml.slice(frame.openEnd, closeTok.start)), frame.openEnd, closeTok.start);
+        emitInRun('text', decodeXmlText(xml.slice(frame.openEnd, closeTok.start)), frame.openEnd, closeTok.start);
         break;
       case 'special':
-        emit('special', SPECIAL[frame.name], frame.start, closeTok.end);
+        emitInRun('special', SPECIAL[frame.name], frame.start, closeTok.end);
         break;
+      case 'placeholder': {
+        const ph = placeholders.pop()!;
+        if (ph.piece) {
+          ph.piece.xmlEnd = closeTok.end;
+          if (ph.math) ph.piece.runEnd = closeTok.end;
+        }
+        break;
+      }
       case 'hyperlink':
         hyperlink--;
         break;
@@ -234,7 +307,8 @@ export function extractDocx(documentXml: string, firstId: number): DocxPara[] {
   for (const tok of tokenize(xml)) {
     if (tok.kind === 'open') {
       const parent = stack.length ? stack[stack.length - 1].name : undefined;
-      const role = open(tok, parent);
+      const grandparent = stack.length > 1 ? stack[stack.length - 2].name : undefined;
+      const role = open(tok, parent, grandparent);
       const frame: Frame = { name: tok.name, start: tok.start, openEnd: tok.end, role };
       if (tok.selfClosing) {
         // Self-closing: open() already did the leaf work; undo any counter/stack it pushed.

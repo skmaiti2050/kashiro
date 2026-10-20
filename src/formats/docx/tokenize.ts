@@ -101,7 +101,10 @@ export function decodeEntities(s: string): string {
     const m = /^#(?:x([0-9a-fA-F]+)|([0-9]+))$/.exec(body);
     if (m) {
       const cp = m[1] !== undefined ? parseInt(m[1], 16) : parseInt(m[2], 10);
-      if (cp > 0x10ffff) throw new Error(`malformed XML: bad character reference &${body};`);
+      // XML 1.0 Char production: no NUL/C0 controls (except tab, LF, CR), no lone surrogates, no U+FFFE/U+FFFF.
+      const legal =
+        cp === 0x9 || cp === 0xa || cp === 0xd || (cp >= 0x20 && cp <= 0xd7ff) || (cp >= 0xe000 && cp <= 0xfffd) || (cp >= 0x10000 && cp <= 0x10ffff);
+      if (!legal) throw new Error(`malformed XML: illegal character reference &${body};`);
       return String.fromCodePoint(cp);
     }
     throw new Error(`malformed XML: unknown entity &${body};`);
