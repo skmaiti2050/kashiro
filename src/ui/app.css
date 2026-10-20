@@ -42,15 +42,18 @@
 
 /*
  * Scrollbars: thin and theme-coloured, but always visible, with a thumb that stays big enough to grab
- * and contrasts with its track. ::-webkit-scrollbar styles WebView2 (Windows); scrollbar-width and
- * scrollbar-color cover WebKitGTK/Firefox-based engines (v1.1).
+ * and contrasts with its track. WebView2 and WebKitGTK use the ::-webkit-scrollbar rules below. Since
+ * Chromium 121, setting scrollbar-width/scrollbar-color on an element switches its ::-webkit-scrollbar
+ * styles off, so the standard properties apply only to engines without ::-webkit-scrollbar (Firefox).
  */
-.editor .cm-scroller,
-.review,
-.changelog .entries,
-.dialog {
-  scrollbar-width: thin;
-  scrollbar-color: var(--scroll-thumb) var(--scroll-track);
+@supports not selector(::-webkit-scrollbar) {
+  .editor .cm-scroller,
+  .review,
+  .changelog .entries,
+  .dialog {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scroll-thumb) var(--scroll-track);
+  }
 }
 
 .editor .cm-scroller::-webkit-scrollbar,
@@ -457,6 +460,21 @@ legend {
 
 .card {
   cursor: pointer;
+}
+
+/* The panel scrolls the picked card into view and focuses it; leave room for the panel's header. */
+.card-slot {
+  scroll-margin-top: 8px;
+  border-radius: 8px;
+}
+
+.card-slot:focus {
+  outline: none;
+}
+
+.card-slot:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .card .actions,

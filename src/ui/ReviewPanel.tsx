@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Decision } from '@/engine/decisions';
 import type { Candidate } from '@/engine/types';
 import { DecisionCard } from './DecisionCard';
@@ -19,6 +19,14 @@ export function ReviewPanel({ controller, state, onLocate }: Props) {
   const [skipped, setSkipped] = useState<string[]>([]);
   /** A decision picked from "More": shown on the card until it is decided or skipped. */
   const [picked, setPicked] = useState<string | null>(null);
+  /** Bumped when a decision is picked: the panel scrolls back up to the card and focuses it. */
+  const [reveal, setReveal] = useState(0);
+  const cardSlot = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (reveal === 0) return;
+    cardSlot.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    cardSlot.current?.focus({ preventScroll: true });
+  }, [reveal]);
   const session = state.session;
   if (!session) {
     return (
@@ -39,6 +47,7 @@ export function ReviewPanel({ controller, state, onLocate }: Props) {
   };
   const pick = (d: Decision) => {
     setPicked(d.id);
+    setReveal((n) => n + 1);
     onLocate(candidates.get(d.candidateIds[0])!);
   };
 
@@ -52,18 +61,20 @@ export function ReviewPanel({ controller, state, onLocate }: Props) {
         <DepthSlider value={session.depth} onChange={(d) => controller.setDepth(d)} />
       </header>
 
-      {current?.kind === 'names' && <NamesCard key={current.id} controller={controller} card={current} candidates={candidates} />}
-      {current && current.kind !== 'names' && (
-        <DecisionCard
-          key={current.id}
-          controller={controller}
-          decision={current}
-          candidates={candidates}
-          paraText={paraText}
-          onSkip={() => skip(current.id)}
-          onLocate={onLocate}
-        />
-      )}
+      <div ref={cardSlot} className="card-slot" tabIndex={-1} aria-label="Current decision">
+        {current?.kind === 'names' && <NamesCard key={current.id} controller={controller} card={current} candidates={candidates} />}
+        {current && current.kind !== 'names' && (
+          <DecisionCard
+            key={current.id}
+            controller={controller}
+            decision={current}
+            candidates={candidates}
+            paraText={paraText}
+            onSkip={() => skip(current.id)}
+            onLocate={onLocate}
+          />
+        )}
+      </div>
       {!current && (
         <p className="done">
           {skipped.length ? `${skipped.length} skipped. ` : 'Nothing left to decide. '}

@@ -31,7 +31,8 @@ export const files: Files = {
     if (overwrite) {
       // Rust backs the file up, writes a temporary sibling and renames it over the original (lib.rs):
       // the webview may write neither sibling, and a failure must not leave the original half-written.
-      const backup = await invoke<string>('overwrite_with_backup', { path, bytes: Array.from(bytes) });
+      // Raw binary IPC body (no JSON number array); header values must be ASCII, so the path is URI-encoded.
+      const backup = await invoke<string>('overwrite_with_backup', bytes, { headers: { path: encodeURIComponent(path) } });
       return { path, backup };
     }
     const ext = extension(path);

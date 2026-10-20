@@ -16,8 +16,12 @@ export function UnsavedChangesDialog({ name, onSave, onDiscard, onCancel }: Prop
 
   const save = async () => {
     setSaving(true);
-    const saved = await onSave();
-    setSaving(false);
+    let saved = false;
+    try {
+      saved = await onSave();
+    } finally {
+      setSaving(false);
+    }
     if (saved) onDiscard(); // the work is safe on disk: go on with what was asked
   };
 
