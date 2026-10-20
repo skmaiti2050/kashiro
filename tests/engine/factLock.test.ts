@@ -33,6 +33,18 @@ describe('findLockedSpans', () => {
     expect(covered(text, needle)).toBe(true);
   });
 
+  it.each(['42', '3.14', '1,200', '1,20,000', '-7', '3rd', '21st', '10-20', '10–20'])(
+    'locks bare number %s',
+    (needle) => {
+      expect(covered(`we saw ${needle} here`, needle)).toBe(true);
+    },
+  );
+
+  it('leaves an ordinary word next to a number unlocked', () => {
+    const t = 'teh 5 cats';
+    expect(findLockedSpans(t)).toEqual([{ start: 4, end: 5 }]);
+  });
+
   it('locks it when it is the whole paragraph', () => {
     expect(covered('3 March 2025', '3 March 2025')).toBe(true);
   });

@@ -31,6 +31,8 @@ const PATTERNS: RegExp[] = [
   /\bp\s*[<>=≤≥]\s*\d*\.?\d+/gi,
   /\bv\d+(?:\.\d+)+\b/g,
   /\d[\d,]*(?:\.\d+)?%/g,
+  // bare numbers: integers, decimals, 1,200 / 1,20,000, negatives, ordinals, ranges
+  /(?<![\p{L}\p{N}])-?\d+(?:,\d+)*(?:\.\d+)?(?:st|nd|rd|th)?(?:\s*[–-]\s*\d+(?:,\d+)*(?:\.\d+)?(?:st|nd|rd|th)?)?(?![\p{L}\p{N}])/gu,
   // ALL-CAPS acronyms
   /(?<![\p{L}\p{N}])\p{Lu}{2,}(?![\p{L}])/gu,
 ];
