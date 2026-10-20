@@ -43,8 +43,6 @@ const PATTERNS: RegExp[] = [
   /(?<![\p{L}\p{N}-])(?=[\p{L}\p{N}-]*\p{N})(?=[\p{L}\p{N}-]*\p{L})[\p{L}\p{N}]+(?:-[\p{L}\p{N}]+)*(?![\p{L}\p{N}])/gu,
   // camelCase and inner capitals: preventDefault, iPhone, DevTools (lookahead from a word start: linear)
   /(?<![\p{L}\p{N}])(?=[\p{L}\p{N}]*\p{Ll}\p{Lu})[\p{L}\p{N}]+/gu,
-  // dotted or slashed code, lowercase after each separator: et.reportAllChanges, src/ui, file.docx (not "home.Then")
-  /(?<![\p{L}\p{N}_$./])[\p{L}_$][\p{L}\p{N}_$]*(?:[./][\p{Ll}_$][\p{L}\p{N}_$]*)+/gu,
   // the word after a title is part of a name, whatever its case: "Mr. and Mrs.", "Dr. smith"
   /(?<=(?<![\p{L}])(?:Dr|Mr|Mrs|Ms|Prof|St|Mt)\.\s+)[\p{L}'’-]+/gu,
   // decades and ages: 60s, 1990s, ’90s, 1990's
@@ -54,6 +52,24 @@ const PATTERNS: RegExp[] = [
   // initials: A. / R. K. / R.K.
   /(?<![\p{L}\p{N}.])\p{Lu}\.(?:\s?\p{Lu}\.)*/gu,
 ];
+
+/** Words joined by "." "/" "\" or "@", e.g. "et.reportAllChanges", "src/ui", "home.then"; isCodePath decides. */
+const JOINED_TOKEN = /(?<![\p{L}\p{N}_$./\\@-])[\p{L}\p{N}_$-]+(?:[./\\@][\p{L}\p{N}_$-]+)+/gu;
+/** File extensions that make "name.ext" a file name: "report.docx". */
+const FILE_EXTENSION = /\.(?:docx|pdf|js|ts|json|md|txt|py|html|css|png|jpg|csv)$/i;
+/** A part that only code has: an inner capital, an underscore or a digit ("reportAllChanges", "my_file", "v2"). */
+const CODE_PART = /\p{Ll}\p{Lu}|_|\p{N}/u;
+
+/**
+ * True for a joined token that is code, not prose: a path or address ("/", "\", "@", "www."), a file
+ * name with a known extension, or a dotted token with a code-only part ("et.reportAllChanges"). Two
+ * plain words joined by a full stop ("home.then", "window.location") are a missing space, not code.
+ */
+export function isCodePath(token: string): boolean {
+  if (/[/\\@]/.test(token) || token.toLowerCase().startsWith('www.')) return true;
+  if (!token.includes('.')) return false;
+  return FILE_EXTENSION.test(token) || token.split('.').some((part) => CODE_PART.test(part));
+}
 
 /** A capitalised word, including names like D'Souza and O’Brien. */
 const CAPITALISED = /(?<![\p{L}\p{N}'’])\p{Lu}(?:['’]\p{Lu})?\p{Ll}[\p{L}'’-]*/gu;
@@ -116,6 +132,9 @@ export function findLockedSpans(text: string): Span[] {
       if (URL_START.test(m[0])) end = start + m[0].replace(/[.,;:!?)\]'’]+$/, '').length;
       spans.push({ start, end });
     }
+  }
+  for (const m of text.matchAll(JOINED_TOKEN)) {
+    if (isCodePath(m[0])) spans.push({ start: m.index!, end: m.index! + m[0].length });
   }
   for (const m of text.matchAll(CAPITALISED)) {
     if (!isSentenceStart(text, m.index!)) spans.push({ start: m.index!, end: m.index! + m[0].length });

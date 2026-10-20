@@ -1,5 +1,5 @@
 import type { Candidate, Span } from './types';
-import { isSentenceStart, OPENERS } from './factLock';
+import { isCodePath, isSentenceStart, OPENERS } from './factLock';
 
 export const UPPER_START = /^\p{Lu}/u;
 /** Kinds that rewrite a word into a dictionary word: on a capitalised original that is likely a name. */
@@ -14,12 +14,10 @@ const HAS_LETTER = /\p{L}/u;
 export const HAS_DIGIT = /\p{N}/u;
 /** A capital right after a lowercase letter: "preventDefault", "iPhone", "DevTools". */
 const INNER_CAPITAL = /\p{Ll}\p{Lu}/u;
-/** Dotted or slashed code, lowercase after each separator: "et.reportAllChanges", "src/ui", "file.docx". */
-const CODE_PATH = /^[\p{L}_$][\p{L}\p{N}_$]*(?:[./][\p{Ll}_$][\p{L}\p{N}_$]*)+$/u;
 /** Characters a code token may hold; the token around a flag grows over them ("et" → "et.reportAllChanges"). */
-const TOKEN_CHAR = /[\p{L}\p{N}_$./-]/u;
-/** Separators at the edges of a grown token, e.g. the sentence's full stop in "file.docx." */
-const EDGE_SEPARATORS = /^[./-]+|[./-]+$/gu;
+const TOKEN_CHAR = /[\p{L}\p{N}_$./\\@-]/u;
+/** Separators at the edges of a grown token, e.g. the sentence's full stop in "report.docx." */
+const EDGE_SEPARATORS = /^[./\\@-]+|[./\\@-]+$/gu;
 /** A single letter, e.g. "s", "x" (after dropping "z."'s full stop). */
 const SINGLE_LETTER = /^\p{L}$/u;
 /** Single letters that are words: "a", "I" (and a lone "i", which should become "I"). */
@@ -28,12 +26,13 @@ const ONE_LETTER_WORDS = new Set(['a', 'A', 'I', 'i']);
 const CODE_NOISE_KINDS = new Set(['Spelling', 'Typo', 'Capitalization']);
 
 /**
- * True for code and identifiers rather than prose: camelCase ("preventDefault", "iPhone"), dotted or
- * slashed paths ("window.location", "src/ui"), and letters-with-digits identifiers ("q2", "mp4",
- * "B2B", "COVID-19"). A digit inside a word ("y0u", "th9s") is a typo, not an identifier.
+ * True for code and identifiers rather than prose: camelCase ("preventDefault", "iPhone"), paths, file
+ * names and addresses (isCodePath: "src/ui", "report.docx", "a@b.co"), and letters-with-digits
+ * identifiers ("q2", "mp4", "B2B", "COVID-19"). A digit inside a word ("y0u", "th9s") is a typo, and
+ * "home.then" is a missing space.
  */
 export function looksLikeCode(token: string): boolean {
-  if (INNER_CAPITAL.test(token) || CODE_PATH.test(token)) return true;
+  if (INNER_CAPITAL.test(token) || isCodePath(token)) return true;
   return HAS_LETTER.test(token) && HAS_DIGIT.test(token) && token.split('-').every((part) => IDENTIFIER_PART.test(part));
 }
 

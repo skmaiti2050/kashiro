@@ -189,14 +189,16 @@ describe('identifiers mixing letters and digits', () => {
 });
 
 describe('code tokens', () => {
-  const text = 'Call preventDefault with et.reportAllChanges via window.location in src/ui, save file.docx, see iPhone and DevTools.';
+  const text = 'Call preventDefault with et.reportAllChanges in src/ui, save report.docx, see iPhone and DevTools, my_file.name and v2.beta.';
 
-  it.each(['preventDefault', 'et.reportAllChanges', 'window.location', 'src/ui', 'file.docx', 'iPhone', 'DevTools'])('locks %s', (token) => {
+  it.each(['preventDefault', 'et.reportAllChanges', 'src/ui', 'report.docx', 'iPhone', 'DevTools', 'my_file.name', 'v2.beta'])('locks %s', (token) => {
     expect(covered(text, token)).toBe(true);
   });
 
-  it('does not lock a sentence end followed by a capital, or plain lowercase words', () => {
-    const plain = 'I went home.Then we ate rice and dal.';
-    expect(covered(plain, 'home') || covered(plain, 'rice')).toBe(false);
+  it('two plain words joined by a full stop are a missing space, not code: not locked', () => {
+    for (const plain of ['I went home.then we ate.', 'Read window.location first.']) {
+      const words = plain.match(/\w+\.\w+/)![0].split('.');
+      expect(covered(plain, words[0]) || covered(plain, words[1])).toBe(false);
+    }
   });
 });

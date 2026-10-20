@@ -201,12 +201,24 @@ describe('code tokens and stray letters', () => {
   it.each([
     ['Use et.reportAllChanges now.', 'et', 'Spelling', ['eat']],
     ['Use et.reportAllChanges now.', 'reportAllChanges', 'Capitalization', ['ReportAllChanges']],
-    ['Read window.location first.', 'location', 'Capitalization', ['Location']],
     ['Open src/ui today.', 'src', 'Spelling', ['sac']],
     ['Open src/ui today.', 'ui', 'Spelling', ['uh']],
-    ['Save it as file.docx.', 'docx', 'Spelling', ['docs']],
+    ['Open C:\\work\\notes today.', 'work', 'Spelling', ['word']],
+    ['Save it as report.docx.', 'docx', 'Spelling', ['docs']],
+    ['Send it to a@b.co today.', 'co', 'Spelling', ['so']],
+    ['See www.example.com for more.', 'www', 'Spelling', ['ww']],
+    ['Read my_file.name first.', 'name', 'Capitalization', ['Name']],
+    ['Use v2.beta now.', 'beta', 'Capitalization', ['Beta']],
   ])('in "%s", %s is part of a code token: hidden', (text, original, kind, replacements) => {
     expect(inText(text, original, kind, replacements)).toBe('hidden');
+  });
+
+  it.each([
+    ['I went home.then left.', 'then', 'Capitalization', ['Then']],
+    ['I went home.thne left.', 'thne', 'Spelling', ['then']],
+    ['Read window.location first.', 'location', 'Capitalization', ['Location']],
+  ])('two plain words joined by a full stop are prose with a missing space: "%s" keeps its %s flag', (text, original, kind, replacements) => {
+    expect(inText(text, original, kind, replacements)).not.toBe('hidden');
   });
 
   it.each([
@@ -226,12 +238,21 @@ describe('code tokens and stray letters', () => {
   it('with Harper: code tokens, stray letters and identifiers get no spelling decisions; real typos still do', async () => {
     const { CheckSession } = await import('@/engine/session');
     const text =
-      'Call preventDefault and maxLength on linkedinUrl with et.reportAllChanges in DevTools on an iPhone or YouTube via window.location and src/ui or file.docx. Press z. and x here, and i think y0u are late.';
+      'Call preventDefault and maxLength on linkedinUrl with et.reportAllChanges in DevTools on an iPhone or YouTube via src/ui or report.docx, www.example.com and a@b.co. Press z. and x here, and i think y0u are late.';
     const s = await CheckSession.start([{ id: 0, text }], { preset: 'business', variant: 'American', fallbackVariant: 'American', language: 'plaintext', dictionary: [] });
     const { top, more } = s.decisions();
     const flagged = [...top, ...more].flatMap((d) => d.candidateIds).map((id) => s.candidates().find((c) => c.id === id)!.original);
     const applied = s.outcomes().filter((o) => o.status === 'applied').map((o) => o.candidate.original);
     expect([...flagged, ...applied].sort()).toEqual(['i', 'y0u']);
+  });
+
+  it('with Harper: a missing space after a full stop is still caught', async () => {
+    const { CheckSession } = await import('@/engine/session');
+    const text = 'We went home.then we slept.';
+    const s = await CheckSession.start([{ id: 0, text }], { preset: 'business', variant: 'American', fallbackVariant: 'American', language: 'plaintext', dictionary: [] });
+    const { top, more } = s.decisions();
+    const seen = [...[...top, ...more].flatMap((d) => d.candidateIds), ...s.outcomes().filter((o) => o.status === 'applied').map((o) => o.candidate.id)];
+    expect(seen.map((id) => s.candidates().find((c) => c.id === id)!.original)).toContain('then');
   });
 });
 
