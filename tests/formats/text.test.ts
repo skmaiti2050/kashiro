@@ -59,6 +59,27 @@ describe('text adapter', () => {
     expect(r.unplaceable).toHaveLength(1);
   });
 
+  it('handles an empty file and a BOM-only file', async () => {
+    const empty = await txt.read(enc(''));
+    expect(empty.paras).toEqual([]);
+    expect((await txt.write(empty.handle, [], 'clean')).bytes).toEqual(new Uint8Array());
+    const bom = await txt.read(new Uint8Array([0xef, 0xbb, 0xbf]));
+    expect(bom.paras).toEqual([]);
+    expect([...(await txt.write(bom.handle, [], 'clean')).bytes]).toEqual([0xef, 0xbb, 0xbf]);
+  });
+
+  it('edits the second paragraph of a CRLF file, with and without trailing blank lines', async () => {
+    for (const tail of ['', '\r\n', '\r\n\r\n  \r\n']) {
+      const src = 'First para.\r\n\r\nSecond teh para.\r\nline two' + tail;
+      const { paras, handle } = await txt.read(enc(src));
+      expect(paras).toHaveLength(2);
+      expect(paras[1].text).toBe('Second teh para.\r\nline two');
+      const i = paras[1].text.indexOf('teh');
+      const { bytes } = await txt.write(handle, [{ paraId: 1, span: { start: i, end: i + 3 }, replacement: 'the' }], 'clean');
+      expect(dec(bytes)).toBe(src.replace('teh', 'the'));
+    }
+  });
+
   it('registry: language and extensions', () => {
     expect(adapterFor('x.MD')!.language).toBe('markdown');
     expect(adapterFor('x.markdown')!.language).toBe('markdown');
