@@ -127,3 +127,63 @@ export function decodeXmlText(raw: string): string {
   }
   return out;
 }
+
+interface RawUnit {
+  raw: string;
+  /** Decoded UTF-16 length: 0 for comments/PIs, 2 for an astral character reference, else 1. */
+  len: number;
+  /** Index of the CDATA section this character came from, or -1. */
+  cdata: number;
+}
+
+function rawUnits(raw: string): RawUnit[] {
+  const units: RawUnit[] = [];
+  let cdataIndex = 0;
+  const toks: Token[] = raw.includes('<') ? [...tokenize(raw)] : [{ kind: 'text', start: 0, end: raw.length }];
+  for (const tok of toks) {
+    if (tok.kind === 'text') {
+      for (let i = tok.start; i < tok.end; ) {
+        if (raw[i] === '&') {
+          const semi = raw.indexOf(';', i);
+          if (semi < 0 || semi >= tok.end) throw new Error(`malformed XML: bare '&' in "${raw}"`);
+          const ent = raw.slice(i, semi + 1);
+          units.push({ raw: ent, len: decodeEntities(ent).length, cdata: -1 });
+          i = semi + 1;
+        } else {
+          units.push({ raw: raw[i], len: 1, cdata: -1 });
+          i++;
+        }
+      }
+    } else if (tok.kind === 'cdata') {
+      const id = cdataIndex++;
+      for (let i = tok.start + 9; i < tok.end - 3; i++) units.push({ raw: raw[i], len: 1, cdata: id });
+    } else if (tok.kind === 'comment' || tok.kind === 'pi') {
+      units.push({ raw: raw.slice(tok.start, tok.end), len: 0, cdata: -1 });
+    } else throw new Error(`unexpected markup in text content: ${raw.slice(tok.start, tok.end)}`);
+  }
+  return units;
+}
+
+/**
+ * The decoded → raw offset mapper. Splits RAW element content (as between `<w:t>` and `</w:t>`) at DECODED
+ * offsets `cuts` (sorted ascending, duplicates allowed) into cuts.length + 1 raw strings that are each valid
+ * element content and whose decodings are the corresponding slices of decodeXmlText(raw). Entities are kept
+ * as written; a CDATA section cut in its interior is closed and reopened. Comments/PIs go to the later part.
+ * Throws if a cut falls inside one entity (an astral character reference decodes to two UTF-16 units).
+ */
+export function splitRawText(raw: string, cuts: number[]): string[] {
+  const parts: { raw: string; cdata: number }[][] = cuts.map(() => []);
+  parts.push([]);
+  let pos = 0;
+  for (const u of rawUnits(raw)) {
+    if (u.len === 2 && cuts.some((c) => c > pos && c < pos + 2)) throw new Error('cut inside a character reference');
+    let k = 0;
+    while (k < cuts.length && cuts[k] <= pos) k++;
+    const part = parts[k];
+    const last = part[part.length - 1];
+    if (u.cdata >= 0 && last && last.cdata === u.cdata) last.raw += u.raw;
+    else part.push({ raw: u.raw, cdata: u.cdata });
+    pos += u.len;
+  }
+  return parts.map((segs) => segs.map((s) => (s.cdata >= 0 ? `<![CDATA[${s.raw}]]>` : s.raw)).join(''));
+}

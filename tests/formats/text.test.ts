@@ -84,7 +84,8 @@ describe('text adapter', () => {
     expect(adapterFor('x.MD')!.language).toBe('markdown');
     expect(adapterFor('x.markdown')!.language).toBe('markdown');
     expect(adapterFor('x.txt')!.language).toBe('plaintext');
-    expect(adapterFor('x.docx')).toBeNull();
+    expect(adapterFor('x.docx')!.exts).toEqual(['.docx']);
+    expect(adapterFor('x.doc')).toBeNull();
     expect(adapterFor('noext')).toBeNull();
   });
 });

@@ -1,7 +1,8 @@
 import type { FormatAdapter } from './types';
 import { markdownAdapter, plaintextAdapter } from './text';
+import { docxAdapter } from './docx';
 
-const ADAPTERS: FormatAdapter[] = [plaintextAdapter, markdownAdapter];
+const ADAPTERS: FormatAdapter[] = [plaintextAdapter, markdownAdapter, docxAdapter];
 
 export function adapterFor(fileName: string): FormatAdapter | null {
   const dot = fileName.lastIndexOf('.');
