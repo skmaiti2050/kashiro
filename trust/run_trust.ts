@@ -42,10 +42,39 @@ const fail = (msg: string) => {
   console.log(`  FAIL ${msg}`);
 };
 
+/** UTF-8 stdio for Python children regardless of the console code page. */
+const PY_ENV = { ...process.env, PYTHONUTF8: '1' };
+
 function python(args: string[]): number {
   // `python` may be a .bat shim (pyenv-win): needs a shell on Windows.
-  const r = spawnSync('python', args.map((a) => `"${a}"`), { cwd: REPO, stdio: 'inherit', shell: true });
+  const r = spawnSync('python', args.map((a) => `"${a}"`), { cwd: REPO, stdio: 'inherit', shell: true, env: PY_ENV });
   return r.status ?? 1;
+}
+
+/** Exit code block_network.cjs forces when any network attempt happened, even a caught one. */
+const EXIT_NETWORK = 99;
+let markerSeq = 0;
+
+/** Env that preloads the network blocker, and the marker file it writes on any attempt. */
+function blockedEnv(): { env: NodeJS.ProcessEnv; marker: string } {
+  // NODE_OPTIONS treats backslashes inside quotes as escapes: use forward slashes.
+  const block = path.join(TRUST, 'block_network.cjs').replace(/\\/g, '/');
+  const dir = path.join(OUT, 'net');
+  fs.mkdirSync(dir, { recursive: true });
+  const marker = path.join(dir, `run-${process.pid}-${markerSeq++}.log`);
+  const env = {
+    ...process.env,
+    NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ''} --require "${block}"`.trim(),
+    TRUST_NET_MARKER: marker,
+  };
+  return { env, marker };
+}
+
+/** What a blocked run attempted, or null. Fails closed: exit 99 or a marker file both count. */
+function networkAttempt(code: number, marker: string): string | null {
+  const logged = fs.existsSync(marker) ? fs.readFileSync(marker, 'utf8').trim() : '';
+  if (logged) return logged.split('\n').join('; ');
+  return code === EXIT_NETWORK ? `exit code ${EXIT_NETWORK}` : null;
 }
 
 function jobs(): Job[] {
@@ -61,21 +90,58 @@ function jobs(): Job[] {
   return out;
 }
 
-function runCli(job: Job, mode: string): Promise<{ job: Job; mode: string; code: number; stdout: string; stderr: string }> {
-  const output = path.join(OUT, mode, job.rel);
-  fs.mkdirSync(path.dirname(output), { recursive: true });
-  const args = ['--import', 'tsx', path.join(REPO, 'cli', 'check-file.ts'), job.input, output, '--preset', job.preset, '--mode', mode, '--accept-all-rules'];
-  // NODE_OPTIONS treats backslashes inside quotes as escapes: use forward slashes.
-  const block = path.join(TRUST, 'block_network.cjs').replace(/\\/g, '/');
-  const env = { ...process.env, NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ''} --require "${block}"`.trim() };
+interface Run {
+  code: number;
+  stdout: string;
+  stderr: string;
+  /** What the run tried to reach on the network, or null. */
+  network: string | null;
+}
+
+function spawnBlocked(args: string[]): Promise<Run> {
+  const { env, marker } = blockedEnv();
   return new Promise((resolve) => {
     const child = spawn(process.execPath, args, { cwd: REPO, env });
     let stdout = '';
     let stderr = '';
     child.stdout.on('data', (d) => (stdout += d));
     child.stderr.on('data', (d) => (stderr += d));
-    child.on('close', (code) => resolve({ job, mode, code: code ?? 1, stdout, stderr }));
+    child.on('close', (c) => {
+      const code = c ?? 1;
+      resolve({ code, stdout, stderr, network: networkAttempt(code, marker) });
+    });
   });
+}
+
+async function runCli(job: Job, mode: string): Promise<Run & { job: Job; mode: string }> {
+  const output = path.join(OUT, mode, job.rel);
+  fs.mkdirSync(path.dirname(output), { recursive: true });
+  const args = ['--import', 'tsx', path.join(REPO, 'cli', 'check-file.ts'), job.input, output, '--preset', job.preset, '--mode', mode, '--accept-all-rules'];
+  return { job, mode, ...(await spawnBlocked(args)) };
+}
+
+/**
+ * Network negative control: a child that makes blocked calls, catches every error and exits 0
+ * must still be marked as a network attempt (fail closed), for CommonJS and ESM imports alike.
+ */
+async function networkNegativeControl(): Promise<void> {
+  const probe = [
+    "import http from 'node:http';",
+    "import dns from 'node:dns';",
+    "import net from 'node:net';",
+    "try { net.connect(80, 'example.com').on('error', () => {}); } catch {}",
+    "try { http.get('http://example.com'); } catch {}",
+    "try { await dns.promises.lookup('example.com'); } catch {}",
+    "try { await fetch('https://example.com'); } catch {}",
+    'process.exit(0);',
+  ].join('\n');
+  const r = await spawnBlocked(['--input-type=module', '-e', probe]);
+  const ok = r.network !== null && r.code === EXIT_NETWORK;
+  console.log(`  ${ok ? 'caught' : 'MISSED'}: caught-and-ignored network calls (exit ${r.code}; ${r.network ?? 'no marker'})`);
+  if (!ok) fail('negative control: a run that swallowed a blocked network call was not marked failed');
+  for (const want of ['http', 'dns.promises.lookup', 'fetch', 'net']) {
+    if (!r.network?.includes(want)) fail(`negative control: ${want} attempt was not recorded`);
+  }
 }
 
 async function pool<T, R>(items: T[], size: number, fn: (t: T) => Promise<R>): Promise<R[]> {
@@ -138,7 +204,7 @@ async function negativeControl(): Promise<void> {
   zip.file('word/header1.xml', hdr.replace('must survive', 'was edited')); // docx parts
   fs.writeFileSync(docx, await zip.generateAsync({ type: 'uint8array' }));
 
-  const r = spawnSync('python', [`"${path.join(TRUST, 'analyze.py')}"`, '--outputs', `"${dst}"`], { cwd: REPO, shell: true, encoding: 'utf8' });
+  const r = spawnSync('python', [`"${path.join(TRUST, 'analyze.py')}"`, '--outputs', `"${dst}"`], { cwd: REPO, shell: true, encoding: 'utf8', env: PY_ENV });
   const out = r.stdout ?? '';
   const expected: [string, string][] = [
     ['corpus/prose.txt', 'facts'],
@@ -171,6 +237,7 @@ async function main(): Promise<void> {
     ([j, m]) => runCli(j, m),
   );
   for (const r of runs) {
+    if (r.network) fail(`network ${r.mode} ${r.job.rel}: ${r.network}`);
     if (r.code !== 0) fail(`cli ${r.mode} ${r.job.rel}: exit ${r.code}: ${r.stderr.trim().split('\n').slice(-3).join(' | ')}`);
     else if (r.mode === 'tracked') console.log(`  ${r.job.rel} [${r.job.preset}] ${r.stdout.trim()}`);
   }
@@ -185,6 +252,7 @@ async function main(): Promise<void> {
 
   console.log('\n# 5. negative control (every gate must catch planted damage)');
   await negativeControl();
+  await networkNegativeControl();
 
   console.log(failures.length ? `\nTRUST SUITE FAILED (${failures.length}):\n- ${failures.join('\n- ')}` : '\nTRUST SUITE PASSED');
   process.exit(failures.length ? 1 : 0);

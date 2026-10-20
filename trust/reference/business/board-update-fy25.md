@@ -52,7 +52,7 @@ The main risks for teh second half are as follows.
 
 ## 6. Outlook
 
-We expect revenue for the full year of about ₹385 crore, slightly ahead of the budget of ₹372 crore, and an EBITDA margin of around 11%. The second half is usually stronger for our business because of festive demand and the winter procurement season.
+We expect revenue for the full year of about ₹385 crore, slightly ahead of the budget of ₹372 crore, and an EBITDA margin of around 11%. The second half is usually stronger for our business because of festive demand and the rabi procurement season.
 
 Capital expenditure for the year will be about ₹46 crore, mostly for the Latur plant, which is within the approved limit. We do not expect to need additional borrowing this year.
 

@@ -66,7 +66,7 @@ Instead, I'll offer one thing I've learned from watching the two of you. You nev
 
 [Pick up the glass. Look around the room.]
 
-So, would everyone please stand and raise teh glasses.
+So, would everyone please stand and raise you glasses.
 
 [Wait until most people are standing.]
 

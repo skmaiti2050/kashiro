@@ -91,7 +91,7 @@ def invisible_gate(name: str, orig: str, out: str) -> None:
 
 
 SPAN_PATTERNS = {
-    "fenced code": re.compile(r"^```.*?^```", re.S | re.M),
+    "fenced code": re.compile(r"^ {0,3}(`{3,}|~{3,}).*?^ {0,3}\1", re.S | re.M),
     "display math": re.compile(r"\$\$.+?\$\$", re.S),
     "inline math": re.compile(r"(?<!\$)\$[^\s$](?:[^$\n]*[^\s$])?\$(?!\$)"),
     "inline code": re.compile(r"(?<!`)`[^`\n]+`(?!`)"),
@@ -103,7 +103,7 @@ def protected_spans(t: str) -> dict[str, list[str]]:
     out: dict[str, list[str]] = {}
     rest = t
     for kind, rx in SPAN_PATTERNS.items():
-        out[kind] = rx.findall(rest)
+        out[kind] = [m.group(0) for m in rx.finditer(rest)]
         if kind == "fenced code":
             rest = rx.sub("\0", rest)  # spans inside a fence are covered by the fence itself
     return out

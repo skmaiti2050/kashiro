@@ -32,7 +32,7 @@ We conducted 34 in-depth interviews with workers, supervisors and contractors. I
 
 The recommended WBGT limit for continuous heavy work is 28 °C (ISO 7243:2017). On 52 of the 76 working days in our study, the site average exceeded this limit for at least three hours. Peak values above 33 °C were recorded on 19 days, mostly in May. Conditions were worst on upper floors without shade and on sites where concrete was poured in the afternoon.
 
-The wearable sensors told a consistent story. Among the 48 workers who wore them, average heart rate during the afternoon session was 14 beats per minute higher on hot days than on cooler ones, even though the work itself did not change. Skin temperature rose steadily after lunch and rarely returned to its morning level before the end of the shift. Workers who carried loads up the stairs, such as bricks, cement bags or buckets of mortar, showed the highest readings. Several of them spent more than half the afternoon above the heart-rate threshold that occupational guidelines treat as a warning sign. These readings matter because they show strain building up over the day, not just at the hottest moment.
+The wearable sensors told a consistent story. Among the 48 workers who wore them, average heart rate during the afternoon session was 14 beats per minute higher on hot days than on cooler ones, even though the work itself did not change. Skin temperature rose steadily after lunch and rarely returned to its morning level before the end of the shift. Workers who carried loads up stairs, such as bricks, cement bags or buckets of mortar, showed the highest readings. Several of them spent more than half the afternoon above the heart-rate threshold that occupational guidelines treat as a warning sign. These readings matter because they show strain building up over the day, not just at the hottest moment.
 
 ### 3.2 Symptoms and output
 
@@ -64,5 +64,5 @@ Heat is already a daily occupational hazard on Ahmedabad's construction sites, a
 
 ## References
 
-- Flouris, A. D. et al. (2018). Workers' health and productivity under occupational heat strain: A systematic review and meta-analysis. *The Lancet Planetary Health*, 2(12).
+- Flouris, A. D. et al. (2018). Workers' health and productivity under occupational heat strain: A systematic review and meta-analysis. *The Lancet Planetary Health*, 2(12), e521-e531.
 - Knowlton, K. et al. (2014). Development and implementation of South Asia's first heat-health action plan in Ahmedabad (Gujarat, India). *International Journal of Environmental Research and Public Health*, 11(4), 3473-3492.

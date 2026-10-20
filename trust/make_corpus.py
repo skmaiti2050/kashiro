@@ -139,6 +139,8 @@ PROSE_MD = (
     "```python\n" + PYTHON + "```\n\n"
     "The front end formats prices like this, and Prof. Vikram Mehta checked that it's  output is stable:\n\n"
     "```js\n" + JAVASCRIPT + "```\n\n"
+    "A tilde fence is code too; teh shell lines below must not change:\n\n"
+    "~~~sh\n# teh comment stays\npython score.py --min-words 300\n\nexport MODE=strict\n~~~\n\n"
     "As shown by Sharma et al. [3], the gain held for 6 months and cost under INR 450 per student.\n"
 )
 

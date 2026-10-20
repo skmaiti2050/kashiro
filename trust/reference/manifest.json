@@ -4,7 +4,7 @@
       "file": "academic/groundwater-marathwada.md",
       "preset": "academic",
       "format": "md",
-      "words": 1162,
+      "words": 1150,
       "errors": {
         "safe": 6,
         "judgment": 6
@@ -13,62 +13,122 @@
         {
           "wrong": "teh",
           "right": "the",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 4,
+            "start": 196,
+            "end": 199
+          }
         },
         {
           "wrong": "teh",
           "right": "the",
-          "type": "s"
-        },
-        {
-          "wrong": "that that",
-          "right": "that",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 5,
+            "start": 15,
+            "end": 18
+          }
         },
         {
           "wrong": "heavily on on",
           "right": "heavily on",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 8,
+            "start": 374,
+            "end": 387
+          }
         },
         {
           "wrong": "have",
           "right": "has",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 9,
+            "start": 207,
+            "end": 211
+          }
+        },
+        {
+          "wrong": "to to",
+          "right": "to",
+          "type": "s",
+          "at": {
+            "para": 12,
+            "start": 43,
+            "end": 48
+          }
         },
         {
           "wrong": "weather",
           "right": "whether",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 13,
+            "start": 181,
+            "end": 188
+          }
         },
         {
           "wrong": "arived",
           "right": "arrived",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 16,
+            "start": 323,
+            "end": 329
+          }
         },
         {
           "wrong": "was",
           "right": "were",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 17,
+            "start": 195,
+            "end": 198
+          }
         },
         {
           "wrong": "is",
           "right": "are",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 20,
+            "start": 46,
+            "end": 48
+          }
         },
         {
           "wrong": "who's",
           "right": "whose",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 21,
+            "start": 67,
+            "end": 72
+          }
         },
         {
           "wrong": "effect",
           "right": "affect",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 23,
+            "start": 172,
+            "end": 178
+          }
         },
         {
           "wrong": "an",
           "right": "a",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 26,
+            "start": 430,
+            "end": 432
+          }
         }
       ],
       "facts": [
@@ -121,72 +181,142 @@
         {
           "wrong": "employer",
           "right": "employers",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 4,
+            "start": 274,
+            "end": 282
+          }
         },
         {
           "wrong": "aged aged",
           "right": "aged",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 9,
+            "start": 234,
+            "end": 243
+          }
         },
         {
           "wrong": "weather",
           "right": "whether",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 11,
+            "start": 263,
+            "end": 270
+          }
         },
         {
           "wrong": "and and",
           "right": "and",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 13,
+            "start": 121,
+            "end": 128
+          }
         },
         {
           "wrong": "was",
           "right": "were",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 19,
+            "start": 135,
+            "end": 138
+          }
         },
         {
           "wrong": "hot hot",
           "right": "hot",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 20,
+            "start": 15,
+            "end": 22
+          }
         },
         {
           "wrong": "teh",
           "right": "the",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 20,
+            "start": 304,
+            "end": 307
+          }
         },
         {
           "wrong": "a",
           "right": "an",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 22,
+            "start": 316,
+            "end": 317
+          }
         },
         {
           "wrong": "stoped",
           "right": "stopped",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 22,
+            "start": 445,
+            "end": 451
+          }
         },
         {
           "wrong": "teh",
           "right": "the",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 23,
+            "start": 17,
+            "end": 20
+          }
         },
         {
           "wrong": "then",
           "right": "than",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 23,
+            "start": 167,
+            "end": 171
+          }
         },
         {
           "wrong": "has has",
           "right": "has",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 28,
+            "start": 7,
+            "end": 14
+          }
         },
         {
           "wrong": "its",
           "right": "it's",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 28,
+            "start": 133,
+            "end": 136
+          }
         },
         {
           "wrong": "few",
           "right": "little",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 31,
+            "start": 410,
+            "end": 413
+          }
         }
       ],
       "facts": [
@@ -230,6 +360,7 @@
         "2023",
         "Flouris, A. D. et al. (2018)",
         "2(12)",
+        "e521-e531",
         "Knowlton, K. et al. (2014)",
         "11(4)",
         "3473-3492"
@@ -248,62 +379,122 @@
         {
           "wrong": "teh",
           "right": "the",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 4,
+            "start": 116,
+            "end": 119
+          }
         },
         {
           "wrong": "an",
           "right": "a",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 5,
+            "start": 14,
+            "end": 16
+          }
         },
         {
           "wrong": "were",
           "right": "was",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 5,
+            "start": 188,
+            "end": 192
+          }
         },
         {
           "wrong": "the the",
           "right": "the",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 5,
+            "start": 293,
+            "end": 300
+          }
         },
         {
           "wrong": "was",
           "right": "were",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 26,
+            "start": 82,
+            "end": 85
+          }
         },
         {
           "wrong": "grow",
           "right": "grows",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 32,
+            "start": 29,
+            "end": 33
+          }
         },
         {
           "wrong": "there",
           "right": "their",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 32,
+            "start": 318,
+            "end": 323
+          }
         },
         {
           "wrong": "an",
           "right": "a",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 35,
+            "start": 142,
+            "end": 144
+          }
         },
         {
           "wrong": "who's",
           "right": "whose",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 37,
+            "start": 237,
+            "end": 242
+          }
         },
         {
           "wrong": "in in",
           "right": "in",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 39,
+            "start": 593,
+            "end": 598
+          }
         },
         {
           "wrong": "dissappeared",
           "right": "disappeared",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 42,
+            "start": 238,
+            "end": 250
+          }
         },
         {
           "wrong": "to to",
           "right": "to",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 42,
+            "start": 434,
+            "end": 439
+          }
         }
       ],
       "facts": [
@@ -362,57 +553,112 @@
         {
           "wrong": "litle",
           "right": "little",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 5,
+            "start": 401,
+            "end": 406
+          }
         },
         {
           "wrong": "where",
           "right": "were",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 9,
+            "start": 104,
+            "end": 109
+          }
         },
         {
           "wrong": "both both",
           "right": "both",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 11,
+            "start": 22,
+            "end": 31
+          }
         },
         {
           "wrong": "there",
           "right": "their",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 45,
+            "start": 70,
+            "end": 75
+          }
         },
         {
           "wrong": "an",
           "right": "a",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 45,
+            "start": 224,
+            "end": 226
+          }
         },
         {
           "wrong": "lower lower",
           "right": "lower",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 46,
+            "start": 14,
+            "end": 25
+          }
         },
         {
           "wrong": "effect",
           "right": "affect",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 46,
+            "start": 423,
+            "end": 429
+          }
         },
         {
           "wrong": "an",
           "right": "a",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 48,
+            "start": 98,
+            "end": 100
+          }
         },
         {
           "wrong": "an",
           "right": "a",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 48,
+            "start": 184,
+            "end": 186
+          }
         },
         {
           "wrong": "its",
           "right": "it",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 52,
+            "start": 173,
+            "end": 176
+          }
         },
         {
           "wrong": "then",
           "right": "than",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 55,
+            "start": 372,
+            "end": 376
+          }
         }
       ],
       "facts": [
@@ -461,62 +707,122 @@
         {
           "wrong": "matter",
           "right": "matters",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 3,
+            "start": 13,
+            "end": 19
+          }
         },
         {
           "wrong": "an",
           "right": "a",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 6,
+            "start": 215,
+            "end": 217
+          }
         },
         {
           "wrong": "  ",
           "right": " ",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 6,
+            "start": 433,
+            "end": 435
+          }
         },
         {
           "wrong": "are",
           "right": "is",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 7,
+            "start": 215,
+            "end": 218
+          }
         },
         {
           "wrong": "an",
           "right": "a",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 11,
+            "start": 166,
+            "end": 168
+          }
         },
         {
           "wrong": "remidial",
           "right": "remedial",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 11,
+            "start": 434,
+            "end": 442
+          }
         },
         {
           "wrong": "there",
           "right": "their",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 15,
+            "start": 158,
+            "end": 163
+          }
         },
         {
           "wrong": "rose",
           "right": "raised",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 15,
+            "start": 247,
+            "end": 251
+          }
         },
         {
           "wrong": "thme",
           "right": "them",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 19,
+            "start": 446,
+            "end": 450
+          }
         },
         {
           "wrong": "  ",
           "right": " ",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 22,
+            "start": 16,
+            "end": 18
+          }
         },
         {
           "wrong": "follow follow",
           "right": "follow",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 22,
+            "start": 324,
+            "end": 337
+          }
         },
         {
           "wrong": "it's",
           "right": "its",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 24,
+            "start": 472,
+            "end": 476
+          }
         }
       ],
       "facts": [
@@ -555,6 +861,201 @@
       ]
     },
     {
+      "file": "academic/water-user-associations-vidarbha.md",
+      "preset": "academic",
+      "format": "md",
+      "words": 1386,
+      "errors": {
+        "safe": 8,
+        "judgment": 7
+      },
+      "answers": [
+        {
+          "wrong": "teh",
+          "right": "the",
+          "type": "s",
+          "at": {
+            "para": 4,
+            "start": 305,
+            "end": 308
+          }
+        },
+        {
+          "wrong": "exists",
+          "right": "exist",
+          "type": "j",
+          "at": {
+            "para": 4,
+            "start": 496,
+            "end": 502
+          }
+        },
+        {
+          "wrong": "the the",
+          "right": "the",
+          "type": "s",
+          "at": {
+            "para": 5,
+            "start": 40,
+            "end": 47
+          }
+        },
+        {
+          "wrong": "  ",
+          "right": " ",
+          "type": "s",
+          "at": {
+            "para": 8,
+            "start": 187,
+            "end": 189
+          }
+        },
+        {
+          "wrong": "him",
+          "right": "them",
+          "type": "j",
+          "at": {
+            "para": 8,
+            "start": 450,
+            "end": 453
+          }
+        },
+        {
+          "wrong": "there",
+          "right": "their",
+          "type": "j",
+          "at": {
+            "para": 9,
+            "start": 260,
+            "end": 265
+          }
+        },
+        {
+          "wrong": "recods",
+          "right": "records",
+          "type": "s",
+          "at": {
+            "para": 11,
+            "start": 62,
+            "end": 68
+          }
+        },
+        {
+          "wrong": "did did",
+          "right": "did",
+          "type": "s",
+          "at": {
+            "para": 15,
+            "start": 342,
+            "end": 349
+          }
+        },
+        {
+          "wrong": "then",
+          "right": "than",
+          "type": "j",
+          "at": {
+            "para": 19,
+            "start": 31,
+            "end": 35
+          }
+        },
+        {
+          "wrong": "was",
+          "right": "were",
+          "type": "j",
+          "at": {
+            "para": 19,
+            "start": 203,
+            "end": 206
+          }
+        },
+        {
+          "wrong": "stands",
+          "right": "stood",
+          "type": "j",
+          "at": {
+            "para": 21,
+            "start": 84,
+            "end": 90
+          }
+        },
+        {
+          "wrong": "a",
+          "right": "an",
+          "type": "s",
+          "at": {
+            "para": 22,
+            "start": 222,
+            "end": 223
+          }
+        },
+        {
+          "wrong": "non-existant",
+          "right": "non-existent",
+          "type": "s",
+          "at": {
+            "para": 24,
+            "start": 343,
+            "end": 355
+          }
+        },
+        {
+          "wrong": "effects",
+          "right": "affects",
+          "type": "j",
+          "at": {
+            "para": 26,
+            "start": 440,
+            "end": 447
+          }
+        },
+        {
+          "wrong": "these these",
+          "right": "these",
+          "type": "s",
+          "at": {
+            "para": 28,
+            "start": 331,
+            "end": 342
+          }
+        }
+      ],
+      "facts": [
+        "Maharashtra Management of Irrigation Systems by Farmers Act, 2005",
+        "48 tanks",
+        "2012",
+        "2023",
+        "1,140 farm households",
+        "6 November 2023",
+        "22 December 2023",
+        "3.2 more days",
+        "Mollinga et al., 2004",
+        "Shah, 2009",
+        "200 and 600 hectares",
+        "Dr. Prashant Wankhede",
+        "Ms. Sneha Deshmukh",
+        "Prof. Anil Thakre",
+        "19",
+        "48",
+        "17",
+        "12",
+        "6.8 days",
+        "3.6 days",
+        "3.1 days",
+        "41%",
+        "19%",
+        "₹1.8 lakh",
+        "₹400",
+        "70%",
+        "₹1,500",
+        "Mollinga, P. P., Doraiswamy, R. and Engbersen, K. (2004)",
+        "20(3)",
+        "363-378",
+        "Shah, T. (2009)"
+      ]
+    },
+    {
       "file": "blog/first-home-loan.md",
       "preset": "blog",
       "format": "md",
@@ -567,57 +1068,112 @@
         {
           "wrong": "three three",
           "right": "three",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 1,
+            "start": 161,
+            "end": 172
+          }
         },
         {
           "wrong": "a",
           "right": "an",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 5,
+            "start": 364,
+            "end": 365
+          }
         },
         {
           "wrong": "then",
           "right": "than",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 7,
+            "start": 326,
+            "end": 330
+          }
         },
         {
           "wrong": "you're",
           "right": "your",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 8,
+            "start": 390,
+            "end": 396
+          }
         },
         {
           "wrong": "recieve",
           "right": "receive",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 11,
+            "start": 226,
+            "end": 233
+          }
         },
         {
           "wrong": "an",
           "right": "a",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 14,
+            "start": 8,
+            "end": 10
+          }
         },
         {
           "wrong": "goes",
           "right": "go",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 14,
+            "start": 309,
+            "end": 313
+          }
         },
         {
           "wrong": "a a",
           "right": "a",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 19,
+            "start": 13,
+            "end": 16
+          }
         },
         {
           "wrong": "  ",
           "right": " ",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 20,
+            "start": 30,
+            "end": 32
+          }
         },
         {
           "wrong": "not not",
           "right": "not",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 22,
+            "start": 319,
+            "end": 326
+          }
         },
         {
           "wrong": "Its",
           "right": "It's",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 26,
+            "start": 73,
+            "end": 76
+          }
         }
       ],
       "facts": [
@@ -663,57 +1219,112 @@
         {
           "wrong": "have have",
           "right": "have",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 1,
+            "start": 353,
+            "end": 362
+          }
         },
         {
           "wrong": "comes",
           "right": "come",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 5,
+            "start": 171,
+            "end": 176
+          }
         },
         {
           "wrong": "a",
           "right": "a lower",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 24,
+            "start": 42,
+            "end": 43
+          }
         },
         {
           "wrong": "there",
           "right": "their",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 26,
+            "start": 39,
+            "end": 44
+          }
         },
         {
           "wrong": "show",
           "right": "shows",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 34,
+            "start": 310,
+            "end": 314
+          }
         },
         {
           "wrong": "my my",
           "right": "my",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 38,
+            "start": 24,
+            "end": 29
+          }
         },
         {
           "wrong": "an",
           "right": "a",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 38,
+            "start": 90,
+            "end": 92
+          }
         },
         {
           "wrong": "teh",
           "right": "the",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 40,
+            "start": 8,
+            "end": 11
+          }
         },
         {
           "wrong": "an",
           "right": "a",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 46,
+            "start": 109,
+            "end": 111
+          }
         },
         {
           "wrong": "looks",
           "right": "look",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 48,
+            "start": 118,
+            "end": 123
+          }
         },
         {
           "wrong": "once once",
           "right": "once",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 50,
+            "start": 276,
+            "end": 285
+          }
         }
       ],
       "facts": [
@@ -744,7 +1355,7 @@
       "file": "blog/monsoon-trek-kalsubai.md",
       "preset": "blog",
       "format": "md",
-      "words": 1293,
+      "words": 1292,
       "errors": {
         "safe": 8,
         "judgment": 5
@@ -753,67 +1364,132 @@
         {
           "wrong": "left left",
           "right": "left",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 4,
+            "start": 208,
+            "end": 217
+          }
         },
         {
           "wrong": "are",
           "right": "is",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 5,
+            "start": 24,
+            "end": 27
+          }
         },
         {
           "wrong": "to do",
           "right": "do",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 5,
+            "start": 191,
+            "end": 196
+          }
         },
         {
           "wrong": "an",
           "right": "a",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 7,
+            "start": 39,
+            "end": 41
+          }
         },
         {
           "wrong": "teh",
           "right": "the",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 7,
+            "start": 299,
+            "end": 302
+          }
         },
         {
           "wrong": "that that",
           "right": "that",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 8,
+            "start": 394,
+            "end": 403
+          }
         },
         {
           "wrong": "  ",
           "right": " ",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 9,
+            "start": 356,
+            "end": 358
+          }
         },
         {
           "wrong": "then",
           "right": "than",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 12,
+            "start": 255,
+            "end": 259
+          }
         },
         {
           "wrong": "an",
           "right": "a",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 15,
+            "start": 16,
+            "end": 18
+          }
         },
         {
           "wrong": "packed packed",
           "right": "packed",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 19,
+            "start": 15,
+            "end": 28
+          }
         },
         {
           "wrong": "then",
           "right": "them",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 20,
+            "start": 258,
+            "end": 262
+          }
         },
         {
           "wrong": "deserve",
           "right": "deserves",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 24,
+            "start": 236,
+            "end": 243
+          }
         },
         {
           "wrong": "Its",
           "right": "It's",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 27,
+            "start": 76,
+            "end": 79
+          }
         }
       ],
       "facts": [
@@ -835,7 +1511,7 @@
       "file": "blog/sourdough-bengaluru.docx",
       "preset": "blog",
       "format": "docx",
-      "words": 1166,
+      "words": 1162,
       "errors": {
         "safe": 6,
         "judgment": 6
@@ -844,62 +1520,122 @@
         {
           "wrong": "teh",
           "right": "the",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 5,
+            "start": 66,
+            "end": 69
+          }
         },
         {
           "wrong": "teh",
           "right": "the",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 7,
+            "start": 23,
+            "end": 26
+          }
         },
         {
           "wrong": "form",
           "right": "forms",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 7,
+            "start": 199,
+            "end": 203
+          }
         },
         {
           "wrong": "a",
           "right": "an",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 10,
+            "start": 99,
+            "end": 100
+          }
         },
         {
           "wrong": "has",
           "right": "have",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 15,
+            "start": 205,
+            "end": 208
+          }
         },
         {
           "wrong": "an",
           "right": "a",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 17,
+            "start": 183,
+            "end": 185
+          }
         },
         {
           "wrong": "fourty",
           "right": "forty",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 18,
+            "start": 22,
+            "end": 28
+          }
         },
         {
           "wrong": "and and",
           "right": "and",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 24,
+            "start": 68,
+            "end": 75
+          }
         },
         {
           "wrong": "weather",
           "right": "whether",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 26,
+            "start": 17,
+            "end": 24
+          }
         },
         {
           "wrong": "go",
           "right": "goes",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 37,
+            "start": 249,
+            "end": 251
+          }
         },
         {
           "wrong": "its",
           "right": "it's",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 40,
+            "start": 63,
+            "end": 66
+          }
         },
         {
           "wrong": "than",
           "right": "that",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 45,
+            "start": 289,
+            "end": 293
+          }
         }
       ],
       "facts": [
@@ -930,62 +1666,122 @@
         {
           "wrong": "around around",
           "right": "around",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 4,
+            "start": 20,
+            "end": 33
+          }
         },
         {
           "wrong": "the the",
           "right": "the",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 7,
+            "start": 13,
+            "end": 20
+          }
         },
         {
           "wrong": "is",
           "right": "are",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 7,
+            "start": 232,
+            "end": 234
+          }
         },
         {
           "wrong": "varies",
           "right": "vary",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 9,
+            "start": 7,
+            "end": 13
+          }
         },
         {
           "wrong": "breakfst",
           "right": "breakfast",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 14,
+            "start": 44,
+            "end": 52
+          }
         },
         {
           "wrong": "teh",
           "right": "the",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 15,
+            "start": 26,
+            "end": 29
+          }
         },
         {
           "wrong": "over over",
           "right": "over",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 18,
+            "start": 438,
+            "end": 447
+          }
         },
         {
           "wrong": "emptier",
           "right": "emptier than before",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 20,
+            "start": 381,
+            "end": 388
+          }
         },
         {
           "wrong": "  ",
           "right": " ",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 21,
+            "start": 73,
+            "end": 75
+          }
         },
         {
           "wrong": "has",
           "right": "have",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 21,
+            "start": 348,
+            "end": 351
+          }
         },
         {
           "wrong": "is",
           "right": "are",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 25,
+            "start": 24,
+            "end": 26
+          }
         },
         {
           "wrong": "teh",
           "right": "the",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 25,
+            "start": 182,
+            "end": 185
+          }
         }
       ],
       "facts": [
@@ -1001,6 +1797,126 @@
       ]
     },
     {
+      "file": "blog/village-ganeshotsav-homecoming.docx",
+      "preset": "blog",
+      "format": "docx",
+      "words": 1247,
+      "errors": {
+        "safe": 4,
+        "judgment": 6
+      },
+      "answers": [
+        {
+          "wrong": "teh",
+          "right": "the",
+          "type": "s",
+          "at": {
+            "para": 3,
+            "start": 397,
+            "end": 400
+          }
+        },
+        {
+          "wrong": "collect",
+          "right": "collects",
+          "type": "j",
+          "at": {
+            "para": 6,
+            "start": 95,
+            "end": 102
+          }
+        },
+        {
+          "wrong": "an",
+          "right": "a",
+          "type": "s",
+          "at": {
+            "para": 6,
+            "start": 295,
+            "end": 297
+          }
+        },
+        {
+          "wrong": "  ",
+          "right": " ",
+          "type": "s",
+          "at": {
+            "para": 10,
+            "start": 13,
+            "end": 15
+          }
+        },
+        {
+          "wrong": "everything everything",
+          "right": "everything",
+          "type": "s",
+          "at": {
+            "para": 11,
+            "start": 228,
+            "end": 249
+          }
+        },
+        {
+          "wrong": "everybody",
+          "right": "everybody's",
+          "type": "j",
+          "at": {
+            "para": 17,
+            "start": 326,
+            "end": 335
+          }
+        },
+        {
+          "wrong": "its",
+          "right": "it's",
+          "type": "j",
+          "at": {
+            "para": 18,
+            "start": 405,
+            "end": 408
+          }
+        },
+        {
+          "wrong": "mangoes pickle",
+          "right": "mango pickle",
+          "type": "j",
+          "at": {
+            "para": 21,
+            "start": 47,
+            "end": 61
+          }
+        },
+        {
+          "wrong": "then",
+          "right": "than",
+          "type": "j",
+          "at": {
+            "para": 21,
+            "start": 348,
+            "end": 352
+          }
+        },
+        {
+          "wrong": "a generations",
+          "right": "generations",
+          "type": "j",
+          "at": {
+            "para": 22,
+            "start": 255,
+            "end": 268
+          }
+        }
+      ],
+      "facts": [
+        "4:15 a.m.",
+        "26 August 2025",
+        "₹200",
+        "₹35,000",
+        "₹4,500",
+        "₹3,800"
+      ]
+    },
+    {
       "file": "script/gst-explainer-video.docx",
       "preset": "script",
       "format": "docx",
@@ -1013,62 +1929,122 @@
         {
           "wrong": "Lets",
           "right": "Let's",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 4,
+            "start": 318,
+            "end": 322
+          }
         },
         {
           "wrong": "add",
           "right": "added",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 9,
+            "start": 256,
+            "end": 259
+          }
         },
         {
           "wrong": "an",
           "right": "a",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 11,
+            "start": 19,
+            "end": 21
+          }
         },
         {
           "wrong": "three three",
           "right": "three",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 14,
+            "start": 19,
+            "end": 30
+          }
         },
         {
           "wrong": "an",
           "right": "a",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 16,
+            "start": 229,
+            "end": 231
+          }
         },
         {
           "wrong": "spends",
           "right": "spend",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 16,
+            "start": 275,
+            "end": 281
+          }
         },
         {
           "wrong": "you're",
           "right": "your",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 39,
+            "start": 35,
+            "end": 41
+          }
         },
         {
           "wrong": "an",
           "right": "and",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 39,
+            "start": 326,
+            "end": 328
+          }
         },
         {
           "wrong": "quickly quickly",
           "right": "quickly",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 46,
+            "start": 32,
+            "end": 47
+          }
         },
         {
           "wrong": "gotten",
           "right": "got",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 47,
+            "start": 79,
+            "end": 85
+          }
         },
         {
           "wrong": "  ",
           "right": " ",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 49,
+            "start": 71,
+            "end": 73
+          }
         },
         {
           "wrong": "bears",
           "right": "bear",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 49,
+            "start": 123,
+            "end": 128
+          }
         }
       ],
       "facts": [
@@ -1103,67 +2079,132 @@
         {
           "wrong": "teh",
           "right": "the",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 6,
+            "start": 26,
+            "end": 29
+          }
         },
         {
           "wrong": "happen",
           "right": "happened",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 7,
+            "start": 430,
+            "end": 436
+          }
         },
         {
           "wrong": "was",
           "right": "were",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 9,
+            "start": 397,
+            "end": 400
+          }
         },
         {
           "wrong": "an",
           "right": "a",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 11,
+            "start": 36,
+            "end": 38
+          }
         },
         {
           "wrong": "do do",
           "right": "do",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 13,
+            "start": 170,
+            "end": 175
+          }
         },
         {
           "wrong": "was was",
           "right": "was",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 16,
+            "start": 26,
+            "end": 33
+          }
         },
         {
           "wrong": "of of",
           "right": "of",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 20,
+            "start": 45,
+            "end": 50
+          }
         },
         {
           "wrong": "are",
           "right": "our",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 22,
+            "start": 223,
+            "end": 226
+          }
         },
         {
           "wrong": "it's",
           "right": "its",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 24,
+            "start": 271,
+            "end": 275
+          }
         },
         {
           "wrong": "an",
           "right": "a",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 26,
+            "start": 35,
+            "end": 37
+          }
         },
         {
           "wrong": "are",
           "right": "is",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 29,
+            "start": 32,
+            "end": 35
+          }
         },
         {
           "wrong": "then",
           "right": "than",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 32,
+            "start": 254,
+            "end": 258
+          }
         },
         {
           "wrong": "didnt",
           "right": "didn't",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 34,
+            "start": 27,
+            "end": 32
+          }
         }
       ],
       "facts": [
@@ -1196,62 +2237,122 @@
         {
           "wrong": "you're",
           "right": "your",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 5,
+            "start": 6,
+            "end": 12
+          }
         },
         {
           "wrong": "do do",
           "right": "do",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 6,
+            "start": 5,
+            "end": 10
+          }
         },
         {
           "wrong": "wants",
           "right": "want",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 9,
+            "start": 9,
+            "end": 14
+          }
         },
         {
           "wrong": "need",
           "right": "needs",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 14,
+            "start": 197,
+            "end": 201
+          }
         },
         {
           "wrong": "that that",
           "right": "that",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 16,
+            "start": 20,
+            "end": 29
+          }
         },
         {
           "wrong": "an",
           "right": "a",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 21,
+            "start": 5,
+            "end": 7
+          }
         },
         {
           "wrong": "founded",
           "right": "found",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 29,
+            "start": 15,
+            "end": 22
+          }
         },
         {
           "wrong": "didnt",
           "right": "didn't",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 37,
+            "start": 269,
+            "end": 274
+          }
         },
         {
           "wrong": "fro",
           "right": "for",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 40,
+            "start": 51,
+            "end": 54
+          }
         },
         {
           "wrong": "an",
           "right": "a",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 49,
+            "start": 125,
+            "end": 127
+          }
         },
         {
           "wrong": "build",
           "right": "built",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 50,
+            "start": 15,
+            "end": 20
+          }
         },
         {
           "wrong": "teh",
           "right": "the",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 55,
+            "start": 266,
+            "end": 269
+          }
         }
       ],
       "facts": [
@@ -1282,7 +2383,7 @@
       "file": "script/short-film-chai-stall.docx",
       "preset": "script",
       "format": "docx",
-      "words": 1108,
+      "words": 1151,
       "errors": {
         "safe": 6,
         "judgment": 5
@@ -1291,57 +2392,112 @@
         {
           "wrong": "teh",
           "right": "the",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 3,
+            "start": 153,
+            "end": 156
+          }
         },
         {
           "wrong": "are",
           "right": "is",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 5,
+            "start": 72,
+            "end": 75
+          }
         },
         {
           "wrong": "likes",
           "right": "like",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 11,
+            "start": 32,
+            "end": 37
+          }
         },
         {
           "wrong": "the the",
           "right": "the",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 13,
+            "start": 63,
+            "end": 70
+          }
         },
         {
           "wrong": "drifts",
           "right": "drift",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 15,
+            "start": 123,
+            "end": 129
+          }
         },
         {
           "wrong": "everyday",
           "right": "every day",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 17,
+            "start": 32,
+            "end": 40
+          }
         },
         {
           "wrong": "An",
           "right": "A",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 31,
+            "start": 0,
+            "end": 2
+          }
         },
         {
           "wrong": "  ",
           "right": " ",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 48,
+            "start": 33,
+            "end": 35
+          }
         },
         {
           "wrong": "its",
           "right": "it's",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 54,
+            "start": 15,
+            "end": 18
+          }
         },
         {
           "wrong": "teh",
           "right": "the",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 65,
+            "start": 218,
+            "end": 221
+          }
         },
         {
           "wrong": "a",
           "right": "an",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 95,
+            "start": 56,
+            "end": 57
+          }
         }
       ],
       "facts": [
@@ -1361,64 +2517,119 @@
       "format": "md",
       "words": 1067,
       "errors": {
-        "safe": 5,
-        "judgment": 6
+        "safe": 4,
+        "judgment": 7
       },
       "answers": [
         {
           "wrong": "Its",
           "right": "It's",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 7,
+            "start": 298,
+            "end": 301
+          }
         },
         {
           "wrong": "teh",
           "right": "the",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 9,
+            "start": 169,
+            "end": 172
+          }
         },
         {
           "wrong": "an",
           "right": "a",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 12,
+            "start": 16,
+            "end": 18
+          }
         },
         {
           "wrong": "the the",
           "right": "the",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 12,
+            "start": 59,
+            "end": 66
+          }
         },
         {
           "wrong": "was",
           "right": "had",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 16,
+            "start": 337,
+            "end": 340
+          }
         },
         {
           "wrong": "were",
           "right": "was",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 17,
+            "start": 112,
+            "end": 116
+          }
         },
         {
           "wrong": "Indain",
           "right": "Indian",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 22,
+            "start": 279,
+            "end": 285
+          }
         },
         {
           "wrong": "rebuilt",
           "right": "rebuild",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 26,
+            "start": 279,
+            "end": 286
+          }
         },
         {
           "wrong": "look",
           "right": "looks",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 27,
+            "start": 36,
+            "end": 40
+          }
         },
         {
           "wrong": "then",
           "right": "than",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 31,
+            "start": 253,
+            "end": 257
+          }
         },
         {
-          "wrong": "teh",
-          "right": "the",
-          "type": "s"
+          "wrong": "you",
+          "right": "your",
+          "type": "j",
+          "at": {
+            "para": 34,
+            "start": 42,
+            "end": 45
+          }
         }
       ],
       "facts": [
@@ -1446,52 +2657,102 @@
         {
           "wrong": "this this",
           "right": "this",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 3,
+            "start": 22,
+            "end": 31
+          }
         },
         {
           "wrong": "were",
           "right": "was",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 6,
+            "start": 244,
+            "end": 248
+          }
         },
         {
           "wrong": "are",
           "right": "our",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 8,
+            "start": 45,
+            "end": 48
+          }
         },
         {
           "wrong": "are",
           "right": "is",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 12,
+            "start": 81,
+            "end": 84
+          }
         },
         {
           "wrong": "reducing reducing",
           "right": "reducing",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 15,
+            "start": 154,
+            "end": 171
+          }
         },
         {
           "wrong": "well well",
           "right": "well",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 16,
+            "start": 170,
+            "end": 179
+          }
         },
         {
           "wrong": "teh",
           "right": "the",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 21,
+            "start": 19,
+            "end": 22
+          }
         },
         {
           "wrong": "increases",
           "right": "increase",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 24,
+            "start": 129,
+            "end": 138
+          }
         },
         {
           "wrong": "an",
           "right": "a",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 25,
+            "start": 75,
+            "end": 77
+          }
         },
         {
           "wrong": "it's",
           "right": "its",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 32,
+            "start": 36,
+            "end": 40
+          }
         }
       ],
       "facts": [
@@ -1550,57 +2811,112 @@
         {
           "wrong": "teh",
           "right": "the",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 8,
+            "start": 20,
+            "end": 23
+          }
         },
         {
           "wrong": "an",
           "right": "a",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 17,
+            "start": 11,
+            "end": 13
+          }
         },
         {
           "wrong": "teh",
           "right": "the",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 19,
+            "start": 240,
+            "end": 243
+          }
         },
         {
           "wrong": "extends",
           "right": "extend",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 22,
+            "start": 210,
+            "end": 217
+          }
         },
         {
           "wrong": "be be",
           "right": "be",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 24,
+            "start": 20,
+            "end": 25
+          }
         },
         {
           "wrong": "teh",
           "right": "the",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 40,
+            "start": 25,
+            "end": 28
+          }
         },
         {
           "wrong": "of",
           "right": "off",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 40,
+            "start": 69,
+            "end": 71
+          }
         },
         {
           "wrong": "sees",
           "right": "see",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 42,
+            "start": 18,
+            "end": 22
+          }
         },
         {
           "wrong": "an",
           "right": "a",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 48,
+            "start": 203,
+            "end": 205
+          }
         },
         {
           "wrong": "on on",
           "right": "on",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 48,
+            "start": 277,
+            "end": 282
+          }
         },
         {
           "wrong": "you",
           "right": "your",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 51,
+            "start": 75,
+            "end": 78
+          }
         }
       ],
       "facts": [
@@ -1645,52 +2961,102 @@
         {
           "wrong": "are",
           "right": "is",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 4,
+            "start": 9,
+            "end": 12
+          }
         },
         {
           "wrong": "there",
           "right": "their",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 8,
+            "start": 86,
+            "end": 91
+          }
         },
         {
           "wrong": "on on",
           "right": "on",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 14,
+            "start": 32,
+            "end": 37
+          }
         },
         {
           "wrong": "too",
           "right": "to",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 14,
+            "start": 212,
+            "end": 215
+          }
         },
         {
           "wrong": "confortable",
           "right": "comfortable",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 22,
+            "start": 37,
+            "end": 48
+          }
         },
         {
           "wrong": "a",
           "right": "an",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 22,
+            "start": 74,
+            "end": 75
+          }
         },
         {
           "wrong": "may",
           "right": "may,",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 26,
+            "start": 191,
+            "end": 194
+          }
         },
         {
           "wrong": "busy busy",
           "right": "busy",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 31,
+            "start": 28,
+            "end": 37
+          }
         },
         {
           "wrong": "teh",
           "right": "the",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 32,
+            "start": 158,
+            "end": 161
+          }
         },
         {
           "wrong": "six six",
           "right": "six",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 35,
+            "start": 33,
+            "end": 40
+          }
         }
       ],
       "facts": [
@@ -1722,52 +3088,102 @@
         {
           "wrong": "impacts",
           "right": "impact",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 7,
+            "start": 601,
+            "end": 608
+          }
         },
         {
           "wrong": "were",
           "right": "was",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 9,
+            "start": 356,
+            "end": 360
+          }
         },
         {
           "wrong": "it's",
           "right": "its",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 9,
+            "start": 734,
+            "end": 738
+          }
         },
         {
           "wrong": "rolled rolled",
           "right": "rolled",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 9,
+            "start": 965,
+            "end": 978
+          }
         },
         {
           "wrong": "becuase",
           "right": "because",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 12,
+            "start": 30,
+            "end": 37
+          }
         },
         {
           "wrong": "fifteen",
           "right": "sixteen",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 14,
+            "start": 207,
+            "end": 214
+          }
         },
         {
           "wrong": "teh",
           "right": "the",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 19,
+            "start": 7,
+            "end": 10
+          }
         },
         {
           "wrong": "a",
           "right": "an",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 19,
+            "start": 277,
+            "end": 278
+          }
         },
         {
           "wrong": "affects",
           "right": "effects",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 23,
+            "start": 43,
+            "end": 50
+          }
         },
         {
           "wrong": "that that",
           "right": "that",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 25,
+            "start": 208,
+            "end": 217
+          }
         }
       ],
       "facts": [
@@ -1804,52 +3220,102 @@
         {
           "wrong": "was",
           "right": "were",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 3,
+            "start": 344,
+            "end": 347
+          }
         },
         {
           "wrong": "reflect",
           "right": "reflects",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 33,
+            "start": 291,
+            "end": 298
+          }
         },
         {
           "wrong": "  ",
           "right": " ",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 34,
+            "start": 34,
+            "end": 36
+          }
         },
         {
           "wrong": "a",
           "right": "an",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 37,
+            "start": 114,
+            "end": 115
+          }
         },
         {
           "wrong": "steady steady",
           "right": "steady",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 39,
+            "start": 13,
+            "end": 26
+          }
         },
         {
           "wrong": "are",
           "right": "are now",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 42,
+            "start": 106,
+            "end": 109
+          }
         },
         {
           "wrong": "performs",
           "right": "performed",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 44,
+            "start": 23,
+            "end": 31
+          }
         },
         {
           "wrong": "then",
           "right": "than",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 45,
+            "start": 84,
+            "end": 88
+          }
         },
         {
           "wrong": "an",
           "right": "a",
-          "type": "s"
+          "type": "s",
+          "at": {
+            "para": 50,
+            "start": 22,
+            "end": 24
+          }
         },
         {
           "wrong": "there",
           "right": "their",
-          "type": "j"
+          "type": "j",
+          "at": {
+            "para": 60,
+            "start": 110,
+            "end": 115
+          }
         }
       ],
       "facts": [

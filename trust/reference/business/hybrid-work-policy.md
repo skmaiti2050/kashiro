@@ -10,9 +10,9 @@ Our goal are simple. We want people to do their best work, to collaborate well w
 
 ## 2. The Basic Arrangement
 
-Employees covered by this policy will work from the office on at least three days each week and may work from home on the remaining days. Each team will agree on two "anchor days" when everyone is expected in the office. Anchor days should be used for meetings, planning, training, and work that benefits from being in the same room.
+Employees covered by this policy will work from the office on at least three days each week and may work from home on the remaining days. Each team will agree on two "anchor days" when everyone is expected in the office. Anchor days should be used for meetings, planning, training and work that benefits from being in the same room.
 
-Managers will confirm their team's anchor days with HR by 15 October 2025. Once agreed, anchor days should not change more than once a quarter, so that employees can plan their commute, childcare, and other commitments.
+Managers will confirm their team's anchor days with HR by 15 October 2025. Once agreed, anchor days should not change more than once a quarter, so that employees can plan their commute, childcare and other commitments.
 
 The third office day is flexible. Employees can choose it based on their own work and there team's needs, as long as they inform their manager in advance through the attendance system.
 
@@ -36,7 +36,7 @@ Some roles need to be performed on on site. These include roles in our warehouse
 
 Employees may occasionally work from another city in India, for example while visiting family, for up to 15 working days in a calendar year. This requires approval from their manager at least one week in advance. During this time, the employee must still be available during core hours and must attend any anchor-day meetings by video.
 
-Working from outside India is not permitted under this policy, because it can create tax, legal, and data protection issues for both the employee and the company. Requests for exceptions must be approved by the Chief People Officer and the legal team.
+Working from outside India is not permitted under this policy, because it can create tax, legal and data protection issues for both the employee and the company. Requests for exceptions must be approved by the Chief People Officer and the legal team.
 
 ## 6. Equipment and Allowances
 
@@ -58,7 +58,7 @@ Managers who have concerns about an employee's performance or availability while
 
 ## 9. Special Circumstances
 
-We recognise that some employees may need more flexibility for a period of time, for example because of health conditions, pregnancy, disability, or caring responsibilities. These employees may request a different arrangement, including working from home on more days. Requests should be made to HR, who will treat them confidentially and respond within 10 working days.
+We recognise that some employees may need more flexibility for a period of time, for example because of health conditions, pregnancy, disability or caring responsibilities. These employees may request a different arrangement, including working from home on more days. Requests should be made to HR, who will treat them confidentially and respond within 10 working days.
 
 Employees returning from maternity leave may work from home for up to four days a week for the first six months after their return, if their role allows it. This is in addition to any benefits under the Maternity Benefit Act.
 
@@ -74,7 +74,7 @@ The cafeteria will offer subsidised lunch on anchor days, and the transport desk
 
 ## 11. Review
 
-HR will review this policy after six six months, using feedback from an employee survey and data on attendance, engagement, and attrition. Any changes will be shared with all employees at least one month before they take effect.
+HR will review this policy after six six months, using feedback from an employee survey and data on attendance, engagement and attrition. Any changes will be shared with all employees at least one month before they take effect.
 
 ## 12. Questions
 

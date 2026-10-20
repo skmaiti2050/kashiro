@@ -4,7 +4,7 @@
 
 ## 1. Purpose
 
-This proposal sets out our approach, timeline, and commercial terms for migrating Sahyog Small Finance Bank's loan origination and loan management systems from the current on-premises data centre in Thane to a managed cloud platform hosted in India. It responds to the bank's request for proposal dated [[30 June 2025]] and incorporates the clarifications discussed with your team on [[11 August 2025]].
+This proposal sets out our approach, timeline and commercial terms for migrating Sahyog Small Finance Bank's loan origination and loan management systems from the current on-premises data centre in Thane to a managed cloud platform hosted in India. It responds to the bank's request for proposal dated [[30 June 2025]] and incorporates the clarifications discussed with your team on [[11 August 2025]].
 
 ## 2. Background
 
@@ -20,7 +20,7 @@ Our proposal covers {{teh|the|s}} following:
 - Design of the target architecture on a cloud platform with data centres in Mumbai and Hyderabad.
 - Migration of applications, databases and historical data covering approximately [[18 lakh]] loan accounts.
 - Setup of disaster recovery across two cloud regions, with a recovery point objective of [[15 minutes]] and a recovery time objective of [[2 hours]].
-- Security controls, including encryption, identity management, logging, and monitoring aligned with the bank's information security policy.
+- Security controls, including encryption, identity management, logging and monitoring aligned with the bank's information security policy.
 - Testing, cut-over planning and support for [[90 days]] after go-live.
 
 Out of scope are changes to business functionality, the core banking system itself and the bank's mobile app, except where small changes are needed to connect them to the migrated systems.
@@ -63,7 +63,7 @@ Fees will be invoiced at {{teh|the|s}} end of each phase, after the bank signs {
 
 The main risks we {{sees|see|j}} are:
 
-- **Data migration errors.** We will reconcile every migrated account against the source system, comparing balances, schedules, and transaction histories, and the bank will approve the reconciliation report before each cut-over.
+- **Data migration errors.** We will reconcile every migrated account against the source system, comparing balances, schedules and transaction histories, and the bank will approve the reconciliation report before each cut-over.
 - **Integration failures.** Several third-party systems connect to the lending platform. We will test each integration in the rehearsal environment and agree fallback plans with each vendor.
 - **Regulatory concerns.** We will prepare the documents the bank needs for its board and for any regulatory inspection, including a risk assessment and an exit plan in case the bank later decides to change provider.
 - **Staff readiness.** The bank's operations team will need new skills. Our plan includes [[120 hours]] of training and a shadowing period during which your staff run the system with our support.

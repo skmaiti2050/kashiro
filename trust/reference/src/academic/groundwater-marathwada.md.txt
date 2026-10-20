@@ -2,13 +2,13 @@
 
 ## Abstract
 
-This paper examines whether small check dams built under the Jalyukt Shivar programme improved groundwater levels in three drought-prone talukas of Marathwada. Using monitoring-well records from [[2014]] to [[2023]], we compare villages that received check dams with matched villages that did not. We find a modest but persistent rise in post-monsoon water tables, concentrated in basaltic aquifers with good fracture connectivity. The effect fades in villages where the density of borewells exceeded [[40 wells per square kilometre]]. These results suggest that recharge structures work best when paired with limits on extraction.
+This paper examines whether small check dams built under the Jalyukt Shivar programme improved groundwater levels in three drought-prone talukas of Marathwada. Using monitoring-well records from [[2014]] to [[2023]], we compare villages that received check dams with matched villages that did not. We find a modest but persistent rise in post-monsoon water tables, concentrated in basaltic aquifers with good fracture connectivity. The effect fades in villages where borewell density exceeded [[40 wells per square kilometre]]. These results suggest that recharge structures work best when paired with limits on extraction.
 
 ## 1. Introduction
 
-Marathwada has faced repeated droughts over the past two decades. In [[2016]], the region recorded its third consecutive year of below-normal rainfall, and many villages depended on water tankers for {{teh|the|s}} entire summer. The state government responded with Jalyukt Shivar Abhiyan, a programme that funded check dams, farm ponds and the removal of silt from streams across more than [[22,000 villages]] ([[Government of Maharashtra, 2019]]).
+Marathwada has faced repeated droughts over the past two decades. In [[2016]], the region recorded its third consecutive year of below-normal rainfall, and many villages depended on water tankers for {{teh|the|s}} entire summer. The state government responded with Jalyukt Shivar Abhiyan, a programme that funded check dams, farm ponds and desilting work across more than [[22,000 villages]] ([[Government of Maharashtra, 2019]]).
 
-Evaluations of {{teh|the|s}} programme have been mixed. Some studies report higher well levels after construction ([[Kulkarni et al., 2021]]), while others argue that the gains were small compared with the money spent ([[Joshi and Pawar, 2020]]). A key difficulty is {{that that|that|s}} rainfall varies so much from year to year that simple before-and-after comparisons can be misleading. A good monsoon can raise water tables everywhere, with or without new structures.
+Evaluations of {{teh|the|s}} programme have been mixed. Some studies report higher well levels after construction ([[Kulkarni et al., 2021]]), while others argue that the gains were small compared with the money spent ([[Joshi and Pawar, 2020]]). A key difficulty is that rainfall varies so much from year to year that simple before-and-after comparisons can be misleading. A good monsoon can raise water tables everywhere, with or without new structures.
 
 This study addresses that problem by comparing treated and untreated villages within the same rainfall zone. We draw on well data collected by the Groundwater Surveys and Development Agency and on field visits carried out by our team between [[12 January 2023]] and [[28 February 2023]]. During those visits, [[Dr. Meera Kulkarni]] and [[Prof. Sandeep Rao]] interviewed farmers, sarpanches and agricultural officers in [[36 villages]].
 
@@ -16,23 +16,23 @@ This study addresses that problem by comparing treated and untreated villages wi
 
 The three talukas in our sample, Ambajogai, Kaij and Parli, lie in Beed district. Average annual rainfall is about [[690 mm]], most of which falls between June and September. The underlying geology is Deccan basalt, a rock that stores water mainly in weathered layers and fractures. Because the primary porosity of basalt is low, the amount of water an aquifer can hold depends {{heavily on on|heavily on|s}} how fractured the rock is.
 
-Agriculture in the area is dominated by soybean, cotton and pigeon pea. Sugarcane, which needs far more water, has expanded since [[2010]] wherever farmers could secure reliable irrigation. Each of the villages {{have|has|j}} at least one cooperative society, and most rely on bore wells rather than open wells for irrigation.
+Agriculture in the area is dominated by soybean, cotton and pigeon pea. Sugarcane, which needs far more water, has expanded since [[2010]] wherever farmers could secure reliable irrigation. Each of the villages {{have|has|j}} at least one cooperative society, and most rely on borewells rather than open wells for irrigation.
 
 ## 3. Data and Methods
 
 We use pre-monsoon and post-monsoon water-level readings from [[118 observation wells]]. A village is classed as treated if at least one check dam was completed within [[2 km]] of an observation well before [[June 2017]]. Untreated villages were matched on rainfall, slope, soil depth and baseline water level using nearest-neighbour matching.
 
-Our main outcome is the post-monsoon depth to water, measured in metres below ground level. We estimate a difference-in-differences model with village and year fixed effects. Standard errors are clustered at the village level. To test whether the effect depends on extraction pressure, we interact treatment with the density of borewells, which we obtained from the Minor Irrigation Census of [[2017-18]].
+Our main outcome is the post-monsoon depth {{to to|to|s}} water, measured in metres below ground level. We estimate a difference-in-differences model with village and year fixed effects. Standard errors are clustered at the village level. To test whether the effect depends on extraction pressure, we interact treatment with borewell density, which we obtained from the Minor Irrigation Census of [[2017-18]].
 
 One limitation is that some observation wells were dry in drought years, which means the data is censored. We handle this by recording a dry well at its total depth and by checking {{weather|whether|j}} the results change when those readings are dropped.
 
 ## 4. Results
 
-Table 2 reports the main estimates. In treated villages, post-monsoon water levels rose by [[1.4 metres]] on average relative to untreated villages (p = [[0.003]]). The effect is largest in the second and third years after construction and declines slowly afterwards, which is consistent with silt slowly filling the dam beds.
+Table 2 reports the main estimates. In treated villages, post-monsoon water levels rose by [[1.4 metres]] on average relative to untreated villages (p = [[0.003]]). The effect is largest in the second and third years after construction and declines slowly afterwards, which is consistent with gradual siltation of the dam beds.
 
-The interaction with the density of borewells tells a sharper story. Where density was below [[25 wells per square kilometre]], the gain was [[2.1 metres]]. Where it exceeded [[40 wells per square kilometre]], the gain was close to zero and not statistically significant. In other words, the extra recharge was pumped out almost as fast as it {{arived|arrived|s}}.
+The interaction with borewell density tells a sharper story. Where density was below [[25 wells per square kilometre]], the gain was [[2.1 metres]]. Where it exceeded [[40 wells per square kilometre]], the gain was close to zero and not statistically significant. In other words, the extra recharge was pumped out almost as fast as it {{arived|arrived|s}}.
 
-Field interviews support this reading. A farmer in Kaij told us that the new check dam "filled the well by October, but by January it was empty again." Several sarpanches said that new borewells {{was|were|j}} drilled soon after the dams were completed, often by farmers who had not irrigated before. One agricultural officer estimated that drilling costs had fallen to about [[₹1,20,000]] per well, making it easy for medium farmers to invest.
+Field interviews support this reading. A farmer in Kaij told us that the new check dam "filled the well by October, but by January it was empty again." Several sarpanches said that new borewells {{was|were|j}} drilled soon after the dams were completed, often by farmers who had not irrigated before. One agricultural officer estimated that drilling costs had fallen to about [[₹1,20,000]] per borewell, making it easy for medium farmers to invest.
 
 ## 5. Discussion
 
@@ -44,13 +44,13 @@ There are also equity concerns. In several villages, small farmers {{who's|whose
 
 ## 6. Limitations
 
-Our matching approach cannot rule out every difference between treated and untreated villages. Villages that received dams may have had more active village councils, which could {{effect|affect|j}} water management in other ways. We also rely on a fairly small number of observation wells per village, so local variation in geology adds noise to our estimates.
+Our matching approach cannot rule out every difference between treated and untreated villages. Villages that received dams may have had more active panchayats, which could {{effect|affect|j}} water management in other ways. We also rely on a fairly small number of observation wells per village, so local variation in geology adds noise to our estimates.
 
 In addition, the period after [[2019]] included two unusually wet monsoons. Although our design controls for rainfall at the zone level, very heavy rain may interact with dam capacity in ways that our model does not capture.
 
 ## 7. Conclusion
 
-Check dams in Marathwada did raise groundwater levels, but only where extraction was kept in check. The average gain of [[1.4 metres]] hides a large spread, from more than two metres in low-density villages to almost nothing where borewells were common. Future programmes should combine recharge works with community limits on new borewells, such as the crop-water budgeting tried in parts of Ahmednagar district. Without such limits, {{an|a|s}} recharge programme risks becoming another way of subsidising extraction.
+Check dams in Marathwada did raise groundwater levels, but only where extraction was kept in check. The average gain of [[1.4 metres]] hides a wide spread, from more than two metres in low-density villages to almost nothing where borewells were common. Future programmes should combine recharge works with community limits on new borewells, such as the crop-water budgeting tried in parts of Ahmednagar district. Without such limits, {{an|a|s}} recharge programme risks becoming another way of subsidising extraction.
 
 ## References
 

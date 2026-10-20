@@ -32,7 +32,7 @@
 
 *Ramesh pours tea from a height, a long brown arc into each glass, never spilling a drop. Chhotu hands them out and collects coins. A regular, MR. VERMA (50s), in a sweater vest and a muffler, takes his glass with a nod.*
 
-**MR. VERMA:** Ramesh-ji. Same as {{everyday|every day|j}}.
+**MR. VERMA:** Ramesh-bhai. Same as {{everyday|every day|j}}.
 
 **RAMESH:** Same as every day, Verma-ji.
 
@@ -42,7 +42,7 @@
 
 **MR. VERMA:** *(sipping)* They won't make it like this. Machines don't know how to make tea.
 
-*Ramesh smiles slightly but says nothing. A young woman, PRIYA (20s), with a laptop bag and earphones, looks at the stall, unsure.*
+*Ramesh smiles slightly but says nothing. A young woman, PRIYA (20s), with a laptop bag and earphones, looks at the stall uncertainly.*
 
 **PRIYA:** Do you take UPI?
 
@@ -68,7 +68,7 @@
 
 **RAMESH:** Six hundred and forty.
 
-**CHHOTU:** That's good, no?
+**CHHOTU:** That's good, na?
 
 **RAMESH:** It's good.
 
@@ -132,7 +132,7 @@
 
 *Chhotu runs between customers, collecting glasses, laughing. Mr. Verma stands at the front, as always.*
 
-**MR. VERMA:** Ramesh-ji. Same as every day.
+**MR. VERMA:** Ramesh-bhai. Same as every day.
 
 **RAMESH:** Same as every day.
 
@@ -144,7 +144,14 @@
 
 ## Production notes
 
-- Location scout: Katni Junction, Platform 3, confirmed with the stationmaster, [[Mr. A. K. Tiwari]], for shooting between [[5 a.m.]] and [[8 a.m.]] on weekdays.
+| Day | Scenes | Location | Call time |
+|---|---|---|---|
+| 1 | 1, 2, 7 | Platform 3, Katni Junction | 4:30 a.m. |
+| 2 | 5, 6 | Platform 3, Katni Junction | 4:30 a.m. |
+| 3 | 3 | Railway quarters, Katni | 6:00 p.m. |
+| 4 | 4 | Station café set | 9:00 a.m. |
+
+- Location scout: Katni Junction, Platform 3, confirmed with the station master, [[Mr. A. K. Tiwari]], for shooting between [[5 a.m.]] and [[8 a.m.]] on weekdays.
 - Budget for the stall set dressing: [[₹35,000]], including the transistor radio and glasses.
 - Ramesh will be played by a local theatre actor; we have {{a|an|s}} audition scheduled for [[20 November 2025]].
 - The tea-pouring shots need at least three takes from different angles. Do them first, while the light is soft.

@@ -34,26 +34,87 @@ export interface ManifestDoc {
   format: 'md' | 'docx';
   words: number;
   errors: { safe: number; judgment: number };
-  /** wrong → right, in document order. */
-  answers: { wrong: string; right: string; type: 's' | 'j' }[];
+  /** wrong → right, in document order, with where `wrong` sits in the paragraphs the app reads. */
+  answers: Answer[];
   facts: string[];
 }
 
-function render(src: string): { text: string; answers: ManifestDoc['answers']; facts: string[] } {
-  const answers: ManifestDoc['answers'] = [];
+export interface Answer {
+  wrong: string;
+  right: string;
+  type: 's' | 'j';
+  /** Paragraph id and UTF-16 offsets of `wrong` in the adapter's extracted paragraph text. */
+  at: { para: number; start: number; end: number };
+}
+
+interface Rendered {
+  wrong: string;
+  right: string;
+  type: 's' | 'j';
+  /** Same-line text around `wrong` in the rendered source. */
+  before: string;
+  after: string;
+}
+
+function render(src: string, format: 'md' | 'docx'): { text: string; answers: Rendered[]; facts: string[] } {
   const facts: string[] = [];
-  const text = src
-    .replace(/\{\{([^|{}]*)\|([^|{}]*)\|([sj])\}\}/g, (_m, wrong: string, right: string, type: 's' | 'j') => {
-      if (wrong === right) throw new Error(`no-op error marker: ${wrong}`);
-      answers.push({ wrong, right, type });
-      return wrong;
-    })
-    .replace(/\[\[([^\]]+)\]\]/g, (_m, fact: string) => {
-      if (!facts.includes(fact)) facts.push(fact);
-      return fact;
-    });
+  const unfacted = src.replace(/\[\[([^\]]+)\]\]/g, (_m, fact: string) => {
+    if (!facts.includes(fact)) facts.push(fact);
+    return fact;
+  });
+  const answers: Rendered[] = [];
+  const marker = /\{\{([^|{}]*)\|([^|{}]*)\|([sj])\}\}/g;
+  let text = '';
+  let last = 0;
+  const positions: number[] = [];
+  for (const m of unfacted.matchAll(marker)) {
+    const [, wrong, right, type] = m;
+    if (wrong === right) throw new Error(`no-op error marker: ${wrong}`);
+    text += unfacted.slice(last, m.index);
+    positions.push(text.length);
+    text += wrong;
+    answers.push({ wrong, right, type: type as 's' | 'j', before: '', after: '' });
+    last = m.index! + m[0].length;
+  }
+  text += unfacted.slice(last);
   if (/\{\{|\}\}|\[\[|\]\]/.test(text)) throw new Error(`unbalanced marker near: ${text.match(/.{0,40}(\{\{|\}\}|\[\[|\]\]).{0,40}/)![0]}`);
+  answers.forEach((a, i) => {
+    const pos = positions[i];
+    const lineStart = text.lastIndexOf('\n', pos - 1) + 1;
+    const nl = text.indexOf('\n', pos + a.wrong.length);
+    let before = text.slice(lineStart, pos);
+    let after = text.slice(pos + a.wrong.length, nl < 0 ? text.length : nl);
+    if (format === 'docx') {
+      // The .docx paragraph text has no Markdown-ish markup: drop it from the context.
+      before = before.replace(/^(#{1,6} |- )/, '').replace(/\*/g, '');
+      before = before.slice(before.lastIndexOf('|') + 1);
+      after = after.replace(/\*/g, '').split('|')[0];
+    }
+    a.before = before;
+    a.after = after;
+  });
   return { text, answers, facts };
+}
+
+/** Finds each planted error in the extracted paragraphs by the shortest unique same-line context. */
+function locate(file: string, rendered: Rendered[], paras: { id: number; text: string }[]): Answer[] {
+  return rendered.map((r) => {
+    for (const n of [8, 16, 32, 64, 1000]) {
+      const b = r.before.slice(-n);
+      const needle = b + r.wrong + r.after.slice(0, n);
+      const hits = paras.flatMap((p) => {
+        const out: { para: number; start: number }[] = [];
+        for (let i = p.text.indexOf(needle); i >= 0; i = p.text.indexOf(needle, i + 1)) out.push({ para: p.id, start: i + b.length });
+        return out;
+      });
+      if (hits.length === 1) {
+        const { para, start } = hits[0];
+        return { wrong: r.wrong, right: r.right, type: r.type, at: { para, start, end: start + r.wrong.length } };
+      }
+      if (hits.length === 0) break;
+    }
+    throw new Error(`${file}: cannot locate planted error "${r.wrong}" (…${r.before.slice(-30)}|${r.wrong}|${r.after.slice(0, 30)}…)`);
+  });
 }
 
 // ---------- docx ----------
@@ -148,7 +209,7 @@ async function main(): Promise<void> {
     for (const name of fs.readdirSync(dir).filter((n) => n.endsWith('.txt')).sort()) {
       const out = name.slice(0, -'.txt'.length);
       const format = out.endsWith('.docx') ? 'docx' : 'md';
-      const { text, answers, facts } = render(fs.readFileSync(path.join(dir, name), 'utf8').replace(/\r\n/g, '\n'));
+      const { text, answers: rendered, facts } = render(fs.readFileSync(path.join(dir, name), 'utf8').replace(/\r\n/g, '\n'), format);
       const bytes = format === 'docx' ? await buildDocx(text) : new TextEncoder().encode(text);
       const file = `${preset}/${out}`;
       fs.writeFileSync(path.join(REF, file), bytes);
@@ -156,6 +217,7 @@ async function main(): Promise<void> {
       const all = paras.map((p) => p.text).join('\n');
       const lost = facts.filter((f) => !all.includes(f));
       if (lost.length) throw new Error(`${file}: facts not in extracted text: ${lost.join(', ')}`);
+      const answers = locate(file, rendered, paras);
       docs.push({
         file,
         preset,
@@ -175,11 +237,12 @@ async function main(): Promise<void> {
   });
   const readme = `# Reference documents
 
-Twenty realistic documents, five per writing-goal preset, used by \`tests/decisions.test.ts\` (review budget:
-at most 10 decisions per 1,500 words, spec section 10) and by \`npm run trust\` (facts, invisible characters,
+Twenty-two realistic documents, at least five per writing-goal preset, used by \`tests/decisions.test.ts\` (review budget:
+at most 10 ranked decisions per 1,500 words, and recall of planted errors) and by \`npm run trust\` (facts, invisible characters,
 docx structure). Each has roughly one planted error per 100 words, mixing *safe* errors (typos, doubled words,
 a/an, spacing) and *judgment* errors (agreement, its/it's, word choice), plus facts that must survive verbatim
-(Indian names after titles, ₹ amounts, dates, citations).
+(Indian names after titles, ₹ amounts, dates, citations). \`academic/water-user-associations-vidarbha.md\` and
+\`blog/village-ganeshotsav-homecoming.docx\` were written after the others and never edited to fit the budget.
 
 Generated by \`npm run trust:reference\` from \`src/<preset>/<slug>.<md|docx>.txt\`, where
 \`{{wrong|right|s}}\` / \`{{wrong|right|j}}\` mark planted errors and \`[[fact]]\` marks facts.

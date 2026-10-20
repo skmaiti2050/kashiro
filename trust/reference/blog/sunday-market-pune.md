@@ -14,7 +14,7 @@ I usually park my scooter on the lane behind the temple, where a man named Ganpa
 
 The heart of the the market is three long lanes of vegetable sellers. Each vendor sits on a raised platform with their produce arranged in neat pyramids: tomatoes, onions, potatoes, brinjals, bottle gourds and whatever leafy greens is in season. In winter there are carrots so red they look painted, and fresh green peas that my mother still shells by hand on the balcony.
 
-My favourite vendor is Sushila Tai, who has had the same spot near the entrance for more than twenty years. She does not use a digital scale. She weighs everything on an old brass balance with iron weights, and she always adds a handful of coriander and a green chilli or two for free. When I tried to pay her by UPI for the first time, she laughed and pointed to a QR code taped to the side of her basket. Her grandson had set it up, she said, and now half her customers pay that way.
+My favourite vendor is Sushila Tai, who has had the same spot near the entrance for more than twenty years. She does not use a digital scale. She weighs everything on an old brass balance with iron weights, and she always adds a handful of coriander and a couple of green chillies for free. When I tried to pay her by UPI for the first time, she laughed and pointed to a QR code taped to the side of her basket. Her grandson had set it up, she said, and now half her customers pay that way.
 
 Prices varies through the year. Last Sunday, on 12 October 2025, tomatoes were ₹40 a kilo, onions ₹35 and potatoes ₹30. A bunch of fenugreek was ₹15. These numbers are higher than when I started coming, of course, but still well below what the supermarkets charge.
 
@@ -32,7 +32,7 @@ I usually eat standing at teh counter, watching the market fill up around me. It
 
 ## The flower sellers
 
-Just outside the main shed, along the wall of the temple, sit the flower sellers. They arrive even earlier than the vegetable vendors, sometimes before five, with baskets of marigolds, roses, and jasmine bought at the wholesale market the night before. By the time I arrive, the air there smells sweet and heavy, and the women are threading flowers into long strings with a speed that I still find hard to follow.
+Just outside the main shed, along the wall of the temple, sit the flower sellers. They arrive even earlier than the vegetable vendors, sometimes before five, with baskets of marigolds, roses and jasmine bought at the wholesale market the night before. By the time I arrive, the air there smells sweet and heavy, and the women are threading flowers into long strings with a speed that I still find hard to follow.
 
 Most of their customers buy flowers for the morning prayer at home, but on festival days the demand is enormous. Before Dussehra and Diwali, the flower sellers spill out onto the road, and the prices of marigold strings can double overnight. One of the sellers, an elderly woman who calls everyone "beta," once told me that she earns more in the week before Diwali than in the rest of the month. She has been sitting at the same spot for over over forty years, and she remembers my grandfather well.
 
@@ -44,7 +44,7 @@ But some things have changed for the better. There are proper drains now,  so th
 
 ## Why I keep going
 
-I could buy vegetables online. It would be faster and probably more convenient. But I would miss the conversations, the smells, and the small acts of kindness that make the market what it is. I would miss Sushila Tai's free coriander and Mr. Kulkarni's stories. I would miss knowing exactly where my food comes from and who grew it.
+I could buy vegetables online. It would be faster and probably more convenient. But I would miss the conversations, the smells and the small acts of kindness that make the market what it is. I would miss Sushila Tai's free coriander and Mr. Kulkarni's stories. I would miss knowing exactly where my food comes from and who grew it.
 
 The market is also one of the few places in the city where people from very different backgrounds meet as equals. The vendor and the customer bargain, joke and complain about the weather together, and for a few minutes nobody cares about anything else.
 

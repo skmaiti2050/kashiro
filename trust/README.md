@@ -17,8 +17,10 @@ Requires Node and Python 3 (stdlib only). Nothing in the suite touches the netwo
 2. **CLI runs.** Runs `cli/check-file.ts --accept-all-rules` on every corpus file and every reference document,
    in both save modes (`tracked`, `clean`), into `trust/out/<mode>/` (gitignored). `--accept-all-rules` is
    the maximum opt-in: every rule-based decision with a single fix is accepted. Each run has
-   `block_network.cjs` preloaded, so any network attempt (http, https, net, tls, dgram, fetch other than
-   `data:`) crashes the run and fails the gate.
+   `block_network.cjs` preloaded. It fails closed: any network attempt (http, https, TCP via net, tls,
+   dgram, dns lookups, fetch other than `data:`) throws, forces exit code 99 and writes a marker file,
+   so code that catches the error still fails the gate. Local IPC (named pipes and Unix sockets, which
+   tsx uses to talk to its parent process) is allowed. Patches are synced to ESM imports of the builtins.
 3. **Fact-lock gate** (in process): no auto-applied edit, and no edit accepted by accept-all, overlaps a
    fact-locked span.
 4. **`analyze.py --outputs trust/out/<mode>`** for each mode:
@@ -46,16 +48,26 @@ blocks (with blank lines inside); LaTeX-flavoured Markdown and plain text; and a
 table, bold and italic runs, a custom style and core and custom metadata. The app accepts only .txt, .md
 and .docx, so LaTeX and code are tested as spans inside those formats.
 
-**Reference documents** (`reference/`): 20 realistic documents, five per writing-goal preset, of which
-at least two per preset are .docx. See `reference/README.md` for word counts and planted errors, and
+**Reference documents** (`reference/`): realistic documents, at least five per writing-goal preset, of which
+at least two per preset are .docx (22 in all: the original 20 plus 2 written afterwards and never edited to fit). See `reference/README.md` for word counts and planted errors, and
 `reference/manifest.json` for the answer key and facts. Regenerate them with `npm run trust:reference`
 after editing a source in `reference/src/`.
 
 ## Review budget
 
-`tests/decisions.test.ts` checks every reference document: decisions in the default view
-(`CheckSession.decisionCount()`) × 1,500 / words ≤ 10, and no auto-applied or accept-all edit on a
-fact-locked span. It writes the per-document table to `trust/out/decisions.md`.
+`tests/decisions.test.ts` checks every reference document. It is deliberately stricter than spec
+section 10's "default view" count, so it cannot pass by capping:
+
+- **Budget:** all ranked pending decisions (`CheckSession.rankedDecisionCount()`: the top and "more",
+  excluding only candidates inside an existing tracked change) × 1,500 / words ≤ 10.
+- **Recall:** no planted error that the engine detects may be hidden. A planted safe error must be
+  auto-applied or ranked, and a planted judgment error must be ranked (never auto-applied). Planted errors
+  that the engine does not detect at all are listed in the table.
+- No auto-applied or accept-all edit touches a fact-locked span.
+
+Nothing is folded out of the ranking. Candidates on fact-locked spans (names, numbers, quotes), repeats
+of the same unknown word and similar low-value items are demoted (score 0, ranked last), so they fill
+empty top slots instead of disappearing. The per-document table is written to `trust/out/decisions.md`.
 
 ## Where this came from
 
@@ -69,9 +81,13 @@ claim, and Crossref reference lookups.
 
 ## Known limits
 
-- Harper's dictionary has no Indian-English vocabulary (taluka, sarpanch, borewell, dhaba, poha, …), so
-  these words become review decisions. They are the largest share of decisions in the reference set. A
-  bundled en-IN word list would cut them.
-- Harper suggests the Oxford comma (kind Style) even in British and Indian English documents.
-- An a/an swap is a safe rule, so a typo of "and" written as "an" before a pronoun is "fixed" to "a".
-  The text was already wrong, so meaning is not changed, but the fix is not the right one.
+- **The review budget fails on most reference documents** (see `trust/out/decisions.md`). The largest
+  share is names and other capitalised words that Harper's dictionary does not know, counted once per
+  occurrence. A screenplay's speaker names alone exceed the budget. Indian-English vocabulary outside
+  the bundled word list (`src/engine/wordlists/en-IN.ts`) is the next largest share.
+- Harper misses many agreement and word-choice errors, and some doubled words. Those planted errors
+  are reported as "not detected"; they are not hidden by the app.
+- The Oxford-comma suggestion is hidden for British and Indian English and kept for other variants.
+- An a/an fix is safe only before a lowercase content word ("a apple"). Before a pronoun,
+  conjunction, determiner, auxiliary, `not`, a name, an acronym, a number or punctuation, it goes to
+  review ("an they" is usually "and they").
