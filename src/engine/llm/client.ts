@@ -44,12 +44,39 @@ export class LlmClient {
         stop: STOP,
       }),
       signal,
+      // A redirect could only lead off this machine.
+      redirect: 'error',
     });
     if (!res.ok) throw new Error(`The writing helper answered with HTTP ${res.status}. Try again, or restart the helper.`);
-    const { content } = (await res.json()) as { content?: unknown };
-    if (typeof content !== 'string') throw new Error('The writing helper sent a reply without "content". Check that it is llama-server.');
-    const reply = content.trim();
+    let body: { content?: unknown };
+    try {
+      body = (await res.json()) as { content?: unknown };
+    } catch {
+      throw new Error(`The writing helper sent a reply that is not JSON. Check that port ${new URL(this.url).port} is llama-server.`);
+    }
+    if (typeof body.content !== 'string') throw new Error('The writing helper sent a reply without "content". Check that it is llama-server.');
+    const reply = cleanReply(body.content);
     if (reply === '' || UNCHANGED_REPLY.test(reply) || reply === text.trim()) return null;
     return reply;
   }
+}
+
+/** A label the model may echo from the prompt: "Rewritten: …", "Sentence: …". */
+const LABEL = /^(?:rewritten|sentence)\s*:\s*/i;
+/** The prompt's delimiters echoed around the reply: "<sentence>…</sentence>". */
+const DELIMITERS = /^<sentence>\s*([\s\S]*?)\s*<\/sentence>$/;
+/** Opening quote → its closing quote. */
+const QUOTE_PAIRS: Record<string, string> = { '"': '"', '“': '”', "'": "'", '‘': '’' };
+
+/** The reply without an echoed label, delimiters, or one pair of quotes wrapped around all of it. */
+function cleanReply(content: string): string {
+  let reply = content.trim().replace(LABEL, '');
+  reply = (DELIMITERS.exec(reply)?.[1] ?? reply).trim();
+  const close = QUOTE_PAIRS[reply[0]];
+  const inner = reply.slice(1, -1);
+  // Only when the quotes wrap the whole reply: '"Go," she said, "now."' keeps its quotes.
+  if (close && reply.length >= 2 && reply.endsWith(close) && !inner.includes(reply[0]) && !inner.includes(close)) {
+    reply = inner.trim();
+  }
+  return reply;
 }

@@ -54,6 +54,57 @@ describe('passesGuard', () => {
     },
   );
 
+  it.each([
+    'Attendance rose by approximately 3.2% in districts that served hot meals.',
+    'Attendance rose by roughly 3.2% in districts that served hot meals.',
+    'Attendance rose by around 3.2% in districts that served hot meals.',
+    'Attendance rose by about 3.2% in districts that served hot meals.',
+    'Attendance likely rose by 3.2% in districts that served hot meals.',
+    'Attendance possibly rose by 3.2% in districts that served hot meals.',
+    'Attendance probably rose by 3.2% in districts that served hot meals.',
+    'Attendance may have risen by 3.2% in districts that served hot meals.',
+    'Attendance might have risen by 3.2% in districts that served hot meals.',
+    'Attendance could have risen by 3.2% in districts that served hot meals.',
+    'Attendance appears to have risen by 3.2% in districts that served hot meals.',
+    'Attendance seems to have risen by 3.2% in districts that served hot meals.',
+    'Attendance tends to rise by 3.2% in districts that served hot meals.',
+    'Broadly speaking, attendance rose by 3.2% in districts that served hot meals.',
+    'Attendance rose by more or less 3.2% in districts that served hot meals.',
+  ])('statistics hedge %j: hedge added', (rewrite) => {
+    const original = 'Attendance rose by 3.2% in districts that served hot meals.';
+    expect(passesGuard(original, rewrite, lockedTokens(original))).toEqual({ ok: false, reason: 'hedge added' });
+  });
+
+  it('"around"/"about" are hedges only right before a number', () => {
+    const original = 'Pupils walked to school in the districts with 3 buses.';
+    const rewrite = 'Pupils walked around to school in the districts with 3 buses.';
+    expect(passesGuard(original, rewrite, lockedTokens(original))).toEqual({ ok: true });
+  });
+
+  it('swapping one hedge for another is still an added hedge', () => {
+    const original = 'Attendance perhaps rose in districts that served hot meals.';
+    const rewrite = 'Attendance likely rose in districts that served hot meals.';
+    expect(passesGuard(original, rewrite, [])).toEqual({ ok: false, reason: 'hedge added' });
+  });
+
+  it('a modal already in the original is not "added"', () => {
+    const original = 'Pupils could walk to the 3 schools that served hot meals.';
+    const rewrite = 'Pupils could walk to the 3 schools serving hot meals.';
+    expect(passesGuard(original, rewrite, lockedTokens(original))).toEqual({ ok: true });
+  });
+
+  it('numbers swapped: fact changed (order kept)', () => {
+    const original = 'Sales rose from 10 to 20 units in the northern region last year.';
+    const rewrite = 'Sales rose from 20 to 10 units in the northern region last year.';
+    expect(passesGuard(original, rewrite, lockedTokens(original))).toEqual({ ok: false, reason: 'fact changed' });
+  });
+
+  it('a repeated number merged into one: fact changed (multiset kept)', () => {
+    const original = 'Group A scored 40 and group B scored 40 in the final round.';
+    const rewrite = 'Group A and group B each scored 40 in the final round.';
+    expect(passesGuard(original, rewrite, lockedTokens(original))).toEqual({ ok: false, reason: 'fact changed' });
+  });
+
   it('a hedge already in the original is not "added"', () => {
     const original = 'Attendance perhaps rose in districts that served hot meals.';
     const rewrite = 'Attendance perhaps rose in districts serving hot meals.';

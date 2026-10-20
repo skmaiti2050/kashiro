@@ -1,7 +1,7 @@
 import type { CheckSession } from '../session';
 import type { PresetId } from '../presets';
 import { countWords } from '../words';
-import { lockedTokens, passesGuard, type GuardReason } from './guard';
+import type { GuardReason } from './guard';
 import { firstRunBudget, pickSentences, rewriteBudget } from './select';
 import type { LlmClient } from './client';
 
@@ -46,14 +46,10 @@ export async function suggestRewrites(
       throw e;
     }
     run.sent++;
-    let offered: string | null = null;
-    if (rewrite !== null) {
-      const verdict = passesGuard(s.text, rewrite, lockedTokens(s.text));
-      if (verdict.ok) offered = rewrite;
-      else run.rejected.push({ text: s.text, rewrite, reason: verdict.reason! });
-    }
-    session.addRewrite(s.paraId, s.span, offered);
-    if (offered !== null) run.added++;
+    // The session runs the meaning-drift guard; this only records the outcome.
+    const verdict = session.addRewrite(s.paraId, s.span, rewrite);
+    if (verdict?.ok) run.added++;
+    else if (verdict) run.rejected.push({ text: s.text, rewrite: rewrite!, reason: verdict.reason! });
   }
   run.cancelled = signal.aborted;
   return run;

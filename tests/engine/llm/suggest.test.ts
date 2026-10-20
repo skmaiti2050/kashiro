@@ -173,6 +173,41 @@ describe('suggestRewrites', () => {
 });
 
 describe('CheckSession.addRewrite', () => {
+  it('runs the guard itself: an unguarded fact-changing rewrite is refused, but the sentence counts as sent', async () => {
+    const s = await tehSession();
+    const verdict = s.addRewrite(0, SECOND, 'Attendance rose by 3% in districts serving hot meals.');
+    expect(verdict).toEqual({ ok: false, reason: 'fact changed' });
+    expect(s.candidates().some((c) => c.source === 'llm')).toBe(false);
+    expect(s.sentToHelper(0, SECOND)).toBe(true);
+  });
+
+  it('guards against the text sent (accepted rule edits applied) and returns ok for a passing rewrite', async () => {
+    const s = await tehSession();
+    expect(s.addRewrite(0, FIRST, 'I think that the cat is here.')).toEqual({ ok: true });
+    expect(s.addRewrite(0, SECOND, null)).toBeNull();
+    expect(s.candidates().filter((c) => c.source === 'llm').map((c) => c.original)).toEqual(['I think teh cat is is here.']);
+  });
+
+  it('an llm candidate added without the guard (addCandidates) still folds when it touches locked text', async () => {
+    const s = await tehSession();
+    s.addCandidates([
+      {
+        id: 'llm:raw',
+        paraId: 0,
+        span: SECOND,
+        original: TEH.slice(SECOND.start, SECOND.end),
+        replacements: ['Attendance rose by 3% in districts serving hot meals.'],
+        kind: 'Rewrite',
+        message: 'Rewrite',
+        source: 'llm',
+      },
+    ]);
+    const top = s.decisions().top;
+    const at = (id: string) => top.findIndex((d) => d.candidateIds.includes(id));
+    const style = s.candidates().find((c) => c.kind === 'Style')!;
+    expect(at('llm:raw')).toBeGreaterThan(at(style.id));
+  });
+
   it('rejects a span outside its paragraph', async () => {
     const s = await start([{ id: 0, text: 'Short.' }]);
     expect(() => s.addRewrite(0, { start: 0, end: 50 }, 'x')).toThrow(/span/);

@@ -1,5 +1,23 @@
 import { followsAbbreviation } from './factLock';
+import { overlaps, type Edit } from './sessionTypes';
 import type { Span } from './types';
+
+/**
+ * The sentence at `span` of `paraText` with the edits inside it applied (edits from one paragraph,
+ * sorted by position). Null when an edit crosses the sentence edge: a rewrite would undo half of it.
+ */
+export function sentenceWithEdits(paraText: string, span: Span, edits: Edit[]): string | null {
+  let text = paraText.slice(span.start, span.end);
+  // Right to left, so earlier offsets stay valid.
+  for (let i = edits.length - 1; i >= 0; i--) {
+    const e = edits[i].span;
+    const inside = e.start >= span.start && e.end <= span.end;
+    if (!inside && overlaps(e, span)) return null;
+    if (!inside) continue;
+    text = text.slice(0, e.start - span.start) + edits[i].replacement + text.slice(e.end - span.start);
+  }
+  return text;
+}
 
 /** A sentence end: . ? or ! with any closing quotes or brackets, before a space (`?" ` in `he asked?" Then`), or a line break. */
 const SENTENCE_END = /[.?!]+["'”’)\]]*(?=\s)|\n/g;

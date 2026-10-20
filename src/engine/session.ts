@@ -4,6 +4,8 @@ import { tierOf, type TierContext } from './tiers';
 import { EditLedger } from './editLedger';
 import { prepareCheck } from './sessionSetup';
 import { WORD_REWRITE_KINDS } from './wordFlags';
+import { sentenceWithEdits } from './sentences';
+import { lockedTokens, passesGuard, type GuardVerdict } from './llm/guard';
 import {
   byPosition,
   overlaps,
@@ -39,6 +41,8 @@ export class CheckSession {
   private readonly typoWords = new Set<string>();
   /** Sentences already sent to the LLM helper, as sentenceKey(paraId, span). */
   private readonly sentToHelperKeys = new Set<string>();
+  /** Ids of LLM rewrites added by addRewrite, i.e. ones that passed the meaning-drift guard. */
+  private readonly guardedRewrites = new Set<string>();
 
   private constructor(
     paras: Paragraph[],
@@ -98,7 +102,9 @@ export class CheckSession {
     }
     const { decisions, blocked } = buildDecisions(pending, tiers, {
       // Candidates on fact-locked spans (names, numbers, quotes…) are demoted: ranked last, never dropped.
-      fold: (c) => foldsUnderMore(c, this.ctx.locked.get(c.paraId), this.paras.get(c.paraId)?.text),
+      // Except guarded rewrites: they cover the whole sentence and the guard kept its locked text intact.
+      fold: (c) =>
+        !this.guardedRewrites.has(c.id) && foldsUnderMore(c, this.ctx.locked.get(c.paraId), this.paras.get(c.paraId)?.text),
       typoWords: this.typoWords,
       paraText: this.ctx.paraText,
       // Inside an existing tracked change: can't be applied, so never in `top`.
@@ -296,21 +302,28 @@ export class CheckSession {
   }
 
   /**
-   * Records that the LLM helper saw the sentence at `span` (so it is not sent again). A `rewrite`,
-   * which the caller has passed through the meaning-drift guard, becomes a pending review-tier
-   * candidate (source 'llm', kind 'Rewrite') replacing the whole original sentence; null adds nothing.
+   * Records that the LLM helper saw the sentence at `span` (so it is not sent again) and runs the
+   * meaning-drift guard on `rewrite` against the text sent (the sentence with its accepted edits).
+   * A passing rewrite becomes a pending review-tier candidate (source 'llm', kind 'Rewrite') replacing
+   * the whole original sentence. Returns the guard's verdict, or null when `rewrite` is null.
    */
-  addRewrite(paraId: number, span: Span, rewrite: string | null): void {
+  addRewrite(paraId: number, span: Span, rewrite: string | null): GuardVerdict | null {
     const p = this.paras.get(paraId);
     if (!p) throw new Error(`unknown paragraph ${paraId}`);
     if (span.start < 0 || span.end > p.text.length || span.start >= span.end) {
       throw new Error(`span ${span.start}-${span.end} is not inside paragraph ${paraId}`);
     }
     this.sentToHelperKeys.add(sentenceKey(paraId, span));
-    if (rewrite === null) return;
+    if (rewrite === null) return null;
+    const sent = sentenceWithEdits(p.text, span, this.acceptedEdits().filter((e) => e.paraId === paraId));
+    if (sent === null) throw new Error(`an accepted edit crosses the edge of sentence ${sentenceKey(paraId, span)}; it cannot be rewritten`);
+    const verdict = passesGuard(sent, rewrite, lockedTokens(sent));
+    if (!verdict.ok) return verdict;
+    const id = `llm:${sentenceKey(paraId, span)}`;
+    this.guardedRewrites.add(id);
     this.addCandidates([
       {
-        id: `llm:${sentenceKey(paraId, span)}`,
+        id,
         paraId,
         span: { ...span },
         original: p.text.slice(span.start, span.end),
@@ -320,6 +333,7 @@ export class CheckSession {
         source: 'llm',
       },
     ]);
+    return verdict;
   }
 
   /** The adapter could not write this edit into the document: it leaves the output. */

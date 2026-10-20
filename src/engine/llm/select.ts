@@ -1,6 +1,6 @@
-import type { CheckSession, Edit } from '../session';
+import type { CheckSession } from '../session';
 import { overlaps } from '../sessionTypes';
-import { sentenceSpans } from '../sentences';
+import { sentenceSpans, sentenceWithEdits } from '../sentences';
 import { countWords } from '../words';
 import { isNameFlag } from '../wordFlags';
 import type { Candidate, Span } from '../types';
@@ -48,20 +48,6 @@ function scoreOf(sentence: string, lints: Candidate[]): number {
   return score;
 }
 
-/** The sentence with the accepted edits inside it applied; null when one straddles its edge (a rewrite would undo half of it). */
-function withAcceptedEdits(original: string, span: Span, edits: Edit[]): string | null {
-  let text = original;
-  // Right to left, so earlier offsets stay valid.
-  for (let i = edits.length - 1; i >= 0; i--) {
-    const e = edits[i].span;
-    const inside = e.start >= span.start && e.end <= span.end;
-    if (!inside && overlaps(e, span)) return null;
-    if (!inside) continue;
-    text = text.slice(0, e.start - span.start) + edits[i].replacement + text.slice(e.end - span.start);
-  }
-  return text;
-}
-
 /**
  * Up to `budget` sentences most worth a rewrite, best first (ties in document order). Skipped:
  * sentences already sent to the helper, sentences with no reason to rewrite (score 0), and sentences
@@ -81,7 +67,7 @@ export function pickSentences(session: CheckSession, budget: number): PickedSent
       if (INLINE_MARKUP.test(original)) continue;
       const score = scoreOf(original, paraLints.filter((c) => overlaps(c.span, span)));
       if (score === 0) continue;
-      const text = withAcceptedEdits(original, span, paraEdits);
+      const text = sentenceWithEdits(p.text, span, paraEdits);
       if (text !== null) scored.push({ score, sentence: { paraId: p.id, span, text } });
     }
   }
