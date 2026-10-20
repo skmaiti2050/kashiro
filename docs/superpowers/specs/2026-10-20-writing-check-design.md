@@ -126,6 +126,16 @@ Suggestions are sorted into tiers by risk, not shown as one long list.
   are shown up front per 1,500 words (about 5 / 10 / 25 / all, never fewer than 3 / 10 / 25 for short texts) and how many LLM rewrites run automatically
   (1 / 3 / 6 / on request only). It never changes what is auto-applied, the fact lock, or the rule that LLM
   suggestions need approval. The trust suite measures the Standard level.
+- **Terms card** *(owner's decision, 2026-10-21)*: unknown lowercase words used 3+ times with identical
+  spelling (and not one slip from a common word) are treated as intended terms and reviewed together on one
+  "Terms in this document" card, counted as one decision.
+- **Words in other languages** *(owner's decision, 2026-10-21)*: romanised Hindi/Bengali words are detected
+  and reviewed together on one card; never auto-changed.
+- **Better suggestions** *(owner's decision, 2026-10-21)*: spelling suggestions are re-ranked by word
+  frequency and typing distance; offensive suggestions are never offered.
+- **Context check** *(owner's decision, 2026-10-21; optional, gated)*: a small offline language model
+  re-ranks flags by how natural each word is in its sentence. It never hides or auto-applies anything and
+  ships only if it measurably cuts false alarms without losing real errors.
 - The review list shows the **5-10 highest-value suggestions first**; the rest fold under "more".
 - Every applied change is undoable individually from the change log.
 - Settings let a user move categories between tiers, up to "auto-accept everything except the LLM and
@@ -204,3 +214,10 @@ Every release runs it against the app's own output and publishes the results:
   budgeted to the few most awkward sentences, not every imperfect one.
 - Zero meaning-changing auto-edits in the trust suite.
 - It becomes someone's daily habit before publishing or submitting.
+
+## 11. Dependencies and upgrades *(owner's decision, 2026-10-21)*
+
+Every outside dependency (npm packages, Rust crates, data files, models) is pinned. Upgrades are deliberate
+and produce a report: behaviour snapshot diffs (e.g. Harper's flags on the reference corpus), all gates,
+licence changes (anything non-commercial or unknown fails) and security-permission changes (any widening
+fails). See `docs/UPGRADING.md`.

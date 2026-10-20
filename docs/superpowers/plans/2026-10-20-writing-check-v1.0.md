@@ -459,6 +459,147 @@ Owner's decision, spec §3 item 10.
 
 **Commit:** `feat(sessions): autosaved review sessions with resume and recent list`
 
+### Task S4: "Terms in this document" card (engine)
+
+Owner's decision (2026-10-21). Domain words that the dictionary doesn't know, written consistently, are almost certainly intended terms (sarpanch, hba1c, plasmodium, rti), not typos. Group them on one card, like the names card.
+
+**Rule: a TERM is a review-tier Spelling/Typo flag where all of these hold:**
+- the word is lowercase-initial (capitalised words go to the names card or likely typos, as today);
+- the same lowercased word appears ≥ 3 times in the document, spelled identically every time (count occurrences in the document text, not only flags);
+- it is not a slip of a common word, i.e. not within one edit of a word in the top-5,000 common-words list. Reuse the existing slip/frequency data from Task 10 round 4 if present, otherwise add a compact list with a test;
+- it contains no digits-only part and is at least 3 letters long.
+
+**Interfaces:**
+- One decision per document: `{ id: 'terms', kind: 'terms', candidateIds, label: 'N terms used in this document' }`. It counts as 1 in ranked counts and ranks just above the names card.
+- Session API: `acceptTerms(keepAsTypos: string[])` mirrors `acceptNames`. It adds every distinct term not in keepAsTypos to the dictionary and rejects its candidates. Words in keepAsTypos split into per-word batches. `accept('terms', i)` throws.
+- The card exposes `counts: Record<string, number>` so the UI can show "sarpanch ×5".
+- Settings: the minimum repeat count. Default 3, range 2–5, stored in CheckOptions as `termMinRepeats`.
+
+**Tests:**
+- "sarpanch" ×3 becomes a term, but ×2 stays a normal flag.
+- "teh" ×3 is NOT a term (slip of "the").
+- A capitalised term is not on the terms card.
+- acceptTerms adds the words to the dictionary, and later re-checks don't flag them.
+- keepAsTypos splits a word out of the card.
+- Ranked count drops by (terms − 1).
+- Recall on the reference docs stays green: a planted typo must never become a term.
+- Run `npm run trust` and the decisions test, then report the table and shrink KNOWN_OVER_BUDGET as forced.
+
+**UI:** a card component like NamesCard (checkboxes, "Add all to my dictionary", counts). Wire it into ReviewPanel. Lock it from the change log in the same way as the names card.
+
+**Commit:** `feat(engine): terms-in-this-document card`
+
+### Task S6: Frequency-ranked spelling suggestions
+
+Owner's decision (2026-10-21). Harper's spelling suggestions are often poor. From the sample pack: "Sujit → Suit / Shit / Sit", "rasashastra → Zarathustra", "vivax → viva", "serological → astrological". Re-rank them, and fill gaps, using word frequency and typing distance. This task has an **acceptance gate**.
+
+**What it does (engine, pure TS, offline):**
+- **Re-rank:** sort each Spelling/Typo candidate's replacements by a score combining:
+  - edit distance (Damerau, so transpositions count as 1);
+  - keyboard adjacency for substitutions (QWERTY);
+  - log word frequency;
+  - same first letter;
+  - same length class.
+- **Add suggestions:** where Harper offers nothing within one edit, add up to 3 candidates within 2 edits of the word, generated SymSpell-style from the frequency list.
+- **Filter:** never suggest a profane or offensive word for a non-profane original. Keep a small blocklist with a test, so Sujit → Shit is impossible.
+- **Leave alone:** fact-locked spans, names/terms cards, identifiers and the LLM.
+- **Tiers:** a safe auto-fix must still be single-suggestion after re-ranking. Re-ranking must not create new auto-fixes; the tier is computed on Harper's original suggestion count.
+
+**Data:** an English word-frequency list of ≤ 5 MB compressed, under a permissive or attribution licence (public domain, MIT, Apache, CC BY or CC BY-SA). Record the licence, source URL and sha256, and add attribution to About and ATTRIBUTION. Build it into `resources/` the same way the dictionary is built. A download needs the owner's OK at implementation time, so ask the controller.
+
+**Acceptance gate (before/after table in the report):**
+1. On the 22 reference docs' planted spelling errors (manifest answer key), the share where the intended correction is ranked #1 improves, and the share in the top 3 doesn't drop.
+2. Recall, the decision budget and the trust suite are unchanged or better.
+3. No auto-fix count increases on the sample pack (`D:/Downloads/wc-samples`).
+4. Performance: the rules pass stays ≤ 300 ms per 1,500 words when measured alone.
+
+If the gate fails, don't merge; report.
+
+**Commit:** `feat(engine): frequency-ranked spelling suggestions`
+
+### Task S7: Words in other languages (transliterated Hindi / Bengali)
+
+Owner's decision (2026-10-21). Indian writers mix romanised Hindi or Bengali into English ("accha", "chalo", "bhai", "jugaad", "khub bhalo"). Today these are flagged as misspellings. Detect them and group them on one "Words in other languages" card, like the names and terms cards. They are never auto-changed, and one decision covers them all (add all to the dictionary / untick any). This task has an **acceptance gate**.
+
+**Approach** (pure TS engine; a model only if needed):
+- **Classifier:** a character n-gram classifier (romanised Hindi / romanised Bengali / English) trained offline on openly licensed data. For example, Google's Dakshina dataset (CC BY-SA 4.0) for romanised Hindi and Bengali, set against an English word list. Ship it as a compact table of ≤ 2 MB. Record the licence, source and sha256, and add attribution. A download needs the owner's OK at implementation time.
+- **Scope:** only flagged words are classified (cheap). A word counts as "other language" when its probability is ≥ θ, chosen on a held-out set.
+- **Never:** classify a word that is one edit from a common English word (a slip wins), or touch Devanagari/Bengali script (those aren't spell-checked as English anyway; confirm with a test).
+- **Card:** `{ id: 'other-language', kind: 'otherLanguage', candidateIds, label: 'N words in Hindi/Bengali' }`, with `acceptOtherLanguage(keepAsTypos)`, mirroring `acceptNames` and `acceptTerms`.
+
+**Acceptance gate (before/after table in the report):**
+1. On a held-out test set of ≥ 200 Hinglish/Banglish sentences (build it from the dataset's held-out split; never train on it), at least 70% of the romanised words that were flagged move onto the card.
+2. English typos planted in those same sentences are still flagged individually; precision on English typos is ≥ 95%.
+3. Recall on the 22 reference docs stays green, and the budget and trust suite are unchanged or better.
+4. The rules pass stays ≤ 300 ms per 1,500 words when measured alone.
+
+If the gate fails, don't merge; report.
+
+**Commit:** `feat(engine): words-in-other-languages card for romanised Hindi and Bengali`
+
+### Task S5: Context check (small local language model that re-ranks flags)
+
+Owner's decision (2026-10-21): option A, "fine as long as it does the work". This task has an **acceptance gate**: it is merged only if the measurements pass.
+
+**What it does:** for each review-tier Spelling, Typo, WordChoice or Grammar flag that has replacements, a small masked language model scores the original word and each suggestion in their sentence context. If the original is clearly more plausible than every suggestion (log-probability margin ≥ τ), the flag is **demoted**: it ranks lower and falls under "More" sooner.
+- It is **never hidden** and **never auto-applied**.
+- It never touches fact-locked spans, the names or terms cards, or LLM rewrites.
+- If a suggestion is clearly more plausible, the flag may be **promoted** within review.
+
+**Model:** a small, permissively licensed (MIT/Apache-2.0) masked LM that runs on the CPU inside the app, e.g. a MiniLM/BERT-small/ELECTRA-small class model exported to ONNX.
+- **Size:** ≤ 60 MB quantised.
+- **Runtime:** onnxruntime-web (WASM) or transformers.js, pinned exact versions. It must work offline in the Tauri webview and in Node for tests.
+- **Shipping:** it is shipped bundled or as an optional download. Choose based on size and report it. The download needs the owner's permission at implementation time.
+- **Records:** licence, URL and sha256 are recorded, and the hash is verified at load.
+
+**Performance:** score only flagged spans. ≤ 500 ms for a 1,500-word document with ~40 flags on this machine, measured and reported. Run it after the rules pass, so the UI shows rules results first and then reorders.
+
+**Setting:** "Context check" On (default once the gate passes) / Off.
+
+**Acceptance gate (all must hold; report a before/after table):**
+1. **Recall:** on the 22 reference docs, every planted error that the engine detects today stays visible within the ranked decisions. None may be pushed below where recall checks it. Recall tests stay green.
+2. **False alarms:** on the sample pack in `D:/Downloads/wc-samples` (clean published text, so every flag counts as a false alarm), up-front decisions per 1,500 words drop by ≥ 30% at Standard depth, averaged across the 4 fields.
+3. **Budget:** no reference doc's ranked count gets worse. Report the KNOWN_OVER_BUDGET changes.
+4. **Performance and offline:** the timing above is met, and no network is used at runtime (CSP unchanged; the trust network gate stays green).
+
+If the gate fails: don't merge to v1.0-dev. Report the numbers. The owner decides.
+
+**Commit:** `feat(engine): optional context check re-ranks flags with a small local model`
+
+### Task S8: Upgrade guard for every outside dependency
+
+Owner's decision (2026-10-21). Nothing changes until we choose to upgrade, and every upgrade produces a readable report of what changed.
+
+**1. Pin everything**
+- npm: exact versions, with package-lock committed.
+- Rust: Cargo.lock committed.
+- Data files and models: listed in `deps/assets.json`, one entry per item with name, version, source URL, licence, sha256, local path and the build script that consumes it. Covered items: WordNet, en-IN/tech lists, frequency list, Dakshina table, context model, local LLM, llama-server binary. Build scripts verify the hashes.
+
+**2. `npm run deps:status`** (developer-only; network allowed here, never in the app). It reports:
+- outdated npm packages (`npm outdated --json`) and Rust crates (`cargo update --dry-run` or `cargo outdated` if available);
+- asset updates: GitHub releases or upstream pages per asset in assets.json, best effort;
+- security advisories (`npm audit --omit=dev`, `cargo audit`);
+- licence changes (`license-checker --production` for npm, `cargo deny check licenses` for Rust). It fails if any licence is not on the allowlist: MIT, Apache-2.0, BSD, ISC, Zlib, Unicode, CC0, CC BY, CC BY-SA (data only), MPL-2.0 (crates only). Anything NC or unknown fails.
+
+**3. Behaviour snapshots** (committed JSON, regenerated by script):
+- **Harper:** every flag (kind, span, message, suggestions) on the 22 reference docs and on fixtures copied from the sample pack. Store only short excerpts plus offsets, not whole copyrighted texts. CC BY-SA and public-domain excerpts are fine with attribution.
+- **Dictionary:** entry counts plus ~50 fixed lookups.
+- **Word lists:** counts plus a hash of the sorted list.
+- **Message-text dependencies:** every place the engine matches Harper's message text (Oxford comma, heading title case, fragments) gets a dedicated test that fails loudly if the wording changes.
+
+**4. `npm run upgrade:check`** writes `upgrade-report.md`, which contains:
+- snapshot diffs: new or removed or changed flags by kind with examples, changed suggestions, message-text changes;
+- results of tests, trust, decisions budget, recall, S5/S6/S7 gates and speed;
+- a `cargo test` + tauri debug build;
+- a diff of tauri.conf.json CSP and capabilities against the committed baseline (any widening fails);
+- the licence diff.
+
+**5. `docs/UPGRADING.md`:** a one-page playbook. Upgrade one thing at a time, run upgrade:check, read the report, then commit with the report summary in the message or roll back.
+
+**Tests:** the snapshot scripts are deterministic (two runs give identical output); the licence allowlist rejects a fake NC package in a fixture; the CSP diff rejects an added remote host.
+
+**Commit:** `build: upgrade guard (pins, deps status, behaviour snapshots, licence and permission checks)`
+
 ## Milestone D: Optional "reads naturally" pass
 
 ### Task 12: LLM sidecar and model download
@@ -557,6 +698,8 @@ Owner's decision, spec §3 item 10.
 | §3.7 change log + report | 6, 11 |
 | §3.9 word lookup (offline dictionary) | 11b |
 | §3.10 saved review sessions + unsaved-work guard | 11, S3 |
+| §5 terms card / other-language card / better suggestions / context check | S4, S7, S6, S5 |
+| §11 dependencies and upgrades | S8 |
 | §3.8 / §9 trust suite | 7 (no-network), 10 |
 | §6 constraints (offline, no admin, 8 GB, instant) | 7, 11, 12, 14 |
 | §7 signing/staging | 14 (unsigned v1.0, Windows) |
