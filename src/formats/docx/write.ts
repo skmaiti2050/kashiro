@@ -13,7 +13,7 @@ import type { SaveMode } from '../types';
 import { extractDocx, type DocxPara, type TextPiece } from './extract';
 import { splitRawText, tokenize } from './tokenize';
 
-export const REVISION_AUTHOR = 'writing-check';
+const REVISION_AUTHOR = 'writing-check';
 
 export interface Unplaceable {
   edit: Edit;
@@ -54,7 +54,7 @@ const ILLEGAL_CHAR = /[\u0000-\u0008\u000B\u000C\u000E-\u001F￾￿]|[\uD800-\uD
 const isHigh = (c: string | undefined) => c !== undefined && c >= '\uD800' && c <= '\uDBFF';
 const isLow = (c: string | undefined) => c !== undefined && c >= '\uDC00' && c <= '\uDFFF';
 
-export function escapeText(s: string): string {
+function escapeText(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
@@ -345,7 +345,7 @@ function maxId(xml: string): number {
   return max;
 }
 
-export function isoSeconds(d: Date): string {
+function isoSeconds(d: Date): string {
   return d.toISOString().replace(/\.\d{3}Z$/, 'Z');
 }
 

@@ -3,7 +3,7 @@ import type { Paragraph, Variant } from './types';
 
 const ORDER: Variant[] = ['American', 'British', 'Canadian', 'Australian', 'Indian'];
 
-export interface VariantResult {
+interface VariantResult {
   variant: Variant;
   /** True when the chosen variant still flags words that another variant accepts. */
   mixed: boolean;

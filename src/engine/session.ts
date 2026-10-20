@@ -1,103 +1,37 @@
-import { createLinter, type RulesLinter } from './linter';
-import { detectVariant } from './variant';
-import { findInvisible } from './hygiene';
-import { findLockedSpans } from './factLock';
-import { PRESETS, type PresetId } from './presets';
+import { overlapsLocked } from './factLock';
+import { buildDecisions, foldsUnderMore, NAMES_CARD_ID, type Decision } from './decisions';
+import { tierOf, type TierContext } from './tiers';
+import { EditLedger } from './editLedger';
+import { prepareCheck } from './sessionSetup';
+import { WORD_REWRITE_KINDS } from './wordFlags';
 import {
-  buildDecisions,
-  overlapsLocked,
-  findContractions,
-  foldsUnderMore,
-  tierOf,
-  NAMES_CARD_ID,
-  type Decision,
-  type TierContext,
-} from './tiers';
-import type { Candidate, Paragraph, Span, Tier, Variant } from './types';
+  byPosition,
+  overlaps,
+  TRACKED_CHANGE_REASON,
+  type CheckOptions,
+  type Edit,
+  type LogEntry,
+  type Outcome,
+  type SessionDeps,
+  type Status,
+} from './sessionTypes';
+import type { RulesLinter } from './linter';
+import type { Candidate, Paragraph, Tier, Variant } from './types';
 
-export interface CheckOptions {
-  preset: PresetId;
-  /** When given, variant detection is skipped. */
-  variant?: Variant;
-  fallbackVariant: Variant;
-  language: 'plaintext' | 'markdown';
-  dictionary: string[];
-  /** Per-kind tier overrides (passed to TierContext.userTierOverrides). */
-  tierOverrides?: Partial<Record<string, Tier>>;
-}
+// Public paths stay `engine/session`; the types live in sessionTypes.ts.
+export { TRACKED_CHANGE_REASON, type CheckOptions, type Edit, type LogEntry, type Outcome, type SessionDeps, type Status };
 
-export interface SessionDeps {
-  /** Reused instead of creating a linter (the UI passes one built with the browser binary). */
-  linter?: RulesLinter;
-  /** Clock for LogEntry.at. */
-  now?: () => Date;
-}
-
-export interface Edit {
-  paraId: number;
-  span: Span;
-  replacement: string;
-}
-
-export type Status = 'pending' | 'applied' | 'rejected' | 'superseded';
-
-export interface LogEntry {
-  candidateId: string;
-  status: Status;
-  auto: boolean;
-  at: string;
-  reason?: string;
-  /** The replacement chosen for this candidate (kept after undo). */
-  replacement?: string;
-}
-
-/** Final state of one candidate, for reports. */
-export interface Outcome {
-  candidate: Candidate;
-  /** 1-based position of the paragraph in the document. */
-  paragraphNumber: number;
-  status: Status;
-  auto: boolean;
-  /** The replacement applied (or proposed, for rejected). */
-  replacement?: string;
-  reason?: string;
-  unplaceable?: string;
-}
-
-export const TRACKED_CHANGE_REASON = 'inside an existing tracked change';
 const TOP = 10;
-/** Kinds whose flags are about one word (unknown to the dictionary). */
-const WORD_FLAG_KINDS = new Set(['Spelling', 'Typo']);
 
-/** Overlap of two edits; zero-width spans clash when they sit at the same point or inside the other. */
-function overlaps(a: Span, b: Span): boolean {
-  if (a.start === a.end && b.start === b.end) return a.start === b.start;
-  if (a.start === a.end) return b.start < a.start && a.start < b.end;
-  if (b.start === b.end) return a.start < b.start && b.start < a.end;
-  return a.start < b.end && b.start < a.end;
-}
-
-const byPosition = (a: { paraId: number; span: Span }, b: { paraId: number; span: Span }) =>
-  a.paraId - b.paraId || a.span.start - b.span.start || a.span.end - b.span.end;
-
-const addedWords = new WeakMap<RulesLinter, Set<string>>();
 
 export class CheckSession {
   private readonly paras = new Map<number, Paragraph>();
   private readonly paraNumber = new Map<number, number>();
   private readonly cands = new Map<string, Candidate>();
   private readonly tiers = new Map<string, Tier>();
-  private readonly status = new Map<string, Status>();
-  private readonly replacement = new Map<string, string>();
-  private readonly autoApplied = new Set<string>();
+  private readonly ledger: EditLedger;
   private readonly userRejected = new Set<string>();
   private readonly unplaceable = new Map<string, string>();
-  private readonly reasons = new Map<string, string>();
-  /** Candidates overlapping an adapter-supplied Paragraph.locked span. */
-  private readonly inTrackedChange = new Set<string>();
-  /** superseded candidate id → id of the edit that superseded it. */
-  private readonly supersededBy = new Map<string, string>();
-  private readonly entries: LogEntry[] = [];
   private readonly added: string[] = [];
   /** Lowercased words the user unticked on the names card: real typos, ranked as words. */
   private readonly typoWords = new Set<string>();
@@ -107,9 +41,10 @@ export class CheckSession {
     readonly variant: Variant,
     readonly mixedVariant: boolean,
     private readonly ctx: TierContext,
-    private readonly now: () => Date,
+    now: () => Date,
     private readonly linter: RulesLinter,
   ) {
+    this.ledger = new EditLedger(this.cands, now);
     paras.forEach((p, i) => {
       this.paras.set(p.id, p);
       this.paraNumber.set(p.id, i + 1);
@@ -117,38 +52,8 @@ export class CheckSession {
   }
 
   static async start(paras: Paragraph[], opts: CheckOptions, deps: SessionDeps = {}): Promise<CheckSession> {
-    const linter = deps.linter ?? (await createLinter(opts.variant ?? opts.fallbackVariant, opts.dictionary));
-    if (deps.linter && opts.dictionary.length) {
-      const seen = addedWords.get(linter) ?? new Set<string>();
-      addedWords.set(linter, seen);
-      const fresh = opts.dictionary.filter((w) => !seen.has(w));
-      if (fresh.length) {
-        await linter.addWords(fresh);
-        fresh.forEach((w) => seen.add(w));
-      }
-    }
-
-    // With an explicit variant, detection still runs to compute its variantWords (never auto-converted).
-    const { variant, mixed, variantWords } = await detectVariant(paras, opts.fallbackVariant, {
-      linter,
-      variant: opts.variant,
-    });
-    if (linter.variant !== variant) await linter.setVariant(variant);
-
-    const locked = new Map<number, Span[]>();
-    for (const p of paras) locked.set(p.id, [...findLockedSpans(p.text), ...(p.locked ?? [])]);
-    const preset = PRESETS[opts.preset];
-    const paraText = new Map(paras.map((p) => [p.id, p.text]));
-    const ctx: TierContext = { locked, variantWords, preset, userTierOverrides: opts.tierOverrides, paraText, variant };
-
-    const session = new CheckSession(paras, variant, mixed, ctx, deps.now ?? (() => new Date()), linter);
-
-    const found: Candidate[] = await linter.lintParagraphs(paras, opts.language);
-    for (const p of paras) {
-      found.push(...findInvisible(p));
-      if (preset.extraRules.includes('contractions')) found.push(...findContractions(p, locked.get(p.id)));
-    }
-    found.sort(byPosition);
+    const { linter, variant, mixedVariant, ctx, found } = await prepareCheck(paras, opts, deps);
+    const session = new CheckSession(paras, variant, mixedVariant, ctx, deps.now ?? (() => new Date()), linter);
     session.addCandidates(found);
     session.autoApply();
     return session;
@@ -170,7 +75,7 @@ export class CheckSession {
     const pending: Candidate[] = [];
     const tiers = new Map<string, Tier>();
     for (const c of this.cands.values()) {
-      if (this.status.get(c.id) !== 'pending' || this.unplaceable.has(c.id)) continue;
+      if (this.ledger.status.get(c.id) !== 'pending' || this.unplaceable.has(c.id)) continue;
       const t = this.tiers.get(c.id)!;
       if (t === 'hidden') continue;
       pending.push(c);
@@ -183,7 +88,7 @@ export class CheckSession {
       typoWords: this.typoWords,
       paraText: this.ctx.paraText,
       // Inside an existing tracked change: can't be applied, so never in `top`.
-      blocked: (c) => this.inTrackedChange.has(c.id),
+      blocked: (c) => this.ledger.inTrackedChange.has(c.id),
     });
     return { top: decisions.slice(0, TOP), more: [...decisions.slice(TOP), ...blocked] };
   }
@@ -192,7 +97,7 @@ export class CheckSession {
   touchesLocked(candidateId: string): boolean {
     const c = this.cands.get(candidateId);
     if (!c) throw new Error(`unknown candidate ${candidateId}`);
-    return this.inTrackedChange.has(c.id) || overlapsLocked(c, this.ctx.locked.get(c.paraId));
+    return this.ledger.inTrackedChange.has(c.id) || overlapsLocked(c, this.ctx.locked.get(c.paraId));
   }
 
   /** Decisions in the default view (spec §10): the top of the ranking (at most TOP). */
@@ -208,18 +113,18 @@ export class CheckSession {
   rankedDecisionCount(): number {
     const { top, more } = this.decisions();
     // The names card may hold tracked-change names too; it is blocked only when all of it is.
-    return top.length + more.filter((d) => !d.candidateIds.every((id) => this.inTrackedChange.has(id))).length;
+    return top.length + more.filter((d) => !d.candidateIds.every((id) => this.ledger.inTrackedChange.has(id))).length;
   }
 
   log(): LogEntry[] {
-    return [...this.entries];
+    return this.ledger.log();
   }
 
   acceptedEdits(): Edit[] {
     const out: Edit[] = [];
     for (const c of this.cands.values()) {
-      if (this.status.get(c.id) !== 'applied') continue;
-      out.push({ paraId: c.paraId, span: { ...c.span }, replacement: this.replacement.get(c.id)! });
+      if (this.ledger.status.get(c.id) !== 'applied') continue;
+      out.push({ paraId: c.paraId, span: { ...c.span }, replacement: this.ledger.replacement.get(c.id)! });
     }
     return out.sort(byPosition);
   }
@@ -241,10 +146,10 @@ export class CheckSession {
     return [...this.cands.values()].sort(byPosition).map((c) => ({
       candidate: c,
       paragraphNumber: this.paraNumber.get(c.paraId) ?? c.paraId + 1,
-      status: this.status.get(c.id)!,
-      auto: this.autoApplied.has(c.id),
-      replacement: this.replacement.get(c.id) ?? c.replacements[0],
-      reason: this.reasons.get(c.id),
+      status: this.ledger.status.get(c.id)!,
+      auto: this.ledger.autoApplied.has(c.id),
+      replacement: this.ledger.replacement.get(c.id) ?? c.replacements[0],
+      reason: this.ledger.reasons.get(c.id),
       unplaceable: this.unplaceable.get(c.id),
     }));
   }
@@ -272,18 +177,18 @@ export class CheckSession {
       );
     }
     for (const c of members) {
-      if (this.inTrackedChange.has(c.id)) {
-        this.record(c.id, 'pending', false, TRACKED_CHANGE_REASON);
+      if (this.ledger.inTrackedChange.has(c.id)) {
+        this.ledger.record(c.id, 'pending', false, TRACKED_CHANGE_REASON);
         continue;
       }
-      this.apply(c, c.replacements[replacementIndex], false);
+      this.ledger.apply(c, c.replacements[replacementIndex], false);
     }
   }
 
   reject(decisionId: string): void {
     for (const c of this.members(decisionId)) {
       this.userRejected.add(c.id);
-      this.record(c.id, 'rejected', false);
+      this.ledger.record(c.id, 'rejected', false);
     }
   }
 
@@ -299,7 +204,7 @@ export class CheckSession {
   async addToDictionary(decisionId: string): Promise<void> {
     const members = this.members(decisionId);
     const first = members[0];
-    if (!WORD_FLAG_KINDS.has(first.kind) || members.some((c) => c.original.toLowerCase() !== first.original.toLowerCase())) {
+    if (!WORD_REWRITE_KINDS.has(first.kind) || members.some((c) => c.original.toLowerCase() !== first.original.toLowerCase())) {
       throw new Error(`${decisionId} is not a word flag (Spelling/Typo of one word)`);
     }
     await this.addWord(first.original);
@@ -332,10 +237,10 @@ export class CheckSession {
     this.added.push(word);
     const reason = `"${word}" added to dictionary`;
     for (const c of this.cands.values()) {
-      if (this.status.get(c.id) !== 'pending' || !WORD_FLAG_KINDS.has(c.kind)) continue;
+      if (this.ledger.status.get(c.id) !== 'pending' || !WORD_REWRITE_KINDS.has(c.kind)) continue;
       if (c.original.toLowerCase() !== word.toLowerCase()) continue;
       this.userRejected.add(c.id);
-      this.record(c.id, 'rejected', false, reason);
+      this.ledger.record(c.id, 'rejected', false, reason);
     }
   }
 
@@ -346,15 +251,15 @@ export class CheckSession {
 
   /** applied → rejected; rejected (by the user) → pending. */
   undo(candidateId: string): void {
-    const s = this.status.get(candidateId);
+    const s = this.ledger.status.get(candidateId);
     if (s === 'applied') {
-      this.autoApplied.delete(candidateId);
+      this.ledger.autoApplied.delete(candidateId);
       this.userRejected.add(candidateId);
-      this.record(candidateId, 'rejected', false, 'undone');
-      this.restoreSuperseded(candidateId);
+      this.ledger.record(candidateId, 'rejected', false, 'undone');
+      this.ledger.restoreSuperseded(candidateId);
     } else if (s === 'rejected' && this.userRejected.has(candidateId)) {
       this.userRejected.delete(candidateId);
-      this.record(candidateId, 'pending', false);
+      this.ledger.record(candidateId, 'pending', false);
     } else {
       throw new Error(`cannot undo ${candidateId} (${s ?? 'unknown'})`);
     }
@@ -366,11 +271,11 @@ export class CheckSession {
       if (this.cands.has(c.id)) continue;
       this.cands.set(c.id, c);
       this.tiers.set(c.id, tierOf(c, this.ctx));
-      this.status.set(c.id, 'pending');
+      this.ledger.status.set(c.id, 'pending');
       const adapterLocked = this.paras.get(c.paraId)?.locked;
       if (adapterLocked?.some((s) => overlaps(c.span, s))) {
-        this.inTrackedChange.add(c.id);
-        this.reasons.set(c.id, TRACKED_CHANGE_REASON);
+        this.ledger.inTrackedChange.add(c.id);
+        this.ledger.reasons.set(c.id, TRACKED_CHANGE_REASON);
         if (this.tiers.get(c.id) === 'safe') this.tiers.set(c.id, 'review');
       }
     }
@@ -380,8 +285,8 @@ export class CheckSession {
   markUnplaceable(candidateId: string, reason: string): void {
     if (!this.cands.has(candidateId)) throw new Error(`unknown candidate ${candidateId}`);
     this.unplaceable.set(candidateId, reason);
-    this.record(candidateId, 'rejected', this.autoApplied.has(candidateId), `unplaceable: ${reason}`);
-    this.restoreSuperseded(candidateId);
+    this.ledger.record(candidateId, 'rejected', this.ledger.autoApplied.has(candidateId), `unplaceable: ${reason}`);
+    this.ledger.restoreSuperseded(candidateId);
   }
 
   // ---- internals -----------------------------------------------------------
@@ -389,11 +294,11 @@ export class CheckSession {
   private autoApply(): void {
     const safe = [...this.cands.values()].filter((c) => this.tiers.get(c.id) === 'safe').sort(byPosition);
     for (const c of safe) {
-      if (this.clashing(c).length) {
+      if (this.ledger.clashing(c).length) {
         this.tiers.set(c.id, 'review');
         continue;
       }
-      this.apply(c, c.replacements[0], true);
+      this.ledger.apply(c, c.replacements[0], true);
     }
   }
 
@@ -402,58 +307,7 @@ export class CheckSession {
     const d = [...top, ...more].find((x) => x.id === decisionId);
     if (d) return d.candidateIds.map((id) => this.cands.get(id)!);
     const c = this.cands.get(decisionId);
-    if (c && this.status.get(c.id) === 'pending') return [c];
+    if (c && this.ledger.status.get(c.id) === 'pending') return [c];
     throw new Error(`unknown or already decided: ${decisionId}`);
-  }
-
-  private clashing(c: Candidate): Candidate[] {
-    const out: Candidate[] = [];
-    for (const o of this.cands.values()) {
-      if (o.id !== c.id && o.paraId === c.paraId && this.status.get(o.id) === 'applied' && overlaps(o.span, c.span)) {
-        out.push(o);
-      }
-    }
-    return out;
-  }
-
-  private apply(c: Candidate, replacement: string, auto: boolean): void {
-    for (const old of this.clashing(c)) {
-      this.supersededBy.set(old.id, c.id);
-      this.record(old.id, 'superseded', false, `superseded by ${c.id}`);
-    }
-    this.replacement.set(c.id, replacement);
-    if (auto) this.autoApplied.add(c.id);
-    this.record(c.id, 'applied', auto);
-  }
-
-  /**
-   * The edit `byId` left the output (undone or unplaceable): bring back what it superseded,
-   * as applied when nothing applied clashes, else as pending.
-   */
-  private restoreSuperseded(byId: string): void {
-    for (const [oldId, by] of [...this.supersededBy]) {
-      if (by !== byId) continue;
-      this.supersededBy.delete(oldId);
-      if (this.status.get(oldId) !== 'superseded') continue;
-      const reason = `restored after ${byId} was removed`;
-      if (this.clashing(this.cands.get(oldId)!).length === 0) {
-        this.record(oldId, 'applied', this.autoApplied.has(oldId), reason);
-      } else {
-        this.autoApplied.delete(oldId);
-        this.record(oldId, 'pending', false, reason);
-      }
-    }
-  }
-
-  private record(candidateId: string, status: Status, auto: boolean, reason?: string): void {
-    this.status.set(candidateId, status);
-    if (reason) this.reasons.set(candidateId, reason);
-    else if (this.inTrackedChange.has(candidateId)) this.reasons.set(candidateId, TRACKED_CHANGE_REASON);
-    else this.reasons.delete(candidateId);
-    const e: LogEntry = { candidateId, status, auto, at: this.now().toISOString() };
-    if (reason) e.reason = reason;
-    const replacement = this.replacement.get(candidateId);
-    if (replacement !== undefined) e.replacement = replacement;
-    this.entries.push(e);
   }
 }

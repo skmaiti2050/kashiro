@@ -335,7 +335,6 @@ describe('performance', () => {
     const t0 = performance.now();
     await CheckSession.start(paras, o, { linter });
     const ms = performance.now() - t0;
-    console.log(`PERF second start: ${ms.toFixed(1)} ms for ${words} words`);
     expect(ms).toBeLessThan(300);
   });
 });

@@ -79,7 +79,7 @@ describe('Indian-English word list', () => {
   it.each(['American', 'British', 'Indian'] as const)('knows common Indian-English words under %s', async (v) => {
     const l = await createLinter(v);
     const text =
-      // "gram" and "dal" are left out of the list on purpose (typo shapes of "ram" and "deal"; see TYPO_SHAPED below).
+      // "gram" is left out of the list on purpose (a typo shape of "ram"; see TYPO_SHAPED below); "dal" stays (DAILY).
       'The sarpanch of the panchayat met the tehsildar about the borewells, the nullah and two lakh rupees. ' +
       'We ate khichdi, roti, poha and theplas at a dhaba near the godown, then preponed the meeting.';
     const spelling = (await l.lintParagraphs([para(text)], 'plaintext')).filter((x) => x.kind === 'Spelling' || x.kind === 'Typo');

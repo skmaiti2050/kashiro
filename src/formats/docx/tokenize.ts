@@ -93,7 +93,7 @@ export function attr(xml: string, tok: { start: number; end: number }, name: str
 const NAMED: Record<string, string> = { lt: '<', gt: '>', amp: '&', quot: '"', apos: "'" };
 
 /** Decode the 5 predefined entities and decimal/hex character references (astral → surrogate pairs). */
-export function decodeEntities(s: string): string {
+function decodeEntities(s: string): string {
   if (!s.includes('&')) return s;
   return s.replace(/&([^;&\s]*);?/g, (whole, body: string) => {
     if (!whole.endsWith(';')) throw new Error(`malformed XML: bare '&' in "${s}"`);

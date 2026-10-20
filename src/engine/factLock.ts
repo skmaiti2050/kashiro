@@ -1,4 +1,4 @@
-import type { Span } from './types';
+import type { Candidate, Span } from './types';
 
 const MONTH =
   '(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)';
@@ -123,4 +123,13 @@ export function findLockedSpans(text: string): Span[] {
     else merged.push({ ...s });
   }
   return merged;
+}
+
+/** True when the candidate overlaps a locked span; an insertion point counts only strictly inside one. */
+export function overlapsLocked(c: Candidate, locked: Span[] | undefined): boolean {
+  if (!locked) return false;
+  const { start, end } = c.span;
+  return locked.some((s) =>
+    start === end ? s.start < start && start < s.end : start < s.end && s.start < end,
+  );
 }
