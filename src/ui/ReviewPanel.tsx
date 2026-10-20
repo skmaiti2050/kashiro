@@ -1,19 +1,24 @@
 import { useState } from 'react';
 import type { Decision } from '@/engine/decisions';
-import type { CheckSession } from '@/engine/session';
+import type { Candidate } from '@/engine/types';
 import { DecisionCard } from './DecisionCard';
 import { DepthSlider } from './DepthSlider';
 import { NamesCard } from './NamesCard';
+import { decisionTitle } from './state/labels';
 import type { ControllerState, SessionController } from './state/sessionController';
 
 interface Props {
   controller: SessionController;
   state: ControllerState;
+  /** Shows a candidate in the document view (highlighted and scrolled into view). */
+  onLocate(candidate: Candidate): void;
 }
 
 /** The review queue: "N decisions", one at a time, the rest under "More (N)". */
-export function ReviewPanel({ controller, state }: Props) {
+export function ReviewPanel({ controller, state, onLocate }: Props) {
   const [skipped, setSkipped] = useState<string[]>([]);
+  /** A decision picked from "More": shown on the card until it is decided or skipped. */
+  const [picked, setPicked] = useState<string | null>(null);
   const session = state.session;
   if (!session) {
     return (
@@ -25,9 +30,17 @@ export function ReviewPanel({ controller, state }: Props) {
 
   const { top, more } = session.decisions();
   const queue = top.filter((d) => !skipped.includes(d.id));
-  const current = queue[0];
+  const current = more.find((d) => d.id === picked) ?? queue[0];
   const candidates = new Map(session.candidates().map((c) => [c.id, c]));
   const paraText = new Map(session.paragraphs().map((p) => [p.id, p.text]));
+  const skip = (id: string) => {
+    if (id === picked) setPicked(null);
+    else setSkipped((s) => [...s, id]);
+  };
+  const pick = (d: Decision) => {
+    setPicked(d.id);
+    onLocate(candidates.get(d.candidateIds[0])!);
+  };
 
   return (
     <aside className="review">
@@ -47,7 +60,8 @@ export function ReviewPanel({ controller, state }: Props) {
           decision={current}
           candidates={candidates}
           paraText={paraText}
-          onSkip={() => setSkipped((s) => [...s, current.id])}
+          onSkip={() => skip(current.id)}
+          onLocate={onLocate}
         />
       )}
       {!current && (
@@ -57,35 +71,23 @@ export function ReviewPanel({ controller, state }: Props) {
         </p>
       )}
 
-      {more.length > 0 && <MoreList controller={controller} session={session} more={more} />}
-    </aside>
-  );
-}
-
-function MoreList({ controller, session, more }: { controller: SessionController; session: CheckSession; more: Decision[] }) {
-  const candidates = new Map(session.candidates().map((c) => [c.id, c]));
-  return (
-    <details className="more">
-      <summary>More ({more.length})</summary>
-      <ul>
-        {more.map((d) => {
-          if (d.kind === 'names') {
-            return (
-              <li key={d.id}>
-                <NamesCard controller={controller} card={d} candidates={candidates} />
+      {more.length > 0 && (
+        <details className="more">
+          <summary>More ({more.length})</summary>
+          <ul>
+            {more.map((d) => (
+              <li key={d.id} className={d.id === current?.id ? 'current' : undefined}>
+                <button className="row-label" onClick={() => pick(d)}>
+                  {decisionTitle(d, candidates.get(d.candidateIds[0])!)}
+                </button>
+                <button className="row-action" onClick={() => pick(d)}>
+                  Review
+                </button>
               </li>
-            );
-          }
-          const first = candidates.get(d.candidateIds[0])!;
-          return (
-            <li key={d.id}>
-              <span>{d.label}</span>
-              {first.replacements.length > 0 && <button onClick={() => controller.accept(d.id)}>Accept</button>}
-              <button onClick={() => controller.reject(d.id)}>Reject</button>
-            </li>
-          );
-        })}
-      </ul>
-    </details>
+            ))}
+          </ul>
+        </details>
+      )}
+    </aside>
   );
 }

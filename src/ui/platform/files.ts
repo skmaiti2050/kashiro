@@ -29,16 +29,16 @@ export const files: Files = {
 
   async save(path, bytes, { overwrite }) {
     if (overwrite) {
-      // The backup is a sibling the webview may not write, so the Rust shell makes it (lib.rs).
-      await invoke<string>('backup_file', { path });
-      await writeFile(path, bytes);
-      return path;
+      // Rust backs the file up, writes a temporary sibling and renames it over the original (lib.rs):
+      // the webview may write neither sibling, and a failure must not leave the original half-written.
+      const backup = await invoke<string>('overwrite_with_backup', { path, bytes: Array.from(bytes) });
+      return { path, backup };
     }
     const ext = extension(path);
     const chosen = await save({ defaultPath: path, filters: ext ? [{ name: ext.toUpperCase(), extensions: [ext] }] : [] });
     if (chosen === null) return null;
     await writeFile(chosen, bytes);
-    return chosen;
+    return { path: chosen, backup: null };
   },
 };
 

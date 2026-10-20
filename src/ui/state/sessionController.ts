@@ -1,32 +1,17 @@
-import { CheckSession, type Edit } from '@/engine/session';
-import { exportReport } from '@/engine/report';
-import type { ReviewDepth } from '@/engine/depth';
+import { CheckSession } from '@/engine/session';
+import { DEFAULT_DEPTH, type ReviewDepth } from '@/engine/depth';
 import type { RulesLinter } from '@/engine/linter';
 import type { PresetId } from '@/engine/presets';
 import type { Paragraph, Variant } from '@/engine/types';
 import { adapterFor as registryAdapterFor } from '@/formats/registry';
 import type { FormatAdapter } from '@/formats/types';
 import { carryDecisions } from './carryDecisions';
-import { joinParagraphs, matchUnchangedParagraphs, paragraphStarts, siblingPath } from './documentText';
+import { joinParagraphs, matchUnchangedParagraphs, paragraphStarts } from './documentText';
+import { RecheckQueue } from './recheckQueue';
+import { saveDocument, saveReport, type Files, type OpenedFile } from './saveFlow';
 import type { Settings } from './settings';
 
-export interface OpenedFile {
-  name: string;
-  /** Null when the bytes came without a path (nothing to overwrite). */
-  path: string | null;
-  bytes: Uint8Array;
-}
-
-/** File access (platform/files.ts in the app, an in-memory fake in tests). */
-export interface Files {
-  /** Asks the user for a file; null when they cancel. */
-  open(): Promise<OpenedFile | null>;
-  /**
-   * Writes `bytes`. With `overwrite`, backs up `path` first (`name.bak.ext`) and writes over it; otherwise
-   * lets the user confirm or change the suggested `path`. Returns the path written, or null when cancelled.
-   */
-  save(path: string, bytes: Uint8Array, opts: { overwrite: boolean }): Promise<string | null>;
-}
+export type { Files, OpenedFile, SavedFile } from './saveFlow';
 
 export interface ControllerDeps {
   files: Files;
@@ -47,6 +32,11 @@ export interface OpenDocument {
   path: string | null;
   /** The text in the document view: the file's text, or a .docx's paragraphs separated by blank lines. */
   text: string;
+  /**
+   * The line break the editor splits and joins lines with, so its text round-trips exactly: CRLF for
+   * a file that uses only CRLF, LF otherwise (a mixed file keeps its stray CRs inside the lines).
+   */
+  lineSeparator: '\n' | '\r\n';
   /** Plain text and Markdown can be edited in place; .docx is read-only. */
   editable: boolean;
   /** Paragraph id → its start offset in `text`. */
@@ -71,15 +61,21 @@ export interface ControllerState {
 export const DOCX_NOTE = 'Headers, footers and footnotes are kept as they are but not checked in this version.';
 const RECHECK_DELAY_MS = 300;
 const PASTED_NAME = 'Untitled.txt';
+const UTF8_BOM = [0xef, 0xbb, 0xbf];
+/** A line feed without a carriage return before it ("a\nb", but not "a\r\nb"). */
+const BARE_LF = /(?:^|[^\r])\n/;
+
 interface LoadedFile {
   adapter: FormatAdapter;
   handle: unknown;
   paras: Paragraph[];
+  /** The file started with a UTF-8 byte-order mark: typed text is re-read with it, so the save keeps it. */
+  bom: boolean;
 }
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
-const sameEdit = (a: Edit, paraId: number, start: number, end: number, replacement: string | undefined) =>
-  a.paraId === paraId && a.span.start === start && a.span.end === end && a.replacement === replacement;
+const startsWithBom = (bytes: Uint8Array) => UTF8_BOM.every((b, i) => bytes[i] === b);
+const lineSeparatorOf = (text: string): '\n' | '\r\n' => (text.includes('\r\n') && !BARE_LF.test(text) ? '\r\n' : '\n');
 
 /**
  * The desktop flow without React: open → check → review → save. Holds one document and its
@@ -90,14 +86,14 @@ export class SessionController {
   private state: ControllerState;
   private readonly listeners = new Set<() => void>();
   private readonly adapterFor: (fileName: string) => FormatAdapter | null;
+  private readonly queue = new RecheckQueue(RECHECK_DELAY_MS, (text) => this.checkTypedText(text));
   private linter: Promise<RulesLinter> | null = null;
   private loaded: LoadedFile | null = null;
   private documents = 0;
   /** Checks started; a check whose number is no longer the latest drops its result. */
   private checks = 0;
-  private inFlight: Promise<void> = Promise.resolve();
-  private pendingText: string | null = null;
-  private timer: ReturnType<typeof setTimeout> | null = null;
+  /** Edits applied, decisions made or text typed since the document was opened or last saved. */
+  private unsaved = false;
 
   constructor(private readonly deps: ControllerDeps) {
     this.adapterFor = deps.adapterFor ?? registryAdapterFor;
@@ -118,12 +114,17 @@ export class SessionController {
   }
 
   /** Resolves once no check is running (a pending typing pause is not waited for). */
-  async settled(): Promise<void> {
-    let current: Promise<void>;
-    do {
-      current = this.inFlight;
-      await current;
-    } while (current !== this.inFlight);
+  settled(): Promise<void> {
+    return this.queue.settled();
+  }
+
+  /**
+   * True when opening another document or closing would lose something: an edit applied, a decision
+   * made or text typed since the document was opened or saved. Auto-fixes alone don't count: they come
+   * back on the next check.
+   */
+  hasUnsavedWork(): boolean {
+    return this.unsaved;
   }
 
   // ---- opening -------------------------------------------------------------
@@ -148,7 +149,7 @@ export class SessionController {
   }
 
   private async load(name: string, path: string | null, adapter: FormatAdapter, bytes: Uint8Array): Promise<void> {
-    this.cancelPendingEdits();
+    this.queue.cancel();
     let read: { paras: Paragraph[]; handle: unknown };
     try {
       read = await adapter.read(bytes);
@@ -156,58 +157,54 @@ export class SessionController {
       this.set({ error: `Can't open ${name}: ${message(e)}` });
       return;
     }
-    this.loaded = { adapter, ...read };
+    this.loaded = { adapter, ...read, bom: startsWithBom(bytes) };
+    this.unsaved = false;
     const isDocx = name.toLowerCase().endsWith('.docx');
-    const view = isDocx ? joinParagraphs(read.paras) : this.textView(bytes, read.paras);
+    const text = isDocx ? null : new TextDecoder().decode(bytes); // the decoder drops a byte-order mark
+    const view = text === null ? joinParagraphs(read.paras) : { text, starts: paragraphStarts(text, read.paras) };
     const document: OpenDocument = {
       id: ++this.documents,
       name,
       path,
       text: view.text,
+      lineSeparator: text === null ? '\n' : lineSeparatorOf(text),
       editable: !isDocx,
       paraStarts: view.starts,
       note: isDocx ? DOCX_NOTE : null,
     };
     this.set({ phase: 'checking', document, session: null, variantOverride: null, notice: null, error: null });
-    await this.track(this.check(false));
-  }
-
-  private textView(bytes: Uint8Array, paras: Paragraph[]): { text: string; starts: Map<number, number> } {
-    const text = new TextDecoder().decode(bytes); // drops a byte-order mark, as the text adapter does
-    return { text, starts: paragraphStarts(text, paras) };
+    await this.queue.track(this.check(false));
   }
 
   // ---- checking ------------------------------------------------------------
 
-  /** Typing in the editor: re-checks after a 300 ms pause. */
+  /** Typing in the editor (the text read back with the document's line separator): re-checks after a 300 ms pause. */
   editText(text: string): void {
     if (!this.state.document?.editable) return;
-    this.pendingText = text;
-    if (this.timer !== null) clearTimeout(this.timer);
-    this.timer = setTimeout(() => void this.track(this.applyPendingEdits()), RECHECK_DELAY_MS);
+    this.unsaved = true;
+    this.queue.push(text);
   }
 
-  private cancelPendingEdits(): void {
-    if (this.timer !== null) clearTimeout(this.timer);
-    this.timer = null;
-    this.pendingText = null;
-  }
-
-  private async applyPendingEdits(): Promise<void> {
-    const text = this.pendingText;
+  private async checkTypedText(text: string): Promise<void> {
     const document = this.state.document;
-    this.cancelPendingEdits();
-    if (text === null || !document || !this.loaded) return;
-    const { adapter } = this.loaded;
-    const read = await adapter.read(new TextEncoder().encode(text));
-    this.loaded = { adapter, ...read };
+    if (!document || !this.loaded) return;
+    const { adapter, bom } = this.loaded;
+    const encoded = new TextEncoder().encode(text);
+    let read: { paras: Paragraph[]; handle: unknown };
+    try {
+      read = await adapter.read(bom ? new Uint8Array([...UTF8_BOM, ...encoded]) : encoded);
+    } catch (e) {
+      this.set({ error: `The typed text could not be checked: ${message(e)}` });
+      return;
+    }
+    this.loaded = { adapter, ...read, bom };
     this.set({ document: { ...document, text, paraStarts: paragraphStarts(text, read.paras) } });
     await this.check(true);
   }
 
   /** Re-checks the current document, keeping the decisions on paragraphs that did not change. */
-  private recheck(): void {
-    if (this.loaded) void this.track(this.check(true));
+  private recheck(): Promise<void> {
+    return this.loaded ? this.queue.track(this.check(true)) : Promise.resolve();
   }
 
   private async check(keepDecisions: boolean): Promise<void> {
@@ -221,11 +218,18 @@ export class SessionController {
         now: this.deps.now,
       });
       if (run !== this.checks) return;
+      // The depth may have moved while the check ran.
+      session.setDepth(this.currentDepth());
       if (before) carryDecisions(before, session, matchUnchangedParagraphs(before.paragraphs(), loaded.paras));
       this.set({ phase: 'ready', session });
     } catch (e) {
       if (run === this.checks) this.set({ phase: this.state.session ? 'ready' : 'empty', error: `The check failed: ${message(e)}` });
     }
+  }
+
+  private currentDepth(): ReviewDepth {
+    const { depthByPreset, preset } = this.state.settings;
+    return depthByPreset[preset] ?? DEFAULT_DEPTH;
   }
 
   private checkOptions(language: 'plaintext' | 'markdown') {
@@ -237,7 +241,7 @@ export class SessionController {
       language,
       dictionary: settings.dictionary,
       tierOverrides: settings.tierOverrides,
-      depth: settings.depthByPreset[settings.preset],
+      depth: this.currentDepth(),
     };
   }
 
@@ -245,12 +249,6 @@ export class SessionController {
     const { fallbackVariant, dictionary } = this.state.settings;
     this.linter ??= this.deps.createLinter(fallbackVariant, [...dictionary]);
     return this.linter;
-  }
-
-  private track(work: Promise<void>): Promise<void> {
-    const previous = this.inFlight;
-    this.inFlight = previous.then(() => work);
-    return work;
   }
 
   // ---- review --------------------------------------------------------------
@@ -290,27 +288,26 @@ export class SessionController {
 
   setPreset(preset: PresetId): void {
     this.updateSettings({ preset });
-    this.recheck();
+    void this.recheck();
   }
 
   /** null goes back to the detected variant. */
   setVariant(variant: Variant | null): void {
     this.set({ variantOverride: variant });
-    this.recheck();
+    void this.recheck();
   }
 
-  /** Settings that need no new check (save mode, overwrite, depth) or that do (auto-apply kinds, default variant). */
+  /** Settings that need no new check (save mode, overwrite) or that do (auto-apply kinds, default variant). */
   changeSettings(patch: Partial<Pick<Settings, 'saveMode' | 'overwrite' | 'fallbackVariant' | 'tierOverrides'>>): void {
     this.updateSettings(patch);
-    if (patch.tierOverrides || patch.fallbackVariant) this.recheck();
+    if (patch.tierOverrides || patch.fallbackVariant) void this.recheck();
   }
 
   /** Harper can't forget an imported word, so the linter is rebuilt without it. */
   async removeWord(word: string): Promise<void> {
     this.updateSettings({ dictionary: this.state.settings.dictionary.filter((w) => w !== word) });
     this.linter = null;
-    if (!this.loaded) return;
-    await this.track(this.check(true));
+    await this.recheck();
   }
 
   private act(change: (s: CheckSession) => void): void {
@@ -318,6 +315,7 @@ export class SessionController {
     if (!session) return;
     try {
       change(session);
+      this.unsaved = true;
       this.set({ error: null });
     } catch (e) {
       this.set({ error: message(e) });
@@ -333,6 +331,7 @@ export class SessionController {
       this.set({ error: message(e) });
       return;
     }
+    this.unsaved = true;
     const known = new Set(this.state.settings.dictionary);
     const added = session.addedWords().filter((w) => !known.has(w));
     this.updateSettings({ dictionary: [...this.state.settings.dictionary, ...added] });
@@ -346,48 +345,38 @@ export class SessionController {
 
   // ---- saving --------------------------------------------------------------
 
-  /** Writes the document with the accepted edits: a tracked or clean copy, or over the file after a backup. */
-  async save(): Promise<void> {
-    await this.flushEdits();
+  /**
+   * Writes the document with the accepted edits: a tracked or clean copy, or over the file after a
+   * backup. Returns true when the file was written (false when cancelled or failed).
+   */
+  async save(): Promise<boolean> {
+    await this.queue.flush();
     const { session, document, settings } = this.state;
-    if (!session || !document || !this.loaded) return;
+    if (!session || !document || !this.loaded) return false;
+    const { adapter, handle } = this.loaded;
     try {
-      const { bytes, unplaceable } = await this.loaded.adapter.write(this.loaded.handle, session.acceptedEdits(), settings.saveMode);
-      for (const { edit, reason } of unplaceable) {
-        const outcome = session
-          .outcomes()
-          .find((o) => o.status === 'applied' && sameEdit(edit, o.candidate.paraId, o.candidate.span.start, o.candidate.span.end, o.replacement));
-        if (outcome) session.markUnplaceable(outcome.candidate.id, reason);
-      }
-      const overwrite = settings.overwrite && document.path !== null;
-      const target = overwrite ? document.path! : siblingPath(document.path ?? document.name, '.checked');
-      const written = await this.deps.files.save(target, bytes, { overwrite });
-      const n = unplaceable.length;
-      const unplaced = n ? `; ${n} change${n === 1 ? '' : 's'} couldn't be placed (see the change log)` : '';
-      this.set({ notice: written === null ? null : `Saved ${written}${unplaced}`, error: null });
+      const notice = await saveDocument({ session, adapter, handle, name: document.name, path: document.path, settings, files: this.deps.files });
+      // Unplaceable edits may have been marked on the session, so this always re-renders.
+      this.set({ notice, error: null });
+      if (notice === null) return false;
+      this.unsaved = false;
+      return true;
     } catch (e) {
       this.set({ error: `Couldn't save ${document.name}: ${message(e)}` });
+      return false;
     }
   }
 
-  /** Saves the change report (Markdown) beside the document. */
+  /** Saves the change report (Markdown) beside the document. The document itself still counts as unsaved. */
   async exportReport(): Promise<void> {
-    await this.flushEdits();
+    await this.queue.flush();
     const { session, document } = this.state;
     if (!session || !document) return;
     try {
-      const bytes = new TextEncoder().encode(exportReport(session, document.name));
-      const written = await this.deps.files.save(siblingPath(document.path ?? document.name, '.report', '.md'), bytes, { overwrite: false });
-      this.set({ notice: written === null ? null : `Saved the report to ${written}`, error: null });
+      this.set({ notice: await saveReport(session, document.name, document.path, this.deps.files), error: null });
     } catch (e) {
       this.set({ error: `Couldn't save the report: ${message(e)}` });
     }
-  }
-
-  /** Runs a waiting re-check now, then waits for every check. */
-  private async flushEdits(): Promise<void> {
-    if (this.pendingText !== null) await this.track(this.applyPendingEdits());
-    await this.settled();
   }
 
   /** For failures outside the controller (a dropped file that can't be read, the linter not starting). */

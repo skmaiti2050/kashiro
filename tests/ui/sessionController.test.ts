@@ -5,10 +5,13 @@ import { adapterFor } from '@/formats/registry';
 import type { FormatAdapter } from '@/formats/types';
 import { SessionController, type ControllerDeps, type Files, type OpenedFile } from '@/ui/state/sessionController';
 import { defaultSettings, type Settings } from '@/ui/state/settings';
+import { highlightRanges, locateCandidate } from '@/ui/state/highlights';
 import { buildDocx } from '../fixtures/make_docx';
 
 let shared: RulesLinter;
 let lintCalls = 0;
+/** When set, full lint passes wait for it: a check can be held "in flight". */
+let lintGate: Promise<void> | null = null;
 beforeAll(async () => {
   const real = await createLinter('American');
   // Counts full lint passes, to see when a re-check ran.
@@ -16,8 +19,9 @@ beforeAll(async () => {
     get variant() {
       return real.variant;
     },
-    lintParagraphs: (paras, language) => {
+    lintParagraphs: async (paras, language) => {
       lintCalls++;
+      if (lintGate) await lintGate;
       return real.lintParagraphs(paras, language);
     },
     lintSpelling: (paras, v) => real.lintSpelling(paras, v),
@@ -28,6 +32,7 @@ beforeAll(async () => {
 
 afterEach(() => {
   vi.useRealTimers();
+  lintGate = null;
 });
 
 const encode = (s: string) => new TextEncoder().encode(s);
@@ -39,14 +44,17 @@ interface SaveCall {
   overwrite: boolean;
 }
 
-/** In-memory files module: `open` returns the queued file, `save` records the call and "writes" to the suggested path. */
+/**
+ * In-memory files module: `open` returns the queued file, `save` records the call and "writes" to the
+ * suggested path (an overwrite reports a `.bak` backup beside it).
+ */
 function fakeFiles(toOpen: OpenedFile | null = null) {
   const saves: SaveCall[] = [];
   const files: Files = {
     open: async () => toOpen,
     save: async (path, bytes, { overwrite }) => {
       saves.push({ path, bytes, overwrite });
-      return path;
+      return { path, backup: overwrite ? path.replace(/(\.\w+)$/, '.bak$1') : null };
     },
   };
   return { files, saves };
@@ -224,6 +232,7 @@ describe('SessionController: save', () => {
     await controller.save();
     expect(saves[0].path).toBe('/docs/essay.docx');
     expect(saves[0].overwrite).toBe(true);
+    expect(controller.getState().notice).toBe('Saved /docs/essay.docx (original backed up to /docs/essay.bak.docx)');
     const xml = await documentXmlOf(saves[0].bytes);
     expect(xml).not.toContain('<w:ins');
     expect(xml).toContain('I cannot go. You cannot stay.');
@@ -282,7 +291,139 @@ describe('SessionController: save', () => {
   });
 });
 
+describe('SessionController: unsaved work', () => {
+  it('open → none; accept → some; save → none; undo → some again', async () => {
+    const { controller } = makeController();
+    await controller.openText('I think teh cat is here.\n\n' + CANT);
+    expect(controller.hasUnsavedWork()).toBe(false); // auto-fixes alone come back on the next check
+    const batch = controller.getState().session!.decisions().top[0];
+    controller.accept(batch.id);
+    expect(controller.hasUnsavedWork()).toBe(true);
+    expect(await controller.save()).toBe(true);
+    expect(controller.hasUnsavedWork()).toBe(false);
+    controller.undo(batch.candidateIds[0]);
+    expect(controller.hasUnsavedWork()).toBe(true);
+  });
+
+  it('typing, rejecting and adding names count; a cancelled save and a report export do not clear it', async () => {
+    const files: Files = { open: async () => null, save: async (path) => (path.endsWith('.md') ? { path, backup: null } : null) };
+    const { controller } = makeController({ files, createLinter: (v, words) => createLinter(v, words) });
+    await controller.openText('We met Anjali today.');
+    await controller.acceptNames([]);
+    expect(controller.hasUnsavedWork()).toBe(true);
+    expect(await controller.save()).toBe(false);
+    await controller.exportReport();
+    expect(controller.hasUnsavedWork()).toBe(true);
+
+    await controller.openText(CANT);
+    controller.reject(controller.getState().session!.decisions().top[0].id);
+    expect(controller.hasUnsavedWork()).toBe(true);
+    await controller.openText(CANT);
+    controller.editText(CANT + ' More.');
+    expect(controller.hasUnsavedWork()).toBe(true);
+  });
+
+  it('opening another document starts with nothing unsaved', async () => {
+    const { controller } = makeController();
+    await controller.openText(CANT);
+    controller.accept(controller.getState().session!.decisions().top[0].id);
+    await controller.openText('Fine text.');
+    expect(controller.hasUnsavedWork()).toBe(false);
+  });
+});
+
+describe('SessionController: line endings and byte-order mark', () => {
+  const BOM = [0xef, 0xbb, 0xbf];
+  const CRLF_TEXT = "I can't go.\r\n\r\nYou can't stay.";
+
+  it('a CRLF file keeps CRLF in the view text and tells the editor to use it', async () => {
+    const { controller } = makeController();
+    await controller.openFile({ name: 'win.txt', path: '/docs/win.txt', bytes: encode(CRLF_TEXT) });
+    const doc = controller.getState().document!;
+    expect(doc.text).toBe(CRLF_TEXT);
+    expect(doc.lineSeparator).toBe('\r\n');
+  });
+
+  it('highlights line up with a CRLF document', async () => {
+    const { controller } = makeController();
+    await controller.openFile({ name: 'win.txt', path: '/docs/win.txt', bytes: encode(CRLF_TEXT) });
+    const { document, session } = controller.getState();
+    const marks = highlightRanges(document!, document!.text, session!)!;
+    expect(marks).not.toBeNull();
+    const pending = marks.filter((m) => m.kind === 'pending').map((m) => CRLF_TEXT.slice(m.from, m.to));
+    expect(pending).toEqual(["can't", "can't"]);
+  });
+
+  it('locateCandidate finds a flag in the view text (CRLF), and gives up on text the session has not seen', async () => {
+    const { controller } = makeController();
+    await controller.openFile({ name: 'win.txt', path: '/docs/win.txt', bytes: encode(CRLF_TEXT) });
+    const { document, session } = controller.getState();
+    const second = session!.decisions().top[0].candidateIds[1];
+    const candidate = session!.candidates().find((c) => c.id === second)!;
+    const at = locateCandidate(document!, document!.text, session!, candidate)!;
+    expect(at).toEqual({ from: 19, to: 24 });
+    expect(CRLF_TEXT.slice(at.from, at.to)).toBe("can't");
+    expect(locateCandidate(document!, CRLF_TEXT + ' More.', session!, candidate)).toBeNull();
+  });
+
+  it('highlights are withheld while the view shows other text than the session checked', async () => {
+    const { controller } = makeController();
+    await controller.openText(CANT);
+    const { document, session } = controller.getState();
+    expect(highlightRanges(document!, CANT + ' More.', session!)).toBeNull();
+  });
+
+  it('typing into a CRLF + BOM file and saving keeps both', async () => {
+    const { files, saves } = fakeFiles();
+    const { controller } = makeController({ files });
+    await controller.openFile({ name: 'win.txt', path: '/docs/win.txt', bytes: new Uint8Array([...BOM, ...encode(CRLF_TEXT)]) });
+    // The editor reads its text back with the document's own line separator (sliceDoc).
+    controller.editText("I can't go.\r\n\r\nYou can't stay here.");
+    controller.accept(controller.getState().session!.decisions().top[0].id);
+    await controller.save();
+    const bytes = saves[0].bytes;
+    expect([...bytes.slice(0, 3)]).toEqual(BOM);
+    expect(new TextDecoder('utf-8', { ignoreBOM: true }).decode(bytes.slice(3))).toBe("I cannot go.\r\n\r\nYou can't stay here.");
+  });
+});
+
 describe('SessionController: typing re-checks', () => {
+  it('a re-check that fails is reported and does not block later saves', async () => {
+    const { files, saves } = fakeFiles();
+    const text = adapterFor('a.txt')!;
+    let reads = 0;
+    const failingSecondRead: FormatAdapter = {
+      ...text,
+      read: async (bytes) => {
+        if (++reads === 2) throw new Error('disk on fire');
+        return text.read(bytes);
+      },
+    };
+    const { controller } = makeController({ files, adapterFor: () => failingSecondRead });
+    await controller.openFile({ name: 'note.txt', path: '/docs/note.txt', bytes: encode(CANT) });
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    controller.editText(CANT + ' More.');
+    await vi.advanceTimersByTimeAsync(300);
+    await controller.settled();
+    expect(controller.getState().error).toMatch(/disk on fire/);
+    await controller.save();
+    expect(saves).toHaveLength(1);
+  });
+
+  it('a check that finishes after a depth change uses the new depth', async () => {
+    const { controller } = makeController();
+    await controller.openText(CANT);
+    let release!: () => void;
+    lintGate = new Promise((r) => (release = r));
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    controller.editText(CANT + ' More.');
+    await vi.advanceTimersByTimeAsync(300);
+    controller.setDepth('light');
+    release();
+    await controller.settled();
+    expect(controller.getState().session!.depth).toBe('light');
+  });
+
   it('re-checks 300 ms after the last keystroke, once', async () => {
     const { controller } = makeController();
     await controller.openText(CANT);

@@ -43,7 +43,8 @@ export function ChangeLog({ controller, state, open, onToggle }: Props) {
                 {o.candidate.kind} · {statusLabel(o)}
               </span>
               {o.status === 'applied' && <button onClick={() => controller.undo(o.candidate.id)}>Undo</button>}
-              {o.status === 'rejected' && o.unplaceable === undefined && (
+              {/* A word in the dictionary stays unflagged until it is removed in Settings, so "Review again" would not hold. */}
+              {o.status === 'rejected' && o.unplaceable === undefined && !o.reason?.endsWith('added to dictionary') && (
                 <button className="quiet" onClick={() => controller.undo(o.candidate.id)}>
                   Review again
                 </button>

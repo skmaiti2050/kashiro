@@ -7,18 +7,20 @@ export const VARIANTS: Variant[] = ['American', 'British', 'Australian', 'Canadi
 interface Props {
   controller: SessionController;
   state: ControllerState;
+  /** Open and Paste go through the app so unsaved work is offered a save first. */
+  onOpen(): void;
   onPaste(): void;
   onSettings(): void;
   onHelp(): void;
 }
 
 /** Open · Paste · preset · variant chip · Save (with its save-mode menu) · Settings · Google Docs help. */
-export function Toolbar({ controller, state, onPaste, onSettings, onHelp }: Props) {
+export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onHelp }: Props) {
   const { session, settings, variantOverride, document } = state;
 
   return (
     <nav className="toolbar">
-      <button onClick={() => void controller.open()}>Open</button>
+      <button onClick={onOpen}>Open</button>
       <button onClick={onPaste}>Paste</button>
 
       <label className="field">
