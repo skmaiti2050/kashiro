@@ -68,8 +68,23 @@ function isUnwantedOxfordComma(c: Candidate, variant: Variant | undefined): bool
 /** Harper's title-case advice for headings is a house-style choice (spec §2: don't nag bloggers about it). */
 const HEADING_TITLE_CASE = 'Try to use title case in headings.';
 
+/** An en or em dash: "–", "—". */
+const DASH = /[–—]/;
+
+/**
+ * Typographic and comma choices that are style, not errors, so they are never applied unasked:
+ * a dash conversion ("--" → "–": old texts write "--" for an em dash, and Harper offers the en dash)
+ * and an introductory comma ("Therefore" → "Therefore,").
+ */
+function isStyleChoice(c: Candidate): boolean {
+  if (c.kind === 'Formatting' && c.replacements.some((r) => DASH.test(r) && !DASH.test(c.original))) return true;
+  // The word itself is the span ("Therefore" → "Therefore,"); a bare comma insertion is not this rule.
+  return c.kind === 'Punctuation' && c.original !== '' && c.replacements.length === 1 && c.replacements[0] === `${c.original},`;
+}
+
 function baseTier(c: Candidate, ctx: TierContext): Tier {
   const { preset } = ctx;
+  if (isStyleChoice(c)) return 'review';
   if (c.kind === 'Capitalization' && c.message === HEADING_TITLE_CASE) return 'hidden';
   if (isUnwantedOxfordComma(c, ctx.variant)) return 'hidden';
   if (preset.hiddenKinds.includes(c.kind)) return 'hidden';

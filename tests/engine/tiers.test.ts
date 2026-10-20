@@ -201,11 +201,14 @@ describe('code tokens and stray letters', () => {
   it.each([
     ['Use et.reportAllChanges now.', 'et', 'Spelling', ['eat']],
     ['Use et.reportAllChanges now.', 'reportAllChanges', 'Capitalization', ['ReportAllChanges']],
-    ['Open src/ui today.', 'src', 'Spelling', ['sac']],
-    ['Open src/ui today.', 'ui', 'Spelling', ['uh']],
+    ['Open src/ui/app.tsx today.', 'src', 'Spelling', ['sac']],
+    ['Open src/ui/app.tsx today.', 'ui', 'Capitalization', ['UI']],
+    ['Open src/ui/app.tsx today.', 'tsx', 'Spelling', ['tax']],
     ['Open C:\\work\\notes today.', 'work', 'Spelling', ['word']],
+    ['Run ./build now.', 'build', 'Spelling', ['built']],
     ['Save it as report.docx.', 'docx', 'Spelling', ['docs']],
     ['Send it to a@b.co today.', 'co', 'Spelling', ['so']],
+    ['Ask @sujit today.', 'sujit', 'Spelling', ['suit']],
     ['See www.example.com for more.', 'www', 'Spelling', ['ww']],
     ['Read my_file.name first.', 'name', 'Capitalization', ['Name']],
     ['Use v2.beta now.', 'beta', 'Capitalization', ['Beta']],
@@ -217,8 +220,35 @@ describe('code tokens and stray letters', () => {
     ['I went home.then left.', 'then', 'Capitalization', ['Then']],
     ['I went home.thne left.', 'thne', 'Spelling', ['then']],
     ['Read window.location first.', 'location', 'Capitalization', ['Location']],
-  ])('two plain words joined by a full stop are prose with a missing space: "%s" keeps its %s flag', (text, original, kind, replacements) => {
+    ['In 2020.the company grew.', 'the', 'Capitalization', ['The']],
+    ['See 5.thne now.', 'thne', 'Spelling', ['then']],
+  ])('a missing space after a full stop is prose: "%s" keeps its %s flag', (text, original, kind, replacements) => {
     expect(inText(text, original, kind, replacements)).not.toBe('hidden');
+  });
+
+  it.each([
+    ['Please recieve/send it.', 'recieve', 'Spelling', ['receive']],
+    ['Use teh/this one.', 'teh', 'Typo', ['the']],
+    ['Pick adn/or that.', 'adn', 'Spelling', ['and']],
+    ['Map input/ouput here.', 'ouput', 'Spelling', ['output']],
+    ['Mail me at sujit@home now.', 'sujit', 'Spelling', ['suit']],
+  ])('two plain words joined by "/" or "@" keep their flags: "%s"', (text, original, kind, replacements) => {
+    expect(inText(text, original, kind, replacements)).not.toBe('hidden');
+  });
+
+  it.each([
+    ['We recieve1 items.', 'recieve1', 'Spelling', ['receive']],
+    ['We recieve-2020 items.', 'recieve', 'Spelling', ['receive']],
+    ['We recieve-21 items.', 'recieve', 'Spelling', ['receive']],
+  ])('a word with a footnote number or year suffix is still spell-checked: "%s"', (text, original, kind, replacements) => {
+    expect(inText(text, original, kind, replacements)).not.toBe('hidden');
+  });
+
+  it.each([
+    ['I saw tHe dog.', 'tHe', ['the']],
+    ['It ran wHen asked.', 'wHen', ['when']],
+  ])('an accidental inner capital on a dictionary word is a capitalisation slip, not code: "%s"', (text, original, replacements) => {
+    expect(inText(text, original, 'Capitalization', replacements)).not.toBe('hidden');
   });
 
   it.each([
@@ -238,7 +268,7 @@ describe('code tokens and stray letters', () => {
   it('with Harper: code tokens, stray letters and identifiers get no spelling decisions; real typos still do', async () => {
     const { CheckSession } = await import('@/engine/session');
     const text =
-      'Call preventDefault and maxLength on linkedinUrl with et.reportAllChanges in DevTools on an iPhone or YouTube via src/ui or report.docx, www.example.com and a@b.co. Press z. and x here, and i think y0u are late.';
+      'Call preventDefault and maxLength on linkedinUrl with et.reportAllChanges in DevTools on an iPhone or YouTube via src/ui/app.tsx or report.docx, ./build, www.example.com, @sujit and a@b.co. Press z. and x here, and i think y0u are late.';
     const s = await CheckSession.start([{ id: 0, text }], { preset: 'business', variant: 'American', fallbackVariant: 'American', language: 'plaintext', dictionary: [] });
     const { top, more } = s.decisions();
     const flagged = [...top, ...more].flatMap((d) => d.candidateIds).map((id) => s.candidates().find((c) => c.id === id)!.original);
@@ -253,6 +283,30 @@ describe('code tokens and stray letters', () => {
     const { top, more } = s.decisions();
     const seen = [...[...top, ...more].flatMap((d) => d.candidateIds), ...s.outcomes().filter((o) => o.status === 'applied').map((o) => o.candidate.id)];
     expect(seen.map((id) => s.candidates().find((c) => c.id === id)!.original)).toContain('then');
+  });
+});
+
+describe('style choices are never auto-applied', () => {
+  it('"--" → "–" (old texts use "--" for an em dash) is reviewed', () => {
+    const c = cand({ original: '--', kind: 'Formatting', replacements: ['–'], message: 'Replace these two hyphens with an en dash (–).' });
+    expect(tierOf(c, ctx())).toBe('review');
+  });
+
+  it('an introductory comma ("Therefore" → "Therefore,") is reviewed', () => {
+    const c = cand({ original: 'Therefore', kind: 'Punctuation', replacements: ['Therefore,'], message: 'Discourse markers at the beginning of a sentence should be followed by a comma.' });
+    expect(tierOf(c, ctx())).toBe('review');
+  });
+
+  it('a double space → single space stays safe', () => {
+    expect(tierOf(cand({ original: '  ', kind: 'Formatting', replacements: [' '] }), ctx())).toBe('safe');
+  });
+
+  it('with Harper: neither is auto-applied in "Therefore we left -- quickly -- home."', async () => {
+    const { CheckSession } = await import('@/engine/session');
+    const text = 'Therefore we left -- quickly -- home.';
+    const s = await CheckSession.start([{ id: 0, text }], { preset: 'business', variant: 'American', fallbackVariant: 'American', language: 'plaintext', dictionary: [] });
+    expect(s.outputText(0)).toBe(text);
+    expect(s.rankedDecisionCount()).toBeGreaterThan(0);
   });
 });
 

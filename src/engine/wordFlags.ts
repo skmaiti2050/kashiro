@@ -1,5 +1,5 @@
 import type { Candidate, Span } from './types';
-import { isCodePath, isSentenceStart, OPENERS } from './factLock';
+import { isCodePath, isLettersAndDigitsIdentifier, isSentenceStart, OPENERS } from './factLock';
 
 export const UPPER_START = /^\p{Lu}/u;
 /** Kinds that rewrite a word into a dictionary word: on a capitalised original that is likely a name. */
@@ -8,16 +8,13 @@ export const WORD_REWRITE_KINDS = new Set(['Spelling', 'Typo']);
 export const TITLE_CASE_WORD = /^\p{Lu}\p{Ll}+$/u;
 const PLAIN_WORD = /^[\p{L}'’]+$/u;
 
-/** One hyphen-separated part of an identifier: "q2", "mp4", "4K", "B2B", "COVID", "19" (not "y0u", "th9s"). */
-const IDENTIFIER_PART = /^(?:\p{L}+\p{N}+|\p{N}+\p{L}+|[\p{Lu}\p{N}]+|\p{L}+|\p{N}+)$/u;
-const HAS_LETTER = /\p{L}/u;
 export const HAS_DIGIT = /\p{N}/u;
 /** A capital right after a lowercase letter: "preventDefault", "iPhone", "DevTools". */
 const INNER_CAPITAL = /\p{Ll}\p{Lu}/u;
 /** Characters a code token may hold; the token around a flag grows over them ("et" → "et.reportAllChanges"). */
-const TOKEN_CHAR = /[\p{L}\p{N}_$./\\@-]/u;
-/** Separators at the edges of a grown token, e.g. the sentence's full stop in "report.docx." */
-const EDGE_SEPARATORS = /^[./\\@-]+|[./\\@-]+$/gu;
+const TOKEN_CHAR = /[\p{L}\p{N}_$./\\@~-]/u;
+/** The end of a grown token that is not part of it: the sentence's full stop in "report.docx.", a dangling hyphen. */
+const TRAILING_PUNCTUATION = /[.\-:]+$/u;
 /** A single letter, e.g. "s", "x" (after dropping "z."'s full stop). */
 const SINGLE_LETTER = /^\p{L}$/u;
 /** Single letters that are words: "a", "I" (and a lone "i", which should become "I"). */
@@ -26,23 +23,29 @@ const ONE_LETTER_WORDS = new Set(['a', 'A', 'I', 'i']);
 const CODE_NOISE_KINDS = new Set(['Spelling', 'Typo', 'Capitalization']);
 
 /**
- * True for code and identifiers rather than prose: camelCase ("preventDefault", "iPhone"), paths, file
- * names and addresses (isCodePath: "src/ui", "report.docx", "a@b.co"), and letters-with-digits
- * identifiers ("q2", "mp4", "B2B", "COVID-19"). A digit inside a word ("y0u", "th9s") is a typo, and
- * "home.then" is a missing space.
+ * True for code and identifiers rather than prose (`suggestions`: the flag's replacements):
+ * - camelCase of 4+ characters ("preventDefault", "iPhone"), unless the linter offers the plain
+ *   lowercase word: "wHen" → "when" is a capitalisation slip, and "tHe" is too short to be code;
+ * - paths, file names, emails and handles (isCodePath: "src/ui/app.tsx", "report.docx", "a@b.co");
+ * - letters-with-digits identifiers ("q2", "mp4", "B2B", "COVID-19"), not "y0u" or "recieve1".
+ * "home.then", "recieve/send" and "2020.the" are prose (a missing space or a pair of words).
  */
-export function looksLikeCode(token: string): boolean {
-  if (INNER_CAPITAL.test(token) || isCodePath(token)) return true;
-  return HAS_LETTER.test(token) && HAS_DIGIT.test(token) && token.split('-').every((part) => IDENTIFIER_PART.test(part));
+export function looksLikeCode(token: string, suggestions: readonly string[] = []): boolean {
+  if (token.length >= 4 && INNER_CAPITAL.test(token) && !suggestions.includes(token.toLowerCase())) return true;
+  return isCodePath(token) || isLettersAndDigitsIdentifier(token);
 }
 
-/** The token around `span`: grown over code characters, without separators at its edges. */
+/**
+ * The token around `span`: grown over code characters (and the ":" of a drive, "C:\"), without the
+ * full stop or hyphen that ends it.
+ */
 function tokenAround(text: string, span: Span): string {
   let start = span.start;
   let end = span.end;
-  while (start > 0 && TOKEN_CHAR.test(text[start - 1])) start--;
-  while (end < text.length && TOKEN_CHAR.test(text[end])) end++;
-  return text.slice(start, end).replace(EDGE_SEPARATORS, '');
+  const grows = (i: number) => TOKEN_CHAR.test(text[i]) || (text[i] === ':' && text[i + 1] === '\\');
+  while (start > 0 && grows(start - 1)) start--;
+  while (end < text.length && grows(end)) end++;
+  return text.slice(start, end).replace(TRAILING_PUNCTUATION, '');
 }
 
 /**
@@ -52,8 +55,8 @@ function tokenAround(text: string, span: Span): string {
  * protects these tokens too; this keeps them out of review altogether.
  */
 export function isCodeNoiseFlag(c: Candidate, paraText?: string): boolean {
-  const token = paraText === undefined ? c.original.replace(EDGE_SEPARATORS, '') : tokenAround(paraText, c.span);
-  if (CODE_NOISE_KINDS.has(c.kind) && looksLikeCode(token)) return true;
+  const token = paraText === undefined ? c.original.replace(TRAILING_PUNCTUATION, '') : tokenAround(paraText, c.span);
+  if (CODE_NOISE_KINDS.has(c.kind) && looksLikeCode(token, c.replacements)) return true;
   return WORD_REWRITE_KINDS.has(c.kind) && SINGLE_LETTER.test(token) && !ONE_LETTER_WORDS.has(token);
 }
 

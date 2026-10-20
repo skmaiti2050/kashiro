@@ -39,10 +39,8 @@ const PATTERNS: RegExp[] = [
   /\d[\d,]*(?:\.\d+)?%/g,
   // bare numbers: integers, decimals, 1,200 / 1,20,000, negatives, ordinals, ranges
   /(?<![\p{L}\p{N}])-?\d+(?:,\d+)*(?:\.\d+)?(?:st|nd|rd|th)?(?:\s*[–-]\s*\d+(?:,\d+)*(?:\.\d+)?(?:st|nd|rd|th)?)?(?![\p{L}\p{N}])/gu,
-  // codes and identifiers mixing letters and digits, also hyphenated: 234B, 44ADA, B2B, q2, mp4, COVID-19
-  /(?<![\p{L}\p{N}-])(?=[\p{L}\p{N}-]*\p{N})(?=[\p{L}\p{N}-]*\p{L})[\p{L}\p{N}]+(?:-[\p{L}\p{N}]+)*(?![\p{L}\p{N}])/gu,
-  // camelCase and inner capitals: preventDefault, iPhone, DevTools (lookahead from a word start: linear)
-  /(?<![\p{L}\p{N}])(?=[\p{L}\p{N}]*\p{Ll}\p{Lu})[\p{L}\p{N}]+/gu,
+  // camelCase and inner capitals, 4+ characters: preventDefault, iPhone, DevTools (not "tHe"; lookaheads from a word start: linear)
+  /(?<![\p{L}\p{N}])(?=[\p{L}\p{N}]*\p{Ll}\p{Lu})(?=[\p{L}\p{N}]{4})[\p{L}\p{N}]+/gu,
   // the word after a title is part of a name, whatever its case: "Mr. and Mrs.", "Dr. smith"
   /(?<=(?<![\p{L}])(?:Dr|Mr|Mrs|Ms|Prof|St|Mt)\.\s+)[\p{L}'’-]+/gu,
   // decades and ages: 60s, 1990s, ’90s, 1990's
@@ -53,22 +51,59 @@ const PATTERNS: RegExp[] = [
   /(?<![\p{L}\p{N}.])\p{Lu}\.(?:\s?\p{Lu}\.)*/gu,
 ];
 
-/** Words joined by "." "/" "\" or "@", e.g. "et.reportAllChanges", "src/ui", "home.then"; isCodePath decides. */
-const JOINED_TOKEN = /(?<![\p{L}\p{N}_$./\\@-])[\p{L}\p{N}_$-]+(?:[./\\@][\p{L}\p{N}_$-]+)+/gu;
+/**
+ * A word-like token, with an optional path or handle start and parts joined by "." "/" "\" or "@":
+ * "et.reportAllChanges", "./build", "C:\work", "@sujit", "q2", "home.then". The filters below decide
+ * which are code; most matches are plain words and are dropped.
+ */
+const TOKEN = /(?<![\p{L}\p{N}_$./\\@~:-])(?:~\/|\.{1,2}\/|\/|@|\p{L}:\\)?[\p{L}\p{N}_$-]+(?:[./\\@][\p{L}\p{N}_$-]+)*/gu;
 /** File extensions that make "name.ext" a file name: "report.docx". */
 const FILE_EXTENSION = /\.(?:docx|pdf|js|ts|json|md|txt|py|html|css|png|jpg|csv)$/i;
-/** A part that only code has: an inner capital, an underscore or a digit ("reportAllChanges", "my_file", "v2"). */
-const CODE_PART = /\p{Ll}\p{Lu}|_|\p{N}/u;
+/** A path start: "/usr", "./build", "../lib", "~/notes", "C:\work". */
+const PATH_START = /^(?:\/|\.{1,2}\/|~\/|\p{L}:\\)/u;
+/** An email address: "a@b.co". */
+const EMAIL = /^[\p{L}\p{N}._%+-]+@[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)*\.\p{L}{2,}$/u;
+/** A handle: "@sujit". */
+const HANDLE = /^@[\p{L}\p{N}_]+$/u;
+const PATH_SEPARATOR = /[/\\]/g;
+const INNER_CAPITAL = /\p{Ll}\p{Lu}/u;
+/** One hyphen-separated part of an identifier: "q2", "mp4", "4K", "B2B", "COVID", "19" (not "y0u", "th9s"). */
+const IDENTIFIER_PART = /^(?:\p{L}+\p{N}+|\p{N}+\p{L}+|[\p{Lu}\p{N}]+|\p{L}+|\p{N}+)$/u;
+/** A lowercase word with a footnote number or year: "recieve1", "recieve-2020", "budget-21". */
+const WORD_WITH_NUMBER = /^\p{Ll}{4,}(?:\p{N}{1,3}|-\p{N}{2}|-\p{N}{4})$/u;
+const HAS_LETTER = /\p{L}/u;
+const HAS_DIGIT = /\p{N}/u;
+/** Hyphens at the end of a token ("well-" in "well- and ill-"), not part of it. */
+const TRAILING_JOINERS = /-+$/u;
+
+/** An identifier mixing letters and digits ("q2", "mp4", "B2B", "COVID-19"); not a word with a footnote ("recieve1"). */
+export function isLettersAndDigitsIdentifier(token: string): boolean {
+  if (!HAS_LETTER.test(token) || !HAS_DIGIT.test(token) || WORD_WITH_NUMBER.test(token)) return false;
+  return token.split('-').every((part) => IDENTIFIER_PART.test(part));
+}
+
+/** A part only code has: an underscore, an inner capital (4+ characters) or letters mixed with digits ("v2"). */
+function isCodePart(part: string): boolean {
+  if (part.includes('_')) return true;
+  if (part.length >= 4 && INNER_CAPITAL.test(part)) return true;
+  return HAS_LETTER.test(part) && HAS_DIGIT.test(part);
+}
 
 /**
- * True for a joined token that is code, not prose: a path or address ("/", "\", "@", "www."), a file
- * name with a known extension, or a dotted token with a code-only part ("et.reportAllChanges"). Two
- * plain words joined by a full stop ("home.then", "window.location") are a missing space, not code.
+ * True for a joined token that is code, not prose:
+ * - "@": an email ("a@b.co") or a handle ("@sujit"), not "sujit@home";
+ * - a path start ("/usr", "./build", "~/x", "C:\work"), "www.", or two or more "/" or "\" ("src/ui/app.tsx");
+ * - a known file extension ("report.docx");
+ * - a part with an underscore, inner capital or letters+digits ("et.reportAllChanges", "v2.beta").
+ * Plain words joined once ("home.then", "recieve/send", "2020.the") are prose: a missing space or a pair.
  */
 export function isCodePath(token: string): boolean {
-  if (/[/\\@]/.test(token) || token.toLowerCase().startsWith('www.')) return true;
-  if (!token.includes('.')) return false;
-  return FILE_EXTENSION.test(token) || token.split('.').some((part) => CODE_PART.test(part));
+  if (token.includes('@')) return EMAIL.test(token) || HANDLE.test(token);
+  if (PATH_START.test(token) || token.toLowerCase().startsWith('www.')) return true;
+  if ((token.match(PATH_SEPARATOR) ?? []).length >= 2) return true;
+  const parts = token.split(/[./\\]/);
+  if (parts.length < 2) return false;
+  return FILE_EXTENSION.test(token) || parts.some(isCodePart);
 }
 
 /** A capitalised word, including names like D'Souza and O’Brien. */
@@ -133,8 +168,9 @@ export function findLockedSpans(text: string): Span[] {
       spans.push({ start, end });
     }
   }
-  for (const m of text.matchAll(JOINED_TOKEN)) {
-    if (isCodePath(m[0])) spans.push({ start: m.index!, end: m.index! + m[0].length });
+  for (const m of text.matchAll(TOKEN)) {
+    const token = m[0].replace(TRAILING_JOINERS, '');
+    if (isCodePath(token) || isLettersAndDigitsIdentifier(token)) spans.push({ start: m.index!, end: m.index! + token.length });
   }
   for (const m of text.matchAll(CAPITALISED)) {
     if (!isSentenceStart(text, m.index!)) spans.push({ start: m.index!, end: m.index! + m[0].length });

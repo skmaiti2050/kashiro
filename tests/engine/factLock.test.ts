@@ -189,16 +189,29 @@ describe('identifiers mixing letters and digits', () => {
 });
 
 describe('code tokens', () => {
-  const text = 'Call preventDefault with et.reportAllChanges in src/ui, save report.docx, see iPhone and DevTools, my_file.name and v2.beta.';
+  const text =
+    'Call preventDefault with et.reportAllChanges in src/ui/app.tsx, run ./build, open C:\\work\\notes, ask @sujit or a@b.co, save report.docx, see iPhone and DevTools, my_file.name and v2.beta.';
 
-  it.each(['preventDefault', 'et.reportAllChanges', 'src/ui', 'report.docx', 'iPhone', 'DevTools', 'my_file.name', 'v2.beta'])('locks %s', (token) => {
+  it.each([
+    'preventDefault', 'et.reportAllChanges', 'src/ui/app.tsx', './build', 'C:\\work\\notes', '@sujit', 'a@b.co',
+    'report.docx', 'iPhone', 'DevTools', 'my_file.name', 'v2.beta',
+  ])('locks %s', (token) => {
     expect(covered(text, token)).toBe(true);
   });
 
-  it('two plain words joined by a full stop are a missing space, not code: not locked', () => {
-    for (const plain of ['I went home.then we ate.', 'Read window.location first.']) {
-      const words = plain.match(/\w+\.\w+/)![0].split('.');
-      expect(covered(plain, words[0]) || covered(plain, words[1])).toBe(false);
-    }
+  it.each([
+    ['I went home.then we ate.', 'home', 'then'],
+    ['Read window.location first.', 'window', 'location'],
+    ['In 2020.the company grew.', '2020.', 'the'],
+    ['Please recieve/send it.', 'recieve', 'send'],
+    ['Map input/ouput here.', 'input', 'ouput'],
+    ['Mail sujit@home now.', 'sujit', 'home'],
+  ])('plain words joined by ".", "/" or "@" are prose, not code: "%s"', (plain, left, right) => {
+    expect(covered(plain, right)).toBe(false);
+    if (!/\d/.test(left)) expect(covered(plain, left)).toBe(false);
+  });
+
+  it('an accidental inner capital on a short word is not locked ("tHe")', () => {
+    expect(covered('I saw tHe dog.', 'tHe')).toBe(false);
   });
 });
