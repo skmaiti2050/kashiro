@@ -1,0 +1,73 @@
+# Freelancing in India? Here Is How I Handle Taxes
+
+When I left my job at an agency in [[March 2022]] to work as a freelance designer, I knew how to manage clients, deadlines and invoices. Taxes were another matter. In my first year I missed an advance tax deadline, paid interest I could have avoided, and spent two nervous weeks waiting to hear whether I had filed the right form. This post is everything I {{have have|have|s}} learned since then, written for other freelancers who are where I was three years ago.
+
+As always, I am not a tax professional. My chartered accountant, *CA Deepa Krishnan*, checked the numbers in this post, but your situation will be different. Use this as a starting point for a conversation with your own adviser.
+
+## Are you a freelancer or a business?
+
+For income tax purposes, most freelancers in India earn "profits and gains of business or profession." That means you are taxed on your income after deducting legitimate business expenses, not on your total receipts. This is the first big difference from a salaried job, and it is mostly good news. Your laptop, software subscriptions, internet bill and a share of your rent may all be deductible if you use them for work.
+
+Many freelancers can also use the presumptive taxation scheme under Section [[44ADA]]. If your gross receipts from a profession are below [[₹75 lakh]] in a year, and most of them {{comes|come|j}} through banking channels, you can declare [[50%]] of your receipts as income and pay tax on that, without keeping detailed accounts of expenses. For many designers, writers and developers, this is simpler and often cheaper.
+
+## How I decide between the two
+
+In my first year, my expenses were low, so Section [[44ADA]] was a clear win. In my second year, I bought a new computer, a drawing tablet and a few expensive software licences, and my actual expenses came close to half my income. My CA ran the numbers both ways and the difference was small. This year, I'm back on the presumptive scheme because it saves me hours of bookkeeping.
+
+The table below shows a simplified version of the comparison she did for me last year.
+
+| | Presumptive (44ADA) | Actual expenses |
+|---|---|---|
+| Gross receipts | ₹18,40,000 | ₹18,40,000 |
+| Expenses claimed | ₹9,20,000 (deemed) | ₹7,65,000 |
+| Taxable income | ₹9,20,000 | ₹10,75,000 |
+| Bookkeeping effort | Low | High |
+
+In this case, the presumptive scheme gave {{a|a lower|j}} taxable income and less paperwork, so the decision was easy.
+
+## Advance tax: the thing nobody tells you
+
+Salaried people have tax deducted from {{there|their|j}} salary every month. Freelancers do not, so the law expects us to pay advance tax in instalments during the year. If your total tax for the year is more than [[₹10,000]], you need to pay:
+
+- [[15%]] by [[15 June]]
+- [[45%]] by [[15 September]]
+- [[75%]] by [[15 December]]
+- [[100%]] by [[15 March]]
+
+If you are on the presumptive scheme under Section [[44ADA]], you can pay the whole amount in one go by [[15 March]], which is much easier to manage. I set a calendar reminder for the first week of March and pay it as soon as I have a reasonable estimate of my income.
+
+Missing these dates means paying interest under Sections [[234B]] and [[234C]]. The amounts are not huge, but they add up, and it feels silly to pay interest on money you would have paid anyway.
+
+## TDS and Form 26AS
+
+Many of my clients deduct tax at source (TDS) before paying me, usually at [[10%]] under Section [[194J]]. This is not an extra tax; it is credit towards the tax I owe. At the end of the year, I check Form 26AS and the Annual Information Statement on the income tax portal to make sure every deduction my clients made {{show|shows|j}} up against my PAN.
+
+Twice now, a client has deducted TDS but forgotten to deposit it with the government on time, so it did not appear in my statement. Both times, a polite email with the invoice details fixed the problem within a few weeks. **Check your statement before you file, not after.**
+
+## GST: do you need it?
+
+If your annual turnover from services is below [[₹20 lakh]], you generally do not need to register for GST. There is an important exception: if you work for clients outside India, the rules are different, and many freelancers who export services choose to register anyway so they can file a Letter of Undertaking and avoid paying GST on exports.
+
+I registered for GST in {{my my|my|s}} second year, when my income crossed the threshold. It added {{an|a|s}} monthly or quarterly filing to my routine, but my CA handles most of it for a fixed fee of [[₹1,500]] a month. If you are close to the limit, talk to your CA early rather than scrambling once you have crossed it.
+
+## My simple system
+
+Here is {{teh|the|s}} routine that keeps me sane:
+
+- I use a separate bank account for all freelance income and business expenses.
+- I move [[25%]] of every payment into a savings account set aside for taxes.
+- I keep every invoice and receipt in a shared folder, organised by month.
+- I review my income and expenses with my CA once a quarter.
+- I file my return by [[31 July]], well before the deadline crunch.
+
+The [[25%]] rule is the most useful habit I have. Some years I set aside more than I need, and the extra becomes {{an|a|s}} small bonus. I have never had a year where I could not pay my taxes, which was not true in my first year.
+
+## Which return to file?
+
+Freelancers on the presumptive scheme usually file ITR-4, while those who claim actual expenses file ITR-3. The forms {{looks|look|j}} intimidating, but the income tax portal pre-fills a lot of the information now. If you are unsure, pay for an hour of a CA's time. It is far cheaper than fixing a mistake later.
+
+## Final thoughts
+
+Taxes are the least exciting part of freelancing, but getting them right gives you peace of mind and lets you focus on the work you actually enjoy. Start with a separate account, set money aside from every payment, and find a CA you trust. Everything else becomes much easier {{once once|once|s}} those three things are in place.
+
+If you have tips of your own, or questions I have not answered, leave them in the comments. I read every one.

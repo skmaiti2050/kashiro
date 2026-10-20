@@ -1,0 +1,65 @@
+# UPI Adoption Among Small Merchants in Tier-2 Cities: A Survey of Indore and Coimbatore
+
+## Abstract
+
+The Unified Payments Interface has grown faster than almost any payment system in history, but little is known about how small merchants outside the metros use it day to day. We surveyed [[612 merchants]] in Indore and Coimbatore between [[15 May 2024]] and [[30 June 2024]]. We find that [[87%]] accept UPI payments, but only [[41%]] keep a separate record of those receipts, and fewer than one in five use the data to apply for credit. Merchants who received a short training session from their bank were twice as likely to use UPI records when applying for a loan. We argue that the next stage of digital payments policy should focus on helping merchants turn payment data into credit histories.
+
+## 1. Introduction
+
+In [[October 2024]], UPI processed more than [[16 billion transactions]] in a single month ([[NPCI, 2024]]). A large share of these are small payments at shops, vegetable carts and tea stalls, where a printed QR code has replaced cash for many customers. For merchants, accepting UPI is free and requires no equipment beyond a mobile phone.
+
+Supporters of digital payments have long argued that a record of payments could help small businesses borrow. A shop with a steady flow of UPI receipts has, in effect, a verifiable record of sales, which a lender could use instead of collateral. Whether this promise is being realised is an open question. Early evidence suggests that most merchants treat UPI as a convenient way to collect money and {{litle|little|s}} more ([[Agarwal et al., 2022]]).
+
+This paper asks three questions. First, how widely is UPI accepted among small merchants in two tier-2 cities? Second, do merchants keep and use records of their digital receipts? Third, does a simple training intervention change how they use this data?
+
+## 2. Survey Design
+
+We chose Indore and Coimbatore because they are mid-sized cities with active trading communities and different regional banking networks. In each city we drew a random sample of wards and then listed all shops with fewer than five employees in those wards. Enumerators visited each shop up to three times. The final sample of [[612 merchants]] includes grocery stores, pharmacies, tailors, mobile repair shops and small eateries.
+
+The survey was designed by [[Dr. Kavitha Subramanian]] and field-tested in [[April 2024]] with [[30 merchants]] who {{where|were|j}} not part of the final sample. [[Mr. Rajesh Verma]] coordinated the Indore team, while the Coimbatore team was led by [[Ms. Priya Raghavan]].
+
+## 3. Who Accepts UPI?
+
+Acceptance is high in {{both both|both|s}} cities. The table below reports acceptance and record-keeping by type of business.
+
+| Business type | Merchants | Accept UPI (%) | Keep UPI records (%) | Used records for credit (%) |
+|---|---|---|---|---|
+| Grocery | 214 | 93 | 46 | 21 |
+| Pharmacy | 88 | 98 | 63 | 27 |
+| Eatery | 132 | 84 | 30 | 12 |
+| Tailoring | 71 | 72 | 28 | 9 |
+| Mobile repair | 107 | 85 | 39 | 18 |
+
+Pharmacies, which already deal with distributors who prefer digital payments, were the most likely to accept UPI and to keep records. Tailors were the least likely, partly because many of their customers pay in instalments and prefer cash.
+
+Older merchants were less likely to accept UPI, but the gap was smaller than we expected. Among merchants over [[55 years]], [[76%]] accepted UPI, compared with [[92%]] of those under [[35]]. Several older shopkeepers told us that their children or grandchildren had set up the QR code and checked the payments for them.
+
+## 4. Records and Credit
+
+Accepting UPI is not the same as using UPI data. Most merchants check {{there|their|j}} phone to confirm that a payment has arrived and then move on. Only [[41%]] keep any separate record, such as a monthly bank statement or an export from {{an|a|s}} payments app. The rest rely on memory and handwritten ledgers.
+
+Credit use is {{lower lower|lower|s}} still. Just [[18%]] of merchants had ever shown UPI records to a lender. Among those who had, the average loan was [[₹1,85,000]], and most loans came from small finance banks rather than large commercial banks. Merchants who had never used their records gave three main reasons: they did not know it was possible, they did not trust lenders with their data, or they feared that showing higher sales would {{effect|affect|j}} their tax position.
+
+## 5. Training Experiment
+
+In each city we randomly assigned half the wards to receive a one-hour training session, run with {{an|a|s}} local branch of a public sector bank. The session showed merchants how to download {{an|a|s}} statement of UPI receipts, how to read it, and how lenders use such statements. Merchants in the other wards received the session after the study ended.
+
+**Three months after training, merchants in treated wards were twice as likely to have used UPI records in a loan application** ([[24%]] against [[12%]], p = [[0.002]]). The effect was concentrated among merchants who already kept some records before the training, which suggests that the session helped those who were ready to act rather than changing habits from scratch.
+
+Loan amounts did not differ significantly between the two groups. This may reflect the short follow-up period, or it may mean that training helps merchants get a first loan but does not change how much lenders are willing to offer.
+
+## 6. Discussion
+
+Our results point to a gap between the spread of digital payments and their use as a financial tool. UPI has reached almost every small merchant in our sample, but the data {{its|it|j}} generates remains largely unused. The barriers are not technical. Merchants can download statements easily; they simply do not know that the records have value, or they worry about what lenders and tax authorities will do with them.
+
+A short, practical training session can close part of this gap at very low cost. Banks have an incentive to run such sessions, since they bring in new borrowers with verifiable sales histories. Regulators could encourage this by allowing UPI statements to count as evidence of income for small loans, as the [[Reserve Bank of India]] has proposed in its draft framework on cash-flow based lending ([[RBI, 2023]]).
+
+## 7. Conclusion
+
+Small merchants in Indore and Coimbatore have embraced UPI, but most use it only to receive money. Less than half keep records, and fewer than one in five have used those records to borrow. A one-hour training session doubled the share of merchants who used UPI data in a loan application. Turning payment data into credit is the next step, and it may require less effort {{then|than|j}} policy makers assume.
+
+## References
+
+- [[Agarwal, S., Ghosh, P., Li, J. and Ruan, T. (2022)]]. Digital payments and consumption: Evidence from the 2016 demonetization in India. *Review of Financial Studies*, [[35(1)]], [[1-40]].
+- [[NPCI (2024)]]. *UPI Product Statistics*. Mumbai: National Payments Corporation of India.
+- [[RBI (2023)]]. *Draft Framework on Cash-Flow Based Lending to MSMEs*. Mumbai: Reserve Bank of India.

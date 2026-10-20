@@ -1,0 +1,111 @@
+# Keynote Script: Launch of the Krishi Mitra Soil Sensor
+
+*Speaker: [[Dr. Vandana Rao]], co-founder and CEO. Event: product launch at the Agri-Tech Summit, Hyderabad International Convention Centre, [[26 February 2026]], 11:00 a.m. Slot: 15 minutes. Slides are numbered in brackets.*
+
+---
+
+**[SLIDE 1: Black screen. A single sound of rain.]**
+
+Good morning.
+
+Close {{you're|your|j}} eyes for a second. Imagine you are a farmer in Anantapur. It's the first week of July. The sky has been grey for three days. Your neighbour has already sown groundnut. Your father always waited for one more rain. You have [[₹40,000]] borrowed for seed and fertiliser, and if you sow too early and the rain stops, you lose all of it.
+
+What {{do do|do|s}} you do?
+
+**[SLIDE 2: A farmer standing in a dry field, looking at the sky.]**
+
+For most of the history of agriculture, that question has been answered by instinct, by experience, and by hope. My grandfather farmed in Anantapur for fifty years. He was very good at reading the sky. But even he got it wrong, maybe one year in four. And in a district where most farmers have no irrigation, one bad year can take a decade to recover from.
+
+Today, I {{wants|want|j}} to show you how we can answer that question with data instead of hope.
+
+## The problem
+
+**[SLIDE 3: Map of India with rainfed districts shaded.]**
+
+Around half of India's net sown area is rainfed. That's tens of millions of farmers whose entire year depends on making the right call about when to sow, when to irrigate if they can, and when to apply fertiliser. And the single most important piece of information for those decisions is something almost none of them can measure: how much moisture is actually in the soil, at the depth where the roots are.
+
+**[SLIDE 4: Photo of a farmer pressing soil between his fingers.]**
+
+Right now, most farmers check soil moisture like this. With their fingers. It works for the top few centimetres. It tells you nothing about what's happening twenty centimetres down, where the seed {{need|needs|j}} water to germinate and survive.
+
+Soil moisture sensors have existed for decades. But they cost thousands of dollars, they need calibration, and they produce numbers that mean nothing to a farmer standing in a field. So they've stayed in research stations and large commercial farms.
+
+We wanted to change {{that that|that|s}}.
+
+## The product
+
+**[SLIDE 5: Product reveal. The Krishi Mitra sensor, a green spike about 30 cm long with a small solar panel on top.]**
+
+This is Krishi Mitra.
+
+**[Pause. Let the audience look.]**
+
+It's {{an|a|s}} soil sensor that you push into the ground with your hand. No tools, no wires, no calibration. It measures moisture and temperature at three depths, every hour, and it runs on a small solar panel, so the battery lasts for years.
+
+But the sensor is only half of the story. The other half is what the farmer sees.
+
+**[SLIDE 6: Phone screen showing a simple message in Telugu, with an English translation underneath.]**
+
+Every morning at six, the farmer gets a message on their phone in their own language. Not a graph. Not a number. A simple sentence. "Soil moisture at seed depth is good. You can sow groundnut today." Or: "The top soil is wet, but deeper soil is dry. Wait for one more rain before sowing." Or: "Moisture is falling fast. If you can irrigate, do it in the next two days."
+
+The messages work on any phone, including basic feature phones, and farmers can also call a voice line to hear the advice read aloud.
+
+## The evidence
+
+**[SLIDE 7: Pilot results.]**
+
+We didn't want to launch on promises. So for the last two seasons, we ran a pilot with [[1,200 farmers]] in Anantapur and Kurnool, working with the agricultural university and the district administration. The pilot was led by our head of research, [[Dr. Kiran Kumar]], and evaluated independently by a team from [[ICRISAT]].
+
+Here's what we {{founded|found|j}}.
+
+**[SLIDE 8: Three numbers, large.]**
+
+Farmers who used Krishi Mitra had [[23%]] fewer crop failures due to dry spells after sowing. They used about [[18%]] less water where they had access to irrigation. And their average groundnut yield was [[14%]] higher than farmers in comparison villages.
+
+**[Pause.]**
+
+But the number I care about most is this one.
+
+**[SLIDE 9: "91%"]**
+
+[[91%]] of farmers said they would recommend it to a neighbour. And in the second season, more than half of the farmers in the comparison villages asked to join.
+
+**[SLIDE 10: Photo of a woman farmer holding her phone, smiling.]**
+
+This is Lakshmi. She farms four acres near Dharmavaram. In the first season of the pilot, our sensor told her to wait for one more rain, even though most of her village had already sown. She waited. Twelve days of dry weather followed. Her neighbours had to resow. She {{didnt|didn't|s}}. She told us, "For the first time, I knew something before the sky told me."
+
+## Pricing and availability
+
+**[SLIDE 11: Price.]**
+
+Now, the question everyone in this room is waiting {{fro|for|s}}. How much?
+
+A research-grade soil sensor costs anywhere between [[₹50,000]] and [[₹2,00,000]]. Krishi Mitra will cost [[₹3,499]], including the first year of advisory messages. After that, the service costs [[₹499]] a year.
+
+**[Let the applause happen. Don't rush.]**
+
+And for farmers who can't pay upfront, we have partnered with [[NABARD]] and three regional rural banks to offer the sensor through Kisan Credit Card loans, with repayment after harvest. We're also working with farmer producer organisations so that one sensor can serve a cluster of neighbouring fields with similar soil, bringing the cost per farmer down even further.
+
+**[SLIDE 12: Map showing launch districts.]**
+
+We are launching today in [[12 districts]] across Andhra Pradesh, Telangana and Karnataka, with pre-orders open from this afternoon. By the end of [[2026]], we aim to reach [[50,000 farmers]]. By [[2028]], half a million.
+
+## Closing
+
+**[SLIDE 13: Back to the photo of the farmer looking at the sky.]**
+
+Let's go back to the farmer from the beginning of this talk. The one in Anantapur, in the first week of July, with borrowed money and a grey sky.
+
+With Krishi Mitra, she doesn't have to guess. She checks her phone. She knows what's happening under her feet. And she makes {{an|a|s}} decision based on what the soil is telling her, not on what she hopes the sky will do.
+
+That's what we {{build|built|j}} this for. Not to replace a farmer's experience, but to give it one more sense.
+
+**[SLIDE 14: Logo. "Krishi Mitra. Know your soil."]**
+
+Thank you.
+
+**[Walk to the side of the stage for the product demo with Dr. Kiran Kumar. Hand over the microphone.]**
+
+---
+
+*Rehearsal notes: Full run-through on [[24 February 2026]] at [[14 minutes 20 seconds]]. Keep the pause after Slide 9; it lands well. Check the Telugu message on Slide 6 with Lakshmi's family before the event; they asked to see the slide first. Confirm the NABARD line with {{teh|the|s}} partnerships team.*

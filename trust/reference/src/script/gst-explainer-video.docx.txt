@@ -1,0 +1,93 @@
+# GST Explained in Ten Minutes: Video Script
+
+**Channel:** Money Matters with Meghna. **Presenter:** Meghna Iyer. **Target length:** 10 minutes. **Draft 3, [[18 September 2025]].**
+
+## Cold open
+
+**[ON SCREEN: a restaurant bill with the GST lines circled in red]**
+
+MEGHNA: You've seen these lines on every bill. CGST. SGST. Sometimes IGST. But do you actually know what they mean, who gets that money, and why the rate on your pizza is different from the rate on your phone? In the next ten minutes, I'm going to explain GST so clearly that you'll never be confused by a bill again. {{Lets|Let's|j}} go.
+
+**[TITLE CARD: GST EXPLAINED]**
+
+## Part 1: What GST replaced
+
+**[B-ROLL: old tax forms, trucks queued at a state border check post]**
+
+MEGHNA: Before [[1 July 2017]], India had a messy mix of taxes. There was excise duty charged by the centre on manufacturing. There was service tax. There was VAT, charged by each state at its own rates. There was entry tax, octroi, luxury tax and a few others. If you sold goods across a state border, you often paid tax on tax, and trucks spent hours, sometimes days, waiting at check posts.
+
+GST, the Goods and Services Tax, replaced most of these with one system. The idea is simple: tax is charged at every stage of the supply chain, but each business gets credit for the tax it has already paid on its inputs. So the tax only falls on the value {{add|added|j}} at each stage.
+
+**[GRAPHIC: a simple chain showing cotton farmer, spinning mill, garment maker, shop, customer]**
+
+MEGHNA: Let's take {{an|a|s}} shirt. The mill buys cotton, spins it into yarn and sells the yarn to a garment maker, charging GST. The garment maker makes a shirt and sells it to a shop, charging GST again, but claiming credit for the GST it paid on the yarn. The shop does the same when it sells the shirt to you. By the end, the total tax collected equals the GST rate on the final price of the shirt. No tax on tax.
+
+## Part 2: CGST, SGST and IGST
+
+**[ON SCREEN: the restaurant bill again]**
+
+MEGHNA: Now, those {{three three|three|s}} letters. India is a federation, so both the central government and the states have the power to tax. GST is split between them.
+
+When you buy something within the same state, the bill shows two equal parts: CGST, which goes to the centre, and SGST, which goes to the state. So if the rate is [[18%]], you'll see [[9%]] CGST and [[9%]] SGST.
+
+When goods or services cross a state border, the bill shows IGST, the integrated GST, at the full rate. The centre collects it and then passes the state's share to the state where the goods are consumed. That's why GST is called {{an|a|s}} destination-based tax. The state where you {{spends|spend|j}} the money gets the revenue, not the state where the product was made.
+
+**[PRESENTER TO CAMERA, LEANING IN]**
+
+MEGHNA: Quick tip. If you're running a small business and you see IGST on a bill from a supplier in the same state, something has gone wrong. Ask them to fix it, or you may have trouble claiming the credit.
+
+## Part 3: The rates
+
+**[GRAPHIC: a table of rate slabs]**
+
+| Rate | Examples |
+|---|---|
+| 0% | Fresh vegetables, milk, books |
+| 5% | Packaged food, economy train tickets, small restaurants |
+| 12% | Processed food, business-class air tickets |
+| 18% | Most services, restaurants in hotels, electronics |
+| 28% | Cars, cement, luxury goods |
+
+MEGHNA: These are the main slabs, though the GST Council, which includes the Union Finance Minister and the finance ministers of all the states, reviews the rates regularly. At its meeting on [[3 September 2025]], the Council approved a major simplification, merging most items into two main slabs of [[5%]] and [[18%]], with a special higher rate for a short list of luxury and sin goods. Some of those changes take effect in phases, so always check the latest notification.
+
+**[ON SCREEN TEXT: "Check the current rate on the CBIC website"]**
+
+MEGHNA: On top of the [[28%]] rate, some products like cars and tobacco also had a compensation cess, which was meant to make up for revenue that states lost in the early years of GST. That cess is also being phased out.
+
+## Part 4: Who needs to register
+
+**[B-ROLL: a small shop, a freelancer working on a laptop]**
+
+MEGHNA: If you're running a business, here's what matters. You generally need to register for GST if your annual turnover crosses [[₹40 lakh]] for goods or [[₹20 lakh]] for services. In some north-eastern and hill states, the limits are lower. If you sell online through platforms like Amazon or Flipkart, you usually need to register no matter how small you are.
+
+Once registered, you charge GST on {{you're|your|j}} sales, claim credit for GST on your purchases, and file returns, usually monthly. Small businesses with turnover up to [[₹1.5 crore]] can choose a simpler composition scheme, paying a low flat rate without claiming credits. It's less paperwork, but you can't charge GST to your customers {{an|and|s}} they can't claim credit either, so it suits businesses that sell mainly to consumers.
+
+## Part 5: Reading your bill
+
+**[ON SCREEN: the restaurant bill, now with each line labelled]**
+
+MEGHNA: Let's come back to where we started. This is a bill from a café in Chennai. The food came to [[₹1,240]]. The café charged [[2.5%]] CGST, which is [[₹31]], and [[2.5%]] SGST, another [[₹31]]. Total: [[₹1,302]].
+
+Notice there's no service charge here. That's separate from GST, and since [[July 2022]] restaurants cannot add it automatically. If you see a service charge on your bill, you're allowed to ask for it to be removed.
+
+## Part 6: Common myths
+
+**[PRESENTER TO CAMERA, COUNTING ON FINGERS]**
+
+MEGHNA: Let me bust three myths {{quickly quickly|quickly|s}}.
+
+Myth one: "GST made everything more expensive." Some things got costlier, some {{gotten|got|j}} cheaper. Many everyday food items are exempt or taxed at low rates.
+
+Myth two: "Small shops don't pay GST, so they're cheating." Most small shops are below the threshold, so they're not required to register. That's the law working as designed.
+
+Myth three: "GST is only for businesses." Every time you buy something,{{  | |s}}you pay GST. Businesses collect it, but consumers {{bears|bear|j}} the final cost. That's why it matters to all of us.
+
+## Outro
+
+**[PRESENTER TO CAMERA, WARM]**
+
+MEGHNA: So that's GST in ten minutes. One tax, split between the centre and the states, charged at every stage but only on the value added. If this helped, hit like and subscribe, and drop your questions in the comments. I read all of them, and the best questions go into next week's video, where I'll explain how to read your Form 26AS. See you then.
+
+**[END CARD]**
+
+*Production notes: Script checked by [[CA Prakash Menon]]. Rates current as of [[18 September 2025]]; re-check the rate table before the final edit. B-roll from the channel library; the restaurant bill is a mock-up, not a real customer bill.*

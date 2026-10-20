@@ -1,0 +1,75 @@
+# Incident Postmortem: UPI Payment Failures on 17 September 2025
+
+**Severity:** SEV-1. **Status:** Resolved. **Author:** Payments Platform Team. **Reviewed by:** [[Dr. Nikhil Bansal]], Head of Engineering. **Postmortem meeting:** [[19 September 2025]].
+
+*This is a blameless postmortem. Its purpose is to understand what happened and how to prevent it, not to assign fault to any individual.*
+
+## Summary
+
+On [[17 September 2025]], between [[19:42]] and [[21:08]] IST, about [[38%]] of UPI payments on our app failed or remained pending. During the incident, roughly [[2,14,000]] payment attempts were affected, with a total value of approximately [[₹9.6 crore]]. Most failed payments were either reversed automatically or succeeded on retry, but about [[3,100]] customers were debited without the merchant receiving confirmation, which led to a large number of support tickets over the next two days.
+
+The direct cause was a configuration change to the connection pool of our payment switch service, deployed at [[19:35]]. The change reduced the maximum number of connections to the bank's UPI gateway from [[400]] to [[40]] because of a typo in the configuration file. Under normal evening traffic, the pool was exhausted within minutes, and requests began to time out.
+
+## Impact
+
+- Customers saw payment failures or long "pending" screens, especially at restaurants, petrol pumps and grocery stores during peak evening hours.
+- Around [[3,100]] customers were debited but saw the payment as failed. All of these were reversed or completed by [[20 September 2025]], within the timelines set by NPCI.
+- Our support team received [[11,800]] tickets and calls related to the incident, more than four times the normal daily volume.
+- Several large merchants contacted their account managers, and two temporarily disabled our payment option at their stores.
+- There was no data loss and no security {{impacts|impact|j}}.
+
+## Timeline (all times IST)
+
+- **19:35** A routine configuration change to the payment switch is deployed as part of the weekly release. The change was intended to adjust timeout values. It also, by mistake, changed the connection pool size.
+- **19:42** Error rates on the payment switch begin to rise. Automated alerts fire, but they are routed to a channel that the on-call engineer {{were|was|j}} not monitoring at the time.
+- **19:51** Customer support reports a spike in complaints about failed payments.
+- **19:58** The on-call engineer, [[Ms. Tanvi Shah]], acknowledges the incident and opens a bridge call.
+- **20:10** The team suspects the bank's UPI gateway, because the errors are timeouts on gateway calls. The bank is contacted.
+- **20:31** The bank confirms that {{it's|its|j}} gateway is healthy and that our traffic has dropped sharply, which suggests the problem is on our side.
+- **20:44** An engineer reviewing recent deployments notices the connection pool change.
+- **20:52** The configuration is {{rolled rolled|rolled|s}} back.
+- **21:08** Error rates return to normal. The incident is declared resolved at [[21:20]] after monitoring.
+
+## Root Cause
+
+The configuration file for the payment switch contains several numeric settings on adjacent lines. The engineer who prepared the change intended to edit the timeout value but also accidentally deleted a zero from the line below, changing the pool size from 400 to 40.
+
+The change passed code review {{becuase|because|s}} the reviewer focused on the timeout setting, which was the stated purpose of the change. The configuration file has no schema validation, so nothing flagged the unusual value. The change also passed our automated tests, because the test environment uses a pool size of 20 and never runs at production traffic levels.
+
+## Contributing Factors
+
+**Alert routing.** The alerts for the payment switch were moved to a new channel during a reorganisation in August, but the on-call rotation was not updated to monitor it. This delayed our response by about {{fifteen|sixteen|j}} minutes.
+
+**Misleading symptoms.** The errors appeared as timeouts on calls to the bank's gateway, which led the team to suspect the bank. We spent about twenty minutes investigating the wrong system.
+
+**No canary release for configuration.** Code changes to the payment switch are released gradually, starting with [[5%]] of traffic. Configuration changes, however, are applied to all servers at once. A canary release would have limited the impact and made the cause obvious within minutes.
+
+**Peak timing.** The weekly release runs at [[19:30]], which is close to the evening peak for UPI payments. This was originally chosen because the engineering team was available at that time, but it means any problem affects the largest number of customers.
+
+## What Went Well
+
+- Once {{teh|the|s}} cause was identified, the rollback took less than ten minutes.
+- The bank's operations team responded quickly and shared useful data from their side.
+- Automatic reversals worked as designed for most debited-but-failed payments.
+- Customer support quickly published {{a|an|s}} in-app banner explaining the problem, which reduced repeat contacts.
+
+## Action Items
+
+| Action | Owner | Due date |
+|---|---|---|
+| Add schema validation with allowed ranges for all payment switch settings | Platform team | 3 October 2025 |
+| Release configuration changes through the same canary process as code | Release engineering | 17 October 2025 |
+| Fix alert routing and add a weekly check that every critical alert reaches on-call | SRE team | 26 September 2025 |
+| Move the weekly release window to 14:00 on Tuesdays | Engineering managers | 30 September 2025 |
+| Add a dashboard panel showing connection pool usage against limits | Platform team | 10 October 2025 |
+| Prepare a customer communication template for payment incidents | Support and comms | 3 October 2025 |
+
+## Lessons Learned
+
+Small configuration changes can have large {{affects|effects|j}}, and they deserve the same care as code changes. We had strong safeguards for code but treated configuration as low risk, which it is not.
+
+We also learned that our first hypothesis is often wrong when symptoms appear in another system. In future incidents, the on-call engineer should check recent deployments on our side before contacting external partners, even when the errors seem to point elsewhere.
+
+Finally, we need to think about when we release changes, not only how. Releasing during peak hours means that any mistake has the maximum possible impact. Moving releases to a quieter time is a simple change {{that that|that|s}} reduces risk for every future deployment.
+
+*Questions about this postmortem can be sent to the Payments Platform Team. The full incident log and graphs are attached in the internal wiki.*

@@ -1,0 +1,65 @@
+# Mid-Day Meals and School Attendance: Evidence from Government Primary Schools in Odisha
+
+## Abstract
+
+We study whether a change in the mid-day meal menu, from a fixed rice-and-dal plate to a rotating menu with eggs on three days a week, affected attendance in government primary schools. Using daily attendance registers from [[214 schools]] in Ganjam and Koraput districts between [[1 July 2022]] and [[31 March 2024]], we find that attendance rose by [[4.8 percentage points]] on egg days compared with non-egg days in the same week. The effect is largest for girls in Classes 3 to 5 and for children from Scheduled Tribe households. We discuss what these results mean for menu design under PM POSHAN.
+
+## 1. Introduction
+
+India's mid-day meal scheme, now called PM POSHAN, feeds more than [[11 crore children]] every school day. It is one of {{teh|the|s}} largest school feeding programmes in the world, and earlier research has linked it to higher enrolment, better nutrition and improved learning ([[Afridi, 2010]]; [[Singh et al., 2014]]). Less is known about how the *content* of the meal shapes daily behaviour. Most evaluations treat the meal as a single intervention, even though menus differ widely between states.
+
+Odisha offers {{an|a|s}} useful setting. In [[July 2022]], the state revised its menu so that schools served eggs on Mondays, Wednesdays and Fridays, with the other days unchanged. Because the change {{were|was|j}} introduced on a fixed weekly pattern, we can compare attendance on egg days and non-egg days within {{the the|the|s}} same school and week, which removes much of the bias that affects comparisons between schools.
+
+Our fieldwork was led by [[Dr. Sunita Mohanty]] of Utkal University together with [[Prof. Arvind Nair]], who supervised the data entry. Between [[September 2023]] and [[January 2024]] the team photographed attendance registers, interviewed head teachers and observed meal service in a subset of [[40 schools]].
+
+## 2. Data
+
+Attendance registers in Odisha record each child's presence for every working day. We digitised registers for all children enrolled in Classes 1 to 5 in our sample schools, a total of [[18,962 children]]. For each school we also recorded the menu actually served, since head teachers told us that eggs were sometimes replaced with soya chunks when supply ran short.
+
+The table below summarises the sample.
+
+| District | Schools | Children | Share ST (%) |
+|---|---|---|---|
+| Ganjam | 121 | 10,418 | 12.6 |
+| Koraput | 93 | 8,544 | 61.3 |
+| Total | 214 | 18,962 | 34.0 |
+
+We dropped [[11 days]] on which schools were closed for local festivals but registers {{was|were|j}} still marked, and [[6 schools]] whose registers were incomplete for more than a month.
+
+## 3. Empirical Strategy
+
+Our main specification regresses a child's daily attendance on an indicator for an egg day, with child-by-week fixed effects. This means we compare the same child across days of the same week, which absorbs differences in family background, distance to school and seasonal work. We cluster standard errors at the school level.
+
+The key assumption is that, in the absence of eggs, attendance on Mondays, Wednesdays and Fridays would follow the same pattern as on other days. To check this, we use data from the [[2021-22]] school year, before the menu change, and find no difference in attendance between these days (difference [[0.3 percentage points]], p = [[0.61]]).
+
+## 4. Results
+
+On egg days, attendance was [[4.8 percentage points]] higher than on other days of the same week (p < [[0.001]]). Against a baseline attendance rate of [[78.2%]], this is an increase of about six per cent. **The effect was larger for girls** ([[5.9 points]]) than for boys ([[3.7 points]]), and it was nearly twice as large in Koraput as in Ganjam.
+
+We also find that the effect {{grow|grows|j}} with age. In Classes 1 and 2, attendance rose by about three points; in Classes 3 to 5, by more than six. Head teachers offered one explanation: older children, especially girls, are more often kept at home to help with housework or care for siblings, and the promise of an egg tilts {{there|their|j}} parents' decision on the margin.
+
+On days when eggs were replaced by soya chunks, the attendance gain disappeared almost entirely. This suggests that children and parents responded to the specific food rather than to a general sense that the meal had improved.
+
+## 5. Costs
+
+At current prices an egg costs schools about [[₹6]], or roughly [[₹18]] per child per week. For a school with [[90 children]], that is around [[₹70,000]] for {{an|a|s}} academic year of [[39 weeks]]. Set against the extra days of schooling, the cost per additional day of attendance is about [[₹125]], which compares well with conditional cash transfers studied in other states ([[Muralidharan and Prakash, 2017]]).
+
+## 6. Discussion
+
+These results suggest that menu choices matter for more than nutrition. A small, visible change in the plate can shift daily attendance, and the effect is concentrated among the children who are most likely to miss school. Policy makers {{who's|whose|j}} goal is to raise attendance might therefore treat eggs, fruit or milk as a lever in their own right.
+
+There are some caveats. Eggs remain a sensitive issue in several states, and some families object to them on religious grounds. In our sample, schools offered bananas to children who did not eat eggs, but we could not track which children chose which option. If vegetarian children responded less to the banana, our estimate would understate the effect of eggs for those who eat them.
+
+Implementation also depends on the cooks. In most of our schools the meal is prepared by two or three women from the village, who are paid an honorarium of about [[₹1,000]] a month. Several of them told us that the new menu added work, because eggs must be bought every few days, boiled in batches and counted carefully so that each child gets one. In schools where the cooks were not paid on time, eggs were more often skipped or replaced. A menu change that looks simple on paper therefore rests on a fragile chain of payments, purchases and record keeping, and any break in that chain shows up {{in in|in|s}} the attendance register within days.
+
+We also cannot say whether the extra days of attendance translated into more learning. The children who came only for the egg may have been less engaged in class, and we did not collect test scores on a daily basis. Future work could link attendance to learning outcomes using the state's annual assessment data.
+
+## 7. Conclusion
+
+Serving eggs three times a week raised attendance in Odisha's government primary schools by nearly five percentage points on the days they were served. The effect was strongest for older girls and for children in tribal districts, and it {{dissappeared|disappeared|s}} when eggs were replaced. At about [[₹125]] per additional day of attendance, it is a cheap way to bring children to school. Whether those extra days improve learning is the next question {{to to|to|s}} answer.
+
+## References
+
+- [[Afridi, F. (2010)]]. Child welfare programs and child nutrition: Evidence from a mandated school meal program in India. *Journal of Development Economics*, [[92(2)]], [[152-165]].
+- [[Muralidharan, K. and Prakash, N. (2017)]]. Cycling to school: Increasing secondary school enrollment for girls in India. *American Economic Journal: Applied Economics*, [[9(3)]], [[321-350]].
+- [[Singh, A., Park, A. and Dercon, S. (2014)]]. School meals as a safety net: An evaluation of the midday meal scheme in India. *Economic Development and Cultural Change*, [[62(2)]], [[275-306]].

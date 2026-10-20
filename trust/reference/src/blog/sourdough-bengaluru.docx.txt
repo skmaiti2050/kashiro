@@ -1,0 +1,72 @@
+# One Year of Sourdough in a Bengaluru Kitchen
+
+Last October, during a week of endless rain, I mixed flour and water in a jar and left it on my kitchen counter. I had watched far too many videos of crusty loaves with open, glossy crumb, and I was convinced I could make one too. A year and roughly ninety loaves later, I can tell you that I was both right and very, very wrong. This post is a look back at what worked, what did not, and what I wish someone had told me about baking sourdough in a warm, humid city.
+
+## The starter
+
+Every sourdough guide begins with the starter, and most of them are written for kitchens in Europe or North America, where room temperature means something like [[20 °C]]. My kitchen in Indiranagar sits between [[26 °C]] and [[31 °C]] for most of the year. At those temperatures, a starter behaves very differently.
+
+For the first two weeks, mine was a disaster. It bubbled furiously on day two, then went flat and started to smell like nail polish remover. I nearly threw it away. A message to a baking group on Facebook brought a reply from *Chef Ritu Malhotra*, who runs a small bakery in Jayanagar, and her advice changed everything: feed it more often, use cooler water, and keep it in the least warm corner of the kitchen. Within a week, it was rising and falling on a predictable schedule.
+
+Today my starter lives in the fridge between bakes. I take it out {{teh|the|s}} night before, feed it with equal weights of flour and water, and it is ready by morning. I use a mix of [[80%]] maida and [[20%]] whole wheat atta, mostly because that is what I can buy easily at the shop down the road.
+
+## Flour, the Indian way
+
+Flour turned out to be {{teh|the|s}} biggest puzzle. Most recipes call for "bread flour," which has more protein than ordinary flour. The maida sold in Indian shops is usually lower in protein, which means it {{form|forms|j}} a weaker gluten network and struggles to hold its shape.
+
+After a lot of experimenting, I settled on a few options that work:
+
+- Imported bread flour from specialty stores, which costs about [[₹180]] a kilo and gives the best results.
+- A mix of good-quality maida with a spoonful of vital wheat gluten, which brings the protein up for {{a|an|s}} fraction of the price.
+- Plain maida with a lower hydration, which makes a tighter crumb but is perfectly fine for sandwiches.
+
+Whole wheat atta behaves very differently from the whole wheat flour in Western recipes. It is ground much finer, so it soaks up more water. If you use a lot of atta, add water slowly and trust the feel of the dough rather than the number in the recipe.
+
+## Timing is everything
+
+In a cool kitchen, bulk fermentation might take six or seven hours. In mine, it often finishes in three. The first time I followed a recipe to the minute, I came back to a dough that had risen, collapsed and turned into a sticky puddle. **Learn to read the dough, not the clock.** I now look for a rise of about half, a domed surface with a few bubbles, and a jiggle when I shake the bowl.
+
+During the hottest months, April and May, I mix the dough with water straight from the fridge and do the bulk fermentation in an air-conditioned room. It is not very green, but it is the only way I {{has|have|j}} found to get consistent results. In the monsoon, the kitchen is cooler but much more humid, and the dough becomes stickier. A little less water helps.
+
+## The oven problem
+
+I do not own a proper oven. I bake in a [[42-litre]] oven-toaster-grill that cost [[₹9,500]], and for the first few months my loaves came out pale on top and burnt on the bottom. The fix was {{an|a|s}} cast-iron pot with a lid, which traps steam and helps the bread rise before the crust sets. I bought mine for [[₹2,200]] from a shop on Commercial Street, and it is the best money I have spent on this hobby.
+
+I preheat the pot for {{fourty|forty|s}} minutes, lower the dough in on a sheet of baking paper, bake with the lid on for twenty minutes and then with the lid off for another fifteen. The rack goes on the lowest level, and I put a tray on the rack above to shield the top from the upper element. It is fiddly, but it works.
+
+## What I bake now
+
+These days I bake two loaves a week, usually on Saturday morning. One is a plain white sourdough for sandwiches and toast; the other changes depending on my mood. Some favourites:
+
+- A loaf with roasted sesame seeds and a little jaggery, which tastes wonderful with butter.
+- A loaf with chopped green chilli, coriander, and cheese, which my neighbours now request by name.
+- A dense rye-style loaf using finger millet flour, which took eleven attempts to get right but is now my favourite.
+
+I have also started making sourdough pizza bases, which freeze well {{and and|and|s}} make weeknight dinners much easier.
+
+## Costs, for the curious
+
+People often ask {{weather|whether|j}} baking at home is cheaper than buying bread. Here is my rough monthly budget.
+
+| Item | Monthly cost |
+|---|---|
+| Flour (about 6 kg) | ₹720 |
+| Electricity for the oven | ₹350 |
+| Seeds, cheese and extras | ₹400 |
+| Total | ₹1,470 |
+
+A good sourdough loaf from a Bengaluru bakery costs between [[₹220]] and [[₹320]]. At eight loaves a month, I would spend at least [[₹1,760]], so home baking saves a little money, but not much. The real reasons I bake are different: I like knowing exactly what {{go|goes|j}} into my bread, and I enjoy the slow rhythm of the process.
+
+## Mistakes I made so you don't have to
+
+Here are the lessons that cost me the most flour:
+
+- Do not add more starter to speed things up. In a warm kitchen, {{its|it's|j}} already fast enough.
+- Do not cut the loaf while it is hot. The inside is still cooking, and it will be gummy.
+- Do not compare your bread to pictures on Instagram. Many of them are made with flour, ovens, and climates that are nothing like yours.
+
+## Final thoughts
+
+Sourdough has taught me patience. It has also taught me humility. Some weeks everything works and the loaf comes out tall and crackling. Other weeks the dough refuses to rise and I end up with a flat, sour frisbee that even the crows ignore. I have learned to enjoy both, because each loaf teaches me something about my starter, my flour, and the weather.
+
+If you are thinking of starting, do it. Make the starter, bake a few ugly loaves, and adjust everything for your own kitchen. And if you live in Bengaluru, find me at the Sunday baking meetups in Cubbon Park, where a handful of us swap starters, flour tips and slices of whatever we baked {{than|that|j}} week.

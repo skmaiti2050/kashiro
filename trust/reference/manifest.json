@@ -1,0 +1,1896 @@
+{
+  "docs": [
+    {
+      "file": "academic/groundwater-marathwada.md",
+      "preset": "academic",
+      "format": "md",
+      "words": 1162,
+      "errors": {
+        "safe": 6,
+        "judgment": 6
+      },
+      "answers": [
+        {
+          "wrong": "teh",
+          "right": "the",
+          "type": "s"
+        },
+        {
+          "wrong": "teh",
+          "right": "the",
+          "type": "s"
+        },
+        {
+          "wrong": "that that",
+          "right": "that",
+          "type": "s"
+        },
+        {
+          "wrong": "heavily on on",
+          "right": "heavily on",
+          "type": "s"
+        },
+        {
+          "wrong": "have",
+          "right": "has",
+          "type": "j"
+        },
+        {
+          "wrong": "weather",
+          "right": "whether",
+          "type": "j"
+        },
+        {
+          "wrong": "arived",
+          "right": "arrived",
+          "type": "s"
+        },
+        {
+          "wrong": "was",
+          "right": "were",
+          "type": "j"
+        },
+        {
+          "wrong": "is",
+          "right": "are",
+          "type": "j"
+        },
+        {
+          "wrong": "who's",
+          "right": "whose",
+          "type": "j"
+        },
+        {
+          "wrong": "effect",
+          "right": "affect",
+          "type": "j"
+        },
+        {
+          "wrong": "an",
+          "right": "a",
+          "type": "s"
+        }
+      ],
+      "facts": [
+        "2014",
+        "2023",
+        "40 wells per square kilometre",
+        "2016",
+        "22,000 villages",
+        "Government of Maharashtra, 2019",
+        "Kulkarni et al., 2021",
+        "Joshi and Pawar, 2020",
+        "12 January 2023",
+        "28 February 2023",
+        "Dr. Meera Kulkarni",
+        "Prof. Sandeep Rao",
+        "36 villages",
+        "690 mm",
+        "2010",
+        "118 observation wells",
+        "2 km",
+        "June 2017",
+        "2017-18",
+        "1.4 metres",
+        "0.003",
+        "25 wells per square kilometre",
+        "2.1 metres",
+        "₹1,20,000",
+        "Shah, 2009",
+        "2019",
+        "Government of Maharashtra (2019)",
+        "Joshi, A. and Pawar, R. (2020)",
+        "55(14)",
+        "41-48",
+        "Kulkarni, M., Rao, S. and Deshmukh, P. (2021)",
+        "34",
+        "100792",
+        "Shah, T. (2009)"
+      ]
+    },
+    {
+      "file": "academic/heat-stress-construction.md",
+      "preset": "academic",
+      "format": "md",
+      "words": 1370,
+      "errors": {
+        "safe": 8,
+        "judgment": 6
+      },
+      "answers": [
+        {
+          "wrong": "employer",
+          "right": "employers",
+          "type": "j"
+        },
+        {
+          "wrong": "aged aged",
+          "right": "aged",
+          "type": "s"
+        },
+        {
+          "wrong": "weather",
+          "right": "whether",
+          "type": "j"
+        },
+        {
+          "wrong": "and and",
+          "right": "and",
+          "type": "s"
+        },
+        {
+          "wrong": "was",
+          "right": "were",
+          "type": "j"
+        },
+        {
+          "wrong": "hot hot",
+          "right": "hot",
+          "type": "s"
+        },
+        {
+          "wrong": "teh",
+          "right": "the",
+          "type": "s"
+        },
+        {
+          "wrong": "a",
+          "right": "an",
+          "type": "s"
+        },
+        {
+          "wrong": "stoped",
+          "right": "stopped",
+          "type": "s"
+        },
+        {
+          "wrong": "teh",
+          "right": "the",
+          "type": "s"
+        },
+        {
+          "wrong": "then",
+          "right": "than",
+          "type": "j"
+        },
+        {
+          "wrong": "has has",
+          "right": "has",
+          "type": "s"
+        },
+        {
+          "wrong": "its",
+          "right": "it's",
+          "type": "j"
+        },
+        {
+          "wrong": "few",
+          "right": "little",
+          "type": "j"
+        }
+      ],
+      "facts": [
+        "146 workers",
+        "9 building sites",
+        "1 April 2024",
+        "15 June 2024",
+        "52 of 76",
+        "11%",
+        "2024",
+        "45 °C",
+        "2013",
+        "2010",
+        "1,300 excess deaths",
+        "Knowlton et al., 2014",
+        "Dr. Farhan Qureshi",
+        "Prof. Leela Desai",
+        "four-storey",
+        "22-storey",
+        "146",
+        "23",
+        "10 minutes",
+        "48 workers",
+        "34 in-depth interviews",
+        "28 °C",
+        "ISO 7243:2017",
+        "52",
+        "76",
+        "33 °C",
+        "19 days",
+        "14 beats per minute",
+        "2.6 times",
+        "6 a.m.",
+        "8 a.m.",
+        "12:30 p.m.",
+        "3:30 p.m.",
+        "4.1 hours",
+        "1.3 hours",
+        "Flouris et al., 2018",
+        "₹3,000 crore",
+        "2023",
+        "Flouris, A. D. et al. (2018)",
+        "2(12)",
+        "Knowlton, K. et al. (2014)",
+        "11(4)",
+        "3473-3492"
+      ]
+    },
+    {
+      "file": "academic/midday-meal-attendance.docx",
+      "preset": "academic",
+      "format": "docx",
+      "words": 1216,
+      "errors": {
+        "safe": 7,
+        "judgment": 5
+      },
+      "answers": [
+        {
+          "wrong": "teh",
+          "right": "the",
+          "type": "s"
+        },
+        {
+          "wrong": "an",
+          "right": "a",
+          "type": "s"
+        },
+        {
+          "wrong": "were",
+          "right": "was",
+          "type": "j"
+        },
+        {
+          "wrong": "the the",
+          "right": "the",
+          "type": "s"
+        },
+        {
+          "wrong": "was",
+          "right": "were",
+          "type": "j"
+        },
+        {
+          "wrong": "grow",
+          "right": "grows",
+          "type": "j"
+        },
+        {
+          "wrong": "there",
+          "right": "their",
+          "type": "j"
+        },
+        {
+          "wrong": "an",
+          "right": "a",
+          "type": "s"
+        },
+        {
+          "wrong": "who's",
+          "right": "whose",
+          "type": "j"
+        },
+        {
+          "wrong": "in in",
+          "right": "in",
+          "type": "s"
+        },
+        {
+          "wrong": "dissappeared",
+          "right": "disappeared",
+          "type": "s"
+        },
+        {
+          "wrong": "to to",
+          "right": "to",
+          "type": "s"
+        }
+      ],
+      "facts": [
+        "214 schools",
+        "1 July 2022",
+        "31 March 2024",
+        "4.8 percentage points",
+        "11 crore children",
+        "Afridi, 2010",
+        "Singh et al., 2014",
+        "July 2022",
+        "Dr. Sunita Mohanty",
+        "Prof. Arvind Nair",
+        "September 2023",
+        "January 2024",
+        "40 schools",
+        "18,962 children",
+        "11 days",
+        "6 schools",
+        "2021-22",
+        "0.3 percentage points",
+        "0.61",
+        "0.001",
+        "78.2%",
+        "5.9 points",
+        "3.7 points",
+        "₹6",
+        "₹18",
+        "90 children",
+        "₹70,000",
+        "39 weeks",
+        "₹125",
+        "Muralidharan and Prakash, 2017",
+        "₹1,000",
+        "Afridi, F. (2010)",
+        "92(2)",
+        "152-165",
+        "Muralidharan, K. and Prakash, N. (2017)",
+        "9(3)",
+        "321-350",
+        "Singh, A., Park, A. and Dercon, S. (2014)",
+        "62(2)",
+        "275-306"
+      ]
+    },
+    {
+      "file": "academic/upi-small-merchants.docx",
+      "preset": "academic",
+      "format": "docx",
+      "words": 1132,
+      "errors": {
+        "safe": 6,
+        "judgment": 5
+      },
+      "answers": [
+        {
+          "wrong": "litle",
+          "right": "little",
+          "type": "s"
+        },
+        {
+          "wrong": "where",
+          "right": "were",
+          "type": "j"
+        },
+        {
+          "wrong": "both both",
+          "right": "both",
+          "type": "s"
+        },
+        {
+          "wrong": "there",
+          "right": "their",
+          "type": "j"
+        },
+        {
+          "wrong": "an",
+          "right": "a",
+          "type": "s"
+        },
+        {
+          "wrong": "lower lower",
+          "right": "lower",
+          "type": "s"
+        },
+        {
+          "wrong": "effect",
+          "right": "affect",
+          "type": "j"
+        },
+        {
+          "wrong": "an",
+          "right": "a",
+          "type": "s"
+        },
+        {
+          "wrong": "an",
+          "right": "a",
+          "type": "s"
+        },
+        {
+          "wrong": "its",
+          "right": "it",
+          "type": "j"
+        },
+        {
+          "wrong": "then",
+          "right": "than",
+          "type": "j"
+        }
+      ],
+      "facts": [
+        "612 merchants",
+        "15 May 2024",
+        "30 June 2024",
+        "87%",
+        "41%",
+        "October 2024",
+        "16 billion transactions",
+        "NPCI, 2024",
+        "Agarwal et al., 2022",
+        "Dr. Kavitha Subramanian",
+        "April 2024",
+        "30 merchants",
+        "Mr. Rajesh Verma",
+        "Ms. Priya Raghavan",
+        "55 years",
+        "76%",
+        "92%",
+        "35",
+        "18%",
+        "₹1,85,000",
+        "24%",
+        "12%",
+        "0.002",
+        "Reserve Bank of India",
+        "RBI, 2023",
+        "Agarwal, S., Ghosh, P., Li, J. and Ruan, T. (2022)",
+        "35(1)",
+        "1-40",
+        "NPCI (2024)",
+        "RBI (2023)"
+      ]
+    },
+    {
+      "file": "academic/vernacular-edtech-review.md",
+      "preset": "academic",
+      "format": "md",
+      "words": 1200,
+      "errors": {
+        "safe": 7,
+        "judgment": 5
+      },
+      "answers": [
+        {
+          "wrong": "matter",
+          "right": "matters",
+          "type": "j"
+        },
+        {
+          "wrong": "an",
+          "right": "a",
+          "type": "s"
+        },
+        {
+          "wrong": "  ",
+          "right": " ",
+          "type": "s"
+        },
+        {
+          "wrong": "are",
+          "right": "is",
+          "type": "j"
+        },
+        {
+          "wrong": "an",
+          "right": "a",
+          "type": "s"
+        },
+        {
+          "wrong": "remidial",
+          "right": "remedial",
+          "type": "s"
+        },
+        {
+          "wrong": "there",
+          "right": "their",
+          "type": "j"
+        },
+        {
+          "wrong": "rose",
+          "right": "raised",
+          "type": "j"
+        },
+        {
+          "wrong": "thme",
+          "right": "them",
+          "type": "s"
+        },
+        {
+          "wrong": "  ",
+          "right": " ",
+          "type": "s"
+        },
+        {
+          "wrong": "follow follow",
+          "right": "follow",
+          "type": "s"
+        },
+        {
+          "wrong": "it's",
+          "right": "its",
+          "type": "j"
+        }
+      ],
+      "facts": [
+        "2020",
+        "2021",
+        "National Education Policy 2020",
+        "Annual Status of Education Report 2022",
+        "20.5%",
+        "ASER Centre, 2023",
+        "January 2015",
+        "June 2024",
+        "J-PAL South Asia",
+        "27 studies",
+        "Dr. Ananya Bose",
+        "Prof. Mohan Reddy",
+        "Muralidharan et al., 2019",
+        "0.2",
+        "0.6 standard deviations",
+        "Sharma and Gupta, 2021",
+        "60%",
+        "18%",
+        "31%",
+        "0.15 standard deviations",
+        "Rao et al., 2022",
+        "₹1,500",
+        "₹4,000",
+        "₹200",
+        "ASER Centre (2023)",
+        "Muralidharan, K., Singh, A. and Ganimian, A. J. (2019)",
+        "109(4)",
+        "1426-1460",
+        "Rao, P., Naidu, S. and Varma, K. (2022)",
+        "Sharma, R. and Gupta, N. (2021)",
+        "13(3)",
+        "287-305"
+      ]
+    },
+    {
+      "file": "blog/first-home-loan.md",
+      "preset": "blog",
+      "format": "md",
+      "words": 1145,
+      "errors": {
+        "safe": 7,
+        "judgment": 4
+      },
+      "answers": [
+        {
+          "wrong": "three three",
+          "right": "three",
+          "type": "s"
+        },
+        {
+          "wrong": "a",
+          "right": "an",
+          "type": "s"
+        },
+        {
+          "wrong": "then",
+          "right": "than",
+          "type": "j"
+        },
+        {
+          "wrong": "you're",
+          "right": "your",
+          "type": "j"
+        },
+        {
+          "wrong": "recieve",
+          "right": "receive",
+          "type": "s"
+        },
+        {
+          "wrong": "an",
+          "right": "a",
+          "type": "s"
+        },
+        {
+          "wrong": "goes",
+          "right": "go",
+          "type": "j"
+        },
+        {
+          "wrong": "a a",
+          "right": "a",
+          "type": "s"
+        },
+        {
+          "wrong": "  ",
+          "right": " ",
+          "type": "s"
+        },
+        {
+          "wrong": "not not",
+          "right": "not",
+          "type": "s"
+        },
+        {
+          "wrong": "Its",
+          "right": "It's",
+          "type": "j"
+        }
+      ],
+      "facts": [
+        "₹82,00,000",
+        "₹22,00,000",
+        "₹60,00,000",
+        "80%",
+        "8.40%",
+        "9.15%",
+        "₹60 lakh",
+        "₹6 lakh",
+        "Reserve Bank of India",
+        "780",
+        "710",
+        "2022",
+        "2023",
+        "August 2023",
+        "20 years",
+        "₹52,000",
+        "8.50%",
+        "₹1,00,000",
+        "₹18 lakh",
+        "₹1,50,000",
+        "80C",
+        "₹2,00,000",
+        "24(b)",
+        "Mr. Venkat Raman",
+        "0.35%",
+        "₹24,780",
+        "₹4,00,000"
+      ]
+    },
+    {
+      "file": "blog/freelancer-taxes.docx",
+      "preset": "blog",
+      "format": "docx",
+      "words": 1061,
+      "errors": {
+        "safe": 6,
+        "judgment": 5
+      },
+      "answers": [
+        {
+          "wrong": "have have",
+          "right": "have",
+          "type": "s"
+        },
+        {
+          "wrong": "comes",
+          "right": "come",
+          "type": "j"
+        },
+        {
+          "wrong": "a",
+          "right": "a lower",
+          "type": "j"
+        },
+        {
+          "wrong": "there",
+          "right": "their",
+          "type": "j"
+        },
+        {
+          "wrong": "show",
+          "right": "shows",
+          "type": "j"
+        },
+        {
+          "wrong": "my my",
+          "right": "my",
+          "type": "s"
+        },
+        {
+          "wrong": "an",
+          "right": "a",
+          "type": "s"
+        },
+        {
+          "wrong": "teh",
+          "right": "the",
+          "type": "s"
+        },
+        {
+          "wrong": "an",
+          "right": "a",
+          "type": "s"
+        },
+        {
+          "wrong": "looks",
+          "right": "look",
+          "type": "j"
+        },
+        {
+          "wrong": "once once",
+          "right": "once",
+          "type": "s"
+        }
+      ],
+      "facts": [
+        "March 2022",
+        "44ADA",
+        "₹75 lakh",
+        "50%",
+        "₹10,000",
+        "15%",
+        "15 June",
+        "45%",
+        "15 September",
+        "75%",
+        "15 December",
+        "100%",
+        "15 March",
+        "234B",
+        "234C",
+        "10%",
+        "194J",
+        "₹20 lakh",
+        "₹1,500",
+        "25%",
+        "31 July"
+      ]
+    },
+    {
+      "file": "blog/monsoon-trek-kalsubai.md",
+      "preset": "blog",
+      "format": "md",
+      "words": 1293,
+      "errors": {
+        "safe": 8,
+        "judgment": 5
+      },
+      "answers": [
+        {
+          "wrong": "left left",
+          "right": "left",
+          "type": "s"
+        },
+        {
+          "wrong": "are",
+          "right": "is",
+          "type": "j"
+        },
+        {
+          "wrong": "to do",
+          "right": "do",
+          "type": "j"
+        },
+        {
+          "wrong": "an",
+          "right": "a",
+          "type": "s"
+        },
+        {
+          "wrong": "teh",
+          "right": "the",
+          "type": "s"
+        },
+        {
+          "wrong": "that that",
+          "right": "that",
+          "type": "s"
+        },
+        {
+          "wrong": "  ",
+          "right": " ",
+          "type": "s"
+        },
+        {
+          "wrong": "then",
+          "right": "than",
+          "type": "j"
+        },
+        {
+          "wrong": "an",
+          "right": "a",
+          "type": "s"
+        },
+        {
+          "wrong": "packed packed",
+          "right": "packed",
+          "type": "s"
+        },
+        {
+          "wrong": "then",
+          "right": "them",
+          "type": "s"
+        },
+        {
+          "wrong": "deserve",
+          "right": "deserves",
+          "type": "j"
+        },
+        {
+          "wrong": "Its",
+          "right": "It's",
+          "type": "j"
+        }
+      ],
+      "facts": [
+        "20 July 2025",
+        "1,646 metres",
+        "3:30 a.m.",
+        "₹6,500",
+        "6 km",
+        "900 metres",
+        "₹100",
+        "10:15 a.m.",
+        "₹300",
+        "₹800",
+        "₹1,000",
+        "9 p.m."
+      ]
+    },
+    {
+      "file": "blog/sourdough-bengaluru.docx",
+      "preset": "blog",
+      "format": "docx",
+      "words": 1166,
+      "errors": {
+        "safe": 6,
+        "judgment": 6
+      },
+      "answers": [
+        {
+          "wrong": "teh",
+          "right": "the",
+          "type": "s"
+        },
+        {
+          "wrong": "teh",
+          "right": "the",
+          "type": "s"
+        },
+        {
+          "wrong": "form",
+          "right": "forms",
+          "type": "j"
+        },
+        {
+          "wrong": "a",
+          "right": "an",
+          "type": "s"
+        },
+        {
+          "wrong": "has",
+          "right": "have",
+          "type": "j"
+        },
+        {
+          "wrong": "an",
+          "right": "a",
+          "type": "s"
+        },
+        {
+          "wrong": "fourty",
+          "right": "forty",
+          "type": "s"
+        },
+        {
+          "wrong": "and and",
+          "right": "and",
+          "type": "s"
+        },
+        {
+          "wrong": "weather",
+          "right": "whether",
+          "type": "j"
+        },
+        {
+          "wrong": "go",
+          "right": "goes",
+          "type": "j"
+        },
+        {
+          "wrong": "its",
+          "right": "it's",
+          "type": "j"
+        },
+        {
+          "wrong": "than",
+          "right": "that",
+          "type": "j"
+        }
+      ],
+      "facts": [
+        "20 °C",
+        "26 °C",
+        "31 °C",
+        "80%",
+        "20%",
+        "₹180",
+        "42-litre",
+        "₹9,500",
+        "₹2,200",
+        "₹220",
+        "₹320",
+        "₹1,760"
+      ]
+    },
+    {
+      "file": "blog/sunday-market-pune.md",
+      "preset": "blog",
+      "format": "md",
+      "words": 1178,
+      "errors": {
+        "safe": 7,
+        "judgment": 5
+      },
+      "answers": [
+        {
+          "wrong": "around around",
+          "right": "around",
+          "type": "s"
+        },
+        {
+          "wrong": "the the",
+          "right": "the",
+          "type": "s"
+        },
+        {
+          "wrong": "is",
+          "right": "are",
+          "type": "j"
+        },
+        {
+          "wrong": "varies",
+          "right": "vary",
+          "type": "j"
+        },
+        {
+          "wrong": "breakfst",
+          "right": "breakfast",
+          "type": "s"
+        },
+        {
+          "wrong": "teh",
+          "right": "the",
+          "type": "s"
+        },
+        {
+          "wrong": "over over",
+          "right": "over",
+          "type": "s"
+        },
+        {
+          "wrong": "emptier",
+          "right": "emptier than before",
+          "type": "j"
+        },
+        {
+          "wrong": "  ",
+          "right": " ",
+          "type": "s"
+        },
+        {
+          "wrong": "has",
+          "right": "have",
+          "type": "j"
+        },
+        {
+          "wrong": "is",
+          "right": "are",
+          "type": "j"
+        },
+        {
+          "wrong": "teh",
+          "right": "the",
+          "type": "s"
+        }
+      ],
+      "facts": [
+        "₹10",
+        "12 October 2025",
+        "₹40",
+        "₹35",
+        "₹30",
+        "₹15",
+        "₹120",
+        "1994",
+        "2018"
+      ]
+    },
+    {
+      "file": "script/gst-explainer-video.docx",
+      "preset": "script",
+      "format": "docx",
+      "words": 1157,
+      "errors": {
+        "safe": 6,
+        "judgment": 6
+      },
+      "answers": [
+        {
+          "wrong": "Lets",
+          "right": "Let's",
+          "type": "j"
+        },
+        {
+          "wrong": "add",
+          "right": "added",
+          "type": "j"
+        },
+        {
+          "wrong": "an",
+          "right": "a",
+          "type": "s"
+        },
+        {
+          "wrong": "three three",
+          "right": "three",
+          "type": "s"
+        },
+        {
+          "wrong": "an",
+          "right": "a",
+          "type": "s"
+        },
+        {
+          "wrong": "spends",
+          "right": "spend",
+          "type": "j"
+        },
+        {
+          "wrong": "you're",
+          "right": "your",
+          "type": "j"
+        },
+        {
+          "wrong": "an",
+          "right": "and",
+          "type": "s"
+        },
+        {
+          "wrong": "quickly quickly",
+          "right": "quickly",
+          "type": "s"
+        },
+        {
+          "wrong": "gotten",
+          "right": "got",
+          "type": "j"
+        },
+        {
+          "wrong": "  ",
+          "right": " ",
+          "type": "s"
+        },
+        {
+          "wrong": "bears",
+          "right": "bear",
+          "type": "j"
+        }
+      ],
+      "facts": [
+        "18 September 2025",
+        "1 July 2017",
+        "18%",
+        "9%",
+        "3 September 2025",
+        "5%",
+        "28%",
+        "₹40 lakh",
+        "₹20 lakh",
+        "₹1.5 crore",
+        "₹1,240",
+        "2.5%",
+        "₹31",
+        "₹1,302",
+        "July 2022",
+        "CA Prakash Menon"
+      ]
+    },
+    {
+      "file": "script/podcast-founders-ep12.md",
+      "preset": "script",
+      "format": "md",
+      "words": 1267,
+      "errors": {
+        "safe": 7,
+        "judgment": 6
+      },
+      "answers": [
+        {
+          "wrong": "teh",
+          "right": "the",
+          "type": "s"
+        },
+        {
+          "wrong": "happen",
+          "right": "happened",
+          "type": "j"
+        },
+        {
+          "wrong": "was",
+          "right": "were",
+          "type": "j"
+        },
+        {
+          "wrong": "an",
+          "right": "a",
+          "type": "s"
+        },
+        {
+          "wrong": "do do",
+          "right": "do",
+          "type": "s"
+        },
+        {
+          "wrong": "was was",
+          "right": "was",
+          "type": "s"
+        },
+        {
+          "wrong": "of of",
+          "right": "of",
+          "type": "s"
+        },
+        {
+          "wrong": "are",
+          "right": "our",
+          "type": "j"
+        },
+        {
+          "wrong": "it's",
+          "right": "its",
+          "type": "j"
+        },
+        {
+          "wrong": "an",
+          "right": "a",
+          "type": "s"
+        },
+        {
+          "wrong": "are",
+          "right": "is",
+          "type": "j"
+        },
+        {
+          "wrong": "then",
+          "right": "than",
+          "type": "j"
+        },
+        {
+          "wrong": "didnt",
+          "right": "didn't",
+          "type": "s"
+        }
+      ],
+      "facts": [
+        "Ms. Nandini Joshi",
+        "2019",
+        "2020",
+        "100 societies",
+        "₹1,500",
+        "March 2022",
+        "640 societies",
+        "85,000 farmers",
+        "Mr. Shivaji Patil",
+        "2021",
+        "₹10 lakh",
+        "4 August 2025",
+        "Rahul Menon",
+        "42 minutes"
+      ]
+    },
+    {
+      "file": "script/product-launch-keynote.md",
+      "preset": "script",
+      "format": "md",
+      "words": 1163,
+      "errors": {
+        "safe": 7,
+        "judgment": 5
+      },
+      "answers": [
+        {
+          "wrong": "you're",
+          "right": "your",
+          "type": "j"
+        },
+        {
+          "wrong": "do do",
+          "right": "do",
+          "type": "s"
+        },
+        {
+          "wrong": "wants",
+          "right": "want",
+          "type": "j"
+        },
+        {
+          "wrong": "need",
+          "right": "needs",
+          "type": "j"
+        },
+        {
+          "wrong": "that that",
+          "right": "that",
+          "type": "s"
+        },
+        {
+          "wrong": "an",
+          "right": "a",
+          "type": "s"
+        },
+        {
+          "wrong": "founded",
+          "right": "found",
+          "type": "j"
+        },
+        {
+          "wrong": "didnt",
+          "right": "didn't",
+          "type": "s"
+        },
+        {
+          "wrong": "fro",
+          "right": "for",
+          "type": "s"
+        },
+        {
+          "wrong": "an",
+          "right": "a",
+          "type": "s"
+        },
+        {
+          "wrong": "build",
+          "right": "built",
+          "type": "j"
+        },
+        {
+          "wrong": "teh",
+          "right": "the",
+          "type": "s"
+        }
+      ],
+      "facts": [
+        "Dr. Vandana Rao",
+        "26 February 2026",
+        "₹40,000",
+        "1,200 farmers",
+        "Dr. Kiran Kumar",
+        "ICRISAT",
+        "23%",
+        "18%",
+        "14%",
+        "91%",
+        "₹50,000",
+        "₹2,00,000",
+        "₹3,499",
+        "₹499",
+        "NABARD",
+        "12 districts",
+        "2026",
+        "50,000 farmers",
+        "2028",
+        "24 February 2026",
+        "14 minutes 20 seconds"
+      ]
+    },
+    {
+      "file": "script/short-film-chai-stall.docx",
+      "preset": "script",
+      "format": "docx",
+      "words": 1108,
+      "errors": {
+        "safe": 6,
+        "judgment": 5
+      },
+      "answers": [
+        {
+          "wrong": "teh",
+          "right": "the",
+          "type": "s"
+        },
+        {
+          "wrong": "are",
+          "right": "is",
+          "type": "j"
+        },
+        {
+          "wrong": "likes",
+          "right": "like",
+          "type": "j"
+        },
+        {
+          "wrong": "the the",
+          "right": "the",
+          "type": "s"
+        },
+        {
+          "wrong": "drifts",
+          "right": "drift",
+          "type": "j"
+        },
+        {
+          "wrong": "everyday",
+          "right": "every day",
+          "type": "j"
+        },
+        {
+          "wrong": "An",
+          "right": "A",
+          "type": "s"
+        },
+        {
+          "wrong": "  ",
+          "right": " ",
+          "type": "s"
+        },
+        {
+          "wrong": "its",
+          "right": "it's",
+          "type": "j"
+        },
+        {
+          "wrong": "teh",
+          "right": "the",
+          "type": "s"
+        },
+        {
+          "wrong": "a",
+          "right": "an",
+          "type": "s"
+        }
+      ],
+      "facts": [
+        "2 November 2025",
+        "1998",
+        "2,84,000",
+        "Mr. A. K. Tiwari",
+        "5 a.m.",
+        "8 a.m.",
+        "₹35,000",
+        "20 November 2025"
+      ]
+    },
+    {
+      "file": "script/wedding-toast.md",
+      "preset": "script",
+      "format": "md",
+      "words": 1067,
+      "errors": {
+        "safe": 5,
+        "judgment": 6
+      },
+      "answers": [
+        {
+          "wrong": "Its",
+          "right": "It's",
+          "type": "j"
+        },
+        {
+          "wrong": "teh",
+          "right": "the",
+          "type": "s"
+        },
+        {
+          "wrong": "an",
+          "right": "a",
+          "type": "s"
+        },
+        {
+          "wrong": "the the",
+          "right": "the",
+          "type": "s"
+        },
+        {
+          "wrong": "was",
+          "right": "had",
+          "type": "j"
+        },
+        {
+          "wrong": "were",
+          "right": "was",
+          "type": "j"
+        },
+        {
+          "wrong": "Indain",
+          "right": "Indian",
+          "type": "s"
+        },
+        {
+          "wrong": "rebuilt",
+          "right": "rebuild",
+          "type": "j"
+        },
+        {
+          "wrong": "look",
+          "right": "looks",
+          "type": "j"
+        },
+        {
+          "wrong": "then",
+          "right": "than",
+          "type": "j"
+        },
+        {
+          "wrong": "teh",
+          "right": "the",
+          "type": "s"
+        }
+      ],
+      "facts": [
+        "14 December 2025",
+        "Mrs. D'Souza",
+        "Mr. and Mrs. Qureshi",
+        "Dr. Sanjay Kapoor",
+        "2012",
+        "2019",
+        "38 years",
+        "10 December 2025",
+        "6 minutes 40 seconds"
+      ]
+    },
+    {
+      "file": "business/board-update-fy25.md",
+      "preset": "business",
+      "format": "md",
+      "words": 1022,
+      "errors": {
+        "safe": 5,
+        "judgment": 5
+      },
+      "answers": [
+        {
+          "wrong": "this this",
+          "right": "this",
+          "type": "s"
+        },
+        {
+          "wrong": "were",
+          "right": "was",
+          "type": "j"
+        },
+        {
+          "wrong": "are",
+          "right": "our",
+          "type": "j"
+        },
+        {
+          "wrong": "are",
+          "right": "is",
+          "type": "j"
+        },
+        {
+          "wrong": "reducing reducing",
+          "right": "reducing",
+          "type": "s"
+        },
+        {
+          "wrong": "well well",
+          "right": "well",
+          "type": "s"
+        },
+        {
+          "wrong": "teh",
+          "right": "the",
+          "type": "s"
+        },
+        {
+          "wrong": "increases",
+          "right": "increase",
+          "type": "j"
+        },
+        {
+          "wrong": "an",
+          "right": "a",
+          "type": "s"
+        },
+        {
+          "wrong": "it's",
+          "right": "its",
+          "type": "j"
+        }
+      ],
+      "facts": [
+        "Mr. Arun Iyer",
+        "28 October 2025",
+        "1 April 2025",
+        "30 September 2025",
+        "₹186.4 crore",
+        "12.8%",
+        "₹21.3 crore",
+        "11.4%",
+        "9.7%",
+        "₹9.8 crore",
+        "₹6.1 crore",
+        "₹42 crore",
+        "₹31 crore",
+        "₹104 crore",
+        "16%",
+        "7.2%",
+        "9%",
+        "₹58 crore",
+        "₹24.4 crore",
+        "14 August 2025",
+        "55%",
+        "₹38.5 crore",
+        "₹40 crore",
+        "42 new distributors",
+        "24%",
+        "68",
+        "59",
+        "41",
+        "Ms. Radhika Sen",
+        "Mr. Farhan Ali",
+        "38 FPOs",
+        "21,000 farmers",
+        "4.6%",
+        "2025",
+        "31 March 2026",
+        "₹385 crore",
+        "₹372 crore",
+        "11%",
+        "₹46 crore",
+        "₹2 per share"
+      ]
+    },
+    {
+      "file": "business/cloud-migration-proposal.docx",
+      "preset": "business",
+      "format": "docx",
+      "words": 1101,
+      "errors": {
+        "safe": 7,
+        "judgment": 4
+      },
+      "answers": [
+        {
+          "wrong": "teh",
+          "right": "the",
+          "type": "s"
+        },
+        {
+          "wrong": "an",
+          "right": "a",
+          "type": "s"
+        },
+        {
+          "wrong": "teh",
+          "right": "the",
+          "type": "s"
+        },
+        {
+          "wrong": "extends",
+          "right": "extend",
+          "type": "j"
+        },
+        {
+          "wrong": "be be",
+          "right": "be",
+          "type": "s"
+        },
+        {
+          "wrong": "teh",
+          "right": "the",
+          "type": "s"
+        },
+        {
+          "wrong": "of",
+          "right": "off",
+          "type": "j"
+        },
+        {
+          "wrong": "sees",
+          "right": "see",
+          "type": "j"
+        },
+        {
+          "wrong": "an",
+          "right": "a",
+          "type": "s"
+        },
+        {
+          "wrong": "on on",
+          "right": "on",
+          "type": "s"
+        },
+        {
+          "wrong": "you",
+          "right": "your",
+          "type": "j"
+        }
+      ],
+      "facts": [
+        "Mr. Rakesh Agarwal",
+        "22 August 2025",
+        "30 June 2025",
+        "11 August 2025",
+        "March 2026",
+        "14 hours",
+        "Reserve Bank of India",
+        "18 lakh",
+        "15 minutes",
+        "2 hours",
+        "90 days",
+        "42 weeks",
+        "May 2026",
+        "Ms. Shalini Menon",
+        "14 people",
+        "₹22 lakh",
+        "₹26 lakh",
+        "₹31 lakh",
+        "₹60 lakh",
+        "₹1 crore",
+        "10%",
+        "120 hours",
+        "2019",
+        "30 September 2025",
+        "6 October 2025",
+        "60 days"
+      ]
+    },
+    {
+      "file": "business/hybrid-work-policy.md",
+      "preset": "business",
+      "format": "md",
+      "words": 1107,
+      "errors": {
+        "safe": 6,
+        "judgment": 4
+      },
+      "answers": [
+        {
+          "wrong": "are",
+          "right": "is",
+          "type": "j"
+        },
+        {
+          "wrong": "there",
+          "right": "their",
+          "type": "j"
+        },
+        {
+          "wrong": "on on",
+          "right": "on",
+          "type": "s"
+        },
+        {
+          "wrong": "too",
+          "right": "to",
+          "type": "j"
+        },
+        {
+          "wrong": "confortable",
+          "right": "comfortable",
+          "type": "s"
+        },
+        {
+          "wrong": "a",
+          "right": "an",
+          "type": "s"
+        },
+        {
+          "wrong": "may",
+          "right": "may,",
+          "type": "j"
+        },
+        {
+          "wrong": "busy busy",
+          "right": "busy",
+          "type": "s"
+        },
+        {
+          "wrong": "teh",
+          "right": "the",
+          "type": "s"
+        },
+        {
+          "wrong": "six six",
+          "right": "six",
+          "type": "s"
+        }
+      ],
+      "facts": [
+        "Mr. Vivek Chandra",
+        "1 November 2025",
+        "March 2022",
+        "three days",
+        "15 October 2025",
+        "10:30 a.m.",
+        "4:30 p.m.",
+        "15 working days",
+        "₹1,200",
+        "₹10,000",
+        "48 hours",
+        "10 working days",
+        "six months"
+      ]
+    },
+    {
+      "file": "business/payments-incident-postmortem.md",
+      "preset": "business",
+      "format": "md",
+      "words": 1022,
+      "errors": {
+        "safe": 5,
+        "judgment": 5
+      },
+      "answers": [
+        {
+          "wrong": "impacts",
+          "right": "impact",
+          "type": "j"
+        },
+        {
+          "wrong": "were",
+          "right": "was",
+          "type": "j"
+        },
+        {
+          "wrong": "it's",
+          "right": "its",
+          "type": "j"
+        },
+        {
+          "wrong": "rolled rolled",
+          "right": "rolled",
+          "type": "s"
+        },
+        {
+          "wrong": "becuase",
+          "right": "because",
+          "type": "s"
+        },
+        {
+          "wrong": "fifteen",
+          "right": "sixteen",
+          "type": "j"
+        },
+        {
+          "wrong": "teh",
+          "right": "the",
+          "type": "s"
+        },
+        {
+          "wrong": "a",
+          "right": "an",
+          "type": "s"
+        },
+        {
+          "wrong": "affects",
+          "right": "effects",
+          "type": "j"
+        },
+        {
+          "wrong": "that that",
+          "right": "that",
+          "type": "s"
+        }
+      ],
+      "facts": [
+        "Dr. Nikhil Bansal",
+        "19 September 2025",
+        "17 September 2025",
+        "19:42",
+        "21:08",
+        "38%",
+        "2,14,000",
+        "₹9.6 crore",
+        "3,100",
+        "19:35",
+        "400",
+        "40",
+        "20 September 2025",
+        "11,800",
+        "Ms. Tanvi Shah",
+        "21:20",
+        "5%",
+        "19:30"
+      ]
+    },
+    {
+      "file": "business/q3-sales-review.docx",
+      "preset": "business",
+      "format": "docx",
+      "words": 1005,
+      "errors": {
+        "safe": 4,
+        "judgment": 6
+      },
+      "answers": [
+        {
+          "wrong": "was",
+          "right": "were",
+          "type": "j"
+        },
+        {
+          "wrong": "reflect",
+          "right": "reflects",
+          "type": "j"
+        },
+        {
+          "wrong": "  ",
+          "right": " ",
+          "type": "s"
+        },
+        {
+          "wrong": "a",
+          "right": "an",
+          "type": "s"
+        },
+        {
+          "wrong": "steady steady",
+          "right": "steady",
+          "type": "s"
+        },
+        {
+          "wrong": "are",
+          "right": "are now",
+          "type": "j"
+        },
+        {
+          "wrong": "performs",
+          "right": "performed",
+          "type": "j"
+        },
+        {
+          "wrong": "then",
+          "right": "than",
+          "type": "j"
+        },
+        {
+          "wrong": "an",
+          "right": "a",
+          "type": "s"
+        },
+        {
+          "wrong": "there",
+          "right": "their",
+          "type": "j"
+        }
+      ],
+      "facts": [
+        "Ms. Aparna Kulkarni",
+        "8 October 2025",
+        "₹48.6 crore",
+        "6.2%",
+        "3.8%",
+        "₹50.5 crore",
+        "31.4%",
+        "29.9%",
+        "38 days",
+        "1%",
+        "14%",
+        "12 August",
+        "2 September",
+        "₹2.1 crore",
+        "27%",
+        "22%",
+        "9%",
+        "2%",
+        "150 retailers",
+        "7%",
+        "4%",
+        "July 2025",
+        "₹149",
+        "400 g",
+        "11%",
+        "8%",
+        "1.2 percentage points",
+        "1.9%",
+        "1.4%",
+        "64",
+        "48",
+        "4 people",
+        "Mr. Hitesh Shah",
+        "Mr. Sachin More",
+        "₹54 crore",
+        "40 more",
+        "₹45 lakh"
+      ]
+    }
+  ]
+}

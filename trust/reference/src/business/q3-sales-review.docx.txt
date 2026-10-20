@@ -1,0 +1,77 @@
+# Q3 FY2025-26 Sales Review: West Region
+
+**Prepared by:** [[Ms. Aparna Kulkarni]], Regional Sales Manager, West. **For:** National Sales Leadership Team. **Date:** [[8 October 2025]].
+
+## 1. Summary
+
+The West region closed the third quarter (July to September) with net sales of [[₹48.6 crore]], which is [[6.2%]] above the same quarter last year but [[3.8%]] below our quarterly target of [[₹50.5 crore]]. The shortfall came almost entirely from Gujarat, where heavy rains in August disrupted distribution for nearly three weeks. Maharashtra and Goa together {{was|were|j}} slightly ahead of target.
+
+Gross margin improved to [[31.4%]] from [[29.9%]] a year ago, helped by a better product mix and lower freight costs after we consolidated two warehouses near Bhiwandi. Collections were strong, with days sales outstanding falling to [[38 days]], the lowest level in two years.
+
+The key message for leadership is that the underlying demand remains healthy. With normal conditions in Gujarat, we expect to recover most of the gap in Q4 and finish the year within [[1%]] of the annual target.
+
+## 2. Performance by State
+
+| State | Q3 Target (₹ cr) | Q3 Actual (₹ cr) | vs Target | vs Last Year |
+|---|---|---|---|---|
+| Maharashtra | 27.0 | 27.8 | +3.0% | +8.1% |
+| Gujarat | 18.5 | 15.9 | -14.1% | -1.2% |
+| Goa | 5.0 | 4.9 | -2.0% | +9.6% |
+| Total | 50.5 | 48.6 | -3.8% | +6.2% |
+
+### Maharashtra
+
+Maharashtra had its best quarter since the region was formed. Mumbai and Pune drove most of the growth, especially in the modern trade channel, where sales grew [[14%]] after we launched our new range of ready-to-cook products in two large supermarket chains. Nagpur and Nashik were flat, which {{reflect|reflects|j}} weaker rural demand after a late monsoon.
+
+The distributor network is in good{{  | |s}}shape. We appointed three new distributors in Marathwada during the quarter, and early orders have been encouraging. **Credit discipline remains strong**: no distributor in Maharashtra is more than 60 days overdue.
+
+### Gujarat
+
+Gujarat was the main disappointment. Heavy rainfall between [[12 August]] and [[2 September]] closed roads in Saurashtra and disrupted our main depot in Rajkot for eleven days. Several retailers in the affected districts reduced orders, and some shifted to local brands that could still deliver. We estimate that the floods cost us about [[₹2.1 crore]] in lost sales.
+
+Outside the flood-affected areas, performance was mixed. Ahmedabad was on target, but Surat fell short because of {{a|an|s}} pricing dispute with our largest distributor there. The dispute has since been resolved, and normal supply resumed in the last week of September.
+
+### Goa
+
+Goa remained {{steady steady|steady|s}}. Tourist-season stocking began earlier than usual, which helped September sales. We are slightly behind target, but the gap is small and should close in Q4, which is the peak season.
+
+## 3. Channel Mix
+
+Modern trade continued to grow faster than general trade. It now accounts for [[27%]] of regional sales, up from [[22%]] a year ago. E-commerce and quick commerce together contributed [[9%]], with quick commerce platforms in Mumbai and Pune growing especially fast.
+
+General trade, which still makes up nearly two thirds of our sales, grew by just [[2%]]. Many small retailers {{are|are now|j}} buying more often in smaller quantities, which increases our servicing costs. We are piloting a weekly order app with [[150 retailers]] in Pune to make small orders cheaper to process. Early results will be shared in the Q4 review.
+
+## 4. Product Performance
+
+Our core product lines {{performs|performed|j}} well. Spices and masalas grew [[7%]], led by the premium range, and the ready-to-cook segment grew [[22%]] from a small base. Packaged snacks were weak, down [[4%]], as competition from regional brands intensified and we chose not to match their discounts.
+
+The new millet-based breakfast range, launched in [[July 2025]], has had a slower start {{then|than|j}} planned. Trial rates are good, but repeat purchases are low. Feedback from retailers suggests that the price point of [[₹149]] for a [[400 g]] pack is too high for most of our customers. Marketing is reviewing whether to introduce a smaller pack at a lower price.
+
+## 5. Costs and Margins
+
+Freight costs fell by [[11%]] compared with last year, mainly because of the warehouse consolidation and better route planning. Trade promotion spending rose by [[8%]], driven by the modern trade launches. Overall, the region's contribution margin improved by [[1.2 percentage points]].
+
+One area of concern is the rising cost of returns. Expired and damaged stock returned by retailers rose to [[1.9%]] of sales, from [[1.4%]] last year, largely due to the Gujarat disruption. We are working with distributors to improve stock rotation and will report on progress next quarter.
+
+## 6. Team
+
+The regional team has {{an|a|s}} headcount of [[64]], including [[48]] field sales staff. Attrition in the quarter was [[4 people]], all in field sales, which is lower than the national average. We filled all four positions within six weeks.
+
+Two of our area managers, [[Mr. Hitesh Shah]] (Gujarat) and [[Mr. Sachin More]] (Pune), completed the company's leadership programme in September. Both have taken on additional responsibilities for the Q4 push.
+
+## 7. Outlook and Actions for Q4
+
+We expect Q4 net sales of about [[₹54 crore]], which would bring the full-year total to within [[1%]] of target. To get there, we will focus on four actions:
+
+- Recover lost distribution in Saurashtra by offering affected retailers a one-time stocking incentive.
+- Expand the ready-to-cook range to [[40 more]] modern trade stores in Mumbai and Ahmedabad.
+- Introduce a smaller, lower-priced pack of the millet breakfast range, subject to marketing approval.
+- Accelerate the weekly order app pilot in Pune and extend it to Surat by December.
+
+## 8. Support Needed from Leadership
+
+We request approval for two items. First, a stocking incentive budget of [[₹45 lakh]] for Saurashtra retailers, to be spent in October and November. Second, faster approval of the smaller millet pack, since the festive season is the best time to launch it.
+
+We would also welcome guidance on the national quick commerce strategy. Our teams are receiving requests from {{there|their|j}} platform contacts for exclusive launches, and we need a consistent policy across regions.
+
+*Questions about this report can be sent to the regional sales office in Pune. The detailed district-level data is available in the shared folder.*

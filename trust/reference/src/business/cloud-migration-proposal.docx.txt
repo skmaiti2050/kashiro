@@ -1,0 +1,81 @@
+# Proposal: Migration of Core Lending Systems to a Managed Cloud Platform
+
+**To:** [[Mr. Rakesh Agarwal]], Chief Technology Officer, Sahyog Small Finance Bank. **From:** Delivery Team, Northstar Technology Services. **Date:** [[22 August 2025]]. **Reference:** NTS/PROP/2025/117.
+
+## 1. Purpose
+
+This proposal sets out our approach, timeline, and commercial terms for migrating Sahyog Small Finance Bank's loan origination and loan management systems from the current on-premises data centre in Thane to a managed cloud platform hosted in India. It responds to the bank's request for proposal dated [[30 June 2025]] and incorporates the clarifications discussed with your team on [[11 August 2025]].
+
+## 2. Background
+
+The bank's lending systems currently run on ageing servers that reach end of support in [[March 2026]]. During the review meetings, your team highlighted three main problems: slow month-end processing, which now takes up to [[14 hours]]; limited ability to scale during peak disbursement periods; and the high cost of maintaining a secondary data centre for disaster recovery.
+
+At the same time, the bank must continue to meet the [[Reserve Bank of India]]'s requirements on outsourcing, data localisation and cyber security. Any migration has to keep all customer data within India, maintain full audit trails and allow the bank's own teams and regulators to inspect the environment at any time.
+
+## 3. Scope of Work
+
+Our proposal covers {{teh|the|s}} following:
+
+- Assessment of the current loan origination and loan management systems, including all integrations with the core banking system, credit bureaus and payment gateways.
+- Design of the target architecture on a cloud platform with data centres in Mumbai and Hyderabad.
+- Migration of applications, databases and historical data covering approximately [[18 lakh]] loan accounts.
+- Setup of disaster recovery across two cloud regions, with a recovery point objective of [[15 minutes]] and a recovery time objective of [[2 hours]].
+- Security controls, including encryption, identity management, logging, and monitoring aligned with the bank's information security policy.
+- Testing, cut-over planning and support for [[90 days]] after go-live.
+
+Out of scope are changes to business functionality, the core banking system itself and the bank's mobile app, except where small changes are needed to connect them to the migrated systems.
+
+## 4. Approach
+
+We propose {{an|a|s}} phased migration in four stages, so that the bank never has to take a single large risk.
+
+**Phase 1: Assess and plan (6 weeks).** We will document every application, database, integration and batch job, and agree the migration sequence with your team. This phase ends with a detailed migration plan that the bank's architecture board must approve before we proceed.
+
+**Phase 2: Build the landing zone (8 weeks).** We will set up the cloud accounts, networks, security controls and monitoring, following the bank's policies and the regulator's guidelines. Your information security team will review and sign off {{teh|the|s}} environment before any data is moved.
+
+**Phase 3: Migrate in waves (16 weeks).** Applications will move in three waves, starting with non-critical reporting systems and ending with loan management. Each wave includes a full rehearsal in a test environment, a parallel run of at least two weeks, and a formal go or no-go decision by the bank.
+
+**Phase 4: Stabilise and hand over (12 weeks).** After the final cut-over, our team will stay on site to monitor performance, fix issues and train the bank's operations staff. We will hand over runbooks, architecture documents and all access credentials at the end of this phase.
+
+The total timeline is approximately [[42 weeks]], which means the final cut-over would happen in [[May 2026]], two months after the end of support for the current servers. To cover this gap, we recommend that the bank {{extends|extend|j}} its current hardware support contract by three months as a precaution.
+
+## 5. Team
+
+The engagement will {{be be|be|s}} led by [[Ms. Shalini Menon]], our Director of Cloud Delivery, who has led eleven banking migrations in India. She will be supported by a solution architect, two cloud engineers, a database specialist, a security lead and a test manager. At peak, the team will have [[14 people]], of whom at least eight will work from the bank's office in Thane.
+
+## 6. Commercial Proposal
+
+Our fees are summarised below. All amounts exclude GST.
+
+| Item | Amount (₹) |
+|---|---|
+| Phase 1: Assess and plan | 38,00,000 |
+| Phase 2: Landing zone | 62,00,000 |
+| Phase 3: Migration | 1,45,00,000 |
+| Phase 4: Stabilise and hand over | 55,00,000 |
+| Total professional fees | 3,00,00,000 |
+
+Cloud infrastructure will be billed directly by the cloud provider to the bank. Based on current usage, we estimate the running cost at [[₹22 lakh]] to [[₹26 lakh]] per month, compared with the bank's current data centre cost of about [[₹31 lakh]] per month, including power, space, hardware depreciation and the disaster recovery site. We expect the bank to save between [[₹60 lakh]] and [[₹1 crore]] a year once the old data centre is closed.
+
+Fees will be invoiced at {{teh|the|s}} end of each phase, after the bank signs {{of|off|j}} on the phase deliverables. We propose that [[10%]] of each invoice be held back until the end of the stabilisation period, as a guarantee of quality.
+
+## 7. Risks and Mitigations
+
+The main risks we {{sees|see|j}} are:
+
+- **Data migration errors.** We will reconcile every migrated account against the source system, comparing balances, schedules, and transaction histories, and the bank will approve the reconciliation report before each cut-over.
+- **Integration failures.** Several third-party systems connect to the lending platform. We will test each integration in the rehearsal environment and agree fallback plans with each vendor.
+- **Regulatory concerns.** We will prepare the documents the bank needs for its board and for any regulatory inspection, including a risk assessment and an exit plan in case the bank later decides to change provider.
+- **Staff readiness.** The bank's operations team will need new skills. Our plan includes [[120 hours]] of training and a shadowing period during which your staff run the system with our support.
+
+## 8. Why Northstar
+
+We have completed eleven cloud migrations for regulated financial institutions in India since [[2019]], including two small finance banks and a large housing finance company. None of these migrations led to {{an|a|s}} unplanned outage of more than thirty minutes. References are available {{on on|on|s}} request, and we would be happy to arrange calls with the CTOs of two of our banking clients.
+
+## 9. Next Steps
+
+If the bank wishes to proceed, we suggest a workshop in the first week of September to confirm the scope and timeline, followed by contract signature by [[30 September 2025]]. Phase 1 could then start on [[6 October 2025]].
+
+This proposal is valid for [[60 days]] from the date above. We look forward to {{you|your|j}} feedback.
+
+*Contact: [[Ms. Shalini Menon]], Director of Cloud Delivery, Northstar Technology Services, Bengaluru.*

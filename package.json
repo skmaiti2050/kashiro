@@ -10,7 +10,9 @@
     "preview": "vite preview",
     "test": "vitest run",
     "check-file": "tsx cli/check-file.ts",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "trust": "tsx trust/run_trust.ts",
+    "trust:reference": "tsx trust/build_reference.ts"
   },
   "dependencies": {
     "@codemirror/state": "^6.7.6",

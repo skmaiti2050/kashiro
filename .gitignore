@@ -5,3 +5,6 @@ src-tauri/target/
 src-tauri/binaries/
 *.log
 .vscode/
+trust/corpus/
+trust/out/
+__pycache__/
