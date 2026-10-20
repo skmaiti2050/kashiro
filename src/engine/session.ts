@@ -16,12 +16,14 @@ import {
   type Status,
 } from './sessionTypes';
 import type { RulesLinter } from './linter';
-import type { Candidate, Paragraph, Tier, Variant } from './types';
+import type { Candidate, Paragraph, Span, Tier, Variant } from './types';
 
 // Public paths stay `engine/session`; the types live in sessionTypes.ts.
 export { TRACKED_CHANGE_REASON, type CheckOptions, type Edit, type LogEntry, type Outcome, type SessionDeps, type Status };
 
 const TOP = 10;
+
+const sentenceKey = (paraId: number, span: Span) => `${paraId}:${span.start}-${span.end}`;
 
 
 export class CheckSession {
@@ -35,6 +37,8 @@ export class CheckSession {
   private readonly added: string[] = [];
   /** Lowercased words the user unticked on the names card: real typos, ranked as words. */
   private readonly typoWords = new Set<string>();
+  /** Sentences already sent to the LLM helper, as sentenceKey(paraId, span). */
+  private readonly sentToHelperKeys = new Set<string>();
 
   private constructor(
     paras: Paragraph[],
@@ -63,6 +67,16 @@ export class CheckSession {
 
   candidates(): Candidate[] {
     return [...this.cands.values()];
+  }
+
+  /** The paragraphs as given to start(), in document order. */
+  paragraphs(): Paragraph[] {
+    return [...this.paras.values()].map((p) => ({ ...p }));
+  }
+
+  /** True once addRewrite recorded this sentence, whatever the helper answered. */
+  sentToHelper(paraId: number, span: Span): boolean {
+    return this.sentToHelperKeys.has(sentenceKey(paraId, span));
   }
 
   tier(id: string): Tier {
@@ -279,6 +293,33 @@ export class CheckSession {
         if (this.tiers.get(c.id) === 'safe') this.tiers.set(c.id, 'review');
       }
     }
+  }
+
+  /**
+   * Records that the LLM helper saw the sentence at `span` (so it is not sent again). A `rewrite`,
+   * which the caller has passed through the meaning-drift guard, becomes a pending review-tier
+   * candidate (source 'llm', kind 'Rewrite') replacing the whole original sentence; null adds nothing.
+   */
+  addRewrite(paraId: number, span: Span, rewrite: string | null): void {
+    const p = this.paras.get(paraId);
+    if (!p) throw new Error(`unknown paragraph ${paraId}`);
+    if (span.start < 0 || span.end > p.text.length || span.start >= span.end) {
+      throw new Error(`span ${span.start}-${span.end} is not inside paragraph ${paraId}`);
+    }
+    this.sentToHelperKeys.add(sentenceKey(paraId, span));
+    if (rewrite === null) return;
+    this.addCandidates([
+      {
+        id: `llm:${sentenceKey(paraId, span)}`,
+        paraId,
+        span: { ...span },
+        original: p.text.slice(span.start, span.end),
+        replacements: [rewrite],
+        kind: 'Rewrite',
+        message: 'Suggested rewrite of the sentence. Check the meaning before accepting.',
+        source: 'llm',
+      },
+    ]);
   }
 
   /** The adapter could not write this edit into the document: it leaves the output. */

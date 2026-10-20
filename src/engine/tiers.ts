@@ -23,8 +23,8 @@ export interface TierContext {
 
 const SAFE_RULE_KINDS = new Set(['Spelling', 'Typo', 'Repetition', 'Punctuation', 'Capitalization', 'Formatting']);
 
-/** Words after which an a/an swap is likely the wrong fix ("an there was" is a typo of "and there was"). */
-const FUNCTION_WORDS = new Set(
+/** Function words (pronouns, articles, auxiliaries, prepositions…). After one, an a/an swap is likely the wrong fix ("an there was" is a typo of "and there was"); the LLM guard ignores them when comparing content words. */
+export const FUNCTION_WORDS = new Set(
   (
     'i you he she it we they me him her us them my your his its our their mine yours ours theirs ' +
     'this that these those who whom whose what which when where why how there here ' +

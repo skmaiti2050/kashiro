@@ -64,7 +64,8 @@ const ABBREVIATIONS = new Set([
 /**
  * True when the '.' at `dot` closes an abbreviation, given the next word starts at `next`:
  * one of ABBREVIATIONS ("Dr.", not "hello."); "No." (case-sensitive) only before a digit ("No. 5");
- * a single capital initial ("K.") only before a capitalised word ("R. K. Narayan", not "Plan B. the").
+ * a single capital initial ("K.") only before a capitalised word ("R. K. Narayan", not "Plan B. the"),
+ * and not right after a digit or degree sign ("234C. The", "26 °C. My").
  */
 function endsAbbreviation(text: string, dot: number, next: number): boolean {
   let k = dot;
@@ -72,7 +73,8 @@ function endsAbbreviation(text: string, dot: number, next: number): boolean {
   const token = text.slice(k, dot);
   const after = text[next] ?? '';
   if (token === 'No') return /\d/.test(after);
-  if (/^\p{Lu}$/u.test(token)) return /\p{Lu}/u.test(after);
+  // A capital glued to a number or degree sign is a code or unit ("234C.", "26 °C."), not an initial.
+  if (/^\p{Lu}$/u.test(token)) return !/[\p{N}°]/u.test(text[k - 1] ?? '') && /\p{Lu}/u.test(after);
   return ABBREVIATIONS.has(token.toLowerCase());
 }
 

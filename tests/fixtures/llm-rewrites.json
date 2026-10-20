@@ -1,0 +1,59 @@
+{
+  "about": "Recorded helper answers for sentences pickSentences sends from reference documents. Sentences not listed are answered UNCHANGED. `expect` is the meaning-drift guard's verdict: ok, or the rejection reason.",
+  "rewrites": [
+    {
+      "doc": "blog/monsoon-trek-kalsubai.md",
+      "text": "I have climbed Kalsubai three times now, and every time I promise myself that the next trip will be in winter, when the trail is dry and the views go on forever.",
+      "rewrite": "I have climbed Kalsubai three times now, and each time I promise myself the next trip will be in winter, when the trail is dry and the views go on forever.",
+      "expect": "ok"
+    },
+    {
+      "doc": "blog/monsoon-trek-kalsubai.md",
+      "text": "There is something about the Sahyadris in the monsoon that pulls you back, even when you know you will come home soaked to the bone with mud up to your knees.",
+      "rewrite": "The monsoon Sahyadris keep drawing hikers in, however muddy and drenched the walk home gets.",
+      "expect": "meaning drift"
+    },
+    {
+      "doc": "blog/monsoon-trek-kalsubai.md",
+      "text": "If you are new to trekking, go with an experienced group or hire a local guide in Bari; the guides charge around ₹1,000 for a group and know the trail far better than any app.",
+      "rewrite": "If you are new to trekking, go with an experienced group or hire a local guide in Bari; guides charge about ₹1,500 per group and know the trail far better than any app.",
+      "expect": "fact changed"
+    },
+    {
+      "doc": "business/board-update-fy25.md",
+      "text": "I am pleased to share this update on the company's performance for the first half of the financial year, covering the period from 1 April 2025 to 30 September 2025.",
+      "rewrite": "I am pleased to share this update on the company's performance in the first half of the financial year, from 1 April 2025 to 30 September 2025.",
+      "expect": "ok"
+    },
+    {
+      "doc": "business/board-update-fy25.md",
+      "text": "Profit after tax was ₹9.8 crore, compared with ₹6.1 crore in the first half of last year.",
+      "rewrite": "Profit after tax was broadly ₹9.8 crore, compared with ₹6.1 crore in the first half of last year.",
+      "expect": "hedge added"
+    },
+    {
+      "doc": "business/hybrid-work-policy.md",
+      "text": "This policy explains how and when employees may work from home, how we expect teams to organise their time in the office, and what support the company provides for remote work.",
+      "rewrite": "This policy explains when and how employees may work from home, how teams should organise their office time, and what support the company gives for remote work.",
+      "expect": "ok"
+    },
+    {
+      "doc": "business/hybrid-work-policy.md",
+      "text": "If an employee is injured while working from home, they should report it to their manager and HR within 48 hours, in the same way as an injury in the office.",
+      "rewrite": "If an employee is injured while working from home, they should report it to their manager and HR within 48 hours, just as they would report an injury in the office.",
+      "expect": "ok"
+    },
+    {
+      "doc": "blog/freelancer-taxes.docx",
+      "text": "In my first year I missed an advance tax deadline, paid interest I could have avoided, and spent two nervous weeks waiting to hear whether I had filed the right form.",
+      "rewrite": "In my first year I missed an advance tax deadline, paid interest I could have avoided, and spent two anxious weeks waiting to learn whether I had filed the right form.",
+      "expect": "ok"
+    },
+    {
+      "doc": "blog/freelancer-taxes.docx",
+      "text": "If your gross receipts from a profession are below ₹75 lakh in a year, and most of them comes through banking channels, you can declare 50% of your receipts as income and pay tax on that, without keeping detailed accounts of expenses.",
+      "rewrite": "If your gross receipts from a profession are below ₹75 lakh in a year and most of them come through banking channels, you can declare 50% of your receipts as income and pay tax on that, without keeping detailed accounts of expense.",
+      "expect": "ok"
+    }
+  ]
+}

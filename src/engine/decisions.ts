@@ -64,6 +64,8 @@ function namesCard(names: Candidate[]): Decision {
  * ("Mr. and") is the linter misreading the period as a sentence end, so it folds too.
  */
 export function foldsUnderMore(c: Candidate, locked: Span[] | undefined, text?: string): boolean {
+  // An LLM rewrite covers its whole sentence and the meaning-drift guard kept every locked token in it.
+  if (c.source === 'llm') return false;
   if (c.kind === 'Capitalization' && text !== undefined && followsAbbreviation(text, c.span.start)) return true;
   return overlapsLocked(c, locked);
 }

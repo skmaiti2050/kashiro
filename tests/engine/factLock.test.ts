@@ -172,4 +172,10 @@ describe('abbreviation edge cases', () => {
     expect(followsAbbreviation('We chose Plan B. the end', 17)).toBe(false);
     expect(followsAbbreviation('Mr. and Mrs. Rao', 4)).toBe(true);
   });
+
+  it('a capital glued to a number or degree sign is a code or unit, not an initial', () => {
+    expect(followsAbbreviation('Sections 234B and 234C. The amounts', 24)).toBe(false);
+    expect(followsAbbreviation('about 20 °C. My kitchen', 13)).toBe(false);
+    expect(unlocked('Pay under 234C. The amounts add up.', 'The')).toBe(true);
+  });
 });
