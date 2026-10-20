@@ -137,12 +137,92 @@ describe('decisions, accept, undo', () => {
   });
 });
 
+describe('supersede chain', () => {
+  const rewrite: Candidate = {
+    id: 'llm:1',
+    paraId: 0,
+    span: { start: 0, end: 15 },
+    original: 'I think teh cat',
+    replacements: ['I believe the cat'],
+    kind: 'Rewrite',
+    message: 'Rewrite',
+    source: 'llm',
+  };
+
+  it('undoing the superseding edit restores the older one', async () => {
+    const s = await start([{ id: 0, text: TEH }]);
+    const teh = byOriginal(s, 'teh');
+    s.addCandidates([rewrite]);
+    s.accept('llm:1');
+    s.undo('llm:1');
+    expect(lastLog(s, teh.id)!.status).toBe('applied');
+    expect(s.outputText(0)).toBe('I think the cat is here.');
+  });
+
+  it('marking the superseding edit unplaceable restores the older one', async () => {
+    const s = await start([{ id: 0, text: TEH }]);
+    const teh = byOriginal(s, 'teh');
+    s.addCandidates([rewrite]);
+    s.accept('llm:1');
+    s.markUnplaceable('llm:1', 'run split');
+    expect(lastLog(s, teh.id)!.status).toBe('applied');
+    expect(s.outputText(0)).toBe('I think the cat is here.');
+  });
+
+  it('restores to pending when another applied edit now clashes', async () => {
+    const s = await start([{ id: 0, text: TEH }]);
+    const isis = byOriginal(s, 'is is'); // 16..21, auto-applied
+    const llm = (id: string, start: number, end: number, r: string): Candidate => ({
+      ...rewrite,
+      id,
+      span: { start, end },
+      original: TEH.slice(start, end),
+      replacements: [r],
+    });
+    s.addCandidates([llm('llm:b', 16, 18, 'was'), llm('llm:c', 19, 21, 'here')]);
+    s.accept('llm:b'); // supersedes "is is"
+    s.accept('llm:c'); // overlaps "is is" only
+    s.undo('llm:b');
+    expect(lastLog(s, isis.id)!.status).toBe('pending');
+    expect(s.decisions().top.flatMap((d) => d.candidateIds)).toContain(isis.id);
+    const edits = s.acceptedEdits();
+    for (let i = 1; i < edits.length; i++) expect(edits[i - 1].span.end).toBeLessThanOrEqual(edits[i].span.start);
+  });
+});
+
+describe('explicit variant', () => {
+  it('still computes variant words, so a single-suggestion variant spelling is not auto-applied', async () => {
+    // Wrap the real linter so every rules candidate has exactly one replacement.
+    const single: RulesLinter = {
+      get variant() {
+        return linter.variant;
+      },
+      lintParagraphs: async (p, lang) =>
+        (await linter.lintParagraphs(p, lang)).map((c) => ({ ...c, replacements: c.replacements.slice(0, 1) })),
+      lintSpelling: (p, v) => linter.lintSpelling(p, v),
+      addWords: (w) => linter.addWords(w),
+      setVariant: (v) => linter.setVariant(v),
+    };
+    const s = await CheckSession.start([{ id: 0, text: 'The colour is nice.' }], opts({ variant: 'American' }), {
+      linter: single,
+    });
+    const colour = byOriginal(s, 'colour');
+    expect(colour.replacements).toEqual(['color']);
+    expect(s.tier(colour.id)).toBe('review');
+    expect(s.outputText(0)).toBe('The colour is nice.');
+    expect(s.mixedVariant).toBe(true);
+  });
+});
+
 describe('adapter-locked spans', () => {
   it('makes overlapping candidates review-only and accept leaves them pending', async () => {
     const s = await start([{ id: 0, text: 'I think teh cat is here.', locked: [{ start: 8, end: 11 }] }]);
     const teh = byOriginal(s, 'teh');
     expect(s.tier(teh.id)).toBe('review');
-    expect(s.decisions().top.map((d) => d.id)).toContain(teh.id);
+    const { top, more } = s.decisions();
+    expect(top.flatMap((d) => d.candidateIds)).not.toContain(teh.id);
+    expect(more.map((d) => d.id)).toContain(teh.id);
+    expect(s.outcomes().find((o) => o.candidate.id === teh.id)!.reason).toBe('inside an existing tracked change');
     s.accept(teh.id);
     const e = lastLog(s, teh.id)!;
     expect(e.status).toBe('pending');
@@ -195,9 +275,21 @@ describe('exportReport', () => {
   });
 
   it('warns about mixed variants', async () => {
-    const s = await start([{ id: 0, text: 'The colour was organized.' }], { variant: undefined });
-    if (s.mixedVariant) expect(exportReport(s, 'x.md')).toMatch(/mixed/i);
-    else expect(exportReport(s, 'x.md')).not.toMatch(/mixed/i);
+    const s = await start([{ id: 0, text: 'The colour and the flavour of the color.' }], { variant: undefined });
+    expect(s.variant).toBe('British');
+    expect(s.mixedVariant).toBe(true);
+    expect(exportReport(s, 'x.md')).toMatch(/mixed/i);
+  });
+
+  it('shows the replacement the user chose, even after undo', async () => {
+    const s = await start([{ id: 0, text: "It's late." }], { preset: 'academic' });
+    const c = byOriginal(s, "It's");
+    s.accept(c.id, 1);
+    expect(lastLog(s, c.id)!.replacement).toBe('It has');
+    s.undo(c.id);
+    expect(lastLog(s, c.id)!.replacement).toBe('It has');
+    expect(s.outcomes().find((o) => o.candidate.id === c.id)!.replacement).toBe('It has');
+    expect(exportReport(s, 'x.md')).toMatch(/\| It's \| It has \| Contraction \| rejected \|/);
   });
 });
 

@@ -15,11 +15,12 @@ export interface VariantResult {
  * Lint with each dialect, pick the one with the fewest Spelling lints.
  * Ties: `fallback` if tied, else the first in ORDER. Uses the linter's
  * spell-check-only pass per dialect; a caller-supplied linter keeps its variant.
+ * `opts.variant` skips the choice but still computes `variantWords`/`mixed` for it.
  */
 export async function detectVariant(
   paras: Paragraph[],
   fallback: Variant,
-  opts: { linter?: RulesLinter } = {},
+  opts: { linter?: RulesLinter; variant?: Variant } = {},
 ): Promise<VariantResult> {
   const linter = opts.linter ?? (await createLinter(fallback));
   const flagged = new Map<Variant, Set<string>>();
@@ -33,7 +34,7 @@ export async function detectVariant(
 
   const min = Math.min(...counts.values());
   const tied = ORDER.filter((v) => counts.get(v) === min);
-  const variant = tied.includes(fallback) ? fallback : tied[0];
+  const variant = opts.variant ?? (tied.includes(fallback) ? fallback : tied[0]);
 
   const variantWords = new Set<string>();
   for (const w of flagged.get(variant)!) {

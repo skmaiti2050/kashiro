@@ -38,6 +38,8 @@ export interface LogEntry {
   auto: boolean;
   at: string;
   reason?: string;
+  /** The replacement chosen for this candidate (kept after undo). */
+  replacement?: string;
 }
 
 /** Final state of one candidate, for reports. */
@@ -82,6 +84,8 @@ export class CheckSession {
   private readonly reasons = new Map<string, string>();
   /** Candidates overlapping an adapter-supplied Paragraph.locked span. */
   private readonly inTrackedChange = new Set<string>();
+  /** superseded candidate id → id of the edit that superseded it. */
+  private readonly supersededBy = new Map<string, string>();
   private readonly entries: LogEntry[] = [];
 
   private constructor(
@@ -109,15 +113,11 @@ export class CheckSession {
       }
     }
 
-    let variant: Variant;
-    let mixed = false;
-    let variantWords = new Set<string>();
-    if (opts.variant) {
-      variant = opts.variant;
-    } else {
-      const r = await detectVariant(paras, opts.fallbackVariant, { linter });
-      ({ variant, mixed, variantWords } = r);
-    }
+    // With an explicit variant, detection still runs to compute its variantWords (never auto-converted).
+    const { variant, mixed, variantWords } = await detectVariant(paras, opts.fallbackVariant, {
+      linter,
+      variant: opts.variant,
+    });
     if (linter.variant !== variant) await linter.setVariant(variant);
 
     const locked = new Map<number, Span[]>();
@@ -152,17 +152,20 @@ export class CheckSession {
 
   decisions(): { top: Decision[]; more: Decision[] } {
     const pending: Candidate[] = [];
+    const tracked: Candidate[] = [];
     const tiers = new Map<string, Tier>();
     for (const c of this.cands.values()) {
       if (this.status.get(c.id) !== 'pending' || this.unplaceable.has(c.id)) continue;
       const t = this.tiers.get(c.id)!;
       if (t === 'hidden') continue;
-      pending.push(c);
-      // A safe candidate is only pending after being undone twice: offer it for review.
+      (this.inTrackedChange.has(c.id) ? tracked : pending).push(c);
+      // A safe candidate is only pending after an undo/restore: offer it for review.
       tiers.set(c.id, t === 'safe' ? 'review' : t);
     }
     const { decisions } = buildDecisions(pending, tiers);
-    return { top: decisions.slice(0, TOP), more: decisions.slice(TOP) };
+    // Inside an existing tracked change: can't be applied, so never in `top`.
+    const blocked = buildDecisions(tracked, tiers).decisions;
+    return { top: decisions.slice(0, TOP), more: [...decisions.slice(TOP), ...blocked] };
   }
 
   decisionCount(): number {
@@ -236,10 +239,10 @@ export class CheckSession {
   undo(candidateId: string): void {
     const s = this.status.get(candidateId);
     if (s === 'applied') {
-      this.replacement.delete(candidateId);
       this.autoApplied.delete(candidateId);
       this.userRejected.add(candidateId);
       this.record(candidateId, 'rejected', false, 'undone');
+      this.restoreSuperseded(candidateId);
     } else if (s === 'rejected' && this.userRejected.has(candidateId)) {
       this.userRejected.delete(candidateId);
       this.record(candidateId, 'pending', false);
@@ -258,6 +261,7 @@ export class CheckSession {
       const adapterLocked = this.paras.get(c.paraId)?.locked;
       if (adapterLocked?.some((s) => overlaps(c.span, s))) {
         this.inTrackedChange.add(c.id);
+        this.reasons.set(c.id, TRACKED_CHANGE_REASON);
         if (this.tiers.get(c.id) === 'safe') this.tiers.set(c.id, 'review');
       }
     }
@@ -268,6 +272,7 @@ export class CheckSession {
     if (!this.cands.has(candidateId)) throw new Error(`unknown candidate ${candidateId}`);
     this.unplaceable.set(candidateId, reason);
     this.record(candidateId, 'rejected', this.autoApplied.has(candidateId), `unplaceable: ${reason}`);
+    this.restoreSuperseded(candidateId);
   }
 
   // ---- internals -----------------------------------------------------------
@@ -304,7 +309,7 @@ export class CheckSession {
 
   private apply(c: Candidate, replacement: string, auto: boolean): void {
     for (const old of this.clashing(c)) {
-      this.replacement.delete(old.id);
+      this.supersededBy.set(old.id, c.id);
       this.record(old.id, 'superseded', false, `superseded by ${c.id}`);
     }
     this.replacement.set(c.id, replacement);
@@ -312,12 +317,34 @@ export class CheckSession {
     this.record(c.id, 'applied', auto);
   }
 
+  /**
+   * The edit `byId` left the output (undone or unplaceable): bring back what it superseded,
+   * as applied when nothing applied clashes, else as pending.
+   */
+  private restoreSuperseded(byId: string): void {
+    for (const [oldId, by] of [...this.supersededBy]) {
+      if (by !== byId) continue;
+      this.supersededBy.delete(oldId);
+      if (this.status.get(oldId) !== 'superseded') continue;
+      const reason = `restored after ${byId} was removed`;
+      if (this.clashing(this.cands.get(oldId)!).length === 0) {
+        this.record(oldId, 'applied', this.autoApplied.has(oldId), reason);
+      } else {
+        this.autoApplied.delete(oldId);
+        this.record(oldId, 'pending', false, reason);
+      }
+    }
+  }
+
   private record(candidateId: string, status: Status, auto: boolean, reason?: string): void {
     this.status.set(candidateId, status);
     if (reason) this.reasons.set(candidateId, reason);
+    else if (this.inTrackedChange.has(candidateId)) this.reasons.set(candidateId, TRACKED_CHANGE_REASON);
     else this.reasons.delete(candidateId);
     const e: LogEntry = { candidateId, status, auto, at: this.now().toISOString() };
     if (reason) e.reason = reason;
+    const replacement = this.replacement.get(candidateId);
+    if (replacement !== undefined) e.replacement = replacement;
     this.entries.push(e);
   }
 }

@@ -51,3 +51,12 @@ describe('detectVariant', () => {
     expect(c.filter((x) => x.kind === 'Spelling')).toHaveLength(0);
   });
 });
+
+describe('detectVariant with a given variant', () => {
+  it('keeps the variant and computes its variant words', async () => {
+    const r = await detectVariant([para('The colour is nice.')], 'British', { variant: 'American' });
+    expect(r.variant).toBe('American');
+    expect(r.variantWords.has('colour')).toBe(true);
+    expect(r.mixed).toBe(true);
+  });
+});
