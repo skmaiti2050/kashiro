@@ -5,13 +5,16 @@ export interface Sense {
   definition: string;
   example?: string;
   synonyms: string[];
+  /** Set on senses of the base form when the word is an inflection of it ("saw": senses of "see" carry formOf: "see"). */
+  formOf?: string;
 }
 
 export interface LookupResult {
   /** The word as the caller typed it. */
   word: string;
-  /** The dictionary headword the senses belong to; the lowercase word when nothing was found. */
+  /** The base form when the word is an inflection of one ("saw" -> "see"), else the lowercase word. */
   lemma: string;
+  /** The word's own senses first, then the base form's senses marked with formOf. */
   senses: Sense[];
   inPersonalDictionary: boolean;
   inIndianEnglishList: boolean;
@@ -48,24 +51,24 @@ export async function loadDictionary(bytes: Uint8Array): Promise<Dictionary> {
   const exceptionFor = (form: string): string | undefined =>
     Object.hasOwn(data.exceptions, form) ? data.exceptions[form] : undefined;
 
-  /** Headword for a lowercase word: WordNet's exception forms first, then the word itself, then suffix rules. */
-  function findLemma(word: string): string | undefined {
-    // Exceptions win over the word itself so "better" reads as "good" (spec §3 item 9).
+  /** Base form of a lowercase word: WordNet's exception forms first, then suffix rules (spec §3 item 9). */
+  function findBaseForm(word: string): string | undefined {
     const exception = exceptionFor(word);
     if (exception) return exception;
-    if (entryFor(word)) return word;
     return stemCandidates(word).find((candidate) => entryFor(candidate));
   }
 
   return {
     lookup(word, { personal }) {
       const lower = word.toLowerCase();
-      const lemma = findLemma(lower);
-      const rows = lemma ? (entryFor(lemma) ?? []) : [];
+      // The word's own senses come first so "saw" and "left" still show the tool and the direction.
+      const baseForm = findBaseForm(lower);
+      const ownSenses = (entryFor(lower) ?? []).map((row) => toSense(row));
+      const baseSenses = baseForm ? (entryFor(baseForm) ?? []).map((row) => toSense(row, baseForm)) : [];
       return {
         word,
-        lemma: lemma ?? lower,
-        senses: rows.map(toSense),
+        lemma: baseForm ?? lower,
+        senses: [...ownSenses, ...baseSenses],
         inPersonalDictionary: personal.has(lower) || personal.has(word),
         inIndianEnglishList: INDIAN_ENGLISH_WORDS.has(lower),
       };
@@ -73,9 +76,10 @@ export async function loadDictionary(bytes: Uint8Array): Promise<Dictionary> {
   };
 }
 
-function toSense([pos, definition, example, synonyms]: SenseRow): Sense {
+function toSense([pos, definition, example, synonyms]: SenseRow, formOf?: string): Sense {
   const sense: Sense = { pos: POS_NAMES[pos], definition, synonyms };
   if (example) sense.example = example;
+  if (formOf) sense.formOf = formOf;
   return sense;
 }
 
