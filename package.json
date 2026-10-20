@@ -12,7 +12,8 @@
     "check-file": "tsx cli/check-file.ts",
     "tauri": "tauri",
     "trust": "tsx trust/run_trust.ts",
-    "trust:reference": "tsx trust/build_reference.ts"
+    "trust:reference": "tsx trust/build_reference.ts",
+    "build:dictionary": "tsx scripts/build-dictionary.ts"
   },
   "dependencies": {
     "@codemirror/state": "^6.7.6",
