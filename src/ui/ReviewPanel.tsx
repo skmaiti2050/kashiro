@@ -24,7 +24,8 @@ export function ReviewPanel({ controller, state, onLocate }: Props) {
   const cardSlot = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (reveal === 0) return;
-    cardSlot.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    cardSlot.current?.scrollIntoView({ block: 'start', behavior: reduceMotion ? 'auto' : 'smooth' });
     cardSlot.current?.focus({ preventScroll: true });
   }, [reveal]);
   const session = state.session;
@@ -61,7 +62,7 @@ export function ReviewPanel({ controller, state, onLocate }: Props) {
         <DepthSlider value={session.depth} onChange={(d) => controller.setDepth(d)} />
       </header>
 
-      <div ref={cardSlot} className="card-slot" tabIndex={-1} aria-label="Current decision">
+      <div ref={cardSlot} className="card-slot" role="group" tabIndex={-1} aria-label="Current decision">
         {current?.kind === 'names' && <NamesCard key={current.id} controller={controller} card={current} candidates={candidates} />}
         {current && current.kind !== 'names' && (
           <DecisionCard
