@@ -71,6 +71,17 @@ describe('findLockedSpans', () => {
     expect(spans.some((s) => s.start < 3)).toBe(false);
   });
 
+  it.each(['## The end', '- The end', '* The end', '1. The end', '> The end', 'Intro\n### The end'])(
+    'treats a Markdown line start as a sentence start: %j',
+    (t) => {
+      expect(covered(t, 'The')).toBe(false);
+    },
+  );
+
+  it('a hyphen inside a line is not a Markdown line start', () => {
+    expect(covered('We met - The end', 'The')).toBe(true);
+  });
+
   it('treats text after .?!: and openers as sentence start', () => {
     for (const t of ['Hi. The end', 'Why? The end', 'Note: The end', 'He said (The end)', 'He said “The end”']) {
       const i = t.indexOf('The');

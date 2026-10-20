@@ -1,6 +1,6 @@
 import type { Candidate, Paragraph, Span, Tier, Variant } from './types';
 import type { Preset } from './presets';
-import { followsAbbreviation, isSentenceStart } from './factLock';
+import { followsAbbreviation, isSentenceStart, OPENERS } from './factLock';
 
 export interface TierContext {
   /** paraId → fact-locked spans (findLockedSpans + adapter Paragraph.locked). */
@@ -171,13 +171,20 @@ function namesCard(names: Candidate[]): Decision {
   return { id: NAMES_CARD_ID, kind: 'names', candidateIds: names.map((c) => c.id), label, score: 0, nearDuplicates };
 }
 
-/** True when `word` (exact case) appears somewhere in the document other than at a sentence start. */
+/**
+ * True when `word` (exact case) appears somewhere in the document other than at a sentence start.
+ * An opening bracket or quote is looked through: "spent (Joshi and Pawar, 2020)" is mid-sentence.
+ */
 function usedMidSentence(word: string, paraText: ReadonlyMap<number, string>): boolean {
   const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   // The whole word, e.g. "Rao" in "met Rao." but not in "Raona".
   const wholeWord = new RegExp(`(?<![\\p{L}\\p{N}'’])${escaped}(?![\\p{L}\\p{N}'’])`, 'gu');
   for (const text of paraText.values()) {
-    for (const m of text.matchAll(wholeWord)) if (!isSentenceStart(text, m.index!)) return true;
+    for (const m of text.matchAll(wholeWord)) {
+      let start = m.index!;
+      while (start > 0 && OPENERS.test(text[start - 1])) start--;
+      if (!isSentenceStart(text, start)) return true;
+    }
   }
   return false;
 }

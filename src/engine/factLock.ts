@@ -53,7 +53,8 @@ const PATTERNS: RegExp[] = [
 
 /** A capitalised word, including names like D'Souza and O’Brien. */
 const CAPITALISED = /(?<![\p{L}\p{N}'’])\p{Lu}(?:['’]\p{Lu})?\p{Ll}[\p{L}'’-]*/gu;
-const OPENERS = /["'(\[{“‘«]/;
+/** An opening quote or bracket, e.g. "(" in "(Joshi, 2020)". */
+export const OPENERS = /["'(\[{“‘«]/;
 
 /** Abbreviations whose period does not end a sentence (lowercased, without the final period). "No." is special-cased. */
 const ABBREVIATIONS = new Set([
@@ -82,10 +83,15 @@ export function followsAbbreviation(text: string, i: number): boolean {
   return j > 0 && text[j - 1] === '.' && endsAbbreviation(text, j - 1, i);
 }
 
+/** The start of a Markdown heading, list item or quote line, up to its first word ("## ", "- ", "1. ", "> "). */
+const MARKDOWN_LINE_START = /^[ \t]*(?:#{1,6}|[-*+]|\d+[.)]|>)[ \t]+$/;
+
 /** True when the word at `i` starts the paragraph or a sentence (not after an abbreviation such as "Mr."). */
 export function isSentenceStart(text: string, i: number): boolean {
   if (i === 0) return true;
   if (OPENERS.test(text[i - 1])) return true;
+  const line = text.slice(text.lastIndexOf('\n', i - 1) + 1, i);
+  if (MARKDOWN_LINE_START.test(line)) return true;
   let j = i;
   while (j > 0 && /\s/.test(text[j - 1])) j--;
   if (j === i) return false; // glued to the previous word

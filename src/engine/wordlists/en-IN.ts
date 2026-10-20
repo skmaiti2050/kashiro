@@ -5,8 +5,9 @@
  * Lowercase, sorted, one per line, no duplicates (tested). Inflections are listed where writers use them.
  * Festival names are listed (lowercase, e.g. diwali); personal and place names are not: they go through
  * the names card (spec §5).
- * Short words that are a typical typo of a common English word are left out ("lok" for "look", "chai"
- * for "chain"): the list loads for every variant, so it would hide those typos.
+ * Short words that are a typical typo of a common English word are left out ("lok" for "look", "tur" for
+ * "turn"): the list loads for every variant, so it would hide those typos. Words Indian writers use daily
+ * (chai, dal, roti, ji…) are kept anyway: flagging them in every document costs more than the typos they hide.
  */
 export const EN_IN_WORDS: readonly string[] = [
   'aarti',
@@ -25,6 +26,7 @@ export const EN_IN_WORDS: readonly string[] = [
   'aloo',
   'amchur',
   'amla',
+  'amma',
   'anganwadi',
   'anganwadis',
   'angavastram',
@@ -44,6 +46,7 @@ export const EN_IN_WORDS: readonly string[] = [
   'ayurveda',
   'ayurvedic',
   'baba',
+  'babu',
   'babus',
   'bachcha',
   'bachche',
@@ -102,8 +105,10 @@ export const EN_IN_WORDS: readonly string[] = [
   'burfis',
   'buttermilk',
   'chaas',
+  'chaat',
   'chacha',
   'chachi',
+  'chai',
   'chaiwala',
   'chaiwalas',
   'chana',
@@ -157,6 +162,8 @@ export const EN_IN_WORDS: readonly string[] = [
   'dadu',
   'dahi',
   'dakshina',
+  'dal',
+  'dals',
   'dandiya',
   'dargah',
   'dargahs',
@@ -197,6 +204,7 @@ export const EN_IN_WORDS: readonly string[] = [
   'durrie',
   'durries',
   'dussehra',
+  'eid',
   'elaichi',
   'fafda',
   'falooda',
@@ -212,6 +220,7 @@ export const EN_IN_WORDS: readonly string[] = [
   'garba',
   'garbas',
   'ghagra',
+  'ghat',
   'ghats',
   'ghee',
   'gherao',
@@ -272,6 +281,7 @@ export const EN_IN_WORDS: readonly string[] = [
   'jhuggi',
   'jhuggis',
   'jhula',
+  'ji',
   'jija',
   'jijaji',
   'jowar',
@@ -388,6 +398,7 @@ export const EN_IN_WORDS: readonly string[] = [
   'mohallas',
   'mojari',
   'mojaris',
+  'moong',
   'morcha',
   'morchas',
   'mukhiya',
@@ -410,6 +421,7 @@ export const EN_IN_WORDS: readonly string[] = [
   'nanad',
   'nani',
   'navratri',
+  'neta',
   'netas',
   'nigam',
   'nullah',
@@ -418,6 +430,7 @@ export const EN_IN_WORDS: readonly string[] = [
   'nyaya',
   'odhni',
   'onam',
+  'paan',
   'paati',
   'padwa',
   'pagdi',
@@ -452,6 +465,7 @@ export const EN_IN_WORDS: readonly string[] = [
   'parishads',
   'patwari',
   'patwaris',
+  'pav',
   'payasam',
   'peda',
   'pedas',

@@ -546,6 +546,8 @@ describe('names card (spec §5)', () => {
     // all capitals is not a sentence-start capital: an acronym or a script's speaker label
     ['written in capitals', 'NPCI runs UPI.', 'NPCI', ['NPC']],
     ['a speaker label in capitals', 'MEGHNA: Welcome back.', 'MEGHNA', ['Meghan']],
+    // a reference-list entry whose surname is cited mid-sentence in brackets
+    ['cited in brackets mid-sentence', '- Joshi, A. (2020). Check dams.\nThe money spent (Joshi and Pawar, 2020).', 'Joshi', ['Josh']],
   ])('stays on the names card when %s', (_why, t, word, replacements) => {
     const c = cand({ original: word, span: { start: t.indexOf(word), end: t.indexOf(word) + word.length }, replacements });
     const { decisions } = buildDecisions([c], review([c]), { paraText: new Map([[0, t]]) });
@@ -558,6 +560,16 @@ describe('names card (spec §5)', () => {
     const { decisions } = buildDecisions(cs, review(cs));
     expect(decisions[0].nearDuplicates).toEqual([['Pirya', 'Priya']]);
   });
+
+  it.each(['## Goverment plans', '- Goverment plans', '* Goverment plans', '1. Goverment plans', '> Goverment plans', 'Intro\n### Goverment plans'])(
+    'a Markdown line start counts as a sentence start: %j',
+    (t) => {
+      const start = t.indexOf('Goverment');
+      const c = cand({ original: 'Goverment', span: { start, end: start + 9 }, replacements: ['Government'] });
+      const { decisions } = buildDecisions([c], review([c]), { paraText: new Map([[0, t]]) });
+      expect(decisions.map((d) => d.kind)).toEqual(['single']);
+    },
+  );
 
   it('after a sentence end and an opening quote, a word is still at a sentence start', () => {
     const t = 'He spoke. "Goverment plans';

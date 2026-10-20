@@ -106,10 +106,19 @@ describe('EN_IN_WORDS list', () => {
   // The list loads for every variant, so a short entry that is a typical typo of a common word
   // ("lok" for "look") would hide that typo. Found by the neighbour check in the Task 10 report.
   const TYPO_SHAPED = [
-    'aai', 'amma', 'amti', 'babu', 'beta', 'bua', 'chaat', 'chai', 'dal', 'dals', 'eid', 'ghat', 'gram',
-    'gully', 'gur', 'haat', 'hing', 'ji', 'lok', 'lota', 'lotas', 'moong', 'neta', 'pani', 'pav', 'rava',
-    'safa', 'seekh', 'sev', 'tai', 'taluk', 'teej', 'tur', 'usal', 'zaid',
+    'aai', 'amti', 'beta', 'bua', 'gram', 'gully', 'gur', 'haat', 'hing', 'lok', 'lota', 'lotas', 'pani',
+    'rava', 'safa', 'seekh', 'sev', 'tai', 'taluk', 'teej', 'tur', 'usal', 'zaid',
   ];
+  // Daily words an Indian writer uses, kept even though they are one edit from an English word.
+  const DAILY = [
+    'amma', 'babu', 'chaat', 'chai', 'dal', 'dals', 'eid', 'ghat', 'ghee', 'ji', 'lassi', 'moong', 'neta',
+    'paan', 'pav', 'puri', 'roti',
+  ];
+
+  it('keeps daily Indian-English words even when they are one edit from an English word', async () => {
+    const { EN_IN_WORDS } = await import('@/engine/wordlists/en-IN');
+    expect(EN_IN_WORDS).toEqual(expect.arrayContaining(DAILY));
+  });
 
   it('leaves out short words that are typical typos of common English words', async () => {
     const { EN_IN_WORDS } = await import('@/engine/wordlists/en-IN');
