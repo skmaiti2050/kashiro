@@ -1,4 +1,5 @@
 import { EN_IN_WORDS } from '../wordlists/en-IN';
+import type { DictionaryData, PosCode, SenseRow } from './types';
 
 export interface Sense {
   pos: 'noun' | 'verb' | 'adjective' | 'adverb';
@@ -24,14 +25,6 @@ export interface Dictionary {
   lookup(word: string, opts: { personal: Set<string> }): LookupResult;
 }
 
-type PosCode = 'n' | 'v' | 'a' | 'r';
-// Same shape the build script writes (scripts/build-dictionary.ts).
-type SenseRow = [PosCode, string, string, string[]];
-interface DictionaryData {
-  entries: Record<string, SenseRow[]>;
-  exceptions: Record<string, string>;
-}
-
 const POS_NAMES: Record<PosCode, Sense['pos']> = { n: 'noun', v: 'verb', a: 'adjective', r: 'adverb' };
 const MIN_STEM_LENGTH = 3; // keeps "its" from becoming "it" and "is" from becoming "i"
 const INDIAN_ENGLISH_WORDS = new Set(EN_IN_WORDS);
@@ -55,6 +48,8 @@ export async function loadDictionary(bytes: Uint8Array): Promise<Dictionary> {
   function findBaseForm(word: string): string | undefined {
     const exception = exceptionFor(word);
     if (exception) return exception;
+    // Suffix rules only for words with no entry of their own: "news" is not a plural of "new".
+    if (entryFor(word)) return undefined;
     return stemCandidates(word).find((candidate) => entryFor(candidate));
   }
 

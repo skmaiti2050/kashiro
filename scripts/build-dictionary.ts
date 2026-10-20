@@ -17,21 +17,11 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { gunzipSync, gzipSync } from 'node:zlib';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import type { DictionaryData, PosCode } from '../src/engine/dictionary/types';
 
 export const PINNED_SHA256 = '9ca6d1dcb75f822fdd66617f7d9da48142ace38dd544d6ad5e2feca1674ad3fe';
 export const MAX_SENSES_PER_POS = 3;
 export const MAX_SYNONYMS = 5;
-
-export type PosCode = 'n' | 'v' | 'a' | 'r';
-/** [posCode, definition, example ("" when none), synonyms] */
-export type SenseRow = [PosCode, string, string, string[]];
-export interface DictionaryData {
-  format: 1;
-  /** lowercase lemma -> senses, grouped by part of speech in n, v, a, r order of first appearance */
-  entries: Record<string, SenseRow[]>;
-  /** inflected form -> lemma, from WordNet's own exception data (went -> go, geese -> goose) */
-  exceptions: Record<string, string>;
-}
 
 interface SynsetInfo {
   pos: PosCode;
