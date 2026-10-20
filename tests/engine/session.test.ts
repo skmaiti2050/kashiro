@@ -339,3 +339,70 @@ describe('performance', () => {
     expect(ms).toBeLessThan(300);
   });
 });
+
+describe('word batches (round 2)', () => {
+  const word = (id: string, paraId: number, original: string, replacements: string[]): Candidate => ({
+    id,
+    paraId,
+    span: { start: 0, end: original.length },
+    original,
+    replacements,
+    kind: 'Spelling',
+    message: 'm',
+    source: 'rules',
+  });
+  const paras3 = [0, 1, 2].map((id) => ({ id, text: 'word is here.' }));
+  const batchOf = (s: CheckSession, id: string) => [...s.decisions().top, ...s.decisions().more].find((d) => d.candidateIds.includes(id))!;
+
+  it('accept(batch, i) applies each member its own replacement when they share the text', async () => {
+    const s = await start(paras3);
+    s.addCandidates([word('a', 0, 'word', ['ward', 'wired']), word('b', 1, 'Word', ['Ward', 'Wired'])]);
+    const d = batchOf(s, 'a');
+    expect(d.kind).toBe('batch');
+    s.accept(d.id, 1);
+    expect(s.outputText(0)).toBe('wired is here.');
+    expect(s.outputText(1)).toBe('Wired is here.');
+  });
+
+  it('accept(batch, i) is rejected with a clear error when members differ at i, and applies nothing', async () => {
+    const s = await start(paras3);
+    s.addCandidates([word('a', 0, 'word', ['ward', 'wired']), word('b', 1, 'word', ['wad', 'wired'])]);
+    const d = batchOf(s, 'a');
+    expect(() => s.accept(d.id, 0)).toThrow(/different replacements/);
+    expect(s.acceptedEdits()).toEqual([]);
+    s.accept(d.id, 1); // shared at index 1
+    expect(s.acceptedEdits()).toHaveLength(2);
+  });
+
+  it('ignoreAll rejects every member', async () => {
+    const s = await start(paras3);
+    s.addCandidates([word('a', 0, 'word', ['ward']), word('b', 1, 'word', ['ward', 'wired'])]);
+    const d = batchOf(s, 'a');
+    s.ignoreAll(d.id);
+    for (const id of ['a', 'b']) expect(lastLog(s, id)!.status).toBe('rejected');
+    expect(batchOf(s, 'a')).toBeUndefined();
+  });
+
+  it('addToDictionary adds the word, rejects the batch and drops the same word pending elsewhere', async () => {
+    // Own linter: the word is added to it.
+    const paras = [
+      { id: 0, text: 'Sujit met us. Later Sujit left.' },
+      { id: 1, text: 'Ask Sujit now.', locked: [{ start: 4, end: 9 }] },
+    ];
+    const s = await CheckSession.start(paras, opts());
+    const sujit = s.candidates().filter((c) => c.original === 'Sujit');
+    expect(sujit).toHaveLength(3);
+    const d = batchOf(s, sujit[0].id);
+    await s.addToDictionary(d.id);
+    for (const c of sujit) expect(lastLog(s, c.id)!.status).toBe('rejected');
+    expect(lastLog(s, sujit[2].id)!.reason).toMatch(/dictionary/);
+    expect(s.addedWords()).toEqual(['Sujit']);
+    expect(s.rankedDecisionCount()).toBe(0);
+  });
+
+  it('addToDictionary refuses decisions that are not about a word', async () => {
+    const s = await start([{ id: 0, text: TEH }]);
+    s.addCandidates([{ ...word('x', 0, 'is is', ['is']), kind: 'Repetition' }]);
+    await expect(s.addToDictionary('x')).rejects.toThrow(/not a word/);
+  });
+});

@@ -186,15 +186,36 @@ function singleLabel(c: Candidate): string {
 }
 
 /**
- * Safe candidates become auto-applied ids; review-tier candidates become decisions.
- * Review candidates with exactly one replacement and the same
- * `kind + lower(original) + '→' + lower(replacement)` collapse into one batch decision (accepting
- * it still applies each member's own replacement, so "It's → Its" keeps its capital).
- * Hidden candidates are dropped. Decisions are sorted by score desc, ties in input order.
- * Demoted (never dropped): candidates matching `fold`; Spelling/Typo flags of a word that `fold`
- * matched elsewhere; and repeats (after the first) of an unknown word with several suggestions or of a
- * no-fix note on the same text. They become single decisions with score 0, ranked after every other
- * decision, so they only reach the top when there is room. `demoted` lists their ids.
+ * The batch key of a review candidate (spec §5: "the same correction repeated → one decision"):
+ * - Spelling/Typo: kind + lowercased word, whatever the suggestions. One decision per flagged word
+ *   ("Sujit (12 places)"), resolved by adding it to the dictionary, ignoring all, or one replacement for all.
+ * - exactly one replacement: kind + lower(original) + '→' + lower(replacement) (each member keeps its own
+ *   replacement on accept, so "It's → Its" keeps its capital).
+ * - otherwise (no fix, or a choice): kind + lower(original) + message, i.e. the identical flag repeated.
+ */
+export function batchKey(c: Candidate): string {
+  const o = c.original.toLowerCase();
+  if (WORD_REWRITE_KINDS.has(c.kind)) return `word:${c.kind}:${o}`;
+  if (c.replacements.length === 1) return c.kind + o + '→' + c.replacements[0].toLowerCase();
+  return `flag:${c.kind}:${o}:${c.message}`;
+}
+
+function batchLabel(c: Candidate, n: number): string {
+  if (WORD_REWRITE_KINDS.has(c.kind)) {
+    const fixes = c.replacements.length ? ` → ${c.replacements.join(' / ')}` : '';
+    return `${c.original}${fixes} (${n} places)`;
+  }
+  return `${singleLabel(c)} (${n} places)`;
+}
+
+/**
+ * Safe candidates become auto-applied ids; review-tier candidates become decisions, batched by
+ * `batchKey` (members in input order). Hidden candidates are dropped. Decisions are sorted by score
+ * desc, ties in input order.
+ * Demoted (never dropped): candidates matching `fold` (fact-locked spans) and Spelling/Typo flags of a
+ * word that `fold` matched elsewhere (a name everywhere). They batch among themselves, get score 0 and
+ * rank after every other decision, so they only reach the top when there is room. `demoted` lists
+ * their decision ids.
  */
 export function buildDecisions(
   cands: Candidate[],
@@ -202,14 +223,13 @@ export function buildDecisions(
   fold: (c: Candidate) => boolean = () => false,
 ): { safe: string[]; decisions: Decision[]; demoted: string[] } {
   const safe: string[] = [];
-  const demotedDecisions: Decision[] = [];
-  const seenWords = new Set<string>();
-  const groups = new Map<string, Candidate[]>();
-  const order: { key: string | null; c: Candidate }[] = [];
   const wordOf = (c: Candidate) => (WORD_REWRITE_KINDS.has(c.kind) ? c.kind + c.original.toLowerCase() : null);
   // A word the document uses as a fact-locked name somewhere is a name everywhere (e.g. sentence-initial).
   const lockedWords = new Set(cands.filter((c) => wordOf(c) !== null && fold(c)).map((c) => wordOf(c)!));
 
+  const group = () => ({ groups: new Map<string, Candidate[]>(), order: [] as string[] });
+  const normal = group();
+  const demoted = group();
   for (const c of cands) {
     const t = tiers.get(c.id) ?? 'review';
     if (t === 'hidden') continue;
@@ -217,46 +237,31 @@ export function buildDecisions(
       safe.push(c.id);
       continue;
     }
-    // A repeat of an unknown word (Spelling/Typo with a choice) or of a no-fix note on the same text is
-    // the same question again (one dictionary add or one answer resolves all), so only the first ranks.
-    // Grammar choices like "Its → It's / It has" depend on context and are never demoted.
-    const sameQuestion = c.replacements.length === 0 || (c.replacements.length > 1 && WORD_REWRITE_KINDS.has(c.kind));
-    const wordKey = sameQuestion ? c.kind + '\u0000' + c.original.toLowerCase() : null;
-    const lockedWord = wordOf(c) !== null && lockedWords.has(wordOf(c)!);
-    if (fold(c) || lockedWord || (wordKey !== null && seenWords.has(wordKey))) {
-      demotedDecisions.push({ id: c.id, kind: 'single', candidateIds: [c.id], label: singleLabel(c), score: 0 });
-      continue;
-    }
-    if (wordKey !== null) seenWords.add(wordKey);
-    if (c.replacements.length === 1) {
-      const key = c.kind + c.original.toLowerCase() + '→' + c.replacements[0].toLowerCase();
-      const g = groups.get(key);
-      if (g) g.push(c);
-      else {
-        groups.set(key, [c]);
-        order.push({ key, c });
-      }
-    } else {
-      order.push({ key: null, c });
+    const isDemoted = fold(c) || (wordOf(c) !== null && lockedWords.has(wordOf(c)!));
+    const into = isDemoted ? demoted : normal;
+    const key = batchKey(c);
+    const g = into.groups.get(key);
+    if (g) g.push(c);
+    else {
+      into.groups.set(key, [c]);
+      into.order.push(key);
     }
   }
 
-  const decisions: Decision[] = order.map(({ key, c }) => {
-    const g = key === null ? [c] : groups.get(key)!;
-    if (g.length > 1) {
-      return {
-        id: `batch:${key}`,
-        kind: 'batch',
-        candidateIds: g.map((x) => x.id),
-        label: `${c.original} → ${c.replacements[0]} (${g.length} places)`,
-        score: scoreOf(c, true),
-      };
-    }
-    return { id: c.id, kind: 'single', candidateIds: [c.id], label: singleLabel(c), score: scoreOf(c, false) };
-  });
+  const toDecisions = ({ groups, order }: ReturnType<typeof group>, score: (c: Candidate, batch: boolean) => number) =>
+    order.map((key): Decision => {
+      const g = groups.get(key)!;
+      const c = g[0];
+      if (g.length > 1) {
+        return { id: `batch:${key}`, kind: 'batch', candidateIds: g.map((x) => x.id), label: batchLabel(c, g.length), score: score(c, true) };
+      }
+      return { id: c.id, kind: 'single', candidateIds: [c.id], label: singleLabel(c), score: score(c, false) };
+    });
 
+  const decisions = toDecisions(normal, scoreOf);
   // Array.prototype.sort is stable, so equal scores keep first-appearance order.
   decisions.sort((a, b) => b.score - a.score);
+  const demotedDecisions = toDecisions(demoted, () => 0);
   return { safe, decisions: [...decisions, ...demotedDecisions], demoted: demotedDecisions.map((d) => d.id) };
 }
 

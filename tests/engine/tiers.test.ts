@@ -259,37 +259,39 @@ describe('Task 10 budget tuning', () => {
     return { ids, demotedIds };
   };
 
-  it('(4) repeats of an unknown word that cannot batch are demoted; the first keeps its rank', () => {
+  it('(round 2) Spelling flags of the same word batch into one decision, whatever the suggestions', () => {
     const a = cand({ original: 'talukas', replacements: ['talks', 'talus'] });
     const b = cand({ paraId: 1, original: 'Talukas', replacements: ['Talks', 'Talus'] });
+    const c = cand({ paraId: 4, original: 'talukas', replacements: [] });
     const other = cand({ paraId: 2, original: 'siltation', replacements: ['salvation', 'situation'] });
-    const all = [a, b, other];
-    const { ids, demotedIds } = rankedIds(buildDecisions(all, new Map(all.map((c) => [c.id, 'review' as Tier]))));
-    expect(ids).toEqual([a.id, other.id, b.id]);
-    expect(demotedIds).toEqual([b.id]);
+    const all = [a, b, other, c];
+    const { decisions } = buildDecisions(all, new Map(all.map((x) => [x.id, 'review' as Tier])));
+    expect(decisions.map((d) => d.candidateIds)).toEqual([[a.id, b.id, c.id], [other.id]]);
+    expect(decisions[0]).toMatchObject({ kind: 'batch', id: 'batch:word:Spelling:talukas', label: 'talukas → talks / talus (3 places)' });
   });
 
-  it('(4) repeats of the same flag without a single fix are demoted, for any kind', () => {
+  it('(round 2) the identical flag repeated (same kind, original and message) is one decision', () => {
     const msg = { kind: 'Regionalism', replacements: [], message: "`coriander` isn't used in Indian English." };
     const a = cand({ ...msg, original: 'coriander' });
-    const b = cand({ ...msg, paraId: 3, original: 'coriander' });
-    const { ids, demotedIds } = rankedIds(buildDecisions([a, b], new Map([[a.id, 'review'], [b.id, 'review']])));
-    expect(ids).toEqual([a.id, b.id]);
-    expect(demotedIds).toEqual([b.id]);
+    const b = cand({ ...msg, paraId: 3, original: 'Coriander' });
+    const otherMsg = cand({ ...msg, paraId: 5, original: 'coriander', message: 'Something else.' });
+    const all = [a, b, otherMsg];
+    const { decisions } = buildDecisions(all, new Map(all.map((x) => [x.id, 'review' as Tier])));
+    expect(decisions.map((d) => d.candidateIds)).toEqual([[a.id, b.id], [otherMsg.id]]);
   });
 
-  it('(4) a sentence-initial flag of a word that is fact-locked elsewhere is demoted too', () => {
+  it('(4) a name flag that is fact-locked somewhere is demoted everywhere, as one batch', () => {
     const text = 'Marathwada is dry. Rain in Marathwada fell.';
     const locked = findLockedSpans(text);
     const first = cand({ original: 'Marathwada', span: { start: 0, end: 10 }, replacements: ['Maratha', "Maratha's"] });
     const second = cand({ original: 'Marathwada', span: { start: 27, end: 37 }, replacements: ['Maratha', "Maratha's"] });
     const teh = cand({ original: 'Teh', span: { start: 0, end: 3 }, paraId: 1, replacements: ['The', 'Tech'] });
     const all = [first, second, teh];
-    const { ids, demotedIds } = rankedIds(
-      buildDecisions(all, new Map(all.map((c) => [c.id, 'review' as Tier])), (c) => c.paraId === 0 && foldsUnderMore(c, locked)),
-    );
+    const r = buildDecisions(all, new Map(all.map((c) => [c.id, 'review' as Tier])), (c) => c.paraId === 0 && foldsUnderMore(c, locked));
+    const { ids, demotedIds } = rankedIds(r);
     expect(ids[0]).toBe(teh.id);
-    expect([...demotedIds].sort()).toEqual([first.id, second.id].sort());
+    expect(demotedIds).toHaveLength(1);
+    expect(r.decisions.at(-1)!.candidateIds).toEqual([first.id, second.id]);
   });
 
   it('(4) a demoted candidate still fills an empty ranking (any candidate on a fact-locked span)', () => {
@@ -381,10 +383,11 @@ describe('buildDecisions', () => {
     expect(decisions.find((d) => d.kind === 'batch')!.candidateIds).toEqual([a.id, b.id]);
   });
 
-  it('multi-replacement candidates never batch', () => {
+  it('candidates with a choice batch only as the identical flag (same original and message)', () => {
     const cs = [0, 1].map((p) => cand({ paraId: p, original: 'Its', replacements: ["It's", 'It has'], kind: 'Miscellaneous' }));
-    const { decisions } = buildDecisions(cs, tiersOf(cs, 'review'));
-    expect(decisions.map((d) => d.kind)).toEqual(['single', 'single']);
+    const other = cand({ paraId: 2, original: 'Its', replacements: ["It's", 'It has'], kind: 'Miscellaneous', message: 'other' });
+    const { decisions } = buildDecisions([...cs, other], tiersOf([...cs, other], 'review'));
+    expect(decisions.map((d) => d.kind)).toEqual(['batch', 'single']);
   });
 
   it('safe ids are returned, never batched; hidden are dropped', () => {

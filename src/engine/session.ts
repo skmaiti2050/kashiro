@@ -57,6 +57,8 @@ export interface Outcome {
 
 export const TRACKED_CHANGE_REASON = 'inside an existing tracked change';
 const TOP = 10;
+/** Kinds whose flags are about one word (unknown to the dictionary). */
+const WORD_FLAG_KINDS = new Set(['Spelling', 'Typo']);
 
 /** Overlap of two edits; zero-width spans clash when they sit at the same point or inside the other. */
 function overlaps(a: Span, b: Span): boolean {
@@ -87,6 +89,7 @@ export class CheckSession {
   /** superseded candidate id → id of the edit that superseded it. */
   private readonly supersededBy = new Map<string, string>();
   private readonly entries: LogEntry[] = [];
+  private readonly added: string[] = [];
 
   private constructor(
     paras: Paragraph[],
@@ -94,6 +97,7 @@ export class CheckSession {
     readonly mixedVariant: boolean,
     private readonly ctx: TierContext,
     private readonly now: () => Date,
+    private readonly linter: RulesLinter,
   ) {
     paras.forEach((p, i) => {
       this.paras.set(p.id, p);
@@ -126,7 +130,7 @@ export class CheckSession {
     const paraText = new Map(paras.map((p) => [p.id, p.text]));
     const ctx: TierContext = { locked, variantWords, preset, userTierOverrides: opts.tierOverrides, paraText, variant };
 
-    const session = new CheckSession(paras, variant, mixed, ctx, deps.now ?? (() => new Date()));
+    const session = new CheckSession(paras, variant, mixed, ctx, deps.now ?? (() => new Date()), linter);
 
     const found: Candidate[] = await linter.lintParagraphs(paras, opts.language);
     for (const p of paras) {
@@ -234,12 +238,23 @@ export class CheckSession {
 
   // ---- actions -------------------------------------------------------------
 
+  /**
+   * Applies replacement `replacementIndex` to every member. In a batch, each member gets its own
+   * replacement text (so case is kept), and only when all members share that text (case-insensitive):
+   * a flagged word with different suggestions in different places cannot be "fixed for all" by index.
+   */
   accept(decisionId: string, replacementIndex = 0): void {
     const members = this.members(decisionId);
     for (const c of members) {
       if (c.replacements[replacementIndex] === undefined) {
         throw new Error(`candidate ${c.id} has no replacement at index ${replacementIndex}`);
       }
+    }
+    const texts = new Set(members.map((c) => c.replacements[replacementIndex].toLowerCase()));
+    if (texts.size > 1) {
+      throw new Error(
+        `${decisionId}: members have different replacements at index ${replacementIndex} (${[...texts].join(' / ')}); accept them one by one`,
+      );
     }
     for (const c of members) {
       if (this.inTrackedChange.has(c.id)) {
@@ -255,6 +270,38 @@ export class CheckSession {
       this.userRejected.add(c.id);
       this.record(c.id, 'rejected', false);
     }
+  }
+
+  /** "Ignore all": rejects every member of the decision. */
+  ignoreAll(decisionId: string): void {
+    this.reject(decisionId);
+  }
+
+  /**
+   * "Add to dictionary" for a flagged word (Spelling/Typo): adds it to this session's dictionary and the
+   * linter, rejects the decision's members, and rejects every other pending flag of the same word.
+   */
+  async addToDictionary(decisionId: string): Promise<void> {
+    const members = this.members(decisionId);
+    const first = members[0];
+    if (!WORD_FLAG_KINDS.has(first.kind) || members.some((c) => c.original.toLowerCase() !== first.original.toLowerCase())) {
+      throw new Error(`${decisionId} is not a word flag (Spelling/Typo of one word)`);
+    }
+    const word = first.original;
+    await this.linter.addWords([word]);
+    this.added.push(word);
+    const reason = `"${word}" added to dictionary`;
+    for (const c of this.cands.values()) {
+      if (this.status.get(c.id) !== 'pending' || !WORD_FLAG_KINDS.has(c.kind)) continue;
+      if (c.original.toLowerCase() !== word.toLowerCase()) continue;
+      this.userRejected.add(c.id);
+      this.record(c.id, 'rejected', false, reason);
+    }
+  }
+
+  /** Words added with addToDictionary, in order. */
+  addedWords(): string[] {
+    return [...this.added];
   }
 
   /** applied → rejected; rejected (by the user) → pending. */
