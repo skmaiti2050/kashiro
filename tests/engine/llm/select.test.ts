@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { CheckSession } from '@/engine/session';
 import { createLinter, type RulesLinter } from '@/engine/linter';
-import { pickSentences, rewriteBudget } from '@/engine/llm/select';
+import { firstRunBudget, pickSentences, rewriteBudget } from '@/engine/llm/select';
 import type { Candidate, Paragraph, Span } from '@/engine/types';
 
 let linter: RulesLinter;
@@ -50,6 +50,18 @@ describe('rewriteBudget', () => {
     expect(rewriteBudget(3000)).toBe(6);
     expect(rewriteBudget(100)).toBe(1);
     expect(rewriteBudget(0)).toBe(1);
+  });
+});
+
+describe('firstRunBudget', () => {
+  it('is max(0, min(rewriteBudget(words), floor(10 * words / 1500) - ranked))', () => {
+    expect(firstRunBudget(1500, 0)).toBe(3);
+    expect(firstRunBudget(1500, 8)).toBe(2);
+    expect(firstRunBudget(1500, 10)).toBe(0);
+    expect(firstRunBudget(1500, 13)).toBe(0);
+    expect(firstRunBudget(1022, 4)).toBe(2); // floor(6.81) - 4 = 2 = rewriteBudget
+    expect(firstRunBudget(1178, 6)).toBe(1); // floor(7.85) - 6
+    expect(firstRunBudget(12, 0)).toBe(0); // floor(0.08) = 0: no room in a tiny text
   });
 });
 

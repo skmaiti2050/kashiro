@@ -23,6 +23,18 @@ export function rewriteBudget(words: number): number {
   return Math.max(1, Math.round((3 * words) / 1500));
 }
 
+/** Ranked decisions allowed per 1,500 words (spec §10). */
+const DECISIONS_PER_1500 = 10;
+
+/**
+ * Sentences for the automatic first run: rewriteBudget, but never more than the room left under the
+ * decision budget, so the helper cannot push a document over it (an explicit "check more" may).
+ */
+export function firstRunBudget(words: number, rankedDecisions: number): number {
+  const room = Math.floor((DECISIONS_PER_1500 * words) / 1500) - rankedDecisions;
+  return Math.max(0, Math.min(rewriteBudget(words), room));
+}
+
 /**
  * Awkward lint +3, more than 30 words +2, two or more rules lints +1. Unknown names (capitalised
  * Spelling/Typo flags) do not count: a rewrite cannot help a sentence that only holds names.

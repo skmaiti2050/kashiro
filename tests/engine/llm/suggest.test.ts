@@ -114,12 +114,31 @@ describe('suggestRewrites', () => {
     const s = await start([{ id: 0, text: 'One two three four. Five six seven eight. Nine ten eleven twelve.' }]);
     s.addCandidates([styleLint(0, { start: 0, end: 3 }), styleLint(0, { start: 20, end: 24 }), styleLint(0, { start: 42, end: 46 })]);
     const helper = recordedHelper({});
-    // 12 words → budget 1 per run.
-    await suggestRewrites(s, helper, 'business', live());
-    await suggestRewrites(s, helper, 'business', live());
-    await suggestRewrites(s, helper, 'business', live());
+    // 12 words → rewriteBudget 1 per "more" run.
+    await suggestRewrites(s, helper, 'business', live(), { more: true });
+    await suggestRewrites(s, helper, 'business', live(), { more: true });
+    await suggestRewrites(s, helper, 'business', live(), { more: true });
     expect(helper.sent).toEqual(['One two three four.', 'Five six seven eight.', 'Nine ten eleven twelve.']);
+    expect((await suggestRewrites(s, helper, 'business', live(), { more: true })).sent).toBe(0);
+  });
+
+  it('the first run never pushes a document over the decision budget; "more" may (spec §10)', async () => {
+    // 773 words: room for floor(10 * 773 / 1500) = 5 ranked decisions. Fill it with 5 distinct lints.
+    const s = await tehSession();
+    const filler = [0, 24, 48, 72, 96].map((at, i) => ({ ...styleLint(1, { start: at, end: at + 3 }), message: `Lint ${i}` }));
+    s.addCandidates(filler);
+    expect(s.rankedDecisionCount()).toBeGreaterThanOrEqual(5);
+    const helper = recordedHelper({});
     expect((await suggestRewrites(s, helper, 'business', live())).sent).toBe(0);
+    expect(helper.sent).toEqual([]);
+    // An explicit "Check more sentences" gets the normal budget: round(3 * 773 / 1500) = 2.
+    expect((await suggestRewrites(s, helper, 'business', live(), { more: true })).sent).toBe(2);
+  });
+
+  it('the first run is capped by the room left under the budget', async () => {
+    const s = await tehSession();
+    const room = Math.floor((10 * 773) / 1500) - s.rankedDecisionCount();
+    expect(room).toBeGreaterThanOrEqual(2); // so the other first-run tests here send 2 sentences
   });
 
   it('cancelling keeps the results that already came back', async () => {
