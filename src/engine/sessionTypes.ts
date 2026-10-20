@@ -1,3 +1,4 @@
+import type { ReviewDepth } from './depth';
 import type { RulesLinter } from './linter';
 import type { PresetId } from './presets';
 import type { Candidate, Span, Tier, Variant } from './types';
@@ -11,6 +12,8 @@ export interface CheckOptions {
   dictionary: string[];
   /** Per-kind tier overrides (passed to TierContext.userTierOverrides). */
   tierOverrides?: Partial<Record<string, Tier>>;
+  /** How many decisions to show up front and rewrites to run automatically (default 'standard'). */
+  depth?: ReviewDepth;
 }
 
 export interface SessionDeps {

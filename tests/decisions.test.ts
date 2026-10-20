@@ -94,9 +94,10 @@ async function measureDoc(doc: Doc): Promise<Measure> {
   const { paras } = await adapter.read(new Uint8Array(fs.readFileSync(path.join(REF, doc.file))));
   const session = await CheckSession.start(
     paras,
-    { preset: doc.preset, fallbackVariant: 'American', language: adapter.language, dictionary: [] },
+    { preset: doc.preset, fallbackVariant: 'American', language: adapter.language, dictionary: [], depth: 'standard' },
     { linter },
   );
+  expect(session.depth).toBe('standard'); // the budget is measured at the default depth
   const words = countWords(paras);
   const top = session.decisionCount();
   const ranked = session.rankedDecisionCount();

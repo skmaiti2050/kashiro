@@ -1,5 +1,6 @@
 import type { CheckSession } from '../session';
 import { overlaps } from '../sessionTypes';
+import { DEFAULT_DEPTH, rewriteCount, upFrontRoom, type ReviewDepth } from '../depth';
 import { sentenceSpans, sentenceWithEdits } from '../sentences';
 import { countWords } from '../words';
 import { isNameFlag } from '../wordFlags';
@@ -18,21 +19,18 @@ const LONG_SENTENCE_WORDS = 30;
 /** Inline markup a rewrite could silently drop: Markdown emphasis, code, links, math, HTML, tables, escapes. */
 const INLINE_MARKUP = /[*_`$[\]<>|\\]/;
 
-/** Sentences to rewrite per document: 3 per 1,500 words, at least 1 (Claude's call). */
-export function rewriteBudget(words: number): number {
-  return Math.max(1, Math.round((3 * words) / 1500));
+/** Sentences to rewrite per document at this depth (rate per 1,500 words, at least 1; 0 when automatic is off). */
+export function rewriteBudget(words: number, depth: ReviewDepth = DEFAULT_DEPTH): number {
+  return rewriteCount(depth, words, false);
 }
-
-/** Ranked decisions allowed per 1,500 words (spec §10). */
-const DECISIONS_PER_1500 = 10;
 
 /**
  * Sentences for the automatic first run: rewriteBudget, but never more than the room left under the
- * decision budget, so the helper cannot push a document over it (an explicit "check more" may).
+ * depth's decision budget, so the helper cannot push a document over it (an explicit "check more" may).
  */
-export function firstRunBudget(words: number, rankedDecisions: number): number {
-  const room = Math.floor((DECISIONS_PER_1500 * words) / 1500) - rankedDecisions;
-  return Math.max(0, Math.min(rewriteBudget(words), room));
+export function firstRunBudget(words: number, rankedDecisions: number, depth: ReviewDepth = DEFAULT_DEPTH): number {
+  const room = upFrontRoom(depth, words) - rankedDecisions;
+  return Math.max(0, Math.min(rewriteBudget(words, depth), room));
 }
 
 /**

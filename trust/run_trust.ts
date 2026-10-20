@@ -166,6 +166,7 @@ async function factLockGate(job: Job): Promise<string> {
     fallbackVariant: 'American',
     language: adapter.language,
     dictionary: [],
+    depth: 'standard', // the trust suite always measures the default depth
   });
   const auto = session.outcomes().filter((o) => o.status === 'applied' && o.auto);
   const badAuto = auto.filter((o) => session.touchesLocked(o.candidate.id));

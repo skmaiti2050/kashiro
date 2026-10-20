@@ -42,7 +42,7 @@ describe('review budget with recorded helper rewrites', () => {
       const { paras } = await adapter.read(new Uint8Array(fs.readFileSync(path.join(REF, file))));
       const session = await CheckSession.start(
         paras,
-        { preset: doc.preset, fallbackVariant: 'American', language: adapter.language, dictionary: [] },
+        { preset: doc.preset, fallbackVariant: 'American', language: adapter.language, dictionary: [], depth: 'standard' },
         { linter },
       );
       const recorded = rewrites.filter((r) => r.doc === file);

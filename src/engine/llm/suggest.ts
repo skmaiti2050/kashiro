@@ -2,7 +2,8 @@ import type { CheckSession } from '../session';
 import type { PresetId } from '../presets';
 import { countWords } from '../words';
 import type { GuardReason } from './guard';
-import { firstRunBudget, pickSentences, rewriteBudget } from './select';
+import { rewriteCount } from '../depth';
+import { firstRunBudget, pickSentences } from './select';
 import type { LlmClient } from './client';
 
 /** What suggestRewrites needs from the helper: LlmClient, or recorded answers in tests. */
@@ -34,7 +35,9 @@ export async function suggestRewrites(
   { more = false }: { more?: boolean } = {},
 ): Promise<RewriteRun> {
   const words = session.paragraphs().reduce((n, p) => n + countWords(p.text), 0);
-  const budget = more ? rewriteBudget(words) : firstRunBudget(words, session.rankedDecisionCount());
+  const budget = more
+    ? rewriteCount(session.depth, words, true)
+    : firstRunBudget(words, session.rankedDecisionCount(), session.depth);
   const run: RewriteRun = { sent: 0, added: 0, rejected: [], cancelled: false };
   for (const s of pickSentences(session, budget)) {
     if (signal.aborted) break;

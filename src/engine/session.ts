@@ -3,6 +3,8 @@ import { buildDecisions, foldsUnderMore, NAMES_CARD_ID, type Decision } from './
 import { tierOf, type TierContext } from './tiers';
 import { EditLedger } from './editLedger';
 import { prepareCheck } from './sessionSetup';
+import { DEFAULT_DEPTH, upFrontCount, type ReviewDepth } from './depth';
+import { countWords } from './words';
 import { WORD_REWRITE_KINDS } from './wordFlags';
 import { sentenceWithEdits } from './sentences';
 import { lockedTokens, passesGuard, type GuardVerdict } from './llm/guard';
@@ -23,8 +25,6 @@ import type { Candidate, Paragraph, Span, Tier, Variant } from './types';
 // Public paths stay `engine/session`; the types live in sessionTypes.ts.
 export { TRACKED_CHANGE_REASON, type CheckOptions, type Edit, type LogEntry, type Outcome, type SessionDeps, type Status };
 
-const TOP = 10;
-
 const sentenceKey = (paraId: number, span: Span) => `${paraId}:${span.start}-${span.end}`;
 
 
@@ -43,6 +43,7 @@ export class CheckSession {
   private readonly sentToHelperKeys = new Set<string>();
   /** Ids of LLM rewrites added by addRewrite, i.e. ones that passed the meaning-drift guard. */
   private readonly guardedRewrites = new Set<string>();
+  private readonly words: number;
 
   private constructor(
     paras: Paragraph[],
@@ -51,7 +52,9 @@ export class CheckSession {
     private readonly ctx: TierContext,
     now: () => Date,
     private readonly linter: RulesLinter,
+    private reviewDepth: ReviewDepth,
   ) {
+    this.words = paras.reduce((n, p) => n + countWords(p.text), 0);
     this.ledger = new EditLedger(this.cands, now);
     paras.forEach((p, i) => {
       this.paras.set(p.id, p);
@@ -61,7 +64,7 @@ export class CheckSession {
 
   static async start(paras: Paragraph[], opts: CheckOptions, deps: SessionDeps = {}): Promise<CheckSession> {
     const { linter, variant, mixedVariant, ctx, found } = await prepareCheck(paras, opts, deps);
-    const session = new CheckSession(paras, variant, mixedVariant, ctx, deps.now ?? (() => new Date()), linter);
+    const session = new CheckSession(paras, variant, mixedVariant, ctx, deps.now ?? (() => new Date()), linter, opts.depth ?? DEFAULT_DEPTH);
     session.addCandidates(found);
     session.autoApply();
     return session;
@@ -110,7 +113,17 @@ export class CheckSession {
       // Inside an existing tracked change: can't be applied, so never in `top`.
       blocked: (c) => this.ledger.inTrackedChange.has(c.id),
     });
-    return { top: decisions.slice(0, TOP), more: [...decisions.slice(TOP), ...blocked] };
+    const topSize = upFrontCount(this.reviewDepth, this.words);
+    return { top: decisions.slice(0, topSize), more: [...decisions.slice(topSize), ...blocked] };
+  }
+
+  get depth(): ReviewDepth {
+    return this.reviewDepth;
+  }
+
+  /** Changes how many decisions show up front. Statuses and tiers are untouched. */
+  setDepth(depth: ReviewDepth): void {
+    this.reviewDepth = depth;
   }
 
   /** True when the candidate overlaps a fact-locked span or an adapter-locked (tracked change) span. */
@@ -120,7 +133,7 @@ export class CheckSession {
     return this.ledger.inTrackedChange.has(c.id) || overlapsLocked(c, this.ctx.locked.get(c.paraId));
   }
 
-  /** Decisions in the default view (spec §10): the top of the ranking (at most TOP). */
+  /** Decisions in the default view (spec §10): the top of the ranking, sized by the review depth. */
   decisionCount(): number {
     return this.decisions().top.length;
   }
