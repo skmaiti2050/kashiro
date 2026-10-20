@@ -6,6 +6,7 @@ export interface RulesLinter {
   lintParagraphs(paras: Paragraph[], language: 'plaintext' | 'markdown'): Promise<Candidate[]>;
   addWords(words: string[]): Promise<void>;
   setVariant(v: Variant): Promise<void>;
+  readonly variant: Variant;
 }
 
 /**
@@ -23,7 +24,11 @@ export async function createLinter(
   await linter.setup();
   if (words.length) await linter.importWords(words);
 
+  let current = variant;
   return {
+    get variant() {
+      return current;
+    },
     async lintParagraphs(paras, language) {
       const out: Candidate[] = [];
       for (const p of paras) {
@@ -68,6 +73,7 @@ export async function createLinter(
     },
     async setVariant(v) {
       await linter.setDialect(Dialect[v]);
+      current = v;
     },
   };
 }
