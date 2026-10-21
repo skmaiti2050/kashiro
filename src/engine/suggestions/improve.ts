@@ -11,12 +11,14 @@ const MISSED_WORD_MARGIN = 1.0;
 /** Zipf for a suggestion not in the frequency list: rarer than its rarest word (1.9). */
 const UNKNOWN_ZIPF = 1.5;
 
-// Likelihood weights, tuned on the reference corpus' planted errors (task S6 report).
+// Likelihood weights, tuned on the reference corpus' planted errors and checked on a held-out list
+// (tests/engine/suggestionRanking.test.ts; task S6 report).
 const EDIT_WEIGHT = 2.0;
 const ZIPF_WEIGHT = 0.5;
 const NEIGHBOUR_KEY_BONUS = 0.5;
 const FIRST_LETTER_BONUS = 0.5;
-const SAME_LENGTH_BONUS = 0.5;
+const LENGTH_CLASS_BONUS = 0.5;
+const MISSING_LETTER_BONUS = 0.5;
 
 /**
  * Lowercase a-z and apostrophes only: "recieve", "dont" (not "Rao", "co-op", "q2" or "āyus": the frequency
@@ -113,7 +115,9 @@ function rankByLikelihood(original: string, suggestions: string[]): string[] {
 
 /**
  * How likely `suggestion` is the intended word: fewer edits (a swap counts as one), a more frequent
- * word, a slip onto a neighbouring key, the same first letter and the same length all make it likelier.
+ * word, a slip onto a neighbouring key, the same first letter and the same length class all make it
+ * likelier. A dropped letter is the commonest misspelling ("finaly" → "finally", not "final"), so a
+ * one-word suggestion one letter longer is in the same length class and gets a further bonus.
  */
 function likelihood(original: string, suggestion: string): number {
   const o = original.toLowerCase();
@@ -122,7 +126,11 @@ function likelihood(original: string, suggestion: string): number {
   let score = -EDIT_WEIGHT * distance + ZIPF_WEIGHT * suggestionZipf(s);
   if (distance === 1 && isNeighbourKeySlip(o, s)) score += NEIGHBOUR_KEY_BONUS;
   if (o[0] === s[0]) score += FIRST_LETTER_BONUS;
-  if (o.length === s.length) score += SAME_LENGTH_BONUS;
+  if (s.length === o.length) score += LENGTH_CLASS_BONUS;
+  if (s.length === o.length + 1 && !s.includes(' ')) {
+    score += LENGTH_CLASS_BONUS;
+    if (distance === 1) score += MISSING_LETTER_BONUS;
+  }
   return score;
 }
 

@@ -1,6 +1,6 @@
 import type { Candidate } from './types';
 import { COMMON_WORDS } from './wordlists/common';
-import { isCommonWord } from './suggestions/frequency';
+import { zipfOf } from './suggestions/frequency';
 import { PLAIN_WORD, TWO_EDIT_LENGTH, UPPER_START, WORD_REWRITE_KINDS, withinOneEdit, withinTwoEdits } from './wordFlags';
 
 /** Spec §5 terms card: an unknown lowercase word used this many times is treated as an intended term. */
@@ -13,6 +13,18 @@ const TERM_SHAPE = /^\p{Ll}[\p{L}\p{N}]*$/u;
 const LETTER = /\p{L}/gu;
 /** One word token for counting uses: letters and digits ("dosha" in "dosha's" and in "(dosha)"). */
 const WORD_TOKEN = /[\p{L}\p{N}]+/gu;
+
+/**
+ * A close suggestion this common (Zipf, rounded to 0.1) marks a flag of 6+ letters as a misspelling:
+ * "occurrence" (3.8) and "accommodate" (4.0) do, "dosh" (2.3) doesn't.
+ */
+const LONG_WORD_BLOCKING_ZIPF = 3.6;
+/**
+ * Short words have many one-edit neighbours, so only a very common one counts: "kapha" is a term
+ * although "karma" (3.9) and "kappa" (3.5) are one edit away. Slips of the commonest words ("teh")
+ * are caught by the common-words list instead.
+ */
+const SHORT_WORD_BLOCKING_ZIPF = 4.0;
 
 /** Throws when `n` is not a whole number from 2 to 5 (the settings range). */
 export function checkTermMinRepeats(n: number): void {
@@ -41,15 +53,17 @@ function isSlipOfCommonWord(word: string): boolean {
 
 /**
  * True when one of the linter's own one-word suggestions (not words the engine added: "coinfection" →
- * "infection") is a common word (Zipf ≥ 3.0) close to the flag: one edit,
- * or two for words of 6+ letters ("occurence" → "occurrence"). This catches misspellings of words rarer
+ * "infection") is a common word close to the flag: one edit and Zipf ≥ 4.0, or for words of 6+ letters
+ * two edits and Zipf ≥ 3.6 ("occurence" → "occurrence"). This catches misspellings of words rarer
  * than the common-words list. A rare neighbour doesn't count ("dosha" → "dosh"), nor does a split
  * ("co infection"): joining two words is a style choice, not a sign of a typo.
  */
 function hasCloseSuggestion(c: Candidate): boolean {
-  const close = c.original.length >= TWO_EDIT_LENGTH ? withinTwoEdits : withinOneEdit;
+  const long = c.original.length >= TWO_EDIT_LENGTH;
+  const close = long ? withinTwoEdits : withinOneEdit;
+  const minZipf = long ? LONG_WORD_BLOCKING_ZIPF : SHORT_WORD_BLOCKING_ZIPF;
   const offered = c.linterReplacements ?? c.replacements;
-  return offered.some((r) => PLAIN_WORD.test(r) && close(c.original, r) && isCommonWord(r));
+  return offered.some((r) => PLAIN_WORD.test(r) && close(c.original, r) && zipfOf(r) >= minZipf);
 }
 
 /** Uses of each word in the document, exact case, counted once per paraText map (one per session). */

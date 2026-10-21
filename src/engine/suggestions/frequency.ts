@@ -4,8 +4,11 @@ import data from '../../../resources/frequency/en-wordfreq.json';
 import type { FrequencyData } from './frequencyData';
 import { editDistance } from '../wordFlags';
 
-/** Zipf 3.0 is about once per million words: "occurrence" (3.8) is common, "dosh" (2.3) is not. */
-const COMMON_ZIPF = 3.0;
+/**
+ * Words rarer than this are never added as suggestions. Zipf 3.0 is about once per million words:
+ * "existent" (3.5) can be added, "lithe" (2.5) can't.
+ */
+const SUGGESTION_POOL_ZIPF = 3.0;
 
 export interface NearbyWord {
   word: string;
@@ -23,7 +26,10 @@ interface Index {
 
 let index: Index | undefined;
 
-/** Builds the lookup tables on first use (~20 ms), not at import. */
+/**
+ * Builds the lookup tables on first use (25-40 ms on the development machine). In practice that is when
+ * the engine loads: wordlists/common.ts reads the list at import.
+ */
 function getIndex(): Index {
   if (index) return index;
   const zipfByWord = new Map<string, number>();
@@ -33,7 +39,7 @@ function getIndex(): Index {
     for (const word of text.split(' ')) {
       zipfByWord.set(word, zipf);
       ordered.push(word);
-      if (zipf < COMMON_ZIPF || word.includes("'")) continue;
+      if (zipf < SUGGESTION_POOL_ZIPF || word.includes("'")) continue;
       const sameLength = commonByLength.get(word.length) ?? [];
       sameLength.push({ word, zipf, letters: letterSet(word) });
       commonByLength.set(word.length, sameLength);
@@ -46,11 +52,6 @@ function getIndex(): Index {
 /** Zipf frequency of a word (case-insensitive; curly apostrophes read as straight), 0 when it is not in the list. */
 export function zipfOf(word: string): number {
   return getIndex().zipfByWord.get(word.toLowerCase().replace(/’/g, "'")) ?? 0;
-}
-
-/** True for a word used at least about once per million words (Zipf ≥ 3.0). */
-export function isCommonWord(word: string): boolean {
-  return zipfOf(word) >= COMMON_ZIPF;
 }
 
 /** Every word in the list, most frequent first. */

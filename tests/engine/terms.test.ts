@@ -104,9 +104,9 @@ describe('terms card (spec §5)', () => {
     expect(decide(text, flagsOf(text, 'dosha', ['dosh']))[0]).toMatchObject({ kind: 'terms', counts: { dosha: 3 } });
   });
 
-  it('a close common suggestion still stops it: "kapha" ×3 with "kappa" (Zipf 3.5)', () => {
+  it(`a short word's moderately common neighbours don't stop it either: "kapha" ×3 with "kappa", "karma"`, () => {
     const text = 'Each kapha, the kapha and a kapha.';
-    expect(decide(text, flagsOf(text, 'kapha', ['kappa', 'kana'])).map((x) => x.kind)).toEqual(['batch']);
+    expect(decide(text, flagsOf(text, 'kapha', ['kappa', 'karma', 'kana']))[0]).toMatchObject({ kind: 'terms', counts: { kapha: 3 } });
   });
 
   it('words the engine added to the suggestions do not stop a term ("coinfection" → added "infection")', () => {
