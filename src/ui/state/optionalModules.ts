@@ -1,23 +1,29 @@
 import type { Dictionary } from '@/engine/dictionary/lookup';
 import type { Rewriter } from '@/engine/llm/suggest';
 import type { ModuleSwitches } from '@/engine/modules';
-import { unloadRomanisedModel } from '@/engine/romanised/classifier';
+
+/** A started writing helper: its client, and how to stop its process (llama-server) when AI rewrites go off. */
+export interface WritingHelper {
+  rewriter: Rewriter;
+  stop(): void | Promise<void>;
+}
 
 /** How the platform loads the modules that live outside the rules check. Unset: not wired on this platform yet. */
 export interface ModuleLoaders {
   /** Reads and indexes the offline dictionary (word lookup). */
   loadDictionary?: () => Promise<Dictionary>;
   /** Starts the local writing helper (AI rewrites). */
-  startHelper?: () => Promise<Rewriter>;
+  startHelper?: () => Promise<WritingHelper>;
 }
 
 /**
  * The data and helper modules, each loaded on first use and only while its switch is on. Switching one off
- * drops the reference, so its memory can be reclaimed; switching it on again loads it again.
+ * drops the dictionary's reference so its memory can be reclaimed, and stops the helper; switching it on
+ * again loads or starts it again.
  */
 export class OptionalModules {
   private loadedDictionary: Promise<Dictionary> | null = null;
-  private startedHelper: Promise<Rewriter> | null = null;
+  private startedHelper: Promise<WritingHelper> | null = null;
 
   constructor(private readonly loaders: ModuleLoaders) {}
 
@@ -29,22 +35,27 @@ export class OptionalModules {
     return this.loadedDictionary;
   }
 
-  /** The writing helper, or null when AI rewrites are off (no helper is started) or there is no starter. */
+  /** The writing helper's client, or null when AI rewrites are off (no helper is started) or there is no starter. */
   helper(modules: ModuleSwitches): Promise<Rewriter> | null {
     const start = this.loaders.startHelper;
     if (!modules.aiRewrites || !start) return null;
     this.startedHelper ??= this.forgetOnFailure(start(), () => (this.startedHelper = null));
-    return this.startedHelper;
+    return this.startedHelper.then((h) => h.rewriter);
   }
 
-  /**
-   * Drops what the switched-off modules hold. Call it once no session checked with the old switches is in use:
-   * the romanised model is dropped too, and a session checked with the other-languages card on still needs it.
-   */
-  release(modules: ModuleSwitches): void {
+  /** Drops the dictionary and stops the helper when their switches are off. Rejects when the helper fails to stop. */
+  async release(modules: ModuleSwitches): Promise<void> {
     if (!modules.wordLookup) this.loadedDictionary = null;
-    if (!modules.aiRewrites) this.startedHelper = null;
-    if (!modules.otherLanguageCard) unloadRomanisedModel();
+    if (modules.aiRewrites || !this.startedHelper) return;
+    const started = this.startedHelper;
+    this.startedHelper = null;
+    let helper: WritingHelper;
+    try {
+      helper = await started;
+    } catch {
+      return; // it never started, so there is nothing to stop (the caller of helper() saw the error)
+    }
+    await helper.stop();
   }
 
   /** A failed load is not kept, so the next use tries again (the error still reaches this caller). */

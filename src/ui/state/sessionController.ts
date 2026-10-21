@@ -95,9 +95,9 @@ export class SessionController {
     dropLinter: () => (this.linter = null),
     recheck: () => this.recheck(),
     modulesChanged: async () => {
-      // With a document open, the check that follows drops what the old switches held (see check).
+      // With a document open, the check that follows releases what the switches turned off (see check).
       if (this.loaded) return this.recheck();
-      this.optional.release(modulesFor(this.state.settings));
+      this.releaseModules(modulesFor(this.state.settings));
     },
   };
   private readonly optional: OptionalModules;
@@ -244,10 +244,10 @@ export class SessionController {
       if (run !== this.checks) return;
       // The depth may have moved while the check ran.
       session.setDepth(currentDepth(this.state.settings));
-      if (before) carryDecisions(before, session, matchUnchangedParagraphs(before.paragraphs(), loaded.paras));
+      if (before) this.tally.remap(carryDecisions(before, session, matchUnchangedParagraphs(before.paragraphs(), loaded.paras)));
       this.set({ phase: 'ready', session, checking: this.queue.waiting });
-      // Only now: the session this one replaces may have needed what a switched-off module held.
-      this.optional.release(session.modules);
+      // After every check, so a goal switch (whose own modules may differ) releases too.
+      this.releaseModules(session.modules);
     } catch (e) {
       if (run !== this.checks) return;
       this.set({ phase: this.state.session ? 'ready' : 'empty', error: `The check failed: ${message(e)}`, checking: this.queue.waiting });
@@ -379,6 +379,10 @@ export class SessionController {
   /** The local writing helper, started on first use; null while AI rewrites are off. */
   helper(): Promise<Rewriter> | null {
     return this.optional.helper(modulesFor(this.state.settings));
+  }
+
+  private releaseModules(modules: ModuleSwitches): void {
+    this.optional.release(modules).catch((e) => this.set({ error: `The writing helper did not stop: ${message(e)}` }));
   }
 
   /**

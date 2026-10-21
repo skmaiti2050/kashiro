@@ -52,6 +52,18 @@ describe('DecisionTally', () => {
     expect(tally.decided).toBe(0);
   });
 
+  it('remap moves rejections to their new ids and forgets ones not carried', () => {
+    const tally = new DecisionTally();
+    tally.rejected('batch:x', ['0:1', '0:2']);
+    tally.rejected('single', ['3:4']);
+    tally.remap(new Map([['0:1', '1:1'], ['0:2', '1:2']]));
+    tally.reopen('1:1');
+    tally.reopen('1:2');
+    expect(tally.decided).toBe(1); // the batch gave back one decision
+    tally.reopen('3:4'); // forgotten: counted as a rejection made outside the tally
+    expect(tally.decided).toBe(0);
+  });
+
   it('reset forgets the count and the rejections', () => {
     const tally = new DecisionTally();
     tally.rejected('batch:x', ['a', 'b']);

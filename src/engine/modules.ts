@@ -1,13 +1,17 @@
 /**
  * Optional helpers the user can switch off (Settings › Modules). The core protections (Harper's rules,
- * the fact lock, the offensive-suggestion filter, hygiene and code-token handling) have no switch.
+ * the fact lock, the offensive-suggestion filter, hygiene, code-token handling and the never-auto-fix guard
+ * for words in other languages) have no switch.
  */
 export interface ModuleSwitches {
   /** Names and places as one card; off: each is its own per-word decision. */
   namesCard: boolean;
   /** Repeated unknown lowercase words as one card; off: each word is its own per-word decision. */
   termsCard: boolean;
-  /** Romanised Indian-language words as one card; off: per-word decisions, and the classifier's model is never loaded. */
+  /**
+   * Romanised Indian-language words as one card; off: per-word decisions. The classifier still loads when a
+   * document has a lowercase unknown word: its never-auto-fix guard is a core protection.
+   */
   otherLanguageCard: boolean;
   /** Spelling suggestions re-ranked by likelihood, with likely words added; off: the linter's own list and order. */
   betterSuggestions: boolean;
@@ -29,12 +33,19 @@ export const DEFAULT_MODULES: Readonly<ModuleSwitches> = Object.freeze({
 
 const MODULE_NAMES = Object.keys(DEFAULT_MODULES) as (keyof ModuleSwitches)[];
 
+/** A plain object (not null, an array or a primitive), as JSON settings should hold. */
+export function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 /**
  * The switches in `chosen` over the defaults. Only the known switches are read, so nothing a caller passes
  * (a stale or hand-edited settings file) can turn off a core protection.
  */
 export function resolveModules(chosen: Partial<ModuleSwitches> = {}): ModuleSwitches {
   const modules = { ...DEFAULT_MODULES };
+  // A damaged settings file may hold null or a string here: that means the defaults.
+  if (!isRecord(chosen)) return modules;
   for (const name of MODULE_NAMES) {
     const value = chosen[name];
     if (typeof value === 'boolean') modules[name] = value;

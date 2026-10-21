@@ -115,15 +115,6 @@ export async function loadRomanisedModel(): Promise<void> {
   };
 }
 
-/**
- * Drops the parsed models (tens of MB of count tables) when the user switches the other-languages card off.
- * The verdicts already given are kept: they are small, and a session checked earlier may still ask for them.
- * The bundler keeps the imported JSON module itself, so a later load only re-parses it.
- */
-export function unloadRomanisedModel(): void {
-  models = undefined;
-}
-
 function getModels(): NonNullable<typeof models> {
   if (!models) throw new Error('The romanised model is not loaded: await loadRomanisedModel() before isRomanisedIndic.');
   return models;

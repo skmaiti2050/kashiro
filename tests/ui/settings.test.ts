@@ -59,6 +59,23 @@ describe('withSavedSettings', () => {
   });
 });
 
+describe('withSavedSettings: a damaged settings file still loads', () => {
+  const defaults = defaultSettings('en-IN');
+
+  it.each([
+    ['a null goal entry', { modulesByPreset: { academic: null } }],
+    ['a goal entry that is not an object', { modulesByPreset: { academic: 'off', blog: 3 } }],
+    ['modulesByPreset that is not an object', { modulesByPreset: 'academic' }],
+    ['modulesByPreset that is an array', { modulesByPreset: [{ namesCard: false }] }],
+    ['null modules', { modules: null }],
+  ])('%s: the defaults for it', (_case, saved) => {
+    const settings = withSavedSettings(defaults, saved as unknown as Partial<Settings>);
+    expect(settings.modules).toEqual(DEFAULT_MODULES);
+    expect(Object.values(settings.modulesByPreset).every((m) => JSON.stringify(m) === JSON.stringify(DEFAULT_MODULES))).toBe(true);
+    expect(Object.keys(settings.modulesByPreset).every((k) => k === 'academic' || k === 'blog')).toBe(true);
+  });
+});
+
 describe('modulesFor', () => {
   const base = defaultSettings('en-US');
 

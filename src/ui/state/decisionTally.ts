@@ -44,6 +44,19 @@ export class DecisionTally {
     this.made(-1);
   }
 
+  /**
+   * A re-check renumbered the candidates (`ids`: old id → new id, from carryDecisions). Rejections follow their
+   * candidates; a rejection whose candidate was not carried is forgotten (its paragraph changed).
+   */
+  remap(ids: ReadonlyMap<string, string>): void {
+    const entries = [...this.rejectedAs];
+    this.rejectedAs.clear();
+    for (const [oldId, rejection] of entries) {
+      const newId = ids.get(oldId);
+      if (newId !== undefined) this.rejectedAs.set(newId, rejection);
+    }
+  }
+
   /** A new document: nothing decided yet. */
   reset(): void {
     this.count = 0;

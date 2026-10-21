@@ -508,6 +508,25 @@ describe('SessionController: typing re-checks', () => {
     expect(pending.some((id) => id.startsWith('2:'))).toBe(true);
   });
 
+  it('"Review again" on a rejected batch whose paragraph moved still gives back one decision, not one per place', async () => {
+    const { controller } = makeController();
+    await controller.openText("I can't go. You can't stay.\n\nIt's late.");
+    const batch = controller.getState().session!.decisions().top.find((d) => d.kind === 'batch')!;
+    controller.reject(batch.id);
+    controller.accept(controller.getState().session!.decisions().top.find((d) => d.kind === 'single')!.id);
+    expect(controller.getState().decided).toBe(2);
+
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    controller.editText("New start.\n\nI can't go. You can't stay.\n\nIt's late.");
+    await vi.advanceTimersByTimeAsync(300);
+    await controller.settled();
+
+    const rejected = controller.getState().session!.outcomes().filter((o) => o.status === 'rejected' && o.candidate.paraId === 1);
+    expect(rejected).toHaveLength(2);
+    for (const o of rejected) controller.undo(o.candidate.id);
+    expect(controller.getState().decided).toBe(1);
+  });
+
   it('an undone auto-fix stays undone after a re-check', async () => {
     const { controller } = makeController();
     await controller.openText('I think teh cat is here.\n\nSecond.');
@@ -709,7 +728,7 @@ describe('SessionController: modules (U2)', () => {
   it('word lookup loads the dictionary only while it is on; AI rewrites start no helper while off', async () => {
     const dictionary = { lookup: vi.fn() };
     const loadDictionary = vi.fn(async () => dictionary);
-    const startHelper = vi.fn(async () => ({ rewrite: async () => null }));
+    const startHelper = vi.fn(async () => ({ rewriter: { rewrite: async () => null }, stop: vi.fn() }));
     const { controller } = makeController({ loadDictionary, startHelper });
     expect(await controller.dictionary()).toBe(dictionary);
     expect(controller.helper()).toBeNull(); // off by default
@@ -719,5 +738,24 @@ describe('SessionController: modules (U2)', () => {
     await controller.dictionary();
     expect(loadDictionary).toHaveBeenCalledTimes(2); // dropped when switched off, loaded again
     expect(startHelper).not.toHaveBeenCalled();
+  });
+
+  it('a running helper is stopped when the goal switched to has AI rewrites off', async () => {
+    const stop = vi.fn();
+    const startHelper = vi.fn(async () => ({ rewriter: { rewrite: async () => null }, stop }));
+    const { controller } = makeController({
+      startHelper,
+      settings: {
+        modelPath: 'models/helper.gguf',
+        modules: { ...DEFAULT_MODULES, aiRewrites: true },
+        modulesByPreset: { blog: { ...DEFAULT_MODULES, aiRewrites: false } },
+      },
+    });
+    await controller.openText(CANT);
+    await controller.helper();
+    controller.setPreset('blog');
+    await controller.settled();
+    expect(stop).toHaveBeenCalledTimes(1);
+    expect(controller.helper()).toBeNull();
   });
 });

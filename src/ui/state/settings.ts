@@ -1,6 +1,6 @@
 import type { ReviewDepth } from '@/engine/depth';
-import { DEFAULT_MODULES, resolveModules, type ModuleSwitches } from '@/engine/modules';
-import type { PresetId } from '@/engine/presets';
+import { DEFAULT_MODULES, isRecord, resolveModules, type ModuleSwitches } from '@/engine/modules';
+import { PRESETS, type PresetId } from '@/engine/presets';
 import { DEFAULT_TERM_MIN_REPEATS } from '@/engine/terms';
 import type { Tier, Variant } from '@/engine/types';
 import type { SaveMode } from '@/formats/types';
@@ -70,8 +70,9 @@ export function defaultSettings(locale: string): Settings {
 export function withSavedSettings(defaults: Settings, saved: Partial<Settings> | undefined): Settings {
   if (!saved) return defaults;
   const modulesByPreset: Settings['modulesByPreset'] = {};
-  for (const [preset, modules] of Object.entries(saved.modulesByPreset ?? {})) {
-    modulesByPreset[preset as PresetId] = resolveModules(modules);
+  const savedByPreset: unknown = saved.modulesByPreset;
+  for (const [preset, modules] of Object.entries(isRecord(savedByPreset) ? savedByPreset : {})) {
+    if (Object.hasOwn(PRESETS, preset)) modulesByPreset[preset as PresetId] = resolveModules(modules as Partial<ModuleSwitches>);
   }
   return { ...defaults, ...saved, modules: resolveModules(saved.modules ?? defaults.modules), modulesByPreset };
 }

@@ -3,24 +3,22 @@ import { DEFAULT_MODULES } from '@/engine/modules';
 import type { Dictionary } from '@/engine/dictionary/lookup';
 import type { Rewriter } from '@/engine/llm/suggest';
 import { OptionalModules } from '@/ui/state/optionalModules';
-import { unloadRomanisedModel } from '@/engine/romanised/classifier';
-
-vi.mock('@/engine/romanised/classifier', async (importOriginal) => {
-  const real = await importOriginal<typeof import('@/engine/romanised/classifier')>();
-  return { ...real, unloadRomanisedModel: vi.fn(real.unloadRomanisedModel) };
-});
 
 const fakeDictionary: Dictionary = {
   lookup: (word) => ({ word, lemma: word, senses: [], inPersonalDictionary: false, inIndianEnglishList: false }),
 };
-const fakeHelper: Rewriter = { rewrite: async () => null };
+const fakeRewriter: Rewriter = { rewrite: async () => null };
 
 function loaders() {
+  const stop = vi.fn();
   return {
+    stop,
     loadDictionary: vi.fn(async () => fakeDictionary),
-    startHelper: vi.fn(async () => fakeHelper),
+    startHelper: vi.fn(async () => ({ rewriter: fakeRewriter, stop })),
   };
 }
+
+const AI_ON = { ...DEFAULT_MODULES, aiRewrites: true };
 
 describe('OptionalModules', () => {
   it('word lookup off: the dictionary is never loaded', () => {
@@ -48,38 +46,47 @@ describe('OptionalModules', () => {
   it('AI rewrites on: the helper starts on first use, once', async () => {
     const l = loaders();
     const modules = new OptionalModules(l);
-    const on = { ...DEFAULT_MODULES, aiRewrites: true };
-    expect(await modules.helper(on)).toBe(fakeHelper);
-    await modules.helper(on);
+    expect(await modules.helper(AI_ON)).toBe(fakeRewriter);
+    await modules.helper(AI_ON);
     expect(l.startHelper).toHaveBeenCalledTimes(1);
   });
 
-  it('switching a module off drops what it loaded; switching it on again loads it again', async () => {
+  it('switching modules off drops the dictionary and stops the helper; on again loads and starts them again', async () => {
     const l = loaders();
     const modules = new OptionalModules(l);
-    const on = { ...DEFAULT_MODULES, aiRewrites: true };
-    await modules.dictionary(on);
-    await modules.helper(on);
-    modules.release({ ...on, wordLookup: false, aiRewrites: false });
-    expect(modules.dictionary({ ...on, wordLookup: false })).toBeNull();
-    await modules.dictionary(on);
-    await modules.helper(on);
+    await modules.dictionary(AI_ON);
+    await modules.helper(AI_ON);
+    await modules.release(AI_ON);
+    expect(l.stop).not.toHaveBeenCalled();
+    await modules.release({ ...AI_ON, wordLookup: false, aiRewrites: false });
+    expect(l.stop).toHaveBeenCalledTimes(1);
+    expect(modules.dictionary({ ...AI_ON, wordLookup: false })).toBeNull();
+    await modules.dictionary(AI_ON);
+    await modules.helper(AI_ON);
     expect(l.loadDictionary).toHaveBeenCalledTimes(2);
     expect(l.startHelper).toHaveBeenCalledTimes(2);
+    await modules.release(DEFAULT_MODULES);
+    expect(l.stop).toHaveBeenCalledTimes(2);
   });
 
-  it('the other-languages card off drops the romanised model; on keeps it', () => {
-    const modules = new OptionalModules({});
-    modules.release(DEFAULT_MODULES);
-    expect(unloadRomanisedModel).not.toHaveBeenCalled();
-    modules.release({ ...DEFAULT_MODULES, otherLanguageCard: false });
-    expect(unloadRomanisedModel).toHaveBeenCalledTimes(1);
+  it('a helper that failed to start has nothing to stop', async () => {
+    const startHelper = vi.fn().mockRejectedValue(new Error('no model'));
+    const modules = new OptionalModules({ startHelper });
+    await expect(modules.helper(AI_ON)).rejects.toThrow('no model');
+    await expect(modules.release(DEFAULT_MODULES)).resolves.toBeUndefined();
+  });
+
+  it('a helper that fails to stop reports it', async () => {
+    const stop = vi.fn().mockRejectedValue(new Error('still running'));
+    const modules = new OptionalModules({ startHelper: async () => ({ rewriter: fakeRewriter, stop }) });
+    await modules.helper(AI_ON);
+    await expect(modules.release(DEFAULT_MODULES)).rejects.toThrow('still running');
   });
 
   it('no loader given (not wired yet on this platform): null, never an error', () => {
     const modules = new OptionalModules({});
     expect(modules.dictionary(DEFAULT_MODULES)).toBeNull();
-    expect(modules.helper({ ...DEFAULT_MODULES, aiRewrites: true })).toBeNull();
+    expect(modules.helper(AI_ON)).toBeNull();
   });
 
   it('a failed load is not kept: the next use tries again', async () => {

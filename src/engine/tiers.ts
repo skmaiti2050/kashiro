@@ -4,7 +4,7 @@ import { followsAbbreviation, overlapsLocked } from './factLock';
 import { HAS_DIGIT, isCodeNoiseFlag, isSlipFix, UPPER_START, WORD_REWRITE_KINDS } from './wordFlags';
 import { overlaps } from './sessionTypes';
 import { isRomanisedIndic } from './romanised/classifier';
-import { DEFAULT_MODULES, type ModuleSwitches } from './modules';
+import type { ModuleSwitches } from './modules';
 
 // Public paths stay `engine/tiers`; the implementations live next to their own helpers.
 export { buildDecisions, foldsUnderMore, type Decision } from './decisions';
@@ -99,10 +99,8 @@ function isStyleChoice(c: Candidate): boolean {
  * romanised word (Punjabi "te" in "dhaba te ate makki di roti"): its one-letter "fix" would change the language.
  */
 function isOtherLanguageWord(c: Candidate, ctx: TierContext): boolean {
-  // The classifier needs the other-languages module's model; the foreign-sentence check below needs none.
-  const classifierOn = (ctx.modules ?? DEFAULT_MODULES).otherLanguageCard;
   // Protection skips the English-frequency gate: "na" in "Come fast na" is common as N/A but still Hindi here.
-  if (classifierOn && isRomanisedIndic(c.original, true)) return true;
+  if (isRomanisedIndic(c.original, true)) return true;
   const inAny = (sentences: Map<number, Span[]> | undefined) => (sentences?.get(c.paraId) ?? []).some((s) => overlaps(c.span, s));
   return inAny(ctx.foreignSentences) || (c.original.length === 2 && inAny(ctx.romanisedSentences));
 }

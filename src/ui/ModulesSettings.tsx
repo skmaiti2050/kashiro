@@ -7,7 +7,7 @@ interface ModuleInfo {
   name: keyof ModuleSwitches;
   label: string;
   description: string;
-  /** Approximate size or memory cost (measured for U2: the dictionary heap after parsing, the model's count tables). */
+  /** Approximate size or memory cost (measured for U2: the dictionary's heap after parsing). */
   cost: string;
 }
 
@@ -17,8 +17,8 @@ const MODULES: ModuleInfo[] = [
   {
     name: 'otherLanguageCard',
     label: 'Indian-language words card',
-    description: 'Recognises romanised Hindi, Bengali, Tamil and other Indian-language words, and keeps them from being “fixed”.',
-    cost: 'About 30 MB of memory while loaded, only for documents with unknown lowercase words.',
+    description: 'Groups romanised Hindi, Bengali, Tamil and other Indian-language words into one card you add in one go.',
+    cost: 'No extra memory. Off, each word is its own decision; such words are never auto-fixed either way.',
   },
   {
     name: 'betterSuggestions',

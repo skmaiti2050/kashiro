@@ -99,6 +99,14 @@ describe('module switches: off gives the behaviour from before the module', () =
     for (const w of ['khub', 'bhalo', 'laglo', 'ebong', 'kichu']) expect(decisionOf(s, w).kind).toBe('single');
   });
 
+  it('other-languages card off: a romanised word in an English sentence is never auto-fixed (core protection)', async () => {
+    const s = await start('We went to the temple for dharshan in the morning.', { otherLanguageCard: false });
+    const flag = s.candidates().find((c) => c.original === 'dharshan')!;
+    expect(flag).toBeDefined();
+    expect(s.tier(flag.id)).toBe('review');
+    expect(s.outputText(0)).toContain('dharshan');
+  });
+
   it('other-languages card off: no word in a mostly foreign sentence is auto-fixed (that protection needs no model)', async () => {
     const s = await start('ami kal school te jabo.', { otherLanguageCard: false });
     const te = s.candidates().find((c) => c.original === 'te')!;
@@ -147,5 +155,12 @@ describe('core protections stay on with every module off', () => {
     const code = off.candidates().filter((c) => c.original === 'preventDefault');
     for (const c of code) expect(off.tier(c.id)).toBe('hidden');
     expect(off.outputText(0)).toContain('I think the cat is here.');
+  });
+
+  it('the romanised never-auto-fix guard still applies', async () => {
+    const s = await start('We went to the temple for dharshan in the morning.', ALL_OFF);
+    const flag = s.candidates().find((c) => c.original === 'dharshan')!;
+    expect(s.tier(flag.id)).toBe('review');
+    expect(s.outcomes().filter((o) => o.auto && o.status === 'applied')).toEqual([]);
   });
 });

@@ -53,10 +53,10 @@ export async function prepareCheck(
     if (preset.extraRules.includes('contractions')) found.push(...findContractions(p, locked.get(p.id)));
   }
   found.sort(byPosition);
-  // The classifier's model is the other-languages module's data: with the card off it is never loaded.
-  if (modules.otherLanguageCard) await loadModelIfNeeded(found);
+  // The classifier also drives the never-auto-fix guard (a core protection), so it loads whatever the card switch says.
+  await loadModelIfNeeded(found);
   const foreignSentences = findForeignSentences(found, paraText);
-  const romanisedSentences = modules.otherLanguageCard ? findRomanisedSentences(found, paraText) : new Map<number, Span[]>();
+  const romanisedSentences = findRomanisedSentences(found, paraText);
   const ctx: TierContext = {
     modules,
     locked,

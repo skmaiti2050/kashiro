@@ -10,8 +10,10 @@ const sameFlag = (a: Candidate, b: Candidate) =>
  * Accepted stays accepted with the same replacement, rejected stays rejected, and an undone auto-fix
  * stays undone. Words added to the dictionary come back through the dictionary itself, and the
  * "real typo" ticks on the names and terms cards are not carried (the card is offered again).
+ * Returns old candidate id → its twin's id, for every decision carried (ids follow the paragraph when it moves).
  */
-export function carryDecisions(before: CheckSession, after: CheckSession, unchanged: Map<number, number>): void {
+export function carryDecisions(before: CheckSession, after: CheckSession, unchanged: Map<number, number>): Map<string, string> {
+  const carried = new Map<string, string>();
   const statusAfter = new Map(after.outcomes().map((o) => [o.candidate.id, o.status]));
   for (const o of before.outcomes()) {
     if (o.auto || o.unplaceable !== undefined || o.status === 'pending' || o.status === 'superseded') continue;
@@ -20,6 +22,7 @@ export function carryDecisions(before: CheckSession, after: CheckSession, unchan
     if (paraId === undefined) continue;
     const twin = after.candidates().find((c) => c.paraId === paraId && sameFlag(c, o.candidate));
     if (!twin) continue;
+    carried.set(o.candidate.id, twin.id);
     const now = statusAfter.get(twin.id);
     if (o.status === 'applied' && now === 'pending') {
       const index = twin.replacements.indexOf(o.replacement ?? '');
@@ -30,4 +33,5 @@ export function carryDecisions(before: CheckSession, after: CheckSession, unchan
       after.reject(twin.id);
     }
   }
+  return carried;
 }
