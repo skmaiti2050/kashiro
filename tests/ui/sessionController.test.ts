@@ -191,6 +191,15 @@ describe('SessionController: review', () => {
     expect([...top, ...more].find((d) => d.kind === 'terms')).toBeUndefined();
   });
 
+  it('acceptOtherLanguage adds the Hindi/Bengali words to the saved personal dictionary', async () => {
+    const { controller, saved } = makeController({ createLinter: (v, words) => createLinter(v, words) });
+    await controller.openText('He said chalo, and the food was khub bhalo.');
+    await controller.acceptOtherLanguage([]);
+    expect(saved.at(-1)!.dictionary).toEqual(['chalo', 'khub', 'bhalo']);
+    const { top, more } = controller.getState().session!.decisions();
+    expect([...top, ...more].find((d) => d.kind === 'otherLanguage')).toBeUndefined();
+  });
+
   it('the terms repeat setting is saved and checks again with it', async () => {
     const { controller, saved } = makeController();
     await controller.openText(TERMS);

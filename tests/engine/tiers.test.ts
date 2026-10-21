@@ -432,14 +432,15 @@ describe('Task 10 budget tuning', () => {
   };
 
   it('(round 2) Spelling flags of the same word batch into one decision, whatever the suggestions', () => {
-    const a = cand({ original: 'talukas', replacements: ['talks', 'talus'] });
-    const b = cand({ paraId: 1, original: 'talukas', replacements: ['tasks'] });
-    const c = cand({ paraId: 4, original: 'talukas', replacements: [] });
+    // An English-looking unknown word: "talukas" would go to the words-in-other-languages card.
+    const a = cand({ original: 'borewells', replacements: ['borrowers', 'bores'] });
+    const b = cand({ paraId: 1, original: 'borewells', replacements: ['bores'] });
+    const c = cand({ paraId: 4, original: 'borewells', replacements: [] });
     const other = cand({ paraId: 2, original: 'siltation', replacements: ['salvation', 'situation'] });
     const all = [a, b, other, c];
     const { decisions } = buildDecisions(all, new Map(all.map((x) => [x.id, 'review' as Tier])));
     expect(decisions.map((d) => d.candidateIds)).toEqual([[a.id, b.id, c.id], [other.id]]);
-    expect(decisions[0]).toMatchObject({ kind: 'batch', id: 'batch:word:Spelling:talukas', label: 'talukas → talks / talus (3 places)' });
+    expect(decisions[0]).toMatchObject({ kind: 'batch', id: 'batch:word:Spelling:borewells', label: 'borewells → borrowers / bores (3 places)' });
   });
 
   it('(round 2) the identical flag repeated (same kind, original and message) is one decision', () => {

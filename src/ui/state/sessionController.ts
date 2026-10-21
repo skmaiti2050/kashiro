@@ -285,6 +285,11 @@ export class SessionController {
     await this.actAsync((s) => s.acceptTerms(keepAsTypos));
   }
 
+  /** The words-in-other-languages card: every word joins the dictionary except `keepAsTypos`. */
+  async acceptOtherLanguage(keepAsTypos: string[]): Promise<void> {
+    await this.actAsync((s) => s.acceptOtherLanguage(keepAsTypos));
+  }
+
   /** Review depth for `preset` (default: the current one), saved per preset; the current one applies at once. */
   setDepth(depth: ReviewDepth, preset: PresetId = this.state.settings.preset): void {
     const { settings } = this.state;

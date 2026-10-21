@@ -40,9 +40,10 @@ describe('terms card (spec §5)', () => {
     ]);
   });
 
-  it('used twice it stays a normal flag', () => {
-    const cs = flagsOf(two, 'sarpanch');
-    const d = decide(two, cs);
+  it('used twice it is not a term (sarpanch goes to the other-languages card; an English-looking word stays a flag)', () => {
+    expect(decide(two, flagsOf(two, 'sarpanch')).map((d) => d.kind)).toEqual(['otherLanguage']);
+    const english = 'The borewells ran dry. Both borewells failed.';
+    const d = decide(english, flagsOf(english, 'borewells'));
     expect(d).toHaveLength(1);
     expect(d[0].kind).toBe('batch');
   });
@@ -138,8 +139,9 @@ describe('terms card (spec §5)', () => {
   });
 
   it('with too few lowercase uses, the capitalised use goes to the names card and the rest stay words', () => {
-    const text = 'Each dosha and a dosha. We met Dosha there.';
-    const cs = [...flagsOf(text, 'dosha'), ...flagsOf(text, 'Dosha')];
+    // "dosha" would go to the other-languages card (with its capitalised use): an English-looking word here.
+    const text = 'Each borewell and a borewell. We met Borewell there.';
+    const cs = [...flagsOf(text, 'borewell'), ...flagsOf(text, 'Borewell')];
     expect(decide(text, cs).map((x) => x.kind)).toEqual(['batch', 'names']);
   });
 

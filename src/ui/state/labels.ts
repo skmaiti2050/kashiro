@@ -16,7 +16,7 @@ export function excerpt(text: string, words = EXCERPT_WORDS): { text: string; cu
  * only the original for a flag with nothing to apply (its message is shown separately).
  */
 export function decisionTitle(decision: Decision, first: Candidate): string {
-  if (decision.kind === 'names' || decision.kind === 'terms') return decision.label;
+  if (decision.kind === 'names' || decision.kind === 'terms' || decision.kind === 'otherLanguage') return decision.label;
   const original = excerpt(first.original).text || '(empty)';
   const places = decision.kind === 'batch' ? ` (${decision.candidateIds.length} places)` : '';
   if (first.replacements.length === 0) return `“${original}”${places}`;

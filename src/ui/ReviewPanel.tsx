@@ -5,6 +5,7 @@ import { DecisionCard } from './DecisionCard';
 import { DepthSlider } from './DepthSlider';
 import { NamesCard } from './NamesCard';
 import { TermsCard } from './TermsCard';
+import { OtherLanguageCard } from './OtherLanguageCard';
 import { decisionTitle } from './state/labels';
 import type { ControllerState, SessionController } from './state/sessionController';
 
@@ -67,7 +68,10 @@ export function ReviewPanel({ controller, state, onLocate }: Props) {
       <div ref={cardSlot} className="card-slot" role="group" tabIndex={-1} aria-label="Current decision">
         {current?.kind === 'names' && <NamesCard key={current.id} controller={controller} card={current} candidates={candidates} />}
         {current?.kind === 'terms' && <TermsCard key={current.id} controller={controller} card={current} />}
-        {current && current.kind !== 'names' && current.kind !== 'terms' && (
+        {current?.kind === 'otherLanguage' && (
+          <OtherLanguageCard key={current.id} controller={controller} card={current} candidates={candidates} />
+        )}
+        {current && current.kind !== 'names' && current.kind !== 'terms' && current.kind !== 'otherLanguage' && (
           <DecisionCard
             key={current.id}
             controller={controller}

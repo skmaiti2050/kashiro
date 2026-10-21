@@ -46,5 +46,7 @@ describe('decisionTitle', () => {
     const c = cand('dosha', ['dosa']);
     const terms: Decision = { id: 'terms', kind: 'terms', candidateIds: ['a'], label: '2 terms used in this document', score: 0 };
     expect(decisionTitle(terms, c)).toBe('2 terms used in this document');
+    const otherLanguage: Decision = { id: 'other-language', kind: 'otherLanguage', candidateIds: ['a'], label: '2 words in Hindi/Bengali', score: 0 };
+    expect(decisionTitle(otherLanguage, c)).toBe('2 words in Hindi/Bengali');
   });
 });

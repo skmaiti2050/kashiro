@@ -14,7 +14,8 @@
     "trust": "tsx trust/run_trust.ts",
     "trust:reference": "tsx trust/build_reference.ts",
     "build:dictionary": "tsx scripts/build-dictionary.ts",
-    "build:frequency": "tsx scripts/build-frequency.ts"
+    "build:frequency": "tsx scripts/build-frequency.ts",
+    "build:romanised": "tsx scripts/build-romanised.ts"
   },
   "dependencies": {
     "@codemirror/commands": "^6.11.1",

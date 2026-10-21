@@ -69,8 +69,8 @@ interface Measure {
   undetected: string[];
   hidden: string[];
   judgmentAuto: string[];
-  /** Planted errors on the terms card (a typo would be added to the dictionary with one click). */
-  plantedAsTerms: string[];
+  /** Planted errors on the terms or other-languages card (a typo would be added to the dictionary with one click). */
+  plantedOnWordCards: string[];
   autoOnLocked: string[];
   acceptedOnLocked: string[];
 }
@@ -85,9 +85,10 @@ beforeAll(async () => {
 const overlaps = (c: Candidate, a: Answer) =>
   c.paraId === a.at.para && c.span.start < a.at.end && a.at.start < c.span.end;
 
-/** What a ranked decision is "about", for the drivers column: the names or terms card, likely typos, unknown words, or the lint kind. */
+/** What a ranked decision is "about", for the drivers column: a card, likely typos, unknown words, or the lint kind. */
 function driverOf(d: Decision, c: Candidate): string {
   if (d.kind === 'names' || d.kind === 'terms') return d.kind;
+  if (d.kind === 'otherLanguage') return 'other languages';
   if (c.kind === 'Spelling' || c.kind === 'Typo') return /^\p{Lu}/u.test(c.original) ? 'likely typos' : 'unknown words';
   return c.kind;
 }
@@ -127,15 +128,17 @@ async function measureDoc(doc: Doc): Promise<Measure> {
   const undetected: string[] = [];
   const hidden: string[] = [];
   const judgmentAuto: string[] = [];
-  const termIds = new Set([...topD, ...more].filter((d) => d.kind === 'terms').flatMap((d) => d.candidateIds));
-  const plantedAsTerms: string[] = [];
+  const wordCardIds = new Set(
+    [...topD, ...more].filter((d) => d.kind === 'terms' || d.kind === 'otherLanguage').flatMap((d) => d.candidateIds),
+  );
+  const plantedOnWordCards: string[] = [];
   for (const a of doc.answers) {
     const hits = all.filter((c) => overlaps(c, a));
     if (hits.length === 0) {
       undetected.push(`${a.type}:${a.wrong}`);
       continue;
     }
-    if (hits.some((c) => termIds.has(c.id))) plantedAsTerms.push(`${a.type}:${a.wrong}`);
+    if (hits.some((c) => wordCardIds.has(c.id))) plantedOnWordCards.push(`${a.type}:${a.wrong}`);
     const isAuto = hits.some((c) => autoIds.has(c.id));
     const isRanked = hits.some((c) => rankedIds.has(c.id));
     if (a.type === 's') {
@@ -167,7 +170,7 @@ async function measureDoc(doc: Doc): Promise<Measure> {
     undetected,
     hidden,
     judgmentAuto,
-    plantedAsTerms,
+    plantedOnWordCards,
     autoOnLocked,
     acceptedOnLocked,
   };
@@ -226,7 +229,7 @@ describe('recall and fact lock (always enforced)', () => {
       const m = await measure(doc);
       expect(m.words).toBe(doc.words);
       expect({ hidden: m.hidden, judgmentAuto: m.judgmentAuto }).toEqual({ hidden: [], judgmentAuto: [] });
-      expect(m.plantedAsTerms).toEqual([]);
+      expect(m.plantedOnWordCards).toEqual([]);
       expect(m.autoOnLocked).toEqual([]);
       expect(m.acceptedOnLocked).toEqual([]);
     },

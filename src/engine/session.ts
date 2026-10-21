@@ -1,5 +1,5 @@
 import { overlapsLocked } from './factLock';
-import { buildDecisions, foldsUnderMore, NAMES_CARD_ID, TERMS_CARD_ID, type Decision } from './decisions';
+import { buildDecisions, foldsUnderMore, NAMES_CARD_ID, OTHER_LANGUAGE_CARD_ID, TERMS_CARD_ID, type Decision } from './decisions';
 import { checkTermMinRepeats, DEFAULT_TERM_MIN_REPEATS } from './terms';
 import { tierOf, type TierContext } from './tiers';
 import { EditLedger } from './editLedger';
@@ -38,7 +38,7 @@ export class CheckSession {
   private readonly userRejected = new Set<string>();
   private readonly unplaceable = new Map<string, string>();
   private readonly added: string[] = [];
-  /** Lowercased words the user unticked on the names or terms card: real typos, ranked as words. */
+  /** Lowercased words the user unticked on a card (names, terms, other languages): real typos, ranked as words. */
   private readonly typoWords = new Set<string>();
   /** Sentences already sent to the LLM helper, as sentenceKey(paraId, span). */
   private readonly sentToHelperKeys = new Set<string>();
@@ -204,6 +204,9 @@ export class CheckSession {
     // Replacing names or terms with dictionary words by index would damage them (spec §5).
     if (decisionId === NAMES_CARD_ID) throw new Error('the names card is answered with acceptNames(keepAsTypos), not accept');
     if (decisionId === TERMS_CARD_ID) throw new Error('the terms card is answered with acceptTerms(keepAsTypos), not accept');
+    if (decisionId === OTHER_LANGUAGE_CARD_ID) {
+      throw new Error('the words-in-other-languages card is answered with acceptOtherLanguage(keepAsTypos), not accept');
+    }
     const members = this.members(decisionId);
     for (const c of members) {
       if (c.replacements[replacementIndex] === undefined) {
@@ -264,10 +267,18 @@ export class CheckSession {
     await this.acceptCard('terms', keepAsTypos);
   }
 
-  private async acceptCard(kind: 'names' | 'terms', keepAsTypos: string[]): Promise<void> {
+  /**
+   * Accepts the words-in-other-languages card (spec §5) the same way as acceptNames: the Hindi/Bengali words
+   * join the dictionary, `keepAsTypos` split out.
+   */
+  async acceptOtherLanguage(keepAsTypos: string[]): Promise<void> {
+    await this.acceptCard('otherLanguage', keepAsTypos);
+  }
+
+  private async acceptCard(kind: 'names' | 'terms' | 'otherLanguage', keepAsTypos: string[]): Promise<void> {
     const { top, more } = this.decisions();
     const card = [...top, ...more].find((d) => d.kind === kind);
-    if (!card) throw new Error(`there is no ${kind} card to accept: no unknown ${kind} are pending`);
+    if (!card) throw new Error(`there is no ${kind} card to accept: none of its words are pending`);
     const typos = new Set(keepAsTypos.map((w) => w.toLowerCase()));
     const words = new Map<string, string>(); // lowercased → first spelling seen
     for (const id of card.candidateIds) {
@@ -293,7 +304,7 @@ export class CheckSession {
     }
   }
 
-  /** Words added with addToDictionary, acceptNames or acceptTerms, in order. */
+  /** Words added with addToDictionary or by accepting a card, in order. */
   addedWords(): string[] {
     return [...this.added];
   }

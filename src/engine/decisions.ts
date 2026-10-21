@@ -2,11 +2,12 @@ import type { Candidate, Span, Tier } from './types';
 import { followsAbbreviation, overlapsLocked } from './factLock';
 import { isLikelyTypo, isNameFlag, TITLE_CASE_WORD, WORD_REWRITE_KINDS, withinOneEdit } from './wordFlags';
 import { DEFAULT_TERM_MIN_REPEATS, findTerms } from './terms';
+import { findOtherLanguageWords } from './otherLanguage';
 
 export interface Decision {
-  /** `batch:<key>` for a batch, the candidate id for a single, `names` / `terms` for the two cards. */
+  /** `batch:<key>` for a batch, the candidate id for a single, `names` / `terms` / `other-language` for the cards. */
   id: string;
-  kind: 'single' | 'batch' | 'names' | 'terms';
+  kind: 'single' | 'batch' | 'names' | 'terms' | 'otherLanguage';
   candidateIds: string[];
   label: string;
   score: number;
@@ -71,6 +72,16 @@ function termsCard(flags: Candidate[], uses: Map<string, number>): Decision {
   return { id: TERMS_CARD_ID, kind: 'terms', candidateIds: flags.map((c) => c.id), label, score: 0, counts };
 }
 
+/** Id of the words-in-other-languages card decision (there is at most one). */
+export const OTHER_LANGUAGE_CARD_ID = 'other-language';
+
+/** The words-in-other-languages card: every flag of a romanised Hindi/Bengali word as one decision (spec §5). */
+function otherLanguageCard(flags: Candidate[]): Decision {
+  const n = new Set(flags.map((c) => c.original.toLowerCase())).size;
+  const label = `${n} ${n === 1 ? 'word' : 'words'} in Hindi/Bengali`;
+  return { id: OTHER_LANGUAGE_CARD_ID, kind: 'otherLanguage', candidateIds: flags.map((c) => c.id), label, score: 0 };
+}
+
 /**
  * Candidates on a fact-locked span (names mid-sentence, numbers, quotes, citations) fold under
  * "more" instead of competing for the top decisions (spec §10 budget): the app protects those
@@ -119,7 +130,7 @@ function batchLabel(c: Candidate, n: number): string {
 interface DecisionOptions {
   /** Candidates on fact-locked spans: demoted (see buildDecisions). */
   fold?: (c: Candidate) => boolean;
-  /** Lowercased words the user unticked on the names card: real typos, ranked as words. */
+  /** Lowercased words the user unticked on a card: real typos, ranked as words. */
   typoWords?: ReadonlySet<string>;
   /** paraId → paragraph text, to tell a sentence-initial typo from a name (isLikelyTypo). */
   paraText?: ReadonlyMap<number, string>;
@@ -163,8 +174,10 @@ class DecisionGroups {
  * likely typos (isLikelyTypo) and Spelling/Typo flags of words in `typoWords`: those rank like any word.
  * Terms: Spelling/Typo flags of a term (findTerms, needs `paraText`), its capitalised uses included, go
  * on one terms card, ranked just above the names card (spec §5).
- * Blocked candidates go into `blocked` (scored and sorted the same way), except name and term flags,
- * which join their card: adding a word to the dictionary changes no text.
+ * Other languages: Spelling/Typo flags of a romanised Hindi/Bengali word (findOtherLanguageWords; a term
+ * stays on the terms card), its capitalised uses included, go on one card between the terms and names cards.
+ * Blocked candidates go into `blocked` (scored and sorted the same way), except flags that join a card:
+ * adding a word to the dictionary changes no text.
  */
 export function buildDecisions(
   cands: Candidate[],
@@ -181,6 +194,8 @@ export function buildDecisions(
   const terms = paraText ? findTerms(reviewFlags, paraText, termMinRepeats, typoWords) : new Map<string, number>();
   // A term's capitalised uses ("Dosha" mid-sentence) join the terms card too: one word, one card.
   const isTermFlag = (c: Candidate) => WORD_REWRITE_KINDS.has(c.kind) && terms.has(c.original.toLowerCase());
+  const otherLanguage = findOtherLanguageWords(reviewFlags, typoWords, new Set(terms.keys()));
+  const isOtherLanguageFlag = (c: Candidate) => WORD_REWRITE_KINDS.has(c.kind) && otherLanguage.has(c.original.toLowerCase());
   const safe: string[] = [];
   const wordOf = (c: Candidate) => (WORD_REWRITE_KINDS.has(c.kind) ? c.kind + c.original.toLowerCase() : null);
   // A word the document uses as a fact-locked name somewhere is a name everywhere (e.g. sentence-initial).
@@ -193,6 +208,7 @@ export function buildDecisions(
   const blockedGroups = new DecisionGroups();
   const names: Candidate[] = [];
   const termFlags: Candidate[] = [];
+  const otherLanguageFlags: Candidate[] = [];
   for (const c of cands) {
     const t = tiers.get(c.id) ?? 'review';
     if (t === 'hidden') continue;
@@ -202,6 +218,7 @@ export function buildDecisions(
     }
     const asWord = rankedAsWord(c);
     if (isTermFlag(c)) termFlags.push(c);
+    else if (isOtherLanguageFlag(c)) otherLanguageFlags.push(c);
     else if (isNameFlag(c) && !asWord) names.push(c);
     else if (blocked(c)) blockedGroups.add(c);
     else if (!asWord && (fold(c) || (wordOf(c) !== null && lockedWords.has(wordOf(c)!)))) demoted.add(c);
@@ -217,6 +234,7 @@ export function buildDecisions(
   const demotedDecisions = demoted.toDecisions(() => 0);
   const cards: Decision[] = [];
   if (termFlags.length) cards.push(termsCard(termFlags, terms));
+  if (otherLanguageFlags.length) cards.push(otherLanguageCard(otherLanguageFlags));
   if (names.length) cards.push(namesCard(names));
   return {
     safe,
