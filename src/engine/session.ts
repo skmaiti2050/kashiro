@@ -28,11 +28,11 @@ export { TRACKED_CHANGE_REASON, type CheckOptions, type Edit, type LogEntry, typ
 
 const sentenceKey = (paraId: number, span: Span) => `${paraId}:${span.start}-${span.end}`;
 
-/** The cards answered by their own method, never by accept: card id → method name. */
+/** The cards answered by their own method, never by accept: card id → its name and method. */
 const CARD_ACCEPT_METHODS = new Map([
-  [NAMES_CARD_ID, 'acceptNames'],
-  [TERMS_CARD_ID, 'acceptTerms'],
-  [OTHER_LANGUAGE_CARD_ID, 'acceptOtherLanguage'],
+  [NAMES_CARD_ID, { name: 'names and places card', method: 'acceptNames' }],
+  [TERMS_CARD_ID, { name: 'terms card', method: 'acceptTerms' }],
+  [OTHER_LANGUAGE_CARD_ID, { name: 'Indian-language words card', method: 'acceptOtherLanguage' }],
 ]);
 
 export class CheckSession {
@@ -208,8 +208,8 @@ export class CheckSession {
    */
   accept(decisionId: string, replacementIndex = 0): void {
     // Replacing names or terms with dictionary words by index would damage them (spec §5).
-    const cardMethod = CARD_ACCEPT_METHODS.get(decisionId);
-    if (cardMethod) throw new Error(`the ${decisionId} card is answered with ${cardMethod}(keepAsTypos), not accept`);
+    const card = CARD_ACCEPT_METHODS.get(decisionId);
+    if (card) throw new Error(`the ${card.name} is answered with ${card.method}(keepAsTypos), not accept`);
     const members = this.members(decisionId);
     for (const c of members) {
       if (c.replacements[replacementIndex] === undefined) {

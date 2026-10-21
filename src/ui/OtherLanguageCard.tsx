@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Decision } from '@/engine/decisions';
 import type { Candidate } from '@/engine/types';
 import type { SessionController } from './state/sessionController';
+import { isTicked, NO_TICKS, toggleTick } from './state/cardTicks';
 
 interface Props {
   controller: SessionController;
@@ -18,19 +19,15 @@ interface Props {
 export function OtherLanguageCard({ controller, card, candidates }: Props) {
   const words = [...new Set(card.candidateIds.map((id) => candidates.get(id)!.original.toLowerCase()))];
   const typoOf = new Map(card.likelyTypos ?? []);
-  const [unticked, setUnticked] = useState(() => new Set(typoOf.keys()));
-  const toggle = (word: string) =>
-    setUnticked((prev) => {
-      const next = new Set(prev);
-      if (next.has(word)) next.delete(word);
-      else next.add(word);
-      return next;
-    });
-  // A re-check can change the card under the same key: only words on it now count.
-  const keepAsTypos = words.filter((w) => unticked.has(w));
-  const tickedLikelyTypos = words.filter((w) => typoOf.has(w) && !unticked.has(w));
-  const ticked = words.length - keepAsTypos.length;
-  const addLabel = ticked === words.length ? 'Add all to my dictionary' : `Add ${ticked} to my dictionary`;
+  const likelyTypos = new Set(typoOf.keys());
+  // A re-check can change the card under the same key: only words on it now, and their flags now, count.
+  const [ticks, setTicks] = useState(NO_TICKS);
+  const ticked = (word: string) => isTicked(ticks, word, likelyTypos);
+  const toggle = (word: string) => setTicks((prev) => toggleTick(prev, word, likelyTypos));
+  const keepAsTypos = words.filter((w) => !ticked(w));
+  const tickedLikelyTypos = words.filter((w) => likelyTypos.has(w) && ticked(w));
+  const tickedCount = words.length - keepAsTypos.length;
+  const addLabel = tickedCount === words.length ? 'Add all to my dictionary' : `Add ${tickedCount} to my dictionary`;
 
   return (
     <div className="card other-language">
@@ -40,7 +37,7 @@ export function OtherLanguageCard({ controller, card, candidates }: Props) {
         {words.map((word) => (
           <li key={word}>
             <label>
-              <input type="checkbox" checked={!unticked.has(word)} onChange={() => toggle(word)} />
+              <input type="checkbox" checked={ticked(word)} onChange={() => toggle(word)} />
               {word}
               {typoOf.has(word) && (
                 <span className="hint">
@@ -48,7 +45,7 @@ export function OtherLanguageCard({ controller, card, candidates }: Props) {
                   looks like a typo of <em>{typoOf.get(word)}</em>?
                 </span>
               )}
-              {unticked.has(word) && <span className="hint"> (review as a typo)</span>}
+              {!ticked(word) && <span className="hint"> (review as a typo)</span>}
             </label>
           </li>
         ))}

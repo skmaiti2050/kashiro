@@ -4,6 +4,7 @@ import { buildDecisions } from '@/engine/decisions';
 import { CheckSession, type CheckOptions } from '@/engine/session';
 import { createLinter, type RulesLinter } from '@/engine/linter';
 import { isRomanisedIndic, loadRomanisedModel } from '@/engine/romanised/classifier';
+import { findForeignSentences } from '@/engine/otherLanguage';
 
 beforeAll(() => loadRomanisedModel());
 
@@ -77,7 +78,11 @@ describe('words-in-other-languages card (spec §5)', () => {
       ['poro', 'poor'],
       ['babo', 'baby'],
     ]);
-    // "dinr" has no everyday neighbour (din, dine and diner are all below Zipf 4), so it is not marked.
+    // Owner's decision (Zipf 4): "dinr" has no everyday neighbour (din, dine and diner are all below 4), so it is
+    // on the card pre-ticked. A change of the threshold must show up here.
+    const dinr = cs.filter((c) => c.original === 'dinr').map((c) => c.id);
+    expect(card.candidateIds).toEqual(expect.arrayContaining(dinr));
+    expect(card.likelyTypos!.map(([word]) => word)).not.toContain('dinr');
   });
 
   it('one word: singular label; repeats of it count once', () => {
@@ -104,6 +109,24 @@ describe('words-in-other-languages card (spec §5)', () => {
   it('a word used 3+ times is a term first: the terms card keeps it', () => {
     const t = 'The jaldi plan, a jaldi fix and the jaldi rule.';
     expect(decide(t, flagsOf(t, 'jaldi')).map((x) => x.kind)).toEqual(['terms']);
+  });
+});
+
+describe('findForeignSentences: more than half of the words flagged', () => {
+  const sentencesOf = (text: string, ...words: string[]) =>
+    findForeignSentences(words.flatMap((w) => flagsOf(text, w)), new Map([[0, text]])).get(0) ?? [];
+
+  it('exactly half flagged is not foreign: "teh end." stays fixable', () => {
+    expect(sentencesOf('teh end.', 'teh')).toEqual([]);
+  });
+
+  it('a one-word sentence of a flagged word is foreign', () => {
+    expect(sentencesOf('teh.', 'teh')).toEqual([{ start: 0, end: 4 }]);
+  });
+
+  it('only the sentence that is mostly flagged counts', () => {
+    const text = 'I read it. ami kal te jabo.';
+    expect(sentencesOf(text, 'ami', 'kal', 'te', 'jabo')).toEqual([{ start: 11, end: 27 }]);
   });
 });
 
@@ -190,5 +213,12 @@ describe('romanised words are never auto-fixed (Harper)', () => {
     expect(await autoFixed('We ate the batata vadas while my father explained, for teh twentieth year, the old road.')).toEqual([
       'teh → the',
     ]);
+  });
+
+  it('at the boundary: "teh end." (half flagged) is fixed, a lone lowercase "teh." goes to review', async () => {
+    expect(await autoFixed('teh end.')).toEqual(['teh → the']);
+    const s = await CheckSession.start([{ id: 0, text: 'teh.' }], opts, { linter });
+    const flag = s.candidates().find((c) => c.original === 'teh')!;
+    expect(s.tier(flag.id)).toBe('review');
   });
 });

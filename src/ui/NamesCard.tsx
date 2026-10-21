@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Decision } from '@/engine/decisions';
 import type { Candidate } from '@/engine/types';
 import type { SessionController } from './state/sessionController';
+import { isTicked, NO_TICKS, toggleTick } from './state/cardTicks';
 
 interface Props {
   controller: SessionController;
@@ -16,16 +17,14 @@ interface Props {
  */
 export function NamesCard({ controller, card, candidates }: Props) {
   const words = distinctWords(card.candidateIds.map((id) => candidates.get(id)!));
-  const [unticked, setUnticked] = useState(() => new Set((card.nearDuplicates ?? []).flat()));
-  const toggle = (word: string) =>
-    setUnticked((prev) => {
-      const next = new Set(prev);
-      if (next.has(word)) next.delete(word);
-      else next.add(word);
-      return next;
-    });
-  const ticked = words.length - words.filter((w) => unticked.has(w)).length;
-  const addLabel = ticked === words.length ? 'Add all to my dictionary' : `Add ${ticked} to my dictionary`;
+  const nearDuplicates = new Set((card.nearDuplicates ?? []).flat());
+  // A re-check can change the card under the same key: only words on it now, and their flags now, count.
+  const [ticks, setTicks] = useState(NO_TICKS);
+  const ticked = (word: string) => isTicked(ticks, word, nearDuplicates);
+  const toggle = (word: string) => setTicks((prev) => toggleTick(prev, word, nearDuplicates));
+  const keepAsTypos = words.filter((w) => !ticked(w));
+  const tickedCount = words.length - keepAsTypos.length;
+  const addLabel = tickedCount === words.length ? 'Add all to my dictionary' : `Add ${tickedCount} to my dictionary`;
 
   return (
     <div className="card names">
@@ -40,15 +39,15 @@ export function NamesCard({ controller, card, candidates }: Props) {
         {words.map((word) => (
           <li key={word}>
             <label>
-              <input type="checkbox" checked={!unticked.has(word)} onChange={() => toggle(word)} />
+              <input type="checkbox" checked={ticked(word)} onChange={() => toggle(word)} />
               {word}
-              {unticked.has(word) && <span className="hint"> (review as a typo)</span>}
+              {!ticked(word) && <span className="hint"> (review as a typo)</span>}
             </label>
           </li>
         ))}
       </ul>
       <div className="actions">
-        <button className="primary" onClick={() => void controller.acceptNames(words.filter((w) => unticked.has(w)))}>
+        <button className="primary" onClick={() => void controller.acceptNames(keepAsTypos)}>
           {addLabel}
         </button>
       </div>
