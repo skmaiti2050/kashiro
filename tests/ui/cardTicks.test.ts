@@ -1,7 +1,7 @@
 // The tick logic of the names and other-language cards. A card keeps its state across a re-check (its React
 // key is the constant card id), so a word that becomes flagged after the re-check must not inherit a tick.
 import { describe, it, expect } from 'vitest';
-import { isTicked, NO_TICKS, toggleTick } from '@/ui/state/cardTicks';
+import { isTicked, NO_TICKS, tickSummary, toggleTick } from '@/ui/state/cardTicks';
 
 const flagged = (...words: string[]) => new Set(words);
 
@@ -30,5 +30,29 @@ describe('card ticks', () => {
     const left = NO_TICKS; // "byos" was ticked by default
     const unticked = toggleTick(NO_TICKS, 'byos', before); // or the user unticked it
     expect([isTicked(left, 'byos', flagged('byos')), isTicked(unticked, 'byos', flagged('byos'))]).toEqual([false, false]);
+  });
+});
+
+describe('tickSummary (what "Add" sends, shared by the names, terms and other-language cards)', () => {
+  it('nothing changed: every plain word is added, flagged ones stay typos, and the button says how many', () => {
+    expect(tickSummary(NO_TICKS, ['chalo', 'jion', 'accha'], flagged('jion'))).toEqual({
+      keepAsTypos: ['jion'],
+      tickedFlagged: [],
+      addLabel: 'Add 2 to my dictionary',
+    });
+  });
+
+  it('all ticked: "Add all"; an explicitly ticked flagged word is reported so the engine adds it', () => {
+    const ticks = toggleTick(NO_TICKS, 'jion', flagged('jion'));
+    expect(tickSummary(ticks, ['chalo', 'jion'], flagged('jion'))).toEqual({
+      keepAsTypos: [],
+      tickedFlagged: ['jion'],
+      addLabel: 'Add all to my dictionary',
+    });
+  });
+
+  it('only words on the card now count (a re-check may have removed one the user unticked)', () => {
+    const ticks = toggleTick(NO_TICKS, 'gone', flagged());
+    expect(tickSummary(ticks, ['sarpanch'], flagged()).keepAsTypos).toEqual([]);
   });
 });
