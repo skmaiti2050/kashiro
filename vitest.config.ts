@@ -15,7 +15,18 @@ export default defineConfig({
         test: {
           name: "unit",
           include: ["tests/**/*.test.ts"],
-          exclude: [...configDefaults.exclude, "tests/timing/**"],
+          exclude: [...configDefaults.exclude, "tests/timing/**", "tests/dom/**"],
+          sequence: { groupOrder: 0 },
+        },
+      },
+      {
+        // Rendered components (React + jsdom): wiring, focus and axe-core checks.
+        extends: true,
+        test: {
+          name: "dom",
+          include: ["tests/dom/**/*.test.tsx"],
+          environment: "jsdom",
+          setupFiles: ["tests/dom/setup.ts"],
           sequence: { groupOrder: 0 },
         },
       },

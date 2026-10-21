@@ -7,7 +7,7 @@ const TEXT_ENTRY = 'textarea, select, [contenteditable="true"], input:not([type]
 const CONTROL = 'button, input, a[href], summary';
 
 /** Reads where a keydown happened, for the pure rules in state/reviewKeys.ts. */
-function keyTargetOf(target: EventTarget | null, documentEditable: boolean): KeyTarget {
+export function keyTargetOf(target: EventTarget | null, documentEditable: boolean): KeyTarget {
   const el = target instanceof Element && target !== document.body ? target : null;
   const place = !el || el.closest('.document') ? 'document' : el.closest('.review') ? 'panel' : 'other';
   const control = el?.closest(TEXT_ENTRY) ? 'text-entry' : el?.closest(CONTROL) ? 'control' : 'none';
