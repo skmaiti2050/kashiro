@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Candidate } from '@/engine/types';
 import { Diff } from './Diff';
 import { Kbd } from './Kbd';
+import { useT } from './i18n/useT';
 
 interface Props {
   members: Candidate[];
@@ -16,6 +17,7 @@ interface Props {
  * as a one-line diff, all ticked. The ticked ones are applied as one change, undone together in the log.
  */
 export function BatchPreview({ members, replacementIndex, paraText, onApply, onCancel }: Props) {
+  const t = useT();
   const [unticked, setUnticked] = useState<ReadonlySet<string>>(new Set());
   const chosen = members.filter((c) => !unticked.has(c.id)).map((c) => c.id);
   const toggle = (id: string) =>
@@ -25,11 +27,11 @@ export function BatchPreview({ members, replacementIndex, paraText, onApply, onC
       else next.add(id);
       return next;
     });
-  const label = chosen.length === members.length ? `Apply ${chosen.length}` : `Apply ${chosen.length} of ${members.length}`;
+  const label = chosen.length === members.length ? t.t('batch.apply', { count: chosen.length }) : t.t('batch.applySome', { chosen: chosen.length, total: members.length });
 
   return (
     <div className="batch-preview" onClick={(e) => e.stopPropagation()}>
-      <p className="hint">Untick any place you want to decide on its own.</p>
+      <p className="hint">{t.t('batch.untickHint')}</p>
       <ol className="members">
         {members.map((c) => (
           <li key={c.id}>
@@ -45,7 +47,7 @@ export function BatchPreview({ members, replacementIndex, paraText, onApply, onC
           {label} <Kbd>Enter</Kbd>
         </button>
         <button data-key="reject" aria-keyshortcuts="Backspace" onClick={onCancel}>
-          Cancel <Kbd>Backspace</Kbd>
+          {t.t('batch.cancel')} <Kbd>Backspace</Kbd>
         </button>
       </div>
     </div>

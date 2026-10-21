@@ -13,7 +13,7 @@ export interface Highlight {
   /** For applied edits: the new text, shown after the struck-through original. */
   replacement?: string;
   /** For pending ones: the flag's message and flagged text, for its plain explanation on hover. */
-  flag?: Pick<Candidate, 'message' | 'original'>;
+  flag?: Pick<Candidate, 'message' | 'original' | 'kind' | 'source'>;
   /** For pending ones: the flag, so clicking the underline can bring up its card. */
   candidateId?: string;
   /** For pending ones: sets the underline's colour, style and glyph. */

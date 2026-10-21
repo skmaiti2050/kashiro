@@ -9,6 +9,7 @@ import { highlightRanges, locateCandidate } from '@/ui/state/highlights';
 import { progressOf } from '@/ui/state/progress';
 import { buildDocx } from '../fixtures/make_docx';
 import { DEFAULT_MODULES } from '@/engine/modules';
+import { english } from './english';
 
 let shared: RulesLinter;
 let lintCalls = 0;
@@ -129,7 +130,7 @@ describe('SessionController: open and check', () => {
     await controller.openFile({ name: 'essay.docx', path: '/docs/essay.docx', bytes });
     const doc = controller.getState().document!;
     expect(doc.editable).toBe(false);
-    expect(doc.note).toBe('Headers, footers and footnotes are kept as they are but not checked in this version.');
+    expect(english(doc.note)).toBe('Headers, footers and footnotes are kept as they are but not checked in this version.');
     expect(doc.text).toBe('I think teh cat is here.\n\nSecond one.');
     expect(doc.paraStarts.get(1)).toBe(26);
   });
@@ -146,9 +147,9 @@ describe('SessionController: open and check', () => {
   it('an unreadable file is reported, not thrown', async () => {
     const { controller } = makeController();
     await controller.openFile({ name: 'bad.docx', path: '/docs/bad.docx', bytes: encode('not a zip') });
-    expect(controller.getState().error).toMatch(/not a Word document/);
+    expect(english(controller.getState().error)).toMatch(/not a Word document/);
     // What to do next, too (plain language).
-    expect(controller.getState().error).toMatch(/\. Check that the file opens in Word or a text editor, then try again\.$/);
+    expect(english(controller.getState().error)).toMatch(/\. Check that the file opens in Word or a text editor, then try again\.$/);
     expect(controller.getState().phase).toBe('empty');
   });
 });
@@ -269,7 +270,7 @@ describe('SessionController: save', () => {
     const xml = await documentXmlOf(saves[0].bytes);
     expect(xml.match(/<w:ins [^>]*w:author="writing-check"/g)).toHaveLength(2);
     expect(xml).toContain('cannot');
-    expect(controller.getState().notice).toBe('Saved as /docs/essay.checked.docx');
+    expect(english(controller.getState().notice)).toBe('Saved as /docs/essay.checked.docx');
   });
 
   it('clean + overwrite: asks the files module to overwrite the opened path (it backs up first)', async () => {
@@ -279,7 +280,7 @@ describe('SessionController: save', () => {
     await controller.save();
     expect(saves[0].path).toBe('/docs/essay.docx');
     expect(saves[0].overwrite).toBe(true);
-    expect(controller.getState().notice).toBe('Saved as /docs/essay.docx with a backup at /docs/essay.bak.docx');
+    expect(english(controller.getState().notice)).toBe('Saved as /docs/essay.docx with a backup at /docs/essay.bak.docx');
     const xml = await documentXmlOf(saves[0].bytes);
     expect(xml).not.toContain('<w:ins');
     expect(xml).toContain('I cannot go. You cannot stay.');
@@ -300,7 +301,7 @@ describe('SessionController: save', () => {
     const { controller } = makeController({ files });
     await controller.openText(CANT);
     await controller.save();
-    expect(controller.getState().notice).toBeNull();
+    expect(english(controller.getState().notice)).toBeNull();
   });
 
   it('unplaceable edits are marked on the session and shown in the log', async () => {
@@ -325,7 +326,7 @@ describe('SessionController: save', () => {
     expect(refused.unplaceable).toBe('crosses a field');
     expect(s.log().at(-1)!.reason).toBe('unplaceable: crosses a field');
     expect(decode(saves[0].bytes)).toBe("I can't go.\n\nYou cannot stay.");
-    expect(controller.getState().notice).toBe("Saved as /docs/note.checked.txt. 1 change couldn't be placed: see the change log.");
+    expect(english(controller.getState().notice)).toBe('Saved as /docs/note.checked.txt. 1 change couldn’t be placed: see the change log.');
   });
 
   it('exportReport saves a Markdown report beside the document', async () => {
@@ -335,7 +336,7 @@ describe('SessionController: save', () => {
     await controller.exportReport();
     expect(saves[0].path).toBe('/docs/essay.report.md');
     expect(decode(saves[0].bytes)).toMatch(/^# Writing check report: essay\.docx/);
-    expect(controller.getState().notice).toBe('Saved the report as /docs/essay.report.md');
+    expect(english(controller.getState().notice)).toBe('Saved the report as /docs/essay.report.md');
   });
 });
 
@@ -350,7 +351,7 @@ describe('SessionController: screen-reader announcements', () => {
     controller.accept(first.id);
     const left = controller.getState().session!.rankedDecisionCount();
     expect(left).toBeGreaterThan(0);
-    expect(controller.getState().announcement!.text).toBe(`Accepted. ${left} of ${left + 1} left.`);
+    expect(english(controller.getState().announcement!.message)).toBe(`Accepted. ${left} of ${left + 1} left.`);
   });
 
   it('reject, a flag dismissed and undo are announced too; each announcement is new', async () => {
@@ -359,10 +360,10 @@ describe('SessionController: screen-reader announcements', () => {
     const [first] = controller.getState().session!.decisions().top;
     controller.reject(first.id);
     const rejected = controller.getState().announcement!;
-    expect(rejected.text).toMatch(/^Rejected\. 1 of 2 left\.$/);
+    expect(english(rejected.message)).toMatch(/^Rejected\. 1 of 2 left\.$/);
     controller.undo(first.candidateIds[0]);
     const undone = controller.getState().announcement!;
-    expect(undone.text).toBe('Back to review. 2 of 2 left.');
+    expect(english(undone.message)).toBe('Back to review. 2 of 2 left.');
     expect(undone.seq).toBeGreaterThan(rejected.seq);
   });
 
@@ -380,14 +381,14 @@ describe('SessionController: screen-reader announcements', () => {
     });
     expect(flag).toBeDefined();
     controller.reject(flag!.id);
-    expect(controller.getState().announcement!.text).toMatch(/^Dismissed\. /);
+    expect(english(controller.getState().announcement!.message)).toMatch(/^Dismissed\. /);
   });
 
   it('a card adding words to the dictionary is announced', async () => {
     const { controller } = makeController({ createLinter: (v, words) => createLinter(v, words) });
     await controller.openText('We met Anjali Kulkarni in Nashik today.');
     await controller.acceptNames([]);
-    expect(controller.getState().announcement!.text).toMatch(/^Added to your dictionary\. (All reviewed|\d+ of \d+ left)\.$/);
+    expect(english(controller.getState().announcement!.message)).toMatch(/^Added to your dictionary\. (All reviewed|\d+ of \d+ left)\.$/);
   });
 });
 
@@ -505,7 +506,7 @@ describe('SessionController: typing re-checks', () => {
     controller.editText(CANT + ' More.');
     await vi.advanceTimersByTimeAsync(300);
     await controller.settled();
-    expect(controller.getState().error).toMatch(/disk on fire/);
+    expect(english(controller.getState().error)).toMatch(/disk on fire/);
     await controller.save();
     expect(saves).toHaveLength(1);
   });
@@ -694,7 +695,7 @@ describe('SessionController: U1 review flow', () => {
     await controller.settled();
     expect(saved.at(-1)!.ignoredRules).toEqual(['Contraction']);
     // Announced by its label, not the rule's name.
-    expect(controller.getState().announcement!.text).toBe('Dismissed all “Contractions” suggestions everywhere. All reviewed.');
+    expect(english(controller.getState().announcement!.message)).toBe('Dismissed all “Contractions” suggestions everywhere. All reviewed.');
     expect(controller.getState().session!.decisionCount()).toBe(0);
     controller.restoreRule('Contraction');
     await controller.settled();

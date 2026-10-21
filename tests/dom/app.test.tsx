@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { english } from '../ui/english';
 import { makeController, noFiles, warmLinter } from './harness';
 import { installSpeech, LOCAL_VOICE, ONLINE_VOICE, openAndWait, renderShell, reviewPanel } from './shell';
 
@@ -70,7 +71,7 @@ describe('screen reader: announcements', () => {
     expect(statusTexts().join('')).toBe('');
     // The first card may be a batch: Enter opens its preview, a second Enter applies it.
     for (let i = 0; i < 2 && !controller.getState().announcement; i++) fireEvent.keyDown(reviewPanel(), { key: 'Enter' });
-    const said = controller.getState().announcement!.text;
+    const said = english(controller.getState().announcement!.message);
     expect(said).toMatch(/^(Accepted|Applied)\. \d+ of \d+ left\.$/);
     expect(statusTexts()).toContain(said);
   });

@@ -1,3 +1,4 @@
+import { msg } from '../i18n/message';
 import { explain } from './errors';
 import type { LoadedFile } from './openDocument';
 import { saveDocument, saveReport, type Files } from './saveFlow';
@@ -16,7 +17,7 @@ export interface SaveHost {
   markSaved(): void;
 }
 
-const SAVE_AGAIN = 'Close the file if another program has it open, or choose another folder, then save again.';
+const SAVE_AGAIN = msg('error.saveAgain');
 
 /**
  * Writes the document with the accepted edits: a tracked or clean copy, or over the file after a
@@ -36,7 +37,7 @@ export async function save(host: SaveHost): Promise<boolean> {
     host.markSaved();
     return true;
   } catch (e) {
-    host.set({ error: explain(`Couldn't save ${document.name}`, e, SAVE_AGAIN) });
+    host.set({ error: explain(msg('error.save', { name: document.name }), e, SAVE_AGAIN) });
     return false;
   }
 }
@@ -49,6 +50,6 @@ export async function exportReport(host: SaveHost): Promise<void> {
   try {
     host.set({ notice: await saveReport(session, document.name, document.path, host.files), error: null });
   } catch (e) {
-    host.set({ error: explain("Couldn't save the report", e, SAVE_AGAIN) });
+    host.set({ error: explain(msg('error.saveReport'), e, SAVE_AGAIN) });
   }
 }

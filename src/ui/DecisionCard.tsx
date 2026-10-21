@@ -7,9 +7,11 @@ import { CategoryTag } from './CategoryTag';
 import { Diff } from './Diff';
 import { DismissMenu } from './DismissMenu';
 import { Kbd } from './Kbd';
+import type { Translator } from './i18n/translator';
+import { useT } from './i18n/useT';
 import { categoryOf } from './state/categories';
 import { batchApplyLabel, decisionTitle, excerpt } from './state/labels';
-import { plainMessage } from './state/plainMessages';
+import { englishOnly, explanation } from './state/plainMessages';
 import type { SessionController } from './state/sessionController';
 
 interface Props {
@@ -33,6 +35,7 @@ interface Props {
  * review keys press (Enter: accept, Backspace: reject).
  */
 export function DecisionCard({ controller, decision, candidates, paraText, touchesLocked, onNext, onLocate }: Props) {
+  const t = useT();
   const [seeEach, setSeeEach] = useState(false);
   const [place, setPlace] = useState(0);
   /** The replacement index whose "Apply all" preview is open. */
@@ -44,15 +47,27 @@ export function DecisionCard({ controller, decision, candidates, paraText, touch
   const isWordFlag = WORD_REWRITE_KINDS.has(first.kind);
   const flagOnly = first.replacements.length === 0;
   const category = categoryOf(first, decision.kind);
+  const explained = explanation(first);
   // The engine never hides word flags, AI rewrites, hygiene fixes or flags on protected text, so don't offer it.
   const canIgnoreRule = !isWordFlag && first.source !== 'llm' && first.source !== 'hygiene' && !touchesLocked;
   const accept = (i: number) => (isBatch ? setPreview(i) : controller.accept(decision.id, i));
+  const rejectLabel = flagOnly ? (isBatch ? 'card.dismissAll' : 'card.dismiss') : isBatch ? 'card.rejectAll' : 'card.reject';
 
   return (
-    <div className="card" title="Click to show it in the document" onClick={() => onLocate(shown)}>
+    <div className="card" title={t.t('card.clickToShow')} onClick={() => onLocate(shown)}>
       <CategoryTag category={category} kind={first.kind} />
-      <h3 className="card-title">{decisionTitle(decision, first)}</h3>
-      <p className="kind">{plainMessage(first)}</p>
+      <h3 className="card-title" lang="en">
+        {decisionTitle(t, decision, candidates)}
+      </h3>
+      {englishOnly(explained) ? (
+        // Harper's own message, not translated yet: marked English for screen readers, and said so.
+        <p className="kind">
+          <span lang="en">{t.format(explained)}</span>
+          {t.language !== 'en' && <span className="hint"> {t.t('card.englishOnly')}</span>}
+        </p>
+      ) : (
+        <p className="kind">{t.format(explained)}</p>
+      )}
       <Diff candidate={shown} replacement={shown.replacements[0]} paraText={paraText} />
       {preview !== null ? (
         <BatchPreview
@@ -76,7 +91,7 @@ export function DecisionCard({ controller, decision, candidates, paraText, touch
               aria-keyshortcuts={i === 0 ? 'Enter' : undefined}
               onClick={() => accept(i)}
             >
-              {acceptLabel(first, r, isBatch, members.length)}
+              {acceptLabel(t, first, r, isBatch, members.length)}
               {i === 0 && <Kbd>Enter</Kbd>}
             </button>
           ))}
@@ -86,18 +101,18 @@ export function DecisionCard({ controller, decision, candidates, paraText, touch
             aria-keyshortcuts={flagOnly ? 'Enter Backspace' : 'Backspace'}
             onClick={() => controller.reject(decision.id)}
           >
-            {flagOnly ? (isBatch ? 'Dismiss all' : 'Dismiss') : isBatch ? 'Reject all' : 'Reject'} <Kbd>Backspace</Kbd>
+            {t.t(rejectLabel)} <Kbd>Backspace</Kbd>
           </button>
           {canIgnoreRule && (
             <DismissMenu
               kind={first.kind}
-              thisOneLabel={isBatch ? `These ${members.length} places` : 'This one'}
+              thisOneLabel={isBatch ? t.t('card.thesePlaces', { count: members.length }) : t.t('card.thisOne')}
               onThisOne={() => controller.reject(decision.id)}
               onRule={(scope) => controller.ignoreRule(first.kind, scope)}
             />
           )}
-          {isWordFlag && <button onClick={() => void controller.addToDictionary(decision.id)}>Add to dictionary</button>}
-          {isWordFlag && isBatch && <button onClick={() => controller.ignoreAll(decision.id)}>Ignore all</button>}
+          {isWordFlag && <button onClick={() => void controller.addToDictionary(decision.id)}>{t.t('card.addToDictionary')}</button>}
+          {isWordFlag && isBatch && <button onClick={() => controller.ignoreAll(decision.id)}>{t.t('card.ignoreAll')}</button>}
           {isBatch && (
             <button
               onClick={() => {
@@ -106,12 +121,12 @@ export function DecisionCard({ controller, decision, candidates, paraText, touch
                 onLocate(members[next]);
               }}
             >
-              Next place ({(place % members.length) + 1}/{members.length})
+              {t.t('card.nextPlace', { at: (place % members.length) + 1, count: members.length })}
             </button>
           )}
-          {isBatch && <button onClick={() => setSeeEach((v) => !v)}>{seeEach ? 'Hide places' : 'See each'}</button>}
+          {isBatch && <button onClick={() => setSeeEach((v) => !v)}>{seeEach ? t.t('card.hidePlaces') : t.t('card.seeEach')}</button>}
           <button className="quiet" aria-keyshortcuts="J" onClick={onNext}>
-            Next card <Kbd>J</Kbd>
+            {t.t('card.nextCard')} <Kbd>J</Kbd>
           </button>
         </div>
       )}
@@ -123,8 +138,8 @@ export function DecisionCard({ controller, decision, candidates, paraText, touch
                 <Diff candidate={c} replacement={c.replacements[0]} paraText={paraText} />
               </div>
               <div className="member-actions">
-                {c.replacements.length > 0 && <button onClick={() => controller.accept(c.id, 0)}>Accept</button>}
-                <button onClick={() => controller.reject(c.id)}>{c.replacements.length > 0 ? 'Reject' : 'Dismiss'}</button>
+                {c.replacements.length > 0 && <button onClick={() => controller.accept(c.id, 0)}>{t.t('card.accept')}</button>}
+                <button onClick={() => controller.reject(c.id)}>{c.replacements.length > 0 ? t.t('card.reject') : t.t('card.dismiss')}</button>
               </div>
             </li>
           ))}
@@ -134,11 +149,11 @@ export function DecisionCard({ controller, decision, candidates, paraText, touch
   );
 }
 
-/** "Accept", "Use “its”", or for a batch its count and kind: "Apply all 12 formatting fixes" (opens the preview). */
-function acceptLabel(first: Candidate, replacement: string, isBatch: boolean, places: number): string {
-  const what = replacement === '' ? 'delete' : `“${excerpt(replacement).text}”`;
+/** "Accept", "Use “its”", or for a batch its count and kind: "Apply all 12 fixes (Formatting)" (opens the preview). */
+function acceptLabel(t: Translator, first: Candidate, replacement: string, isBatch: boolean, places: number): string {
+  const what = replacement === '' ? t.t('card.deleteWord') : t.t('quote', { text: excerpt(replacement).text });
   const choices = first.replacements.length;
-  if (isBatch && choices === 1) return batchApplyLabel(first.kind, places);
-  if (isBatch) return `Apply ${what} to all ${places}…`;
-  return choices === 1 ? 'Accept' : `Use ${what}`;
+  if (isBatch && choices === 1) return batchApplyLabel(t, first.kind, places);
+  if (isBatch) return t.t('card.applyTo', { what, count: places });
+  return choices === 1 ? t.t('card.accept') : t.t('card.use', { what });
 }

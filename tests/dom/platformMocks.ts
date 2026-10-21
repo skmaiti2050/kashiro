@@ -5,6 +5,6 @@
  * factories run before the test file's own imports.
  */
 export const tauriWindow = { getCurrentWindow: () => ({ onCloseRequested: async () => () => {}, destroy: async () => {} }) };
-export const platformFiles = { files: { open: async () => null, save: async () => null }, onFileDrop: async () => () => {} };
+export const platformFiles = { files: { open: async () => null, save: async () => null }, onFileDrop: async () => () => {}, setDialogLabels: () => {} };
 export const platformLinter = { createAppLinter: () => Promise.reject(new Error('not used in tests')) };
 export const platformSettings = { loadSettings: async () => null, saveSettings: async () => {} };

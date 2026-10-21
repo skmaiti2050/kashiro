@@ -3,10 +3,12 @@ import type { Candidate } from '@/engine/types';
 import type { SessionController } from './state/sessionController';
 import { CategoryTag } from './CategoryTag';
 import { WordTickList } from './WordTickList';
+import { useT } from './i18n/useT';
+import { wordCardTitle, wordCardWords } from './state/labels';
 
 interface Props {
   controller: SessionController;
-  card: Decision;
+  card: Decision & { kind: 'names' };
   candidates: Map<string, Candidate>;
 }
 
@@ -16,27 +18,19 @@ interface Props {
  * pair ("Pirya" / "Priya") start unticked: one is probably a typo, and only the writer knows which.
  */
 export function NamesCard({ controller, card, candidates }: Props) {
-  const words = distinctWords(card.candidateIds.map((id) => candidates.get(id)!));
+  const t = useT();
+  const words = wordCardWords(card, candidates);
   const nearDuplicates = new Set((card.nearDuplicates ?? []).flat());
 
   return (
     <div className="card names">
       <CategoryTag category="names" />
-      <h3>{card.label}</h3>
-      <p className="hint">Names and places the dictionary doesn't know. Untick any that are real typos.</p>
+      <h3>{wordCardTitle(t, card, candidates)}</h3>
+      <p className="hint">{t.t('names.hint')}</p>
       {(card.nearDuplicates ?? []).length > 0 && (
-        <p className="warn">
-          Look twice: {card.nearDuplicates!.map(([a, b]) => `${a} / ${b}`).join(', ')} differ by one letter.
-        </p>
+        <p className="warn">{t.t('names.lookTwice', { pairs: card.nearDuplicates!.map(([a, b]) => `${a} / ${b}`).join(', ') })}</p>
       )}
       <WordTickList words={words} flagged={nearDuplicates} onAdd={(keepAsTypos) => void controller.acceptNames(keepAsTypos)} />
     </div>
   );
-}
-
-/** First spelling of each word, case-insensitively, in order of appearance. */
-function distinctWords(cands: Candidate[]): string[] {
-  const seen = new Map<string, string>();
-  for (const c of cands) if (!seen.has(c.original.toLowerCase())) seen.set(c.original.toLowerCase(), c.original);
-  return [...seen.values()];
 }

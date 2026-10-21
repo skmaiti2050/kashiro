@@ -10,7 +10,9 @@ import { adapterFor as registryAdapterFor } from '@/formats/registry';
 import type { FormatAdapter } from '@/formats/types';
 import { afterAction } from './announce';
 import { carryDecisions } from './carryDecisions';
-import { explain } from './errors';
+import type { MessageKey } from '../i18n/catalogues';
+import { msg, type Message } from '../i18n/message';
+import { explain, plainError } from './errors';
 import { checkOptions, currentDepth } from './checkOptions';
 import { DecisionTally } from './decisionTally';
 import { matchUnchangedParagraphs } from './documentText';
@@ -49,8 +51,9 @@ export interface ControllerState {
   settings: Settings;
   /** The variant the user picked for this document, or null to use the detected one. */
   variantOverride: Variant | null;
-  notice: string | null;
-  error: string | null;
+  /** Kept as messages, so they show in whatever language is active (see i18n/message.ts). */
+  notice: Message | null;
+  error: Message | null;
   /** Typed text waits for its re-check, or a re-check is running (the status bar's "Checking…"). */
   checking: boolean;
   /** Decisions the user made since the document was opened (the progress header's "of M"). */
@@ -64,14 +67,12 @@ export interface ControllerState {
 }
 
 export interface Announcement {
-  text: string;
+  message: Message;
   seq: number;
 }
 
 const RECHECK_DELAY_MS = 300;
 const PASTED_NAME = 'Untitled.txt';
-
-const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 /**
  * The desktop flow without React: open → check → review → save. Holds one document and its
@@ -99,7 +100,7 @@ export class SessionController {
       this.set({ settings });
       this.deps
         .saveSettings(settings)
-        .catch((e) => this.set({ error: explain('Settings were not saved', e, 'They apply until you close the app; change one again to retry saving.') }));
+        .catch((e) => this.set({ error: explain(msg('error.settingsSave'), e, msg('error.settingsSaveNext')) }));
     },
     decisionMade: (patch) => {
       this.tally.made(1);
@@ -181,7 +182,7 @@ export class SessionController {
   async openFile(file: OpenedFile): Promise<void> {
     const adapter = this.adapterFor(file.name);
     if (!adapter) {
-      this.set({ error: `Can't open ${file.name}: writing-check opens .docx, .txt and .md files. Save it in one of those formats, then open it again.` });
+      this.set({ error: msg('error.unsupported', { name: file.name }) });
       return;
     }
     await this.load(file.name, file.path, adapter, file.bytes);
@@ -203,7 +204,7 @@ export class SessionController {
     try {
       read = await readDocument(this.documents + 1, name, path, adapter, bytes);
     } catch (e) {
-      this.set({ error: explain(`Can't open ${name}`, e, 'Check that the file opens in Word or a text editor, then try again.') });
+      this.set({ error: explain(msg('error.open', { name }), e, msg('error.openNext')) });
       return;
     }
     const { loaded, document } = read;
@@ -243,7 +244,7 @@ export class SessionController {
     try {
       read = await readTypedText(this.loaded, document, text);
     } catch (e) {
-      this.set({ error: explain('The typed text could not be checked', e, 'Keep typing to try again, or save and reopen the file.'), checking: this.queue.waiting });
+      this.set({ error: explain(msg('error.typed'), e, msg('error.typedNext')), checking: this.queue.waiting });
       return;
     }
     this.loaded = read.loaded;
@@ -276,7 +277,7 @@ export class SessionController {
       this.releaseModules(session.modules);
     } catch (e) {
       if (run !== this.checks) return;
-      const error = explain('The check failed', e, 'Edit the text or reopen the file to try again.');
+      const error = explain(msg('error.check'), e, msg('error.checkNext'));
       this.set({ phase: this.state.session ? 'ready' : 'empty', error, checking: this.queue.waiting });
     }
   }
@@ -290,38 +291,38 @@ export class SessionController {
   // ---- review --------------------------------------------------------------
 
   accept(decisionId: string, replacementIndex = 0): void {
-    this.act((s) => s.accept(decisionId, replacementIndex), () => this.tally.made(1), 'Accepted');
+    this.act((s) => s.accept(decisionId, replacementIndex), () => this.tally.made(1), 'verb.accepted');
   }
 
   reject(decisionId: string): void {
-    this.rejectTogether(decisionId, (s) => s.reject(decisionId), 'Rejected');
+    this.rejectTogether(decisionId, (s) => s.reject(decisionId), 'verb.rejected');
   }
 
   ignoreAll(decisionId: string): void {
-    this.rejectTogether(decisionId, (s) => s.ignoreAll(decisionId), 'Ignored');
+    this.rejectTogether(decisionId, (s) => s.ignoreAll(decisionId), 'verb.ignored');
   }
 
   /**
    * Rejects a decision as one: "Review again" on several of its places gives back one decision made, not one
    * each. A flag with nothing to apply is announced as dismissed, as its button says.
    */
-  private rejectTogether(decisionId: string, change: (s: CheckSession) => void, verb: string): void {
+  private rejectTogether(decisionId: string, change: (s: CheckSession) => void, verb: MessageKey): void {
     const session = this.state.session;
     if (!session) return;
     const { top, more } = session.decisions();
     const places = [...top, ...more].find((d) => d.id === decisionId)?.candidateIds ?? [decisionId];
     const replacements = new Map(session.candidates().map((c) => [c.id, c.replacements.length]));
     const flagOnly = places.every((id) => replacements.get(id) === 0);
-    this.act(change, () => this.tally.rejected(decisionId, places), flagOnly ? 'Dismissed' : verb);
+    this.act(change, () => this.tally.rejected(decisionId, places), flagOnly ? 'verb.dismissed' : verb);
   }
 
   /** "Apply" after the batch preview: the chosen places as one change, undone together by undoBatch. */
   applyBatch(decisionId: string, candidateIds: string[], replacementIndex = 0): void {
-    this.act((s) => s.applyBatch(decisionId, candidateIds, replacementIndex), () => this.tally.made(1), 'Applied');
+    this.act((s) => s.applyBatch(decisionId, candidateIds, replacementIndex), () => this.tally.made(1), 'verb.applied');
   }
 
   undoBatch(batchId: string): void {
-    this.act((s) => s.undoBatch(batchId), () => {}, 'Undone');
+    this.act((s) => s.undoBatch(batchId), () => {}, 'verb.undone');
   }
 
   /**
@@ -335,7 +336,7 @@ export class SessionController {
       () => {
         if (status === 'rejected') this.tally.reopen(candidateId);
       },
-      status === 'rejected' ? 'Back to review' : 'Undone',
+      status === 'rejected' ? 'verb.backToReview' : 'verb.undone',
     );
   }
 
@@ -415,31 +416,31 @@ export class SessionController {
   }
 
   private releaseModules(modules: ModuleSwitches): void {
-    this.optional.release(modules).catch((e) => this.set({ error: explain('The writing helper did not stop', e, 'Restart the app to stop it.') }));
+    this.optional.release(modules).catch((e) => this.set({ error: explain(msg('error.helperStop'), e, msg('error.helperStopNext')) }));
   }
 
   /**
    * Runs a review action and, only once it succeeded, `count` (how it moves the tally of decisions made) and
    * the announcement "<verb>. N of M left.". A failure is shown, not thrown.
    */
-  private act(change: (s: CheckSession) => void, count: () => void, verb: string): void {
+  private act(change: (s: CheckSession) => void, count: () => void, verb: MessageKey): void {
     const session = this.state.session;
     if (!session) return;
     try {
       change(session);
     } catch (e) {
-      this.set({ error: message(e) });
+      this.set({ error: plainError(e) });
       return;
     }
     this.unsaved = true;
     count();
-    this.set({ error: null, decided: this.tally.decided, announcement: this.announcement(verb) });
+    this.set({ error: null, decided: this.tally.decided, announcement: this.announcement(msg(verb)) });
   }
 
-  private announcement(verb: string): Announcement | null {
+  private announcement(verb: Message): Announcement | null {
     const session = this.state.session;
     if (!session) return null;
-    return { text: afterAction(verb, progressOf(session, this.tally.decided)), seq: ++this.announcements };
+    return { message: afterAction(verb, progressOf(session, this.tally.decided)), seq: ++this.announcements };
   }
 
   // ---- saving --------------------------------------------------------------
@@ -455,8 +456,8 @@ export class SessionController {
   }
 
   /** For failures outside the controller (a dropped file that can't be read, the linter not starting). */
-  showError(text: string): void {
-    this.set({ error: text });
+  showError(error: Message): void {
+    this.set({ error });
   }
 
   private set(patch: Partial<ControllerState>): void {

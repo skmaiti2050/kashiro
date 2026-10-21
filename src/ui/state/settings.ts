@@ -4,6 +4,7 @@ import { PRESETS, type PresetId } from '@/engine/presets';
 import { DEFAULT_TERM_MIN_REPEATS } from '@/engine/terms';
 import type { Tier, Variant } from '@/engine/types';
 import type { SaveMode } from '@/formats/types';
+import { resolveUiLanguage, type UiLanguageSetting } from '../i18n/locale';
 import { DEFAULT_READING, resolveReading, type ReadingSettings } from './readingSettings';
 
 /** Everything the app remembers between runs (stored by platform/settings.ts). */
@@ -32,6 +33,8 @@ export interface Settings {
   modulesByPreset: Partial<Record<PresetId, ModuleSwitches>>;
   /** Text size, readable fonts, spacing and the read-aloud voice. */
   reading: ReadingSettings;
+  /** Settings › App language; separate from the English variant used for checking. */
+  uiLanguage: UiLanguageSetting;
 }
 
 /** Region → variant, for English locales; India also covers hi-IN, bn-IN and other Indian locales. */
@@ -64,6 +67,7 @@ export function defaultSettings(locale: string): Settings {
     modules: { ...DEFAULT_MODULES },
     modulesByPreset: {},
     reading: { ...DEFAULT_READING },
+    uiLanguage: 'system',
   };
 }
 
@@ -85,6 +89,7 @@ export function withSavedSettings(defaults: Settings, saved: Partial<Settings> |
     modules: resolveModules(saved.modules ?? defaults.modules),
     modulesByPreset,
     reading: resolveReading(saved.reading ?? defaults.reading),
+    uiLanguage: resolveUiLanguage(saved.uiLanguage ?? defaults.uiLanguage),
   };
 }
 

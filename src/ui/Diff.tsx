@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Candidate } from '@/engine/types';
+import { useT } from './i18n/useT';
 import { excerpt } from './state/labels';
 
 const CONTEXT_CHARS = 40;
@@ -9,6 +10,7 @@ const CONTEXT_CHARS = 40;
  * original (a whole sentence flagged for length) is cut to its first words, with "Show more".
  */
 export function Diff({ candidate, replacement, paraText }: { candidate: Candidate; replacement?: string; paraText: Map<number, string> }) {
+  const t = useT();
   const [full, setFull] = useState(false);
   const text = paraText.get(candidate.paraId) ?? '';
   const { start, end } = candidate.span;
@@ -20,12 +22,15 @@ export function Diff({ candidate, replacement, paraText }: { candidate: Candidat
   const isFix = replacement !== undefined;
   return (
     <p className="diff">
-      {from > 0 && '…'}
-      {text.slice(from, start)}
-      {end > start && (isFix ? <del>{shownOriginal}</del> : <mark>{shownOriginal}</mark>)}
-      {isFix && replacement !== '' && <ins>{replacement}</ins>}
-      {(full || !short.cut) && text.slice(end, to)}
-      {(full || !short.cut) && to < text.length && '…'}
+      {/* The document is English whatever the UI language: screen readers read it with an English voice. */}
+      <span lang="en">
+        {from > 0 && '…'}
+        {text.slice(from, start)}
+        {end > start && (isFix ? <del>{shownOriginal}</del> : <mark>{shownOriginal}</mark>)}
+        {isFix && replacement !== '' && <ins>{replacement}</ins>}
+        {(full || !short.cut) && text.slice(end, to)}
+        {(full || !short.cut) && to < text.length && '…'}
+      </span>
       {short.cut && (
         <button
           className="link"
@@ -34,7 +39,7 @@ export function Diff({ candidate, replacement, paraText }: { candidate: Candidat
             setFull((v) => !v);
           }}
         >
-          {full ? 'Show less' : 'Show more'}
+          {full ? t.t('diff.showLess') : t.t('diff.showMore')}
         </button>
       )}
     </p>

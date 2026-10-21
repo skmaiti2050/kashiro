@@ -1,5 +1,6 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { Dialog } from './Dialog';
+import { useT } from './i18n/useT';
 
 interface Props {
   name: string;
@@ -9,8 +10,11 @@ interface Props {
   onCancel(): void;
 }
 
+const bold = (chunks: ReactNode[]) => <b>{chunks}</b>;
+
 /** "Save, Discard, or Cancel?" before something would drop the open document's unsaved work. Escape cancels. */
 export function UnsavedChangesDialog({ name, onSave, onDiscard, onCancel }: Props) {
+  const t = useT();
   const [saving, setSaving] = useState(false);
   const saveButton = useRef<HTMLButtonElement>(null);
 
@@ -26,19 +30,17 @@ export function UnsavedChangesDialog({ name, onSave, onDiscard, onCancel }: Prop
   };
 
   return (
-    <Dialog title="Unsaved changes" role="alertdialog" className="unsaved" describedBy="unsaved-text" initialFocus={saveButton} onClose={onCancel}>
-      <p id="unsaved-text">
-        You have unsaved changes in <b>{name}</b>. Save, Discard, or Cancel?
-      </p>
+    <Dialog title={t.t('unsaved.title')} role="alertdialog" className="unsaved" describedBy="unsaved-text" initialFocus={saveButton} onClose={onCancel}>
+      <p id="unsaved-text">{t.rich('unsaved.text', { name, b: bold })}</p>
       <div className="actions end">
         <button className="quiet" onClick={onCancel} disabled={saving}>
-          Cancel
+          {t.t('unsaved.cancel')}
         </button>
         <button onClick={onDiscard} disabled={saving}>
-          Discard
+          {t.t('unsaved.discard')}
         </button>
         <button ref={saveButton} className="primary" onClick={() => void save()} disabled={saving}>
-          {saving ? 'Saving…' : 'Save'}
+          {saving ? t.t('unsaved.saving') : t.t('unsaved.save')}
         </button>
       </div>
     </Dialog>

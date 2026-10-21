@@ -1,11 +1,18 @@
-// Card explanations in plain words (Task A1 item 6): the Harper messages with grammar terms that the
-// 22 reference documents produce, rewritten; anything else is shown as it is.
+// Card explanations in plain words (Task A1 item 6), as translatable messages (Task L1): the Harper
+// messages with grammar terms that the 22 reference documents produce, the engine's own messages, and
+// any other Harper message kept in English.
 import { describe, it, expect } from 'vitest';
 import { sentenceSpans } from '@/engine/sentences';
-import { plainMessage } from '@/ui/state/plainMessages';
+import type { Candidate } from '@/engine/types';
+import { englishOnly, explanation } from '@/ui/state/plainMessages';
+import { createTranslator } from '@/ui/i18n/translator';
+import { en } from './english';
 
 /** Grammar terms a reader may not know (verb and noun are left: they are widely known). */
 const JARGON = /\b(adverb|adjective|preposition|pronoun|infinitive|article|mass noun|compound noun|phrasal|clause|participle|grammatical)s?\b/i;
+
+const flag = (message: string, original: string, kind = 'Grammar', source: Candidate['source'] = 'rules') => ({ message, original, kind, source });
+const plain = (message: string, original: string) => en.format(explanation(flag(message, original)));
 
 /** [Harper's message, the flagged text, the plain rewrite]. */
 const CASES: [string, string, string][] = [
@@ -32,28 +39,41 @@ const CASES: [string, string, string][] = [
   ['You probably mean the adverb `every day` here.', 'everyday', 'You probably mean “every day” here.'],
 ];
 
-describe('plainMessage', () => {
-  it.each(CASES)('%s', (message, original, plain) => {
-    expect(plainMessage({ message, original })).toBe(plain);
+describe('explanation', () => {
+  it.each(CASES)('%s', (message, original, rewritten) => {
+    expect(plain(message, original)).toBe(rewritten);
   });
 
   it('every rewrite is at most two sentences, with no grammar terms', () => {
     for (const [message, original] of CASES) {
-      const plain = plainMessage({ message, original });
-      expect(sentenceSpans(plain).length).toBeLessThanOrEqual(2);
-      expect(plain).not.toMatch(JARGON);
+      const text = plain(message, original);
+      expect(sentenceSpans(text).length).toBeLessThanOrEqual(2);
+      expect(text).not.toMatch(JARGON);
     }
   });
 
   it('assumes nothing about the flagged word: no "(two words)", no fixed "set up" example', () => {
-    const phrasal = plainMessage({ message: 'This word might be a phrasal verb rather than a compound noun.', original: 'login' });
+    const phrasal = plain('This word might be a phrasal verb rather than a compound noun.', 'login');
     expect(phrasal).toContain('“login”');
     expect(phrasal).not.toContain('set up');
-    expect(plainMessage({ message: 'You probably mean the adverb `anymore` here.', original: 'any more' })).not.toContain('two words');
+    expect(plain('You probably mean the adverb `anymore` here.', 'any more')).not.toContain('two words');
   });
 
-  it('other messages are shown as they are', () => {
-    expect(plainMessage({ message: 'Did you mean “receive”?', original: 'recieve' })).toBe('Did you mean “receive”?');
-    expect(plainMessage({ message: 'This sentence is 42 words long.', original: 'This' })).toBe('This sentence is 42 words long.');
+  it('the engine’s own messages are translated too, by kind', () => {
+    const hi = createTranslator('hi', ['hi-IN']);
+    const contraction = explanation(flag('Contraction in formal writing; consider the full form.', "can't", 'Contraction', 'preset'));
+    expect(en.format(contraction)).toBe('Contraction in formal writing; consider the full form.');
+    expect(hi.format(contraction)).not.toMatch(/[A-Za-z]{3}/);
+    const invisible = explanation(flag('Invisible character (U+200B ZERO WIDTH SPACE)', '​', 'Invisible', 'hygiene'));
+    expect(en.format(invisible)).toBe('Invisible character (U+200B ZERO WIDTH SPACE)');
+    expect(hi.format(invisible)).toBe('अदृश्य अक्षर (U+200B ZERO WIDTH SPACE)');
+  });
+
+  it('other Harper messages are shown as they are, in English, and say so', () => {
+    const other = explanation(flag('Did you mean “receive”?', 'recieve', 'Spelling'));
+    expect(englishOnly(other)).toBe(true);
+    expect(createTranslator('hi', ['hi-IN']).format(other)).toBe('Did you mean “receive”?');
+    expect(plain('This sentence is 42 words long.', 'This')).toBe('This sentence is 42 words long.');
+    expect(englishOnly(explanation(flag('Incorrect indefinite article.', 'a')))).toBe(false);
   });
 });

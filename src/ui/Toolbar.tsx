@@ -1,10 +1,29 @@
 import { useRef, type KeyboardEvent } from 'react';
 import { PRESETS, type PresetId } from '@/engine/presets';
 import type { Variant } from '@/engine/types';
+import type { MessageKey } from './i18n/catalogues';
+import { useT } from './i18n/useT';
 import { siblingPath } from './state/documentText';
 import type { ControllerState, SessionController } from './state/sessionController';
 
 export const VARIANTS: Variant[] = ['American', 'British', 'Australian', 'Canadian', 'Indian'];
+
+/** Each English variant's name in the UI language. */
+export const VARIANT_KEYS: Record<Variant, MessageKey> = {
+  American: 'variant.American',
+  British: 'variant.British',
+  Australian: 'variant.Australian',
+  Canadian: 'variant.Canadian',
+  Indian: 'variant.Indian',
+};
+
+/** Each goal's name in the UI language. */
+export const PRESET_KEYS: Record<PresetId, MessageKey> = {
+  academic: 'preset.academic',
+  blog: 'preset.blog',
+  script: 'preset.script',
+  business: 'preset.business',
+};
 
 interface Props {
   controller: SessionController;
@@ -22,9 +41,10 @@ const ARROW_ITEMS = 'button:not(:disabled), select, summary';
 
 /**
  * Left / Right move along the toolbar (Tab still reaches every item, so nothing depends on the arrows).
- * Skipped inside a select or an open menu, whose arrows have their own job.
+ * Skipped inside a select or an open menu, whose arrows have their own job. In a right-to-left language
+ * the arrows follow the reading direction.
  */
-function moveAlongToolbar(e: KeyboardEvent<HTMLElement>): void {
+function moveAlongToolbar(e: KeyboardEvent<HTMLElement>, dir: 'ltr' | 'rtl'): void {
   if ((e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') || e.altKey || e.ctrlKey || e.metaKey) return;
   const from = e.target as HTMLElement;
   if (from.tagName === 'SELECT' || from.closest('.menu')) return;
@@ -32,11 +52,13 @@ function moveAlongToolbar(e: KeyboardEvent<HTMLElement>): void {
   const at = items.indexOf(from);
   if (at === -1) return;
   e.preventDefault();
-  items[(at + (e.key === 'ArrowRight' ? 1 : -1) + items.length) % items.length].focus();
+  const forward = (e.key === 'ArrowRight') === (dir === 'ltr');
+  items[(at + (forward ? 1 : -1) + items.length) % items.length].focus();
 }
 
 /** Open · Paste · preset · variant chip · Save (with its save-mode menu) · Settings · Google Docs help. */
 export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onHelp, onShortcuts }: Props) {
+  const t = useT();
   const { session, settings, variantOverride, document } = state;
   const saveMenu = useRef<HTMLDetailsElement>(null);
   const closeSaveMenu = (e: KeyboardEvent<HTMLDetailsElement>) => {
@@ -47,36 +69,36 @@ export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onHelp
   };
 
   return (
-    <div className="toolbar" role="toolbar" aria-label="Document" onKeyDown={moveAlongToolbar}>
-      <button onClick={onOpen} title="Open a .docx, .txt or .md file (Ctrl+O)" aria-keyshortcuts="Control+O">
-        Open
+    <div className="toolbar" role="toolbar" aria-label={t.t('toolbar.label')} onKeyDown={(e) => moveAlongToolbar(e, t.dir)}>
+      <button onClick={onOpen} title={t.t('toolbar.openTitle')} aria-keyshortcuts="Control+O">
+        {t.t('toolbar.open')}
       </button>
-      <button onClick={onPaste} title="Paste text as a new document">
-        Paste
+      <button onClick={onPaste} title={t.t('toolbar.pasteTitle')}>
+        {t.t('toolbar.paste')}
       </button>
 
       <label className="field">
-        <span>Goal</span>
+        <span>{t.t('toolbar.goal')}</span>
         <select value={settings.preset} onChange={(e) => controller.setPreset(e.target.value as PresetId)}>
           {Object.values(PRESETS).map((p) => (
             <option key={p.id} value={p.id}>
-              {p.label}
+              {t.t(PRESET_KEYS[p.id])}
             </option>
           ))}
         </select>
       </label>
 
       {session && (
-        <label className={session.mixedVariant ? 'chip warn' : 'chip'} title={session.mixedVariant ? 'Some words follow another English variant; they are offered for review.' : undefined}>
-          <span>{session.mixedVariant ? 'Mixed spelling' : 'English'}</span>
+        <label className={session.mixedVariant ? 'chip warn' : 'chip'} title={session.mixedVariant ? t.t('toolbar.mixedTitle') : undefined}>
+          <span>{session.mixedVariant ? t.t('toolbar.mixedSpelling') : t.t('toolbar.english')}</span>
           <select
             value={variantOverride ?? ''}
             onChange={(e) => controller.setVariant(e.target.value === '' ? null : (e.target.value as Variant))}
           >
-            <option value="">{session.variant} (detected)</option>
+            <option value="">{t.t('toolbar.detected', { variant: t.t(VARIANT_KEYS[session.variant]) })}</option>
             {VARIANTS.map((v) => (
               <option key={v} value={v}>
-                {v}
+                {t.t(VARIANT_KEYS[v])}
               </option>
             ))}
           </select>
@@ -85,55 +107,55 @@ export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onHelp
 
       <span className="spacer" />
       <button className="quiet" onClick={onHelp}>
-        Google Docs
+        {t.t('toolbar.googleDocs')}
       </button>
-      <button className="quiet" aria-keyshortcuts="F1" title="Keyboard shortcuts (F1)" onClick={onShortcuts}>
-        Shortcuts
+      <button className="quiet" aria-keyshortcuts="F1" title={t.t('toolbar.shortcutsTitle')} onClick={onShortcuts}>
+        {t.t('toolbar.shortcuts')}
       </button>
-      <button className="quiet" aria-keyshortcuts="Control+Comma" title="Settings (Ctrl+,)" onClick={onSettings}>
-        Settings
+      <button className="quiet" aria-keyshortcuts="Control+Comma" title={t.t('toolbar.settingsTitle')} onClick={onSettings}>
+        {t.t('toolbar.settings')}
       </button>
 
       <div className="save-group">
         <button
           className="primary"
           disabled={!document || !session}
-          title={`Save: ${settings.saveMode === 'tracked' ? 'tracked changes' : 'clean copy'}, ${settings.overwrite ? 'overwrite (keeps a backup)' : 'new copy'}`}
+          title={t.t('save.title', { mode: settings.saveMode, overwrite: settings.overwrite ? 'yes' : 'no' })}
           onClick={() => void controller.save()}
         >
-          Save
+          {t.t('save.button')}
         </button>
         <details className="save-menu" ref={saveMenu} onKeyDown={closeSaveMenu}>
-          <summary aria-label="Save options">▾</summary>
+          <summary aria-label={t.t('save.options')}>▾</summary>
           <div className="menu">
             <fieldset>
-              <legend>How changes are saved</legend>
+              <legend>{t.t('save.howLegend')}</legend>
               <SaveChoice
                 checked={settings.saveMode === 'tracked'}
                 onChoose={() => controller.changeSettings({ saveMode: 'tracked' })}
-                title="Tracked changes"
-                detail="Your reviewer can accept or reject each change in Word. (.docx only: text files are always saved clean.)"
+                title={t.t('save.tracked')}
+                detail={t.t('save.trackedDetail')}
               />
               <SaveChoice
                 checked={settings.saveMode === 'clean'}
                 onChoose={() => controller.changeSettings({ saveMode: 'clean' })}
-                title="Clean copy"
-                detail="All accepted changes applied, no marks."
+                title={t.t('save.clean')}
+                detail={t.t('save.cleanDetail')}
               />
             </fieldset>
             <fieldset>
-              <legend>Where it goes</legend>
+              <legend>{t.t('save.whereLegend')}</legend>
               <SaveChoice
                 checked={!settings.overwrite}
                 onChoose={() => controller.changeSettings({ overwrite: false })}
-                title="New copy"
-                detail={`Saved beside the original as ${checkedName(document?.name)}. The original is not touched.`}
+                title={t.t('save.newCopy')}
+                detail={t.t('save.newCopyDetail', { name: checkedName(document?.name) })}
               />
               <SaveChoice
                 checked={settings.overwrite}
                 onChoose={() => controller.changeSettings({ overwrite: true })}
-                title="Overwrite (keeps a backup)"
-                detail="Replaces the original after copying it to a .bak file. Pasted text is always saved as a new copy."
+                title={t.t('save.overwrite')}
+                detail={t.t('save.overwriteDetail')}
               />
             </fieldset>
           </div>

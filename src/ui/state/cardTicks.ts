@@ -22,15 +22,14 @@ export interface TickSummary {
   keepAsTypos: string[];
   /** Flagged words the user ticked explicitly: the engine adds them only when told. */
   tickedFlagged: string[];
-  addLabel: string;
+  /** Ticked words: "Add all to my dictionary" when it is every word, else "Add N to my dictionary". */
+  tickedCount: number;
 }
 
 export function tickSummary(ticks: CardTicks, words: string[], flagged: ReadonlySet<string>): TickSummary {
   const keepAsTypos = words.filter((w) => !isTicked(ticks, w, flagged));
   const tickedFlagged = words.filter((w) => flagged.has(w) && isTicked(ticks, w, flagged));
-  const tickedCount = words.length - keepAsTypos.length;
-  const addLabel = tickedCount === words.length ? 'Add all to my dictionary' : `Add ${tickedCount} to my dictionary`;
-  return { keepAsTypos, tickedFlagged, addLabel };
+  return { keepAsTypos, tickedFlagged, tickedCount: words.length - keepAsTypos.length };
 }
 
 /** The ticks after the user toggles `word`. */

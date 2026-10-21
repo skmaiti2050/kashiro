@@ -4,7 +4,14 @@ import { open, save } from '@tauri-apps/plugin-dialog';
 import { readFile, writeFile } from '@tauri-apps/plugin-fs';
 import type { Files, OpenedFile } from '../state/sessionController';
 
-const OPEN_FILTERS = [{ name: 'Documents', extensions: ['docx', 'txt', 'md', 'markdown'] }];
+const OPEN_EXTENSIONS = ['docx', 'txt', 'md', 'markdown'];
+
+/** The Open dialog's filter name ("Documents") in the UI language; the app sets it when the language changes. */
+let documentsLabel = 'Documents';
+
+export function setDialogLabels({ documents }: { documents: string }): void {
+  documentsLabel = documents;
+}
 
 const fileName = (path: string) => path.slice(Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\')) + 1);
 const extension = (path: string) => {
@@ -23,7 +30,7 @@ async function readChosen(path: string): Promise<OpenedFile> {
 
 export const files: Files = {
   async open() {
-    const path = await open({ multiple: false, directory: false, filters: OPEN_FILTERS });
+    const path = await open({ multiple: false, directory: false, filters: [{ name: documentsLabel, extensions: OPEN_EXTENSIONS }] });
     return path === null ? null : readChosen(path);
   },
 

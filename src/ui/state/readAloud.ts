@@ -1,9 +1,11 @@
 import type { Decision } from '@/engine/decisions';
 import { sentenceSpans } from '@/engine/sentences';
 import type { Candidate } from '@/engine/types';
+import type { Translator } from '../i18n/translator';
 import { CATEGORIES, categoryOf } from './categories';
 import { kindLabel } from './kindLabels';
-import { plainMessage } from './plainMessages';
+import { isWordCard, wordCardTitle } from './labels';
+import { explanation } from './plainMessages';
 
 /** The fields of a SpeechSynthesisVoice the app reads (tests pass plain objects). */
 export interface VoiceInfo {
@@ -53,19 +55,19 @@ export function sentenceAt(text: string, offset: number): string {
   return span ? paragraph.slice(span.start, span.end) : '';
 }
 
-const quoted = (text: string) => `“${text}”`;
-
 /**
  * What "Read suggestion" says, and the card's screen-reader name: the category and kind, the change
- * ("Change “recieve” to “receive” in 2 places"), then the flag's message. A word-list card reads its label.
+ * ("Change “recieve” to “receive” in 2 places"), then the flag's explanation. A word-list card reads its title.
  */
-export function suggestionSpeech(decision: Decision, first: Candidate): string {
-  const category = CATEGORIES[categoryOf(first, decision.kind)].label;
-  if (decision.kind === 'names' || decision.kind === 'terms' || decision.kind === 'otherLanguage') return `${category}. ${decision.label}.`;
-  const places = decision.kind === 'batch' ? ` in ${decision.candidateIds.length} places` : '';
+export function suggestionSpeech(t: Translator, decision: Decision, candidates: Map<string, Candidate>): string {
+  const first = candidates.get(decision.candidateIds[0])!;
+  const category = t.t(CATEGORIES[categoryOf(first, decision.kind)].label);
+  if (isWordCard(decision)) return t.t('speech.wordCard', { category, title: wordCardTitle(t, decision, candidates) });
+  const quoted = (text: string) => t.t('quote', { text });
   const fixes = first.replacements.filter((r) => r !== '');
   let change = quoted(first.original);
-  if (first.replacements.length > 0 && fixes.length === 0) change = `Delete ${quoted(first.original)}`;
-  else if (fixes.length > 0) change = `Change ${quoted(first.original)} to ${fixes.map(quoted).join(' or ')}`;
-  return `${category}: ${kindLabel(first.kind)}. ${change}${places}. ${plainMessage(first)}`;
+  if (first.replacements.length > 0 && fixes.length === 0) change = t.t('speech.delete', { from: quoted(first.original) });
+  else if (fixes.length > 0) change = t.t('speech.change', { from: quoted(first.original), to: t.list(fixes.map(quoted), 'disjunction') });
+  if (decision.kind === 'batch') change = t.t('speech.inPlaces', { change, count: decision.candidateIds.length });
+  return t.t('speech.fix', { category, kind: kindLabel(t, first.kind), change, explanation: t.format(explanation(first)) });
 }

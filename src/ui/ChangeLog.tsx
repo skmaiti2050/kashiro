@@ -1,6 +1,8 @@
 import type { Outcome } from '@/engine/session';
+import type { Translator } from './i18n/translator';
+import { useT } from './i18n/useT';
+import { reasonMessage, unplaceableMessage } from './state/engineReasons';
 import { kindLabel } from './state/kindLabels';
-import { fixesLabel } from './state/labels';
 import type { ControllerState, SessionController } from './state/sessionController';
 
 interface Props {
@@ -10,10 +12,10 @@ interface Props {
   onToggle(): void;
 }
 
-function statusLabel(o: Outcome): string {
-  if (o.unplaceable !== undefined) return `couldn't place it: ${o.unplaceable}`;
-  if (o.status === 'applied') return o.auto ? 'auto-fixed' : 'accepted';
-  return o.reason ?? 'rejected';
+function statusLabel(t: Translator, o: Outcome): string {
+  if (o.unplaceable !== undefined) return t.t('log.couldNotPlace', { reason: t.format(unplaceableMessage(o.unplaceable)) });
+  if (o.status === 'applied') return o.auto ? t.t('log.autoFixed') : t.t('log.accepted');
+  return o.reason ? t.format(reasonMessage(o.reason)) : t.t('log.rejected');
 }
 
 /** One log row: a single change, or every change of one "Apply all" (undone together). */
@@ -40,23 +42,24 @@ function rowsOf(entries: Outcome[]): Row[] {
 
 /** Bottom drawer: every applied or rejected change with its own Undo (a batch has one), and the report export. */
 export function ChangeLog({ controller, state, open, onToggle }: Props) {
+  const t = useT();
   const session = state.session;
   const entries = session ? session.outcomes().filter((o) => o.status === 'applied' || o.status === 'rejected') : [];
   const applied = entries.filter((o) => o.status === 'applied').length;
 
   return (
-    <section className={open ? 'changelog open' : 'changelog'} aria-label="Change log">
+    <section className={open ? 'changelog open' : 'changelog'} aria-label={t.t('log.label')}>
       <div className="changelog-bar">
         <button className="quiet" onClick={onToggle} aria-expanded={open}>
-          {open ? '▾' : '▸'} Change log ({applied} applied)
+          {open ? '▾' : '▸'} {t.t('log.toggle', { count: applied })}
         </button>
         <button disabled={!session} onClick={() => void controller.exportReport()}>
-          Export report
+          {t.t('log.export')}
         </button>
       </div>
       {open && (
         <ol className="entries">
-          {entries.length === 0 && <li className="hint">No changes yet.</li>}
+          {entries.length === 0 && <li className="hint">{t.t('log.empty')}</li>}
           {rowsOf(entries).map((row) =>
             'batch' in row ? <BatchRow key={row.batch} controller={controller} batch={row.batch} outcomes={row.outcomes} /> : <ChangeRow key={row.outcome.candidate.id} controller={controller} o={row.outcome} />,
           )}
@@ -66,21 +69,30 @@ export function ChangeLog({ controller, state, open, onToggle }: Props) {
   );
 }
 
+/** The change itself: the document's English text, struck through and inserted. */
+function Change({ o }: { o: Outcome }) {
+  const t = useT();
+  return (
+    <span className="change">
+      <del lang="en">{o.candidate.original || '·'}</del> → {o.replacement === '' ? <ins>{t.t('log.deleted')}</ins> : <ins lang="en">{o.replacement}</ins>}
+    </span>
+  );
+}
+
 function ChangeRow({ controller, o }: { controller: SessionController; o: Outcome }) {
+  const t = useT();
   return (
     <li className={o.status}>
-      <span className="where">¶{o.paragraphNumber}</span>
-      <span className="change">
-        <del>{o.candidate.original || '·'}</del> → <ins>{o.replacement === '' ? '(deleted)' : o.replacement}</ins>
-      </span>
+      <span className="where">{t.t('log.paragraph', { number: o.paragraphNumber })}</span>
+      <Change o={o} />
       <span className="status">
-        {kindLabel(o.candidate.kind)} · {statusLabel(o)}
+        {kindLabel(t, o.candidate.kind)} · {statusLabel(t, o)}
       </span>
-      {o.status === 'applied' && <button onClick={() => controller.undo(o.candidate.id)}>Undo</button>}
+      {o.status === 'applied' && <button onClick={() => controller.undo(o.candidate.id)}>{t.t('log.undo')}</button>}
       {/* A word in the dictionary stays unflagged until it is removed in Settings, so "Review again" would not hold. */}
       {o.status === 'rejected' && o.unplaceable === undefined && !o.reason?.endsWith('added to dictionary') && (
         <button className="quiet" onClick={() => controller.undo(o.candidate.id)}>
-          Review again
+          {t.t('log.reviewAgain')}
         </button>
       )}
     </li>
@@ -88,16 +100,14 @@ function ChangeRow({ controller, o }: { controller: SessionController; o: Outcom
 }
 
 function BatchRow({ controller, batch, outcomes }: { controller: SessionController; batch: string; outcomes: Outcome[] }) {
-  const first = outcomes[0];
-  const paragraphs = [...new Set(outcomes.map((o) => `¶${o.paragraphNumber}`))].join(' ');
+  const t = useT();
+  const paragraphs = [...new Set(outcomes.map((o) => t.t('log.paragraph', { number: o.paragraphNumber })))].join(' ');
   return (
     <li className="applied batch">
       <span className="where">{paragraphs}</span>
-      <span className="change">
-        <del>{first.candidate.original || '·'}</del> → <ins>{first.replacement === '' ? '(deleted)' : first.replacement}</ins>
-      </span>
-      <span className="status">{fixesLabel(first.candidate.kind, outcomes.length)} applied together</span>
-      <button onClick={() => controller.undoBatch(batch)}>Undo all {outcomes.length}</button>
+      <Change o={outcomes[0]} />
+      <span className="status">{t.t('log.batchStatus', { count: outcomes.length, kind: kindLabel(t, outcomes[0].candidate.kind) })}</span>
+      <button onClick={() => controller.undoBatch(batch)}>{t.t('log.undoAll', { count: outcomes.length })}</button>
     </li>
   );
 }

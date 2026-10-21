@@ -3,7 +3,9 @@ import type { ModuleSwitches } from '@/engine/modules';
 import type { PresetId } from '@/engine/presets';
 import type { CheckSession } from '@/engine/session';
 import type { Variant } from '@/engine/types';
-import { kindLabel } from './kindLabels';
+import { msg, type Message } from '../i18n/message';
+import { plainError } from './errors';
+import { kindKey } from './kindLabels';
 import type { Settings } from './settings';
 import type { ControllerState } from './sessionController';
 
@@ -18,7 +20,7 @@ export interface SettingsHost {
   /** Like a rejection, it is lost if the document is closed unsaved. */
   markUnsaved(): void;
   /** Tells the screen reader what happened and what is left ("Added to your dictionary. 3 of 5 left."). */
-  announce(verb: string): void;
+  announce(verb: Message): void;
   /** The next check builds a new linter. */
   dropLinter(): void;
   /** Re-checks the open document, keeping the decisions on unchanged paragraphs. */
@@ -28,7 +30,7 @@ export interface SettingsHost {
 }
 
 /** The settings changeSettings takes. */
-export type SettingsPatch = Partial<Pick<Settings, 'saveMode' | 'overwrite' | 'fallbackVariant' | 'tierOverrides' | 'termMinRepeats' | 'reading'>>;
+export type SettingsPatch = Partial<Pick<Settings, 'saveMode' | 'overwrite' | 'fallbackVariant' | 'tierOverrides' | 'termMinRepeats' | 'reading' | 'uiLanguage'>>;
 
 export function updateSettings(host: SettingsHost, patch: Partial<Settings>): void {
   host.storeSettings({ ...host.state().settings, ...patch });
@@ -50,8 +52,8 @@ export function ignoreRule(host: SettingsHost, kind: string, scope: 'document' |
     host.decisionMade({ documentIgnoredRules: [...documentIgnoredRules, kind] });
   }
   // Announced once the re-check has hidden them, so "N left" is right.
-  const where = scope === 'document' ? 'in this document' : 'everywhere';
-  void host.recheck().then(() => host.announce(`Dismissed all “${kindLabel(kind)}” suggestions ${where}`));
+  const verb = msg(scope === 'document' ? 'verb.dismissedInDocument' : 'verb.dismissedEverywhere', { kind: msg(kindKey(kind)) });
+  void host.recheck().then(() => host.announce(verb));
 }
 
 /** Settings › Ignored rules › Restore. */
@@ -97,7 +99,7 @@ export async function addWords(host: SettingsHost, change: (s: CheckSession) => 
   try {
     await change(session);
   } catch (e) {
-    host.set({ error: e instanceof Error ? e.message : String(e) });
+    host.set({ error: plainError(e) });
     return;
   }
   host.markUnsaved();
@@ -105,7 +107,7 @@ export async function addWords(host: SettingsHost, change: (s: CheckSession) => 
   const { dictionary } = host.state().settings;
   const known = new Set(dictionary);
   updateSettings(host, { dictionary: [...dictionary, ...session.addedWords().filter((w) => !known.has(w))] });
-  host.announce('Added to your dictionary');
+  host.announce(msg('verb.addedToDictionary'));
 }
 
 /** Settings › Modules: one switch, for the current goal when it has its own modules, else for every goal. */

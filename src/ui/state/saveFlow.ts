@@ -2,6 +2,7 @@ import type { Edit } from '@/engine/session';
 import type { CheckSession } from '@/engine/session';
 import { exportReport } from '@/engine/report';
 import type { FormatAdapter } from '@/formats/types';
+import { msg, type Message } from '../i18n/message';
 import { siblingPath } from './documentText';
 import type { Settings } from './settings';
 
@@ -47,7 +48,7 @@ const sameEdit = (a: Edit, b: Edit | undefined) =>
  * after a backup). Edits the adapter could not place are marked on the session, so the change log
  * shows them. Returns the notice for the user, or null when they cancelled the save dialog.
  */
-export async function saveDocument({ session, adapter, handle, name, path, settings, files }: SaveRequest): Promise<string | null> {
+export async function saveDocument({ session, adapter, handle, name, path, settings, files }: SaveRequest): Promise<Message | null> {
   const { bytes, unplaceable } = await adapter.write(handle, session.acceptedEdits(), settings.saveMode);
   for (const { edit, reason } of unplaceable) {
     const outcome = session.outcomes().find((o) => {
@@ -60,15 +61,13 @@ export async function saveDocument({ session, adapter, handle, name, path, setti
   const target = overwrite ? path : siblingPath(path ?? name, '.checked');
   const saved = await files.save(target, bytes, { overwrite });
   if (!saved) return null;
-  const n = unplaceable.length;
-  const backup = saved.backup ? ` with a backup at ${saved.backup}` : '';
-  const unplaced = n ? `. ${n} change${n === 1 ? '' : 's'} couldn't be placed: see the change log.` : '';
-  return `Saved as ${saved.path}${backup}${unplaced}`;
+  const notice = saved.backup ? msg('notice.savedBackup', { path: saved.path, backup: saved.backup }) : msg('notice.saved', { path: saved.path });
+  return unplaceable.length ? msg('notice.savedUnplaced', { saved: notice, count: unplaceable.length }) : notice;
 }
 
 /** Saves the Markdown change report beside the document. Returns the notice, or null when cancelled. */
-export async function saveReport(session: CheckSession, name: string, path: string | null, files: Files): Promise<string | null> {
+export async function saveReport(session: CheckSession, name: string, path: string | null, files: Files): Promise<Message | null> {
   const bytes = new TextEncoder().encode(exportReport(session, name));
   const saved = await files.save(siblingPath(path ?? name, '.report', '.md'), bytes, { overwrite: false });
-  return saved ? `Saved the report as ${saved.path}` : null;
+  return saved ? msg('notice.report', { path: saved.path }) : null;
 }

@@ -38,7 +38,7 @@ describe('tickSummary (what "Add" sends, shared by the names, terms and other-la
     expect(tickSummary(NO_TICKS, ['chalo', 'jion', 'accha'], flagged('jion'))).toEqual({
       keepAsTypos: ['jion'],
       tickedFlagged: [],
-      addLabel: 'Add 2 to my dictionary',
+      tickedCount: 2,
     });
   });
 
@@ -47,7 +47,7 @@ describe('tickSummary (what "Add" sends, shared by the names, terms and other-la
     expect(tickSummary(ticks, ['chalo', 'jion'], flagged('jion'))).toEqual({
       keepAsTypos: [],
       tickedFlagged: ['jion'],
-      addLabel: 'Add all to my dictionary',
+      tickedCount: 2,
     });
   });
 

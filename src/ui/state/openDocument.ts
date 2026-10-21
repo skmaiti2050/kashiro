@@ -1,5 +1,6 @@
 import type { Paragraph } from '@/engine/types';
 import type { FormatAdapter } from '@/formats/types';
+import { msg, type Message } from '../i18n/message';
 import { joinParagraphs, paragraphStarts } from './documentText';
 
 export interface OpenDocument {
@@ -19,7 +20,7 @@ export interface OpenDocument {
   /** Paragraph id → its start offset in `text`. */
   paraStarts: Map<number, number>;
   /** A short note about what this format leaves unchecked. */
-  note: string | null;
+  note: Message | null;
 }
 
 /** What the controller keeps of a read file, to check it and to write it back. */
@@ -31,7 +32,7 @@ export interface LoadedFile {
   bom: boolean;
 }
 
-export const DOCX_NOTE = 'Headers, footers and footnotes are kept as they are but not checked in this version.';
+export const DOCX_NOTE = msg('doc.docxNote');
 const UTF8_BOM = [0xef, 0xbb, 0xbf];
 /** A line feed without a carriage return before it ("a\nb", but not "a\r\nb"). */
 const BARE_LF = /(?:^|[^\r])\n/;

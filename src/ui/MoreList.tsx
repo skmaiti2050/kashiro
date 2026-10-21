@@ -1,5 +1,6 @@
 import type { Decision } from '@/engine/decisions';
 import type { Candidate } from '@/engine/types';
+import { useT } from './i18n/useT';
 import { decisionTitle } from './state/labels';
 
 interface Props {
@@ -11,18 +12,19 @@ interface Props {
 
 /** "More (N)": the ranked decisions beyond the review depth, each one a click away from the card. */
 export function MoreList({ more, currentId, candidates, onPick }: Props) {
+  const t = useT();
   if (more.length === 0) return null;
   return (
     <details className="more">
-      <summary>More ({more.length})</summary>
+      <summary>{t.t('more.summary', { count: more.length })}</summary>
       <ul>
         {more.map((d) => (
           <li key={d.id} className={d.id === currentId ? 'current' : undefined}>
             <button className="row-label" onClick={() => onPick(d)}>
-              {decisionTitle(d, candidates.get(d.candidateIds[0])!)}
+              {decisionTitle(t, d, candidates)}
             </button>
             <button className="row-action" onClick={() => onPick(d)}>
-              Review
+              {t.t('more.review')}
             </button>
           </li>
         ))}

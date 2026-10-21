@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Kbd } from './Kbd';
+import { useT } from './i18n/useT';
 import { isTicked, NO_TICKS, tickSummary, toggleTick } from './state/cardTicks';
 
 interface Props {
@@ -18,8 +19,10 @@ interface Props {
  * ticks across a re-check (its key is the constant card id), so cardTicks keeps explicit ticks apart.
  */
 export function WordTickList({ words, flagged, detail, onAdd }: Props) {
+  const t = useT();
   const [ticks, setTicks] = useState(NO_TICKS);
-  const { keepAsTypos, tickedFlagged, addLabel } = tickSummary(ticks, words, flagged);
+  const { keepAsTypos, tickedFlagged, tickedCount } = tickSummary(ticks, words, flagged);
+  const addLabel = tickedCount === words.length ? t.t('ticks.addAll') : t.t('ticks.addSome', { count: tickedCount });
 
   return (
     <>
@@ -30,9 +33,9 @@ export function WordTickList({ words, flagged, detail, onAdd }: Props) {
             <li key={word}>
               <label>
                 <input type="checkbox" checked={ticked} onChange={() => setTicks((prev) => toggleTick(prev, word, flagged))} />
-                {word}
+                <span lang="en">{word}</span>
                 {detail?.(word)}
-                {!ticked && <span className="hint"> (review as a typo)</span>}
+                {!ticked && <span className="hint"> {t.t('ticks.reviewAsTypo')}</span>}
               </label>
             </li>
           );

@@ -9,7 +9,9 @@ import { NamesCard } from './NamesCard';
 import { OtherLanguageCard } from './OtherLanguageCard';
 import { TermsCard } from './TermsCard';
 import { ReadAloudBar } from './ReadAloudBar';
+import { useT } from './i18n/useT';
 import { cardLabel } from './state/announce';
+import { isWordCard } from './state/labels';
 import { progressLabel, progressOf } from './state/progress';
 import { paragraphAt, sentenceAt, suggestionSpeech, type ReadTarget } from './state/readAloud';
 import { cursorAt, currentDecision, decisionWith, moveCursor, START } from './state/reviewCursor';
@@ -48,13 +50,12 @@ interface Props {
   readCaret(): CaretText | null;
 }
 
-/** The names, terms and Indian-language cards: Enter adds the ticked words; they have no reject. */
-const isWordList = (d: Decision) => d.kind === 'names' || d.kind === 'terms' || d.kind === 'otherLanguage';
 
 const reduceMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 
 /** The review queue: a progress header, one card at a time (Enter / Backspace / J / K), the rest under "More (N)". */
 export function ReviewPanel({ controller, state, onLocate, request, keysEnabled, onShowLog, onSave, readAloud, readCaret }: Props) {
+  const t = useT();
   const [cursor, setCursor] = useState(START);
   /**
    * Set when a card is picked from "More" or its underline clicked: the panel scrolls to the card and,
@@ -102,7 +103,7 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
   if (!session) {
     return (
       <aside className="review">
-        <p className="hint">{state.phase === 'checking' ? 'Checking…' : 'Decisions show up here after a check.'}</p>
+        <p className="hint">{state.phase === 'checking' ? t.t('panel.checking') : t.t('panel.emptyHint')}</p>
       </aside>
     );
   }
@@ -116,11 +117,11 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
   };
   const queue = [...top, ...more];
   // The queue holds every open card, so its length is the "left" of the announcements (tracked-change rows aside).
-  const slotLabel = current ? cardLabel(current, firstOf(current), queue.indexOf(current) + 1, queue.length) : 'Current card';
+  const slotLabel = current ? cardLabel(t, current, candidates, queue.indexOf(current) + 1, queue.length) : t.t('panel.currentCard');
   // Read aloud: the text at the cursor while the user is in the document, else the current card's.
   const textFor = (target: ReadTarget): string => {
     const first = current ? firstOf(current) : null;
-    if (target === 'suggestion') return current && first ? suggestionSpeech(current, first) : '';
+    if (target === 'suggestion') return current ? suggestionSpeech(t, current, candidates) : '';
     const at = readCaret() ?? (first ? { text: paraText.get(first.paraId) ?? '', offset: first.span.start } : null);
     if (!at) return '';
     return target === 'sentence' ? sentenceAt(at.text, at.offset) : paragraphAt(at.text, at.offset);
@@ -128,10 +129,10 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
 
   return (
     // tabIndex -1: a click on the panel's background keeps focus in the panel, so the review keys work.
-    <aside className="review" aria-label="Review" tabIndex={-1}>
+    <aside className="review" aria-label={t.t('panel.label')} tabIndex={-1}>
       <header>
         {/* Not a live region: the app's announcer says "Accepted. 4 of 9 left." once per decision. */}
-        <h2>{progressLabel(progress)}</h2>
+        <h2>{progressLabel(t, progress)}</h2>
         <div className="progress-bar" aria-hidden="true">
           <span style={{ width: `${progress.total ? ((progress.total - progress.left) / progress.total) * 100 : 100}%` }} />
         </div>
@@ -144,23 +145,23 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
       {readAloud && <ReadAloudBar readAloud={readAloud} textFor={textFor} keysEnabled={keysEnabled} />}
       {current ? (
         <p className="key-legend hint">
-          <Kbd>Enter</Kbd> {isWordList(current) ? 'add' : 'accept'} ·{' '}
-          {!isWordList(current) && (
+          <Kbd>Enter</Kbd> {isWordCard(current) ? t.t('panel.keyAdd') : t.t('panel.keyAccept')} ·{' '}
+          {!isWordCard(current) && (
             <>
-              <Kbd>Backspace</Kbd> reject ·{' '}
+              <Kbd>Backspace</Kbd> {t.t('panel.keyReject')} ·{' '}
             </>
           )}
-          <Kbd>J</Kbd> / <Kbd>K</Kbd> next / previous
+          <Kbd>J</Kbd> / <Kbd>K</Kbd> {t.t('panel.keyNextPrevious')}
         </p>
       ) : (
         <div className="done-state">
           <p>
-            <strong>All reviewed.</strong> {autoFixed} {autoFixed === 1 ? 'fix was' : 'fixes were'} made automatically.
+            <strong>{t.t('panel.allReviewed')}</strong> {t.t('panel.autoFixed', { count: autoFixed })}
           </p>
           <div className="actions">
-            <button onClick={onShowLog}>See the change log</button>
+            <button onClick={onShowLog}>{t.t('panel.seeLog')}</button>
             <button className="primary" onClick={onSave}>
-              Save
+              {t.t('save.button')}
             </button>
           </div>
         </div>
@@ -171,9 +172,10 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
   );
 
   function cardFor(d: Decision) {
-    if (d.kind === 'names') return <NamesCard key={d.id} controller={controller} card={d} candidates={candidates} />;
-    if (d.kind === 'terms') return <TermsCard key={d.id} controller={controller} card={d} />;
-    if (d.kind === 'otherLanguage') return <OtherLanguageCard key={d.id} controller={controller} card={d} candidates={candidates} />;
+    if (d.kind === 'names') return <NamesCard key={d.id} controller={controller} card={d as Decision & { kind: 'names' }} candidates={candidates} />;
+    if (d.kind === 'terms') return <TermsCard key={d.id} controller={controller} card={d as Decision & { kind: 'terms' }} candidates={candidates} />;
+    if (d.kind === 'otherLanguage')
+      return <OtherLanguageCard key={d.id} controller={controller} card={d as Decision & { kind: 'otherLanguage' }} candidates={candidates} />;
     return (
       <DecisionCard
         key={d.id}

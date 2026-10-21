@@ -34,7 +34,14 @@ describe('defaultSettings', () => {
       modules: DEFAULT_MODULES,
       modulesByPreset: {},
       reading: DEFAULT_READING,
+      uiLanguage: 'system',
     });
+  });
+
+  it('a saved app language survives; a damaged one means "same as Windows"', () => {
+    const defaults = defaultSettings('en-IN');
+    expect(withSavedSettings(defaults, { uiLanguage: 'hi' }).uiLanguage).toBe('hi');
+    expect(withSavedSettings(defaults, { uiLanguage: 'xx' as never }).uiLanguage).toBe('system');
   });
 });
 

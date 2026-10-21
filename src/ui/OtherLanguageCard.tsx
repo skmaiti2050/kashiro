@@ -1,14 +1,19 @@
+import type { ReactNode } from 'react';
 import type { Decision } from '@/engine/decisions';
 import type { Candidate } from '@/engine/types';
 import type { SessionController } from './state/sessionController';
 import { CategoryTag } from './CategoryTag';
 import { WordTickList } from './WordTickList';
+import { useT } from './i18n/useT';
+import { wordCardTitle, wordCardWords } from './state/labels';
 
 interface Props {
   controller: SessionController;
-  card: Decision;
+  card: Decision & { kind: 'otherLanguage' };
   candidates: Map<string, Candidate>;
 }
+
+const emphasis = (chunks: ReactNode[]) => <em lang="en">{chunks}</em>;
 
 /**
  * The words-in-Indian-languages card (spec §5): romanised words of ten Indian languages ("accha", "khub",
@@ -17,23 +22,21 @@ interface Props {
  * one letter from "join") starts unticked with a hint, and joins the dictionary only when ticked.
  */
 export function OtherLanguageCard({ controller, card, candidates }: Props) {
-  const words = [...new Set(card.candidateIds.map((id) => candidates.get(id)!.original.toLowerCase()))];
+  const t = useT();
+  const words = wordCardWords(card, candidates);
   const typoOf = new Map(card.likelyTypos ?? []);
 
   return (
     <div className="card other-language">
       <CategoryTag category="terms" />
-      <h3>{card.label}</h3>
-      <p className="hint">Words that look like Indian-language words written in English letters. Untick any that are real typos.</p>
+      <h3>{wordCardTitle(t, card, candidates)}</h3>
+      <p className="hint">{t.t('otherLanguage.hint')}</p>
       <WordTickList
         words={words}
         flagged={new Set(typoOf.keys())}
         detail={(word) =>
           typoOf.has(word) && (
-            <span className="hint">
-              {' '}
-              looks like a typo of <em>{typoOf.get(word)}</em>?
-            </span>
+            <span className="hint"> {t.rich('otherLanguage.likelyTypo', { word: typoOf.get(word)!, em: emphasis })}</span>
           )
         }
         onAdd={(keepAsTypos, tickedLikelyTypos) => void controller.acceptOtherLanguage(keepAsTypos, tickedLikelyTypos)}

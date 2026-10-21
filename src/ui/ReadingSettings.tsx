@@ -1,14 +1,19 @@
+import type { MessageKey } from './i18n/catalogues';
+import { useT } from './i18n/useT';
 import { LETTER_SPACINGS, LINE_SPACINGS, TEXT_SIZES, type ReadingFont, type ReadingSettings as Reading } from './state/readingSettings';
 import type { SessionController } from './state/sessionController';
 import type { ReadAloud } from './useReadAloud';
 
-const FONT_LABELS: Record<ReadingFont, string> = {
-  default: 'Standard (Georgia and Segoe UI)',
-  atkinson: 'Atkinson Hyperlegible',
-  opendyslexic: 'OpenDyslexic',
+const FONT_LABELS: Record<ReadingFont, MessageKey> = {
+  default: 'reading.fontDefault',
+  atkinson: 'reading.fontAtkinson',
+  opendyslexic: 'reading.fontOpenDyslexic',
 };
 
-const LETTER_LABELS: Record<number, string> = { 0: 'Normal', 0.05: 'Wide', 0.12: 'Wider' };
+const LETTER_LABELS: Record<number, MessageKey> = { 0: 'reading.letterNormal', 0.05: 'reading.letterWide', 0.12: 'reading.letterWider' };
+
+/** The line spacing marked "(normal)". */
+const NORMAL_LINE_SPACING = 1.6;
 
 interface Props {
   controller: SessionController;
@@ -18,58 +23,59 @@ interface Props {
 
 /** Settings › Text and reading, and Read aloud (Task A1 items 3–5). Changes apply at once and need no new check. */
 export function ReadingSettings({ controller, reading, readAloud }: Props) {
+  const t = useT();
   const change = (patch: Partial<Reading>) => controller.changeSettings({ reading: { ...reading, ...patch } });
 
   return (
     <>
       <fieldset>
-        <legend>Text and reading</legend>
+        <legend>{t.t('reading.legend')}</legend>
         <label className="field">
-          <span>App text size</span>
+          <span>{t.t('reading.appSize')}</span>
           <select value={reading.uiTextSize} onChange={(e) => change({ uiTextSize: Number(e.target.value) })}>
             {TEXT_SIZES.map((size) => (
               <option key={size} value={size}>
-                {size}%
+                {t.t('reading.percent', { value: size / 100 })}
               </option>
             ))}
           </select>
         </label>
         <label className="field">
-          <span>Document text size</span>
+          <span>{t.t('reading.docSize')}</span>
           <select value={reading.documentTextSize} onChange={(e) => change({ documentTextSize: Number(e.target.value) })}>
             {TEXT_SIZES.map((size) => (
               <option key={size} value={size}>
-                {size}%
+                {t.t('reading.percent', { value: size / 100 })}
               </option>
             ))}
           </select>
         </label>
         <label className="field">
-          <span>Font</span>
+          <span>{t.t('reading.font')}</span>
           <select value={reading.font} onChange={(e) => change({ font: e.target.value as ReadingFont })}>
             {(Object.keys(FONT_LABELS) as ReadingFont[]).map((font) => (
               <option key={font} value={font}>
-                {FONT_LABELS[font]}
+                {t.t(FONT_LABELS[font])}
               </option>
             ))}
           </select>
         </label>
         <label className="field">
-          <span>Line spacing in the document</span>
+          <span>{t.t('reading.lineSpacing')}</span>
           <select value={reading.lineSpacing} onChange={(e) => change({ lineSpacing: Number(e.target.value) })}>
             {LINE_SPACINGS.map((spacing) => (
               <option key={spacing} value={spacing}>
-                {spacing === 1.6 ? '1.6 (normal)' : spacing}
+                {t.t(spacing === NORMAL_LINE_SPACING ? 'reading.spacingNormal' : 'reading.spacing', { value: spacing })}
               </option>
             ))}
           </select>
         </label>
         <label className="field">
-          <span>Letter spacing in the document</span>
+          <span>{t.t('reading.letterSpacing')}</span>
           <select value={reading.letterSpacing} onChange={(e) => change({ letterSpacing: Number(e.target.value) })}>
             {LETTER_SPACINGS.map((spacing) => (
               <option key={spacing} value={spacing}>
-                {LETTER_LABELS[spacing]}
+                {t.t(LETTER_LABELS[spacing])}
               </option>
             ))}
           </select>
@@ -77,28 +83,27 @@ export function ReadingSettings({ controller, reading, readAloud }: Props) {
       </fieldset>
 
       <fieldset>
-        <legend>Read aloud</legend>
-        {readAloud ? (
-          <VoiceSettings reading={reading} readAloud={readAloud} change={change} />
-        ) : (
-          <p className="hint">
-            No voice that works offline is installed, so Read aloud is hidden. To add one: Windows Settings › Time &amp; language › Speech › Add voices.
-          </p>
-        )}
+        <legend>{t.t('reading.readAloud')}</legend>
+        {readAloud ? <VoiceSettings reading={reading} readAloud={readAloud} change={change} /> : <p className="hint">{t.t('reading.noVoice')}</p>}
       </fieldset>
     </>
   );
 }
 
+/**
+ * The sample is English on purpose: read aloud reads the (English) document, so this is how that will
+ * sound with the chosen voice. It is spoken, never shown.
+ */
 const SAMPLE = 'This is how the voice sounds at this speed.';
 
 function VoiceSettings({ reading, readAloud, change }: { reading: Reading; readAloud: ReadAloud; change(patch: Partial<Reading>): void }) {
+  const t = useT();
   return (
     <>
       <label className="field">
-        <span>Voice</span>
+        <span>{t.t('reading.voice')}</span>
         <select value={reading.voice ?? ''} onChange={(e) => change({ voice: e.target.value === '' ? null : e.target.value })}>
-          <option value="">Default voice</option>
+          <option value="">{t.t('reading.defaultVoice')}</option>
           {readAloud.voices.map((voice) => (
             <option key={voice.voiceURI} value={voice.voiceURI}>
               {voice.name}
@@ -107,33 +112,33 @@ function VoiceSettings({ reading, readAloud, change }: { reading: Reading; readA
         </select>
       </label>
       <label className="field">
-        <span>Speed</span>
+        <span>{t.t('reading.speed')}</span>
         <input
           type="range"
           min={0.5}
           max={2}
           step={0.1}
           value={reading.rate}
-          aria-valuetext={`${reading.rate.toFixed(1)} times`}
+          aria-valuetext={t.t('reading.speedValue', { value: reading.rate })}
           onChange={(e) => change({ rate: Number(e.target.value) })}
         />
       </label>
       <label className="field">
-        <span>Pitch</span>
+        <span>{t.t('reading.pitch')}</span>
         <input
           type="range"
           min={0.5}
           max={1.5}
           step={0.1}
           value={reading.pitch}
-          aria-valuetext={reading.pitch.toFixed(1)}
+          aria-valuetext={t.t('reading.pitchValue', { value: reading.pitch })}
           onChange={(e) => change({ pitch: Number(e.target.value) })}
         />
       </label>
       <div className="actions">
-        <button onClick={() => readAloud.read(SAMPLE)}>Play a sample</button>
+        <button onClick={() => readAloud.read(SAMPLE)}>{t.t('reading.sample')}</button>
       </div>
-      <p className="hint">Only voices installed on this PC are used, so your text is never sent anywhere.</p>
+      <p className="hint">{t.t('reading.voiceNote')}</p>
     </>
   );
 }

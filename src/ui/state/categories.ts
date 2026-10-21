@@ -1,5 +1,6 @@
 import type { Decision } from '@/engine/decisions';
 import type { Candidate } from '@/engine/types';
+import type { MessageKey } from '../i18n/catalogues';
 
 /**
  * Underline categories (UI/UX research, colour proposal). Each has a colour, an underline style and a
@@ -8,13 +9,13 @@ import type { Candidate } from '@/engine/types';
  */
 export type Category = 'correctness' | 'clarity' | 'style' | 'terms' | 'ai' | 'names';
 
-export const CATEGORIES: Record<Category, { label: string; glyph: string }> = {
-  correctness: { label: 'Correctness', glyph: '●' },
-  clarity: { label: 'Clarity', glyph: '◆' },
-  style: { label: 'Style', glyph: '▲' },
-  terms: { label: 'Terms', glyph: '■' },
-  ai: { label: 'AI rewrite', glyph: '✦' },
-  names: { label: 'Names and places', glyph: 'Aa' },
+export const CATEGORIES: Record<Category, { label: MessageKey; glyph: string }> = {
+  correctness: { label: 'category.correctness', glyph: '●' },
+  clarity: { label: 'category.clarity', glyph: '◆' },
+  style: { label: 'category.style', glyph: '▲' },
+  terms: { label: 'category.terms', glyph: '■' },
+  ai: { label: 'category.ai', glyph: '✦' },
+  names: { label: 'category.names', glyph: 'Aa' },
 };
 
 const CLARITY_KINDS = new Set(['Readability', 'Redundancy', 'WordChoice', 'Usage', 'WordOrder', 'Enhancement']);

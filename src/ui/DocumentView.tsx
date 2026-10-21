@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type MutableRefObject } from 'react';
-import { EditorState, StateEffect, StateField, type Range } from '@codemirror/state';
+import { Compartment, EditorState, StateEffect, StateField, type Range } from '@codemirror/state';
 import { Decoration, EditorView, WidgetType, keymap, placeholder, type DecorationSet } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import type { CheckSession } from '@/engine/session';
@@ -8,7 +8,9 @@ import { EmptyState } from './EmptyState';
 import type { CaretText } from './ReviewPanel';
 import { CATEGORIES } from './state/categories';
 import { highlightRanges, locateCandidate, toEditorPosition } from './state/highlights';
-import { plainMessage } from './state/plainMessages';
+import type { Translator } from './i18n/translator';
+import { useT } from './i18n/useT';
+import { explanation } from './state/plainMessages';
 import type { ControllerState, OpenDocument, SessionController } from './state/sessionController';
 
 /** The replacement text of an applied edit, shown right after the struck-through original. */
@@ -63,7 +65,7 @@ const FOCUS_MARK = Decoration.mark({ class: 'cm-focus' });
  * plus the new text, pending decisions underlined. Null while the view shows text the session has not
  * checked yet.
  */
-function documentMarks(doc: OpenDocument, viewText: string, session: CheckSession): DecorationSet | null {
+function documentMarks(t: Translator, doc: OpenDocument, viewText: string, session: CheckSession): DecorationSet | null {
   const highlights = highlightRanges(doc, viewText, session);
   if (!highlights) return null;
   const at = toEditorPosition(doc.text, doc.lineSeparator);
@@ -74,7 +76,7 @@ function documentMarks(doc: OpenDocument, viewText: string, session: CheckSessio
     if (h.kind === 'pending') {
       const category = h.category ?? 'correctness';
       // The tooltip shows the glyph; the spoken description leaves it out ("black circle" says nothing).
-      const description = `${CATEGORIES[category].label}: ${h.flag ? plainMessage(h.flag) : ''}`;
+      const description = t.t('doc.flag', { category: t.t(CATEGORIES[category].label), explanation: h.flag ? t.format(explanation(h.flag)) : '' });
       const title = `${CATEGORIES[category].glyph} ${description}`;
       const mark = Decoration.mark({ class: `cm-pending cat-${category}`, attributes: { title }, candidateId: h.candidateId, description });
       ranges.push(mark.range(from, to));
@@ -120,6 +122,17 @@ function candidateAt(view: EditorView, event: MouseEvent): string | null {
 /** The element that describes the flag under the cursor (aria-describedby of the text, and a polite live region). */
 const FLAG_AT_CURSOR_ID = 'flag-at-cursor';
 
+/**
+ * The editor's own words (placeholder, name): reconfigured when the UI language changes. The text itself is
+ * English (lang="en"), so screen readers and the browser read it as English in any UI language.
+ */
+function editorLabels(t: Translator) {
+  return [
+    placeholder(t.t('doc.placeholder')),
+    EditorView.contentAttributes.of({ 'aria-label': t.t('doc.textLabel'), 'aria-describedby': FLAG_AT_CURSOR_ID, lang: 'en' }),
+  ];
+}
+
 /** Room kept around a scrolled-to underline, so it never sits flush against the pane's edges. */
 const SCROLL_MARGINS = { top: 32, bottom: 32 };
 
@@ -138,8 +151,10 @@ interface Props {
 
 /** CodeMirror view of the document: read-only for .docx, editable (and re-checked as you type) for text. */
 export function DocumentView({ controller, state, focus, onUnderlineClick, onOpen, onPaste, onSample, caretReader }: Props) {
+  const t = useT();
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
+  const labels = useRef(new Compartment());
   const underlineClick = useRef(onUnderlineClick);
   useEffect(() => {
     underlineClick.current = onUnderlineClick;
@@ -166,8 +181,7 @@ export function DocumentView({ controller, state, focus, onUnderlineClick, onOpe
           EditorState.readOnly.of(!doc.editable),
           history(),
           keymap.of([{ key: 'Mod-.', run: showCardAtCursor }, ...defaultKeymap, ...historyKeymap]),
-          placeholder('Paste or type your text here.'),
-          EditorView.contentAttributes.of({ 'aria-label': 'Document text', 'aria-describedby': FLAG_AT_CURSOR_ID }),
+          labels.current.of(editorLabels(t)),
           EditorView.updateListener.of((update) => {
             if (update.docChanged) controller.editText(update.state.sliceDoc());
             // New marks from a re-check can add or remove the flag under a caret that did not move.
@@ -203,11 +217,15 @@ export function DocumentView({ controller, state, focus, onUnderlineClick, onOpe
   }, [doc?.id, controller]);
 
   useEffect(() => {
+    view.current?.dispatch({ effects: labels.current.reconfigure(editorLabels(t)) });
+  }, [t]);
+
+  useEffect(() => {
     const editor = view.current;
     if (!editor || !doc || !state.session) return;
-    const marks = documentMarks(doc, editor.state.sliceDoc(), state.session);
+    const marks = documentMarks(t, doc, editor.state.sliceDoc(), state.session);
     if (marks) editor.dispatch({ effects: setMarks.of(marks) });
-  }, [state.revision, state.session, doc]);
+  }, [state.revision, state.session, doc, t]);
 
   // The current card's text gets a focus ring and is scrolled to the upper third of the pane, except
   // while the user is typing in it: then the view stays where the caret is.
@@ -228,7 +246,7 @@ export function DocumentView({ controller, state, focus, onUnderlineClick, onOpe
   if (!doc) return <EmptyState onOpen={onOpen} onPaste={onPaste} onSample={onSample} />;
   return (
     <section className="document" aria-label={doc.name}>
-      {doc.note && <p className="note">{doc.note}</p>}
+      {doc.note && <p className="note">{t.format(doc.note)}</p>}
       <div className="editor" ref={host} />
       <p id={FLAG_AT_CURSOR_ID} className="visually-hidden" aria-live="polite">
         {flagAtCursor}

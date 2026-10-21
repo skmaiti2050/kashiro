@@ -1,44 +1,29 @@
+import type { ReactNode } from 'react';
 import type { ModuleSwitches } from '@/engine/modules';
-import { PRESETS } from '@/engine/presets';
+import type { MessageKey } from './i18n/catalogues';
+import { useT } from './i18n/useT';
 import type { Settings } from './state/settings';
 import type { SessionController } from './state/sessionController';
+import { PRESET_KEYS } from './Toolbar';
 
 interface ModuleInfo {
   name: keyof ModuleSwitches;
-  label: string;
-  description: string;
+  label: MessageKey;
+  description: MessageKey;
   /** Approximate size or memory cost (measured for U2: the dictionary's heap after parsing). */
-  cost: string;
+  cost: MessageKey;
 }
 
 const MODULES: ModuleInfo[] = [
-  { name: 'namesCard', label: 'Names card', description: 'Groups names and places into one card you add in one go.', cost: 'No extra data.' },
-  { name: 'termsCard', label: 'Terms card', description: 'Groups words you repeat (“ferrocement”) into one card.', cost: 'No extra data.' },
-  {
-    name: 'otherLanguageCard',
-    label: 'Indian-language words card',
-    description: 'Groups romanised Hindi, Bengali, Tamil and other Indian-language words into one card you add in one go.',
-    cost: 'No extra memory. Off, each word is its own decision. Either way, your spelling of such words is never auto-changed.',
-  },
-  {
-    name: 'betterSuggestions',
-    label: 'Better spelling suggestions',
-    description: 'Puts the likeliest word first and adds common words the spell checker missed.',
-    cost: 'Uses the word list the app always has: no extra memory.',
-  },
-  {
-    name: 'wordLookup',
-    label: 'Word lookup',
-    description: 'Meanings and synonyms from an offline dictionary.',
-    cost: 'About 60 MB of memory once you look up a word (3.5 MB of data).',
-  },
-  {
-    name: 'aiRewrites',
-    label: 'AI rewrites',
-    description: 'A writing helper on this computer suggests smoother sentences. Never applied without your click.',
-    cost: 'A 1–3 GB model, and as much memory while it runs.',
-  },
+  { name: 'namesCard', label: 'modules.namesCard', description: 'modules.namesCardDescription', cost: 'modules.namesCardCost' },
+  { name: 'termsCard', label: 'modules.termsCard', description: 'modules.termsCardDescription', cost: 'modules.termsCardCost' },
+  { name: 'otherLanguageCard', label: 'modules.otherLanguageCard', description: 'modules.otherLanguageCardDescription', cost: 'modules.otherLanguageCardCost' },
+  { name: 'betterSuggestions', label: 'modules.betterSuggestions', description: 'modules.betterSuggestionsDescription', cost: 'modules.betterSuggestionsCost' },
+  { name: 'wordLookup', label: 'modules.wordLookup', description: 'modules.wordLookupDescription', cost: 'modules.wordLookupCost' },
+  { name: 'aiRewrites', label: 'modules.aiRewrites', description: 'modules.aiRewritesDescription', cost: 'modules.aiRewritesCost' },
 ];
+
+const strong = (chunks: ReactNode[]) => <strong>{chunks}</strong>;
 
 interface Props {
   controller: SessionController;
@@ -47,16 +32,17 @@ interface Props {
 
 /** Settings › Modules: a switch per optional helper, for every goal or, when chosen, for the current goal only. */
 export function ModulesSettings({ controller, settings }: Props) {
+  const t = useT();
   const own = settings.modulesByPreset[settings.preset];
   const shown = own ?? settings.modules;
   const noModel = settings.modelPath === null;
 
   return (
     <fieldset>
-      <legend>Modules</legend>
+      <legend>{t.t('modules.legend')}</legend>
       <label>
         <input type="checkbox" checked={own !== undefined} onChange={(e) => controller.useModulesForPreset(e.target.checked)} />
-        Use different modules for the {PRESETS[settings.preset].label} goal
+        {t.t('modules.perGoal', { goal: t.t(PRESET_KEYS[settings.preset]) })}
       </label>
       {MODULES.map((m) => {
         const locked = m.name === 'aiRewrites' && noModel;
@@ -70,14 +56,14 @@ export function ModulesSettings({ controller, settings }: Props) {
               onChange={(e) => controller.setModule(m.name, e.target.checked)}
             />
             <span>
-              <strong>{m.label}</strong>: {m.description}
+              {t.rich('modules.switch', { label: t.t(m.label), description: t.t(m.description), b: strong })}
               <br />
-              <span className="hint">{locked ? 'Needs the writing model, which is not downloaded yet.' : m.cost}</span>
+              <span className="hint">{locked ? t.t('modules.needsModel') : t.t(m.cost)}</span>
             </span>
           </label>
         );
       })}
-      <p className="hint">Spelling and grammar rules, and the protection of names, numbers, quotes and code, are always on.</p>
+      <p className="hint">{t.t('modules.alwaysOn')}</p>
     </fieldset>
   );
 }

@@ -11,12 +11,15 @@ import { Toolbar } from './Toolbar';
 import { UnsavedChangesDialog } from './UnsavedChangesDialog';
 import { useAppShortcuts } from './useKeys';
 import { useReadAloud } from './useReadAloud';
-import { files, onFileDrop } from './platform/files';
+import { msg, type Message } from './i18n/message';
+import { translatorFor } from './i18n/translatorFor';
+import { TranslatorProvider, useT } from './i18n/useT';
+import { files, onFileDrop, setDialogLabels } from './platform/files';
 import { createAppLinter } from './platform/linter';
 import { loadSettings, saveSettings } from './platform/settings';
 import { explain } from './state/errors';
 import { readingStyle } from './state/readingSettings';
-import { SessionController } from './state/sessionController';
+import { SessionController, type ControllerState } from './state/sessionController';
 import { useSession } from './state/useSession';
 import './fonts';
 import './app.css';
@@ -25,7 +28,7 @@ import './a11y.css';
 
 export default function App() {
   const [controller, setController] = useState<SessionController | null>(null);
-  const [startError, setStartError] = useState<string | null>(null);
+  const [startError, setStartError] = useState<Message | null>(null);
   const started = useRef(false);
 
   useEffect(() => {
@@ -37,19 +40,37 @@ export default function App() {
         const c = new SessionController({ files, settings, saveSettings, createLinter: createAppLinter });
         setController(c);
         // Pre-warm Harper so the first check is quick (its first start takes ~650 ms).
-        c.warmUp().catch((e) => c.showError(explain('The checker could not start', e, 'Restart the app. If it happens again, reinstall it.')));
+        c.warmUp().catch((e) => c.showError(explain(msg('error.checkerStart'), e, msg('error.checkerStartNext'))));
       },
-      (e) => setStartError(explain('Settings could not be loaded', e, 'Restart the app.')),
+      (e) => setStartError(explain(msg('error.settingsLoad'), e, msg('error.settingsLoadNext'))),
     );
   }, []);
 
-  if (!controller) return <main className="starting">{startError ?? 'Starting…'}</main>;
+  if (!controller) {
+    // Before settings load, the Windows language.
+    const t = translatorFor('system');
+    return (
+      <main className="starting" lang={t.language} dir={t.dir}>
+        {startError ? t.format(startError) : t.t('app.starting')}
+      </main>
+    );
+  }
   return <Shell controller={controller} />;
 }
 
 /** The app once settings are loaded (exported for the DOM tests). */
 export function Shell({ controller }: { controller: SessionController }) {
   const state = useSession(controller);
+  const t = translatorFor(state.settings.uiLanguage);
+  return (
+    <TranslatorProvider translator={t}>
+      <ShellView controller={controller} state={state} />
+    </TranslatorProvider>
+  );
+}
+
+function ShellView({ controller, state }: { controller: SessionController; state: ControllerState }) {
+  const t = useT();
   const [panel, setPanel] = useState<'none' | 'settings' | 'help' | 'shortcuts'>('none');
   const readAloud = useReadAloud(state.settings.reading);
   const caretReader = useRef<() => CaretText | null>(() => null);
@@ -75,7 +96,7 @@ export function Shell({ controller }: { controller: SessionController }) {
           setPanel('none');
           unlessUnsaved(() => void controller.openFile(file));
         },
-        (e) => controller.showError(explain("Couldn't open the dropped file", e, 'Use Open (Ctrl+O) to pick it instead.')),
+        (e) => controller.showError(explain(msg('error.drop'), e, msg('error.dropNext'))),
       ),
     );
   }, [controller, unlessUnsaved]);
@@ -110,9 +131,15 @@ export function Shell({ controller }: { controller: SessionController }) {
     else setPanel(shortcut);
   });
   const { reading } = state.settings;
+  useEffect(() => {
+    // The whole page, so text outside .app (none yet) and the native spell-check language follow too.
+    document.documentElement.lang = t.language;
+    document.documentElement.dir = t.dir;
+    setDialogLabels({ documents: t.t('files.documents') });
+  }, [t]);
 
   return (
-    <div className="app" style={readingStyle(reading) as CSSProperties} data-font={reading.font}>
+    <div className="app" lang={t.language} dir={t.dir} style={readingStyle(reading) as CSSProperties} data-font={reading.font}>
       <header className="app-header">
         <Toolbar
           controller={controller}
@@ -125,11 +152,11 @@ export function Shell({ controller }: { controller: SessionController }) {
         />
         {/* Live regions exist before their text arrives, so screen readers announce it. */}
         <div className="banners">
-          <div role="alert">{state.error && <p className="banner error">{state.error}</p>}</div>
-          <div role="status">{state.notice && !state.error && <p className="banner">{state.notice}</p>}</div>
+          <div role="alert">{state.error && <p className="banner error">{t.format(state.error)}</p>}</div>
+          <div role="status">{state.notice && !state.error && <p className="banner">{t.format(state.notice)}</p>}</div>
         </div>
         <p className="visually-hidden" role="status" aria-atomic="true">
-          {state.announcement && <span key={state.announcement.seq}>{state.announcement.text}</span>}
+          {state.announcement && <span key={state.announcement.seq}>{t.format(state.announcement.message)}</span>}
         </p>
       </header>
       <main className="workspace">
@@ -165,7 +192,7 @@ export function Shell({ controller }: { controller: SessionController }) {
       {panel === 'shortcuts' && <ShortcutsSheet readAloud={readAloud !== null} onClose={() => setPanel('none')} />}
       {afterUnsaved && (
         <UnsavedChangesDialog
-          name={state.document?.name ?? 'this document'}
+          name={state.document?.name ?? t.t('unsaved.thisDocument')}
           onSave={() => controller.save()}
           onDiscard={() => {
             setAfterUnsaved(null);

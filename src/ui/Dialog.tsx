@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
+import { useT } from './i18n/useT';
 
 /** Controls Tab can reach inside a dialog. */
 const FOCUSABLE = 'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], summary, [tabindex]:not([tabindex="-1"])';
@@ -21,6 +22,7 @@ interface Props {
  * inside, Escape closes, and focus goes back to where it was (the button that opened it) on close.
  */
 export function Dialog({ title, onClose, role = 'dialog', className, describedBy, initialFocus, children }: Props) {
+  const t = useT();
   const backdrop = useRef<HTMLDivElement>(null);
   const box = useRef<HTMLElement>(null);
   const titleId = useId();
@@ -64,7 +66,7 @@ export function Dialog({ title, onClose, role = 'dialog', className, describedBy
           <h2 id={titleId}>{title}</h2>
           {role === 'dialog' && (
             <button className="quiet" onClick={onClose}>
-              Close
+              {t.t('dialog.close')}
             </button>
           )}
         </div>

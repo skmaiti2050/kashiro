@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useT } from './i18n/useT';
 import { kindLabel } from './state/kindLabels';
 
 interface Props {
@@ -23,7 +24,8 @@ function moveInMenu(root: HTMLElement | null, step: 1 | -1): void {
  * "turn off everywhere"). "Everywhere" can be undone in Settings › Ignored rules.
  */
 export function DismissMenu({ kind, thisOneLabel, onThisOne, onRule }: Props) {
-  const label = kindLabel(kind);
+  const t = useT();
+  const label = kindLabel(t, kind);
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -61,18 +63,18 @@ export function DismissMenu({ kind, thisOneLabel, onThisOne, onRule }: Props) {
       }}
     >
       <button ref={trigger} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
-        Dismiss ▾
+        {t.t('dismiss.button')}
       </button>
       {open && (
-        <div className="menu" role="menu" aria-label="Dismiss">
+        <div className="menu" role="menu" aria-label={t.t('dismiss.menu')}>
           <button role="menuitem" onClick={() => choose(onThisOne)}>
             {thisOneLabel}
           </button>
           <button role="menuitem" onClick={() => choose(() => onRule('document'))}>
-            All “{label}” suggestions in this document
+            {t.t('dismiss.inDocument', { kind: label })}
           </button>
           <button role="menuitem" onClick={() => choose(() => onRule('everywhere'))}>
-            All “{label}” suggestions everywhere <span className="hint">· undo in Settings</span>
+            {t.t('dismiss.everywhere', { kind: label })} <span className="hint">{t.t('dismiss.undoHint')}</span>
           </button>
         </div>
       )}
