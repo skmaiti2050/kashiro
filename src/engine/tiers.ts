@@ -94,7 +94,8 @@ function isStyleChoice(c: Candidate): boolean {
  * romanised word (Punjabi "te" in "dhaba te ate makki di roti"): its one-letter "fix" would change the language.
  */
 function isOtherLanguageWord(c: Candidate, ctx: TierContext): boolean {
-  if (isRomanisedIndic(c.original)) return true;
+  // Protection skips the English-frequency gate: "na" in "Come fast na" is common as N/A but still Hindi here.
+  if (isRomanisedIndic(c.original, true)) return true;
   const inAny = (sentences: Map<number, Span[]> | undefined) => (sentences?.get(c.paraId) ?? []).some((s) => overlaps(c.span, s));
   return inAny(ctx.foreignSentences) || (c.original.length === 2 && inAny(ctx.romanisedSentences));
 }

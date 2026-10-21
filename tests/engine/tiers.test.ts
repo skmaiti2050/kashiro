@@ -146,6 +146,14 @@ describe('tierOf: review rules', () => {
     expect(tierOf(ins(10), ctx({ locked }))).toBe('safe');
   });
 
+  it('"Come fast na": a romanised word that is also a common English token is never auto-fixed', () => {
+    // "na" clears the English-frequency gate (N/A), but never-auto-fix protection must not depend on it.
+    const text = 'Come fast na';
+    const start = text.indexOf('na');
+    const c = cand({ original: 'na', replacements: ['no'], span: { start, end: start + 2 } });
+    expect(tierOf(c, ctx({ paraText: new Map([[0, text]]) }))).toBe('review');
+  });
+
   it('any llm source → review', () => {
     expect(tierOf(cand({ original: 'teh', replacements: ['the'], source: 'llm' }), ctx())).toBe('review');
     expect(tierOf(cand({ original: 'x', replacements: ['y'], kind: 'Rewrite', source: 'llm' }), ctx())).toBe('review');

@@ -248,7 +248,7 @@ async function measureLanguage(language: IndianLanguage, rows: DatasetRow[], lin
     say(`short typos (${name}): flagged ${t.flagged}; on the card ${percent(t.onCard, t.flagged)};` +
       ` on the card AND pre-ticked ${percent(t.preTicked, t.flagged)} (${t.examples.slice(0, 20).join(' ')})`);
   }
-  say(`most missed:${[...missed].sort((a, b) => b[1] - a[1]).slice(0, 30).map(([w, n]) => `${w}×${n}`).join(' ')}`);
+  say(`most missed: ${[...missed].sort((a, b) => b[1] - a[1]).slice(0, 30).map(([w, n]) => `${w}×${n}`).join(' ')}`);
 
   const coverage = totals.onCard / totals.flagged;
   const precision = (totals.typos - totals.cardTypos) / totals.typos;
