@@ -97,7 +97,7 @@ export function SettingsPanel({ controller, state, onClose }: Props) {
 
         <fieldset>
           <legend>Ignored rules ({settings.ignoredRules.length})</legend>
-          {settings.ignoredRules.length === 0 && <p className="hint">Rules you dismiss with “This rule everywhere” show up here.</p>}
+          {settings.ignoredRules.length === 0 && <p className="hint">Kinds of suggestion you dismiss with Dismiss ▾ › “All … suggestions everywhere” show up here.</p>}
           <ul className="dictionary">
             {settings.ignoredRules.map((rule) => (
               <li key={rule}>

@@ -41,7 +41,9 @@ export function DecisionCard({ controller, decision, candidates, paraText, onNex
   const isWordFlag = WORD_REWRITE_KINDS.has(first.kind);
   const flagOnly = first.replacements.length === 0;
   const category = categoryOf(first, decision.kind);
-  const canIgnoreRule = !isWordFlag && first.source !== 'llm' && first.source !== 'hygiene';
+  // The engine never hides word flags, AI rewrites, hygiene fixes or flags on protected text, so don't offer it.
+  const touchesLocked = members.some((c) => controller.getState().session?.touchesLocked(c.id));
+  const canIgnoreRule = !isWordFlag && first.source !== 'llm' && first.source !== 'hygiene' && !touchesLocked;
   const accept = (i: number) => (isBatch ? setPreview(i) : controller.accept(decision.id, i));
 
   return (

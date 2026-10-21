@@ -104,10 +104,12 @@ function isOtherLanguageWord(c: Candidate, ctx: TierContext): boolean {
 
 /**
  * A flag of a rule the user dismissed. LLM rewrites, hygiene fixes and flags on fact-locked text are never
- * affected: the dismiss menu only quiets the rules passes, never the protections.
+ * affected: the dismiss menu only quiets the rules passes, never the protections. Nor are word flags
+ * (Spelling/Typo): hiding them all would hide every typo; they are answered per word, with the dictionary.
  */
 function isIgnoredRule(c: Candidate, ctx: TierContext): boolean {
   if (!ctx.ignoredKinds?.has(c.kind) || c.source === 'llm' || c.source === 'hygiene') return false;
+  if (WORD_REWRITE_KINDS.has(c.kind)) return false;
   return !overlapsLocked(c, ctx.locked.get(c.paraId));
 }
 

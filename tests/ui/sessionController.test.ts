@@ -6,6 +6,7 @@ import type { FormatAdapter } from '@/formats/types';
 import { SessionController, type ControllerDeps, type Files, type OpenedFile } from '@/ui/state/sessionController';
 import { defaultSettings, type Settings } from '@/ui/state/settings';
 import { highlightRanges, locateCandidate } from '@/ui/state/highlights';
+import { progressOf } from '@/ui/state/progress';
 import { buildDocx } from '../fixtures/make_docx';
 
 let shared: RulesLinter;
@@ -544,6 +545,18 @@ describe('SessionController: U1 review flow', () => {
     expect(controller.getState().decided).toBe(0);
   });
 
+  it('"N left" counts every ranked decision, not just the up-front queue (so the estimate is honest)', async () => {
+    const { controller } = makeController();
+    await controller.openText(
+      "We can't, won't, don't and doesn't. It isn't, they aren't, he wasn't, we weren't. " +
+        "I haven't, she hasn't, we hadn't, it wouldn't, you shouldn't, they couldn't, we mustn't.",
+    );
+    const session = controller.getState().session!;
+    const progress = progressOf(session, 0);
+    expect(progress.left).toBe(session.rankedDecisionCount());
+    expect(progress.left).toBeGreaterThan(session.decisions().top.length);
+  });
+
   it('applyBatch applies the previewed places as one change; undoBatch takes them back together', async () => {
     const { controller } = makeController();
     await controller.openText("I can't go. You can't stay. We can't eat.");
@@ -569,6 +582,34 @@ describe('SessionController: U1 review flow', () => {
     expect(saved.every((s) => s.ignoredRules.length === 0)).toBe(true);
     await controller.openText(CANT);
     expect(controller.getState().session!.decisionCount()).toBe(1);
+  });
+
+  it('dismissing a kind already dismissed changes nothing: saved once, counted once', async () => {
+    const { controller, saved } = makeController();
+    await controller.openText(CANT);
+    controller.ignoreRule('Contraction', 'document');
+    controller.ignoreRule('Contraction', 'document');
+    expect(controller.getState().documentIgnoredRules).toEqual(['Contraction']);
+    controller.ignoreRule('Contraction', 'everywhere');
+    controller.ignoreRule('Contraction', 'everywhere');
+    controller.ignoreRule('Contraction', 'document');
+    await controller.settled();
+    expect(saved.at(-1)!.ignoredRules).toEqual(['Contraction']);
+    expect(controller.getState().decided).toBe(2); // once for this document, once everywhere
+  });
+
+  it('"Review again" on places of one rejected batch gives back one decision, not one per place', async () => {
+    const { controller } = makeController();
+    await controller.openText("I can't go. You can't stay.\n\nIt's late.");
+    const { top } = controller.getState().session!.decisions();
+    const batch = top.find((d) => d.kind === 'batch')!;
+    const single = top.find((d) => d.kind === 'single')!;
+    controller.accept(single.id);
+    controller.reject(batch.id);
+    expect(controller.getState().decided).toBe(2);
+    controller.undo(batch.candidateIds[0]);
+    controller.undo(batch.candidateIds[1]);
+    expect(controller.getState().decided).toBe(1);
   });
 
   it('dismissing a rule everywhere is saved in settings; Restore brings it back', async () => {

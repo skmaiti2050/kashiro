@@ -8,7 +8,7 @@ import { MoreList } from './MoreList';
 import { NamesCard } from './NamesCard';
 import { OtherLanguageCard } from './OtherLanguageCard';
 import { TermsCard } from './TermsCard';
-import { progressLabel, reviewProgress } from './state/progress';
+import { progressLabel, progressOf } from './state/progress';
 import { cursorAt, currentDecision, decisionWith, moveCursor, START } from './state/reviewCursor';
 import type { ReviewKeyAction } from './state/reviewKeys';
 import type { ControllerState, SessionController } from './state/sessionController';
@@ -31,6 +31,9 @@ interface Props {
   onShowLog(): void;
   onSave(): void;
 }
+
+/** The names, terms and Indian-language cards: Enter adds the ticked words; they have no reject. */
+const isWordList = (d: Decision) => d.kind === 'names' || d.kind === 'terms' || d.kind === 'otherLanguage';
 
 const reduceMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 
@@ -89,7 +92,7 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
   }
 
   const paraText = new Map(session.paragraphs().map((p) => [p.id, p.text]));
-  const progress = reviewProgress(top.length, state.decided);
+  const progress = progressOf(session, state.decided);
   const autoFixed = session.outcomes().filter((o) => o.auto && o.status === 'applied').length;
   const pick = (d: Decision) => {
     setCursor((c) => cursorAt(top, d.id, c));
@@ -112,7 +115,13 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
       </div>
       {current ? (
         <p className="key-legend hint">
-          <Kbd>Enter</Kbd> accept · <Kbd>Backspace</Kbd> reject · <Kbd>J</Kbd> / <Kbd>K</Kbd> next / previous
+          <Kbd>Enter</Kbd> {isWordList(current) ? 'add' : 'accept'} ·{' '}
+          {!isWordList(current) && (
+            <>
+              <Kbd>Backspace</Kbd> reject ·{' '}
+            </>
+          )}
+          <Kbd>J</Kbd> / <Kbd>K</Kbd> next / previous
         </p>
       ) : (
         <div className="done-state">

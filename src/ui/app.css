@@ -218,7 +218,6 @@ summary:focus-visible,
   font-family: var(--ui-font);
   font-size: 11px;
   line-height: 14px;
-  opacity: 0.75;
 }
 
 .key-legend {

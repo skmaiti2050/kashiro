@@ -101,6 +101,10 @@ export class SessionController {
   private checks = 0;
   /** Edits applied, decisions made or text typed since the document was opened or last saved. */
   private unsaved = false;
+  /** Rejected candidate id → the rejection it was part of; `reopened` holds rejections already given back. */
+  private readonly rejectedAs = new Map<string, string>();
+  private readonly reopened = new Set<string>();
+  private rejections = 0;
 
   constructor(private readonly deps: ControllerDeps) {
     this.adapterFor = deps.adapterFor ?? registryAdapterFor;
@@ -183,6 +187,8 @@ export class SessionController {
     }
     this.loaded = { adapter, ...read, bom: startsWithBom(bytes) };
     this.unsaved = false;
+    this.rejectedAs.clear();
+    this.reopened.clear();
     const isDocx = name.toLowerCase().endsWith('.docx');
     const text = isDocx ? null : new TextDecoder().decode(bytes); // the decoder drops a byte-order mark
     const view = text === null ? joinParagraphs(read.paras) : { text, starts: paragraphStarts(text, read.paras) };
@@ -298,11 +304,22 @@ export class SessionController {
   }
 
   reject(decisionId: string): void {
-    this.act((s) => s.reject(decisionId), 1);
+    this.rejectTogether(decisionId, (s) => s.reject(decisionId));
   }
 
   ignoreAll(decisionId: string): void {
-    this.act((s) => s.ignoreAll(decisionId), 1);
+    this.rejectTogether(decisionId, (s) => s.ignoreAll(decisionId));
+  }
+
+  /** Rejects a decision as one: "Review again" on several of its places gives back one decision made, not one each. */
+  private rejectTogether(decisionId: string, change: (s: CheckSession) => void): void {
+    const session = this.state.session;
+    if (!session) return;
+    const { top, more } = session.decisions();
+    const places = [...top, ...more].find((d) => d.id === decisionId)?.candidateIds ?? [decisionId];
+    if (!this.act(change, 1)) return;
+    const rejection = `${decisionId}#${++this.rejections}`;
+    for (const id of places) this.rejectedAs.set(id, rejection);
   }
 
   /** "Apply" after the batch preview: the chosen places as one change, undone together by undoBatch. */
@@ -314,21 +331,34 @@ export class SessionController {
     this.act((s) => s.undoBatch(batchId), 0);
   }
 
-  /** Undo from the change log: applied → rejected, rejected → back to review (one decision fewer made). */
+  /**
+   * Undo from the change log: applied → rejected, rejected → back to review. Back to review gives back one
+   * decision made, once per rejection (a rejected batch's places come back one by one).
+   */
   undo(candidateId: string): void {
     const status = this.state.session?.outcomes().find((o) => o.candidate.id === candidateId)?.status;
-    this.act((s) => s.undo(candidateId), status === 'rejected' ? -1 : 0);
+    let givesBack = false;
+    if (status === 'rejected') {
+      const rejection = this.rejectedAs.get(candidateId);
+      this.rejectedAs.delete(candidateId);
+      givesBack = rejection === undefined || !this.reopened.has(rejection);
+      if (rejection !== undefined) this.reopened.add(rejection);
+    }
+    this.act((s) => s.undo(candidateId), givesBack ? -1 : 0);
   }
 
   /**
-   * Dismiss › "This rule in this document" or "everywhere": hides every flag of `kind` (never LLM, hygiene
-   * or fact-locked ones, see the engine's isIgnoredRule). "Everywhere" is saved and listed in Settings.
+   * Dismiss › "All <kind> suggestions in this document" or "everywhere": hides every flag of `kind` (never
+   * word flags, LLM, hygiene or fact-locked ones, see the engine's isIgnoredRule). "Everywhere" is saved and
+   * listed in Settings. Dismissing a kind already dismissed (here or everywhere) changes nothing.
    */
   ignoreRule(kind: string, scope: 'document' | 'everywhere'): void {
     const { settings, documentIgnoredRules, decided } = this.state;
-    if (scope === 'everywhere') this.updateSettings({ ignoredRules: [...settings.ignoredRules, kind] });
+    if (settings.ignoredRules.includes(kind) || (scope === 'document' && documentIgnoredRules.includes(kind))) return;
+    const list = scope === 'everywhere' ? settings.ignoredRules : documentIgnoredRules;
+    if (scope === 'everywhere') this.updateSettings({ ignoredRules: [...list, kind] });
     else this.unsaved = true; // like a rejection, it is lost if the document is closed unsaved
-    const forDocument = scope === 'document' ? [...documentIgnoredRules, kind] : documentIgnoredRules;
+    const forDocument = scope === 'document' ? [...list, kind] : documentIgnoredRules;
     this.set({ documentIgnoredRules: forDocument, decided: decided + 1 });
     void this.recheck();
   }
@@ -397,16 +427,21 @@ export class SessionController {
     await this.recheck();
   }
 
-  /** Runs a review action; `decisions` is how it moves the count of decisions made (+1, 0, or -1 for back to review). */
-  private act(change: (s: CheckSession) => void, decisions: 1 | 0 | -1): void {
+  /**
+   * Runs a review action; `decisions` is how it moves the count of decisions made (+1, 0, or -1 for back to
+   * review). Returns false when it failed (the error is shown).
+   */
+  private act(change: (s: CheckSession) => void, decisions: 1 | 0 | -1): boolean {
     const session = this.state.session;
-    if (!session) return;
+    if (!session) return false;
     try {
       change(session);
       this.unsaved = true;
       this.set({ error: null, decided: Math.max(0, this.state.decided + decisions) });
+      return true;
     } catch (e) {
       this.set({ error: message(e) });
+      return false;
     }
   }
 

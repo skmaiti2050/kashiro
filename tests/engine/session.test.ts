@@ -117,6 +117,13 @@ describe('decisions, accept, undo', () => {
     expect(() => s.undoBatch('batch-99')).toThrow(/unknown batch/);
   });
 
+  it('applyBatch refuses the names card like accept does (spec §5: cards are never answered by index)', async () => {
+    const s = await start([{ id: 0, text: 'We met Anjali Kulkarni in Nashik today.' }]);
+    const card = [...s.decisions().top, ...s.decisions().more].find((d) => d.kind === 'names')!;
+    expect(() => s.applyBatch(card.id)).toThrow(/answered with acceptNames/);
+    expect(s.outcomes().every((o) => o.status === 'pending')).toBe(true);
+  });
+
   it('ignoredRules hides every flag of those kinds', async () => {
     const shown = await start(paras, { preset: 'academic' });
     expect(shown.decisionCount()).toBe(1);

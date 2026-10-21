@@ -8,6 +8,7 @@ const press = (key: string, mods: Partial<KeyPress> = {}): KeyPress => ({
   altKey: false,
   metaKey: false,
   shiftKey: false,
+  repeat: false,
   ...mods,
 });
 const panel: KeyTarget = { place: 'panel', control: 'none', documentEditable: true, textSelected: false };
@@ -36,6 +37,14 @@ describe('reviewKeyAction', () => {
     expect(reviewKeyAction(press('Enter'), { ...panel, place: 'other' })).toBeNull();
     expect(reviewKeyAction(press('Enter', { ctrlKey: true }), panel)).toBeNull();
     expect(reviewKeyAction(press('k', { altKey: true }), panel)).toBeNull();
+  });
+
+  it('a held Enter or Backspace decides one card only; held J/K keep moving', () => {
+    expect(reviewKeyAction(press('Enter', { repeat: true }), panel)).toBeNull();
+    expect(reviewKeyAction(press('Backspace', { repeat: true }), panel)).toBeNull();
+    expect(reviewKeyAction(press('Delete', { repeat: true }), panel)).toBeNull();
+    expect(reviewKeyAction(press('j', { repeat: true }), panel)).toBe('next');
+    expect(reviewKeyAction(press('k', { repeat: true }), panel)).toBe('previous');
   });
 
   it('Enter on a focused button or checkbox does its own job; Backspace and J/K still work there', () => {

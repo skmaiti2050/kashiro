@@ -509,6 +509,13 @@ describe('ignored rules (Dismiss › this rule)', () => {
     expect(tierOf(readability, ctx(ignoring('Punctuation')))).toBe('review');
   });
 
+  it('never hides word flags (Spelling/Typo): those are answered per word, with the dictionary', () => {
+    const teh = cand({ original: 'teh', replacements: ['the'] });
+    const typo = cand({ original: 'recieve', replacements: ['receive', 'relieve'], kind: 'Typo' });
+    expect(tierOf(teh, ctx(ignoring('Spelling')))).toBe('safe');
+    expect(tierOf(typo, ctx(ignoring('Typo')))).toBe('review');
+  });
+
   it('never touches LLM rewrites, hygiene fixes or flags on fact-locked text', () => {
     const llm = cand({ original: 'x', replacements: ['y'], kind: 'Rewrite', source: 'llm' });
     expect(tierOf(llm, ctx(ignoring('Rewrite')))).toBe('review');

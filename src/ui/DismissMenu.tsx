@@ -53,10 +53,10 @@ export function DismissMenu({ rule, thisOneLabel, onThisOne, onRule }: Props) {
             {thisOneLabel}
           </button>
           <button role="menuitem" onClick={() => choose(() => onRule('document'))}>
-            This rule ({rule}) in this document
+            All {rule} suggestions in this document
           </button>
           <button role="menuitem" onClick={() => choose(() => onRule('everywhere'))}>
-            This rule ({rule}) everywhere <span className="hint">· undo in Settings</span>
+            All {rule} suggestions everywhere <span className="hint">· undo in Settings</span>
           </button>
         </div>
       )}

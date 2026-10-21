@@ -2,12 +2,21 @@
 const SECONDS_PER_DECISION = 10;
 
 export interface ReviewProgress {
-  /** Decisions in the up-front queue. */
+  /** Ranked decisions still open. */
   left: number;
   /** Left plus the decisions made since the document was opened. */
   total: number;
   /** Rough minutes to go, rounded up. */
   minutes: number;
+}
+
+/**
+ * Progress for the panel header. "Left" is every ranked decision still open (the up-front queue and the
+ * non-blocked "More" rows), not only the queue: the queue refills from "More", so its length alone would
+ * read "10 of 11 left" with dozens to go.
+ */
+export function progressOf(session: { rankedDecisionCount(): number }, decided: number): ReviewProgress {
+  return reviewProgress(session.rankedDecisionCount(), decided);
 }
 
 export function reviewProgress(left: number, decided: number): ReviewProgress {

@@ -26,7 +26,8 @@ export function StatusBar({ state }: { state: ControllerState }) {
               {session.variant} English{variantOverride ? '' : ' (detected)'}
             </span>
           )}
-          <span role="status" className={busy ? 'checking' : undefined}>
+          {/* Not a live region: it would speak after every typing pause (the panel heading announces progress). */}
+          <span className={busy ? 'checking' : undefined}>
             {busy ? 'Checking…' : 'Up to date'}
           </span>
         </>

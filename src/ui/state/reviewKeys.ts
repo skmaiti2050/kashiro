@@ -5,6 +5,8 @@ export interface KeyPress {
   altKey: boolean;
   metaKey: boolean;
   shiftKey: boolean;
+  /** The key is held down and auto-repeating. */
+  repeat: boolean;
 }
 
 /** Where the keydown happened, without the DOM (see useReviewKeys for how it is read). */
@@ -25,7 +27,8 @@ export type ReviewKeyAction = 'accept' | 'reject' | 'next' | 'previous';
  * The review loop's keys: Enter accepts the current card, Backspace or Delete rejects or dismisses it,
  * J / K move to the next / previous card without deciding. They only fire in the review panel, or in a
  * read-only document with nothing selected, so typing in the editable document is never taken over.
- * Enter on a focused button or checkbox does that control's own job instead.
+ * Enter on a focused button or checkbox does that control's own job instead. A held Enter or Backspace
+ * decides one card only (auto-repeat would accept or reject a run of cards unseen); held J / K keep moving.
  */
 export function reviewKeyAction(press: KeyPress, target: KeyTarget): ReviewKeyAction | null {
   if (press.ctrlKey || press.altKey || press.metaKey) return null;
@@ -33,10 +36,10 @@ export function reviewKeyAction(press: KeyPress, target: KeyTarget): ReviewKeyAc
   if (target.place === 'document' && (target.documentEditable || target.textSelected)) return null;
   switch (press.key) {
     case 'Enter':
-      return target.control === 'control' ? null : 'accept';
+      return target.control === 'control' || press.repeat ? null : 'accept';
     case 'Backspace':
     case 'Delete':
-      return 'reject';
+      return press.repeat ? null : 'reject';
     case 'j':
     case 'J':
       return 'next';

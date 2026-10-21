@@ -212,9 +212,6 @@ export class CheckSession {
    * a flagged word with different suggestions in different places cannot be "fixed for all" by index.
    */
   accept(decisionId: string, replacementIndex = 0): void {
-    // Replacing names or terms with dictionary words by index would damage them (spec §5).
-    const card = CARD_ACCEPT_METHODS.get(decisionId);
-    if (card) throw new Error(`the ${card.name} is answered with ${card.method}(keepAsTypos), not accept`);
     this.applyMembers(decisionId, this.members(decisionId), replacementIndex);
   }
 
@@ -247,7 +244,11 @@ export class CheckSession {
     }
   }
 
+  /** The one place accept and applyBatch apply edits, so both keep the card guard and the same-text check. */
   private applyMembers(decisionId: string, members: Candidate[], replacementIndex: number): void {
+    // Replacing names or terms with dictionary words by index would damage them (spec §5).
+    const card = CARD_ACCEPT_METHODS.get(decisionId);
+    if (card) throw new Error(`the ${card.name} is answered with ${card.method}(keepAsTypos), not accept`);
     for (const c of members) {
       if (c.replacements[replacementIndex] === undefined) {
         throw new Error(`candidate ${c.id} has no replacement at index ${replacementIndex}`);
