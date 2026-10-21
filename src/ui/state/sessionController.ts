@@ -15,7 +15,8 @@ import { matchUnchangedParagraphs } from './documentText';
 import { readDocument, readTypedText, type LoadedFile, type OpenDocument } from './openDocument';
 import { RecheckQueue } from './recheckQueue';
 import { SAMPLE_NAME, SAMPLE_TEXT } from './sample';
-import { saveDocument, saveReport, type Files, type OpenedFile } from './saveFlow';
+import type { Files, OpenedFile } from './saveFlow';
+import * as saveActions from './saveActions';
 import { OptionalModules, type ModuleLoaders } from './optionalModules';
 import { modulesFor, type Settings } from './settings';
 import * as settingsActions from './settingsActions';
@@ -100,9 +101,18 @@ export class SessionController {
       this.releaseModules(modulesFor(this.state.settings));
     },
   };
+  private readonly saveHost: saveActions.SaveHost;
   private readonly optional: OptionalModules;
 
   constructor(private readonly deps: ControllerDeps) {
+    this.saveHost = {
+      state: () => this.state,
+      set: (patch) => this.set(patch),
+      flush: () => this.queue.flush(),
+      loaded: () => this.loaded,
+      files: deps.files,
+      markSaved: () => (this.unsaved = false),
+    };
     this.adapterFor = deps.adapterFor ?? registryAdapterFor;
     this.optional = new OptionalModules({ loadDictionary: deps.loadDictionary, startHelper: deps.startHelper });
     this.state = {
@@ -405,38 +415,14 @@ export class SessionController {
 
   // ---- saving --------------------------------------------------------------
 
-  /**
-   * Writes the document with the accepted edits: a tracked or clean copy, or over the file after a
-   * backup. Returns true when the file was written (false when cancelled or failed).
-   */
-  async save(): Promise<boolean> {
-    await this.queue.flush();
-    const { session, document, settings } = this.state;
-    if (!session || !document || !this.loaded) return false;
-    const { adapter, handle } = this.loaded;
-    try {
-      const notice = await saveDocument({ session, adapter, handle, name: document.name, path: document.path, settings, files: this.deps.files });
-      // Unplaceable edits may have been marked on the session, so this always re-renders.
-      this.set({ notice, error: null });
-      if (notice === null) return false;
-      this.unsaved = false;
-      return true;
-    } catch (e) {
-      this.set({ error: `Couldn't save ${document.name}: ${message(e)}` });
-      return false;
-    }
+  /** See saveActions.save. Resolves true when the file was written (false when cancelled or failed). */
+  save(): Promise<boolean> {
+    return saveActions.save(this.saveHost);
   }
 
-  /** Saves the change report (Markdown) beside the document. The document itself still counts as unsaved. */
-  async exportReport(): Promise<void> {
-    await this.queue.flush();
-    const { session, document } = this.state;
-    if (!session || !document) return;
-    try {
-      this.set({ notice: await saveReport(session, document.name, document.path, this.deps.files), error: null });
-    } catch (e) {
-      this.set({ error: `Couldn't save the report: ${message(e)}` });
-    }
+  /** See saveActions.exportReport. */
+  exportReport(): Promise<void> {
+    return saveActions.exportReport(this.saveHost);
   }
 
   /** For failures outside the controller (a dropped file that can't be read, the linter not starting). */
