@@ -21,9 +21,14 @@ const FIX_NOUNS: Record<string, string> = {
   Variant: 'spelling-variant',
 };
 
+/** "12 formatting fixes": a count of one kind of fix. */
+export function fixesLabel(kind: string, count: number): string {
+  return `${count} ${FIX_NOUNS[kind] ?? kind.toLowerCase()} ${count === 1 ? 'fix' : 'fixes'}`;
+}
+
 /** The batch button: "Apply all 12 formatting fixes" (count and kind, before the preview). */
 export function batchApplyLabel(kind: string, places: number): string {
-  return `Apply all ${places} ${FIX_NOUNS[kind] ?? kind.toLowerCase()} fixes`;
+  return `Apply all ${fixesLabel(kind, places)}`;
 }
 
 /**

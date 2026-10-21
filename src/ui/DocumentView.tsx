@@ -4,6 +4,8 @@ import { Decoration, EditorView, WidgetType, keymap, placeholder, type Decoratio
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import type { CheckSession } from '@/engine/session';
 import type { Candidate } from '@/engine/types';
+import { EmptyState } from './EmptyState';
+import { CATEGORIES } from './state/categories';
 import { highlightRanges, locateCandidate, toEditorPosition } from './state/highlights';
 import type { ControllerState, OpenDocument, SessionController } from './state/sessionController';
 
@@ -68,7 +70,10 @@ function documentMarks(doc: OpenDocument, viewText: string, session: CheckSessio
     const from = at(h.from);
     const to = at(h.to);
     if (h.kind === 'pending') {
-      ranges.push(Decoration.mark({ class: 'cm-pending', attributes: { title: h.message ?? '' } }).range(from, to));
+      const category = h.category ?? 'correctness';
+      const title = `${CATEGORIES[category].glyph} ${CATEGORIES[category].label}: ${h.message ?? ''}`;
+      const mark = Decoration.mark({ class: `cm-pending cat-${category}`, attributes: { title }, candidateId: h.candidateId });
+      ranges.push(mark.range(from, to));
       continue;
     }
     const auto = h.kind === 'auto';
@@ -84,16 +89,42 @@ export interface DocumentFocus {
   seq: number;
 }
 
+/** The pending flag whose underline was clicked, from the marks' `candidateId`. */
+function candidateAt(view: EditorView, event: MouseEvent): string | null {
+  const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
+  if (pos === null) return null;
+  let found: string | null = null;
+  view.state.field(marksField).between(pos, pos, (from, to, mark) => {
+    const id: unknown = mark.spec.candidateId;
+    if (typeof id !== 'string' || pos < from || pos > to) return;
+    found = id;
+    return false;
+  });
+  return found;
+}
+
+/** Room kept around a scrolled-to underline, so it never sits flush against the pane's edges. */
+const SCROLL_MARGINS = { top: 32, bottom: 32 };
+
 interface Props {
   controller: SessionController;
   state: ControllerState;
   focus: DocumentFocus | null;
+  /** Clicking an underline brings up its card. */
+  onUnderlineClick(candidateId: string): void;
+  onOpen(): void;
+  onPaste(): void;
+  onSample(): void;
 }
 
 /** CodeMirror view of the document: read-only for .docx, editable (and re-checked as you type) for text. */
-export function DocumentView({ controller, state, focus }: Props) {
+export function DocumentView({ controller, state, focus, onUnderlineClick, onOpen, onPaste, onSample }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
+  const underlineClick = useRef(onUnderlineClick);
+  useEffect(() => {
+    underlineClick.current = onUnderlineClick;
+  });
   const doc = state.document;
 
   // A new editor per opened document; typing goes to the controller, which re-checks after a pause.
@@ -117,6 +148,14 @@ export function DocumentView({ controller, state, focus }: Props) {
           EditorView.updateListener.of((update) => {
             if (update.docChanged) controller.editText(update.state.sliceDoc());
           }),
+          EditorView.scrollMargins.of(() => SCROLL_MARGINS),
+          EditorView.domEventHandlers({
+            click(event, editor) {
+              const id = candidateAt(editor, event);
+              if (id) underlineClick.current(id);
+              return false;
+            },
+          }),
         ],
       }),
     });
@@ -136,7 +175,8 @@ export function DocumentView({ controller, state, focus }: Props) {
     if (marks) editor.dispatch({ effects: setMarks.of(marks) });
   }, [state.revision, state.session, doc]);
 
-  // Clicking a review item outlines its text and scrolls it into view.
+  // The current card's text gets a focus ring and is scrolled to the upper third of the pane, except
+  // while the user is typing in it: then the view stays where the caret is.
   useEffect(() => {
     const editor = view.current;
     if (!editor || !doc || !state.session || !focus) return;
@@ -145,20 +185,13 @@ export function DocumentView({ controller, state, focus }: Props) {
     const position = toEditorPosition(doc.text, doc.lineSeparator);
     const from = position(at.from);
     const to = position(at.to);
-    editor.dispatch({
-      effects: [setFocusMark.of(to > from ? Decoration.set([FOCUS_MARK.range(from, to)]) : Decoration.none), EditorView.scrollIntoView(from, { y: 'center' })],
-    });
-    // Only a new click moves the view; re-renders from checks don't.
+    const ring = setFocusMark.of(to > from ? Decoration.set([FOCUS_MARK.range(from, to)]) : Decoration.none);
+    const scroll = EditorView.scrollIntoView(from, { y: 'start', yMargin: editor.scrollDOM.clientHeight / 3 });
+    editor.dispatch({ effects: editor.hasFocus ? [ring] : [ring, scroll] });
+    // Only a new card or click moves the view; re-renders from checks don't.
   }, [focus?.seq]);
 
-  if (!doc) {
-    return (
-      <section className="document empty">
-        <p>Open a .docx, .txt or .md file, or paste your text.</p>
-        <p className="hint">Nothing leaves this computer: the check runs here, offline.</p>
-      </section>
-    );
-  }
+  if (!doc) return <EmptyState onOpen={onOpen} onPaste={onPaste} onSample={onSample} />;
   return (
     <section className="document">
       {doc.note && <p className="note">{doc.note}</p>}

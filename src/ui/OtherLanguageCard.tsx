@@ -1,6 +1,7 @@
 import type { Decision } from '@/engine/decisions';
 import type { Candidate } from '@/engine/types';
 import type { SessionController } from './state/sessionController';
+import { CategoryTag } from './CategoryTag';
 import { WordTickList } from './WordTickList';
 
 interface Props {
@@ -21,6 +22,7 @@ export function OtherLanguageCard({ controller, card, candidates }: Props) {
 
   return (
     <div className="card other-language">
+      <CategoryTag category="terms" />
       <h3>{card.label}</h3>
       <p className="hint">Words that look like Indian-language words written in English letters. Untick any that are real typos.</p>
       <WordTickList

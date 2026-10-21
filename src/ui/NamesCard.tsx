@@ -1,6 +1,7 @@
 import type { Decision } from '@/engine/decisions';
 import type { Candidate } from '@/engine/types';
 import type { SessionController } from './state/sessionController';
+import { CategoryTag } from './CategoryTag';
 import { WordTickList } from './WordTickList';
 
 interface Props {
@@ -20,6 +21,7 @@ export function NamesCard({ controller, card, candidates }: Props) {
 
   return (
     <div className="card names">
+      <CategoryTag category="names" />
       <h3>{card.label}</h3>
       <p className="hint">Names and places the dictionary doesn't know. Untick any that are real typos.</p>
       {(card.nearDuplicates ?? []).length > 0 && (

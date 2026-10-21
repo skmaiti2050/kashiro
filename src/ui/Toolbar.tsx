@@ -1,5 +1,6 @@
 import { PRESETS, type PresetId } from '@/engine/presets';
 import type { Variant } from '@/engine/types';
+import { siblingPath } from './state/documentText';
 import type { ControllerState, SessionController } from './state/sessionController';
 
 export const VARIANTS: Variant[] = ['American', 'British', 'Australian', 'Canadian', 'Indian'];
@@ -20,8 +21,12 @@ export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onHelp
 
   return (
     <nav className="toolbar">
-      <button onClick={onOpen}>Open</button>
-      <button onClick={onPaste}>Paste</button>
+      <button onClick={onOpen} title="Open a .docx, .txt or .md file (Ctrl+O)" aria-keyshortcuts="Control+O">
+        Open
+      </button>
+      <button onClick={onPaste} title="Paste text as a new document">
+        Paste
+      </button>
 
       <label className="field">
         <span>Goal</span>
@@ -60,37 +65,65 @@ export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onHelp
       </button>
 
       <div className="save-group">
-        <button className="primary" disabled={!document || !session} onClick={() => void controller.save()}>
+        <button
+          className="primary"
+          disabled={!document || !session}
+          title={`Save: ${settings.saveMode === 'tracked' ? 'tracked changes' : 'clean copy'}, ${settings.overwrite ? 'overwrite (keeps a backup)' : 'new copy'}`}
+          onClick={() => void controller.save()}
+        >
           Save
         </button>
         <details className="save-menu">
           <summary aria-label="Save options">▾</summary>
           <div className="menu">
             <fieldset>
-              <legend>Changes</legend>
-              <label>
-                <input type="radio" checked={settings.saveMode === 'tracked'} onChange={() => controller.changeSettings({ saveMode: 'tracked' })} />
-                Tracked changes (default)
-              </label>
-              <label>
-                <input type="radio" checked={settings.saveMode === 'clean'} onChange={() => controller.changeSettings({ saveMode: 'clean' })} />
-                Clean
-              </label>
+              <legend>How changes are saved</legend>
+              <SaveChoice
+                checked={settings.saveMode === 'tracked'}
+                onChoose={() => controller.changeSettings({ saveMode: 'tracked' })}
+                title="Tracked changes"
+                detail="Your reviewer can accept or reject each change in Word. (.docx only: text files are always saved clean.)"
+              />
+              <SaveChoice
+                checked={settings.saveMode === 'clean'}
+                onChoose={() => controller.changeSettings({ saveMode: 'clean' })}
+                title="Clean copy"
+                detail="All accepted changes applied, no marks."
+              />
             </fieldset>
             <fieldset>
-              <legend>File</legend>
-              <label>
-                <input type="radio" checked={!settings.overwrite} onChange={() => controller.changeSettings({ overwrite: false })} />
-                New copy (default)
-              </label>
-              <label>
-                <input type="radio" checked={settings.overwrite} onChange={() => controller.changeSettings({ overwrite: true })} />
-                Overwrite, with a backup
-              </label>
+              <legend>Where it goes</legend>
+              <SaveChoice
+                checked={!settings.overwrite}
+                onChoose={() => controller.changeSettings({ overwrite: false })}
+                title="New copy"
+                detail={`Saved beside the original as ${checkedName(document?.name)}. The original is not touched.`}
+              />
+              <SaveChoice
+                checked={settings.overwrite}
+                onChoose={() => controller.changeSettings({ overwrite: true })}
+                title="Overwrite (keeps a backup)"
+                detail="Replaces the original after copying it to a .bak file. Pasted text is always saved as a new copy."
+              />
             </fieldset>
           </div>
         </details>
       </div>
     </nav>
+  );
+}
+
+/** "essay.docx" → "essay.checked.docx" (saveFlow's default name for a new copy). */
+const checkedName = (name: string | undefined) => (name ? siblingPath(name, '.checked') : 'name.checked.docx');
+
+function SaveChoice({ checked, onChoose, title, detail }: { checked: boolean; onChoose(): void; title: string; detail: string }) {
+  return (
+    <label className="save-choice">
+      <input type="radio" checked={checked} onChange={onChoose} />
+      <span>
+        <strong>{title}</strong>
+        <span className="hint">{detail}</span>
+      </span>
+    </label>
   );
 }

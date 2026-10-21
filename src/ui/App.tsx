@@ -3,10 +3,12 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { ChangeLog } from './ChangeLog';
 import { DocumentView, type DocumentFocus } from './DocumentView';
 import { GoogleDocsHelp } from './GoogleDocsHelp';
-import { ReviewPanel } from './ReviewPanel';
+import { ReviewPanel, type CardRequest } from './ReviewPanel';
 import { SettingsPanel } from './SettingsPanel';
+import { StatusBar } from './StatusBar';
 import { Toolbar } from './Toolbar';
 import { UnsavedChangesDialog } from './UnsavedChangesDialog';
+import { useAppShortcuts } from './useKeys';
 import { files, onFileDrop } from './platform/files';
 import { createAppLinter } from './platform/linter';
 import { loadSettings, saveSettings } from './platform/settings';
@@ -45,6 +47,7 @@ function Shell({ controller }: { controller: SessionController }) {
   const [panel, setPanel] = useState<'none' | 'settings' | 'help'>('none');
   const [logOpen, setLogOpen] = useState(false);
   const [focus, setFocus] = useState<DocumentFocus | null>(null);
+  const [cardRequest, setCardRequest] = useState<CardRequest | null>(null);
   /** What to do once the user has answered "Save, Discard, or Cancel?". */
   const [afterUnsaved, setAfterUnsaved] = useState<(() => void) | null>(null);
 
@@ -85,18 +88,26 @@ function Shell({ controller }: { controller: SessionController }) {
     const text = await navigator.clipboard.readText().catch(() => '');
     await controller.openText(text);
   };
+  const onOpen = () => unlessUnsaved(() => void controller.open());
+  const onPaste = () => unlessUnsaved(() => void paste());
   const openFromHelp = () => {
     setPanel('none');
-    unlessUnsaved(() => void controller.open());
+    onOpen();
   };
+  const dialogOpen = panel !== 'none' || afterUnsaved !== null;
+  useAppShortcuts(state.document !== null, (shortcut) => {
+    if (dialogOpen) return;
+    if (shortcut === 'open') onOpen();
+    else onPaste();
+  });
 
   return (
     <div className="app">
       <Toolbar
         controller={controller}
         state={state}
-        onOpen={() => unlessUnsaved(() => void controller.open())}
-        onPaste={() => unlessUnsaved(() => void paste())}
+        onOpen={onOpen}
+        onPaste={onPaste}
         onSettings={() => setPanel('settings')}
         onHelp={() => setPanel('help')}
       />
@@ -106,14 +117,27 @@ function Shell({ controller }: { controller: SessionController }) {
         </p>
       )}
       <main className="workspace">
-        <DocumentView controller={controller} state={state} focus={focus} />
+        <DocumentView
+          controller={controller}
+          state={state}
+          focus={focus}
+          onUnderlineClick={(candidateId) => setCardRequest((r) => ({ candidateId, seq: (r?.seq ?? 0) + 1 }))}
+          onOpen={onOpen}
+          onPaste={onPaste}
+          onSample={() => unlessUnsaved(() => void controller.openSample())}
+        />
         <ReviewPanel
           key={state.document?.id ?? 0}
           controller={controller}
           state={state}
           onLocate={(candidate) => setFocus((f) => ({ candidate, seq: (f?.seq ?? 0) + 1 }))}
+          request={cardRequest}
+          keysEnabled={!dialogOpen}
+          onShowLog={() => setLogOpen(true)}
+          onSave={() => void controller.save()}
         />
       </main>
+      <StatusBar state={state} />
       <ChangeLog controller={controller} state={state} open={logOpen} onToggle={() => setLogOpen((v) => !v)} />
       {panel === 'settings' && <SettingsPanel controller={controller} state={state} onClose={() => setPanel('none')} />}
       {panel === 'help' && <GoogleDocsHelp onOpen={openFromHelp} onClose={() => setPanel('none')} />}

@@ -53,11 +53,11 @@ export function SettingsPanel({ controller, state, onClose }: Props) {
           <legend>Saving</legend>
           <label>
             <input type="checkbox" checked={settings.saveMode === 'tracked'} onChange={(e) => controller.changeSettings({ saveMode: e.target.checked ? 'tracked' : 'clean' })} />
-            Save edits as tracked changes
+            Tracked changes: your reviewer can accept or reject each change in Word (otherwise a clean copy)
           </label>
           <label>
             <input type="checkbox" checked={settings.overwrite} onChange={(e) => controller.changeSettings({ overwrite: e.target.checked })} />
-            Overwrite the original (a .bak copy is kept)
+            Overwrite the original (keeps a .bak backup) instead of saving a new copy
           </label>
         </fieldset>
 
@@ -93,6 +93,21 @@ export function SettingsPanel({ controller, state, onClose }: Props) {
             </label>
           ))}
           <p className="hint">Never touches names, numbers, quotes or other protected text.</p>
+        </fieldset>
+
+        <fieldset>
+          <legend>Ignored rules ({settings.ignoredRules.length})</legend>
+          {settings.ignoredRules.length === 0 && <p className="hint">Rules you dismiss with “This rule everywhere” show up here.</p>}
+          <ul className="dictionary">
+            {settings.ignoredRules.map((rule) => (
+              <li key={rule}>
+                {rule}
+                <button className="quiet" onClick={() => controller.restoreRule(rule)}>
+                  Restore
+                </button>
+              </li>
+            ))}
+          </ul>
         </fieldset>
 
         <fieldset>

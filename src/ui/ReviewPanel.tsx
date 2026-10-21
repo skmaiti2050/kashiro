@@ -3,35 +3,83 @@ import type { Decision } from '@/engine/decisions';
 import type { Candidate } from '@/engine/types';
 import { DecisionCard } from './DecisionCard';
 import { DepthSlider } from './DepthSlider';
+import { Kbd } from './Kbd';
+import { MoreList } from './MoreList';
 import { NamesCard } from './NamesCard';
-import { TermsCard } from './TermsCard';
 import { OtherLanguageCard } from './OtherLanguageCard';
-import { decisionTitle } from './state/labels';
+import { TermsCard } from './TermsCard';
+import { progressLabel, reviewProgress } from './state/progress';
+import { cursorAt, currentDecision, decisionWith, moveCursor, START } from './state/reviewCursor';
+import type { ReviewKeyAction } from './state/reviewKeys';
 import type { ControllerState, SessionController } from './state/sessionController';
+import { useReviewKeys } from './useKeys';
+
+/** A request to bring up the card of a clicked underline; `seq` changes on every click. */
+export interface CardRequest {
+  candidateId: string;
+  seq: number;
+}
 
 interface Props {
   controller: SessionController;
   state: ControllerState;
-  /** Shows a candidate in the document view (highlighted and scrolled into view). */
+  /** Shows a candidate in the document view (outlined and scrolled into view). */
   onLocate(candidate: Candidate): void;
+  request: CardRequest | null;
+  /** False while a dialog is open: the review keys must not act behind it. */
+  keysEnabled: boolean;
+  onShowLog(): void;
+  onSave(): void;
 }
 
-/** The review queue: "N decisions", one at a time, the rest under "More (N)". */
-export function ReviewPanel({ controller, state, onLocate }: Props) {
-  const [skipped, setSkipped] = useState<string[]>([]);
-  /** A decision picked from "More": shown on the card until it is decided or skipped. */
-  const [picked, setPicked] = useState<string | null>(null);
-  /** Bumped when a decision is picked: the panel scrolls back up to the card and focuses it. */
-  const [reveal, setReveal] = useState(0);
+const reduceMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+
+/** The review queue: a progress header, one card at a time (Enter / Backspace / J / K), the rest under "More (N)". */
+export function ReviewPanel({ controller, state, onLocate, request, keysEnabled, onShowLog, onSave }: Props) {
+  const [cursor, setCursor] = useState(START);
+  /**
+   * Set when a card is picked from "More" or its underline clicked: the panel scrolls to the card and,
+   * with `focus`, moves keyboard focus to it (not after a click in editable text: the caret stays there).
+   */
+  const [reveal, setReveal] = useState<{ seq: number; focus: boolean }>({ seq: 0, focus: false });
   const cardSlot = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (reveal === 0) return;
-    // matchMedia is missing in some test and embedded environments.
-    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
-    cardSlot.current?.scrollIntoView({ block: 'start', behavior: reduceMotion ? 'auto' : 'smooth' });
-    cardSlot.current?.focus({ preventScroll: true });
-  }, [reveal]);
   const session = state.session;
+  const { top, more } = session ? session.decisions() : { top: [], more: [] };
+  const current = currentDecision(top, more, cursor);
+  const candidates = new Map((session?.candidates() ?? []).map((c) => [c.id, c]));
+  const firstOf = (d: Decision) => candidates.get(d.candidateIds[0])!;
+
+  // The current card's text is outlined in the document. When the decided card's button took the focus
+  // with it (focus fell back to the page), it returns to the card slot so Enter-Enter-Enter keeps going.
+  useEffect(() => {
+    if (!current) return;
+    onLocate(firstOf(current));
+    const active = document.activeElement;
+    if (!active || active === document.body) cardSlot.current?.focus({ preventScroll: true });
+  }, [current?.id]);
+
+  useEffect(() => {
+    if (!request) return;
+    const d = decisionWith(top, more, request.candidateId);
+    if (!d) return;
+    setCursor((c) => cursorAt(top, d.id, c));
+    setReveal((r) => ({ seq: r.seq + 1, focus: !state.document?.editable }));
+  }, [request?.seq]);
+
+  useEffect(() => {
+    if (reveal.seq === 0) return;
+    cardSlot.current?.scrollIntoView({ block: 'nearest', behavior: reduceMotion() ? 'auto' : 'smooth' });
+    if (reveal.focus) cardSlot.current?.focus({ preventScroll: true });
+  }, [reveal.seq]);
+
+  useReviewKeys(keysEnabled && session !== null, state.document?.editable ?? false, (action: ReviewKeyAction) => {
+    if (action === 'next' || action === 'previous') {
+      setCursor((c) => moveCursor(top, more, c, action === 'next' ? 1 : -1));
+      return;
+    }
+    cardSlot.current?.querySelector<HTMLButtonElement>(`[data-key~="${action}"]`)?.click();
+  });
+
   if (!session) {
     return (
       <aside className="review">
@@ -40,73 +88,64 @@ export function ReviewPanel({ controller, state, onLocate }: Props) {
     );
   }
 
-  const { top, more } = session.decisions();
-  const queue = top.filter((d) => !skipped.includes(d.id));
-  const current = more.find((d) => d.id === picked) ?? queue[0];
-  const candidates = new Map(session.candidates().map((c) => [c.id, c]));
   const paraText = new Map(session.paragraphs().map((p) => [p.id, p.text]));
-  const skip = (id: string) => {
-    if (id === picked) setPicked(null);
-    else setSkipped((s) => [...s, id]);
-  };
+  const progress = reviewProgress(top.length, state.decided);
+  const autoFixed = session.outcomes().filter((o) => o.auto && o.status === 'applied').length;
   const pick = (d: Decision) => {
-    setPicked(d.id);
-    setReveal((n) => n + 1);
-    onLocate(candidates.get(d.candidateIds[0])!);
+    setCursor((c) => cursorAt(top, d.id, c));
+    setReveal((r) => ({ seq: r.seq + 1, focus: true }));
   };
 
   return (
-    <aside className="review">
+    // tabIndex -1: a click on the panel's background keeps focus in the panel, so the review keys work.
+    <aside className="review" aria-label="Review" tabIndex={-1}>
       <header>
-        <h2>
-          {top.length} {top.length === 1 ? 'decision' : 'decisions'}
-          {state.phase === 'checking' && <span className="hint"> · checking…</span>}
-        </h2>
+        <h2 aria-live="polite">{progressLabel(progress)}</h2>
+        <div className="progress-bar" aria-hidden="true">
+          <span style={{ width: `${progress.total ? ((progress.total - progress.left) / progress.total) * 100 : 100}%` }} />
+        </div>
         <DepthSlider value={session.depth} onChange={(d) => controller.setDepth(d)} />
       </header>
 
       <div ref={cardSlot} className="card-slot" role="group" tabIndex={-1} aria-label="Current decision">
-        {current?.kind === 'names' && <NamesCard key={current.id} controller={controller} card={current} candidates={candidates} />}
-        {current?.kind === 'terms' && <TermsCard key={current.id} controller={controller} card={current} />}
-        {current?.kind === 'otherLanguage' && (
-          <OtherLanguageCard key={current.id} controller={controller} card={current} candidates={candidates} />
-        )}
-        {current && current.kind !== 'names' && current.kind !== 'terms' && current.kind !== 'otherLanguage' && (
-          <DecisionCard
-            key={current.id}
-            controller={controller}
-            decision={current}
-            candidates={candidates}
-            paraText={paraText}
-            onSkip={() => skip(current.id)}
-            onLocate={onLocate}
-          />
-        )}
+        {current && cardFor(current)}
       </div>
-      {!current && (
-        <p className="done">
-          {skipped.length ? `${skipped.length} skipped. ` : 'Nothing left to decide. '}
-          {skipped.length > 0 && <button onClick={() => setSkipped([])}>Show skipped</button>}
+      {current ? (
+        <p className="key-legend hint">
+          <Kbd>Enter</Kbd> accept · <Kbd>Backspace</Kbd> reject · <Kbd>J</Kbd> / <Kbd>K</Kbd> next / previous
         </p>
+      ) : (
+        <div className="done-state">
+          <p>
+            <strong>All reviewed.</strong> {autoFixed} {autoFixed === 1 ? 'fix was' : 'fixes were'} made automatically.
+          </p>
+          <div className="actions">
+            <button onClick={onShowLog}>See the change log</button>
+            <button className="primary" onClick={onSave}>
+              Save
+            </button>
+          </div>
+        </div>
       )}
 
-      {more.length > 0 && (
-        <details className="more">
-          <summary>More ({more.length})</summary>
-          <ul>
-            {more.map((d) => (
-              <li key={d.id} className={d.id === current?.id ? 'current' : undefined}>
-                <button className="row-label" onClick={() => pick(d)}>
-                  {decisionTitle(d, candidates.get(d.candidateIds[0])!)}
-                </button>
-                <button className="row-action" onClick={() => pick(d)}>
-                  Review
-                </button>
-              </li>
-            ))}
-          </ul>
-        </details>
-      )}
+      <MoreList more={more} currentId={current?.id} candidates={candidates} onPick={pick} />
     </aside>
   );
+
+  function cardFor(d: Decision) {
+    if (d.kind === 'names') return <NamesCard key={d.id} controller={controller} card={d} candidates={candidates} />;
+    if (d.kind === 'terms') return <TermsCard key={d.id} controller={controller} card={d} />;
+    if (d.kind === 'otherLanguage') return <OtherLanguageCard key={d.id} controller={controller} card={d} candidates={candidates} />;
+    return (
+      <DecisionCard
+        key={d.id}
+        controller={controller}
+        decision={d}
+        candidates={candidates}
+        paraText={paraText}
+        onNext={() => setCursor((c) => moveCursor(top, more, c, 1))}
+        onLocate={onLocate}
+      />
+    );
+  }
 }

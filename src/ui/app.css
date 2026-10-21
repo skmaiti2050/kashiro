@@ -14,8 +14,22 @@
   --scroll-track: #efece6;
   --scroll-thumb: #b9b3aa;
   --scroll-thumb-hover: #8f887e;
-  font-family: system-ui, 'Segoe UI', sans-serif;
+  /*
+   * Underline categories (src/ui/state/categories.ts): Okabe–Ito based, each ≥ 4.5:1 on --bg and --panel
+   * in both themes (ratios in the U1 report). Style and glyph carry the category too, never colour alone.
+   */
+  --cat-correctness: #c2410c;
+  --cat-clarity: #0072b2;
+  --cat-style: #7e57c2;
+  --cat-terms: #007a5e;
+  --cat-ai: #8a6d00;
+  --cat-names: #5f6b7a;
+  /* Windows 11 type ramp: chrome in Segoe UI Variable (Text optical size), Body 14/20. */
+  --ui-font: 'Segoe UI Variable Text', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+  --reading-font: Georgia, 'Times New Roman', serif;
+  font-family: var(--ui-font);
   font-size: 14px;
+  line-height: 20px;
   color: var(--ink);
   background: var(--bg);
 }
@@ -37,6 +51,12 @@
     --scroll-track: #26292d;
     --scroll-thumb: #555b62;
     --scroll-thumb-hover: #7a818a;
+    --cat-correctness: #ff8a50;
+    --cat-clarity: #56b4e9;
+    --cat-style: #c4a7f0;
+    --cat-terms: #3cc9a0;
+    --cat-ai: #e6c34a;
+    --cat-names: #a0aab8;
   }
 }
 
@@ -153,8 +173,62 @@ select {
 
 .app {
   display: grid;
-  grid-template-rows: auto auto 1fr auto;
+  grid-template-rows: auto auto 1fr auto auto;
   height: 100vh;
+}
+
+/* Explicit rows: the banner is often absent, and auto-placement would then stretch the status bar. */
+.toolbar {
+  grid-row: 1;
+}
+
+.banner {
+  grid-row: 2;
+}
+
+.workspace {
+  grid-row: 3;
+}
+
+.statusbar {
+  grid-row: 4;
+}
+
+.changelog {
+  grid-row: 5;
+}
+
+/* Visible focus everywhere (WCAG 2.4.7 / 2.4.13): 2 px in the accent colour, outside the control. */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* A muted key hint on a button ("Enter"), so the shortcut is learnt by seeing it. */
+.key-hint {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 4px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  font-family: var(--ui-font);
+  font-size: 11px;
+  line-height: 14px;
+  opacity: 0.75;
+}
+
+.key-legend {
+  margin: -8px 0 16px;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.key-legend .key-hint {
+  margin: 0 2px;
 }
 
 /* Toolbar */
@@ -210,17 +284,60 @@ select {
   border-radius: 6px;
 }
 
-.save-menu .menu {
+.save-menu .menu,
+.menu-anchor .menu {
   position: absolute;
   right: 0;
   top: 110%;
   z-index: 10;
-  width: 240px;
+  width: 320px;
   padding: 8px;
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 8px;
   box-shadow: 0 6px 20px rgb(0 0 0 / 12%);
+}
+
+.save-choice {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.save-choice strong {
+  display: block;
+  font-weight: 600;
+}
+
+.save-choice .hint {
+  display: block;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.menu-anchor {
+  position: relative;
+  display: inline-block;
+}
+
+.menu-anchor .menu {
+  left: 0;
+  right: auto;
+  width: 280px;
+  display: grid;
+  gap: 2px;
+}
+
+.menu-anchor .menu button {
+  border: none;
+  text-align: left;
+  padding: 6px 8px;
+}
+
+.menu-anchor .menu button:hover {
+  background: var(--bg);
 }
 
 fieldset {
@@ -288,11 +405,20 @@ legend {
   outline: none;
 }
 
+/* Reading typography: a 17 px reading face, line height 1.6, a ~70-character measure, centred. */
 .editor .cm-scroller {
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: 16px;
-  line-height: 1.7;
-  padding: 16px 24px;
+  font-family: var(--reading-font);
+  font-size: 17px;
+  line-height: 1.6;
+  padding: 24px;
+  /* Keeps a focused underline clear of the pane's edges (WCAG 2.4.11 focus not obscured). */
+  scroll-padding-block: 32px;
+}
+
+.editor .cm-content {
+  max-width: 70ch;
+  margin: 0 auto;
+  flex-grow: 1;
 }
 
 .cm-old {
@@ -314,15 +440,71 @@ legend {
   font-weight: normal;
 }
 
+/* The current card's text: a 2 px ring in the accent colour plus a light tint. */
 .cm-focus {
-  background: color-mix(in srgb, var(--pending) 28%, transparent);
-  outline: 2px solid var(--pending);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
   border-radius: 2px;
 }
 
+/* One rule per category: colour, line style and thickness (state/categories.ts holds the glyphs). */
+.cat-correctness {
+  --cat-color: var(--cat-correctness);
+  --cat-line: wavy;
+  --cat-thickness: 1.5px;
+}
+
+.cat-clarity {
+  --cat-color: var(--cat-clarity);
+  --cat-line: solid;
+  --cat-thickness: 2px;
+}
+
+.cat-style {
+  --cat-color: var(--cat-style);
+  --cat-line: dashed;
+  --cat-thickness: 2px;
+}
+
+.cat-terms {
+  --cat-color: var(--cat-terms);
+  --cat-line: double;
+  --cat-thickness: 1px;
+}
+
+.cat-ai {
+  --cat-color: var(--cat-ai);
+  --cat-line: dotted;
+  --cat-thickness: 2px;
+}
+
+.cat-names {
+  --cat-color: var(--cat-names);
+  --cat-line: dotted;
+  --cat-thickness: 1.5px;
+}
+
 .cm-pending {
-  text-decoration: underline wavy var(--pending);
+  text-decoration-line: underline;
+  text-decoration-style: var(--cat-line, wavy);
+  text-decoration-color: var(--cat-color, var(--pending));
+  text-decoration-thickness: var(--cat-thickness, 1.5px);
+  text-decoration-skip-ink: none;
   text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.category {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.category .glyph {
+  color: var(--cat-color);
+  font-weight: 600;
 }
 
 /* Review panel */
@@ -331,11 +513,126 @@ legend {
   background: var(--panel);
   padding: 12px 16px;
   overflow-y: auto;
+  /* Keeps the scrolled-to card clear of the panel's edges. */
+  scroll-padding-block: 16px;
 }
 
+/* Progress header (Body Large 18/24): "4 of 9 left · ~1 min", never a score. */
 .review header h2 {
-  margin: 0 0 8px;
+  margin: 0 0 6px;
   font-size: 18px;
+  line-height: 24px;
+  font-weight: 600;
+}
+
+.progress-bar {
+  height: 4px;
+  margin-bottom: 12px;
+  border-radius: 2px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.progress-bar span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .progress-bar span {
+    transition: width 160ms ease-out;
+  }
+}
+
+.done-state {
+  margin: 16px 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.done-state p {
+  margin: 0 0 8px;
+}
+
+/* The batch preview: one ticked line per place. */
+.batch-preview .members li {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.member-check {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: 8px;
+}
+
+.member-check .diff {
+  margin: 0;
+}
+
+/* Status bar (Caption 12/16): the offline promise, word count, variant, check status. */
+.statusbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 24px;
+  padding: 2px 12px;
+  border-top: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.statusbar .offline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink);
+}
+
+.statusbar .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cat-terms);
+}
+
+/* Empty document pane: two ways in, the privacy line, and the sample. */
+.empty-state {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  max-width: 420px;
+  padding: 32px;
+  text-align: center;
+}
+
+.empty-state h2 {
+  margin: 0;
+  font-size: 28px;
+  line-height: 36px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.empty-state p {
+  margin: 0;
+}
+
+.empty-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.empty-actions button {
+  padding: 8px 16px;
+}
+
+.empty-state .privacy {
+  color: var(--ink);
 }
 
 .depth {
@@ -355,7 +652,9 @@ legend {
 
 .card h3 {
   margin: 0 0 4px;
-  font-size: 15px;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
 }
 
 .card .kind {
@@ -370,9 +669,9 @@ legend {
 }
 
 .diff {
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--reading-font);
   font-size: 15px;
-  line-height: 1.6;
+  line-height: 22px;
 }
 
 .diff del,
@@ -468,8 +767,13 @@ legend {
   border-radius: 8px;
 }
 
-.card-slot:focus {
+.card-slot:focus,
+.review:focus {
   outline: none;
+}
+
+.diff ins {
+  margin-left: 2px;
 }
 
 .card-slot:focus-visible {
@@ -498,7 +802,7 @@ button.link {
   padding: 0 4px;
   color: var(--accent);
   text-decoration: underline;
-  font-family: system-ui, 'Segoe UI', sans-serif;
+  font-family: var(--ui-font);
   font-size: 13px;
 }
 
@@ -587,4 +891,48 @@ button.link {
   border: 2px dashed var(--line);
   border-radius: 10px;
   color: var(--muted);
+}
+
+/*
+ * Windows contrast themes: the system picks every colour, so underlines use CanvasText and the current
+ * one Highlight; the category stays readable from the line style and the card's glyph.
+ */
+@media (forced-colors: active) {
+  .cm-pending {
+    text-decoration-color: CanvasText;
+  }
+
+  .cm-focus {
+    outline-color: Highlight;
+    background: transparent;
+  }
+
+  .category .glyph {
+    color: CanvasText;
+  }
+
+  .statusbar .dot {
+    background: CanvasText;
+    forced-color-adjust: none;
+  }
+
+  .progress-bar span {
+    background: Highlight;
+    forced-color-adjust: none;
+  }
+
+  .key-hint {
+    border-color: CanvasText;
+  }
+}
+
+/* Reduced motion: instant swaps, no smooth scrolling (the panel also checks this before scrolling). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
 }

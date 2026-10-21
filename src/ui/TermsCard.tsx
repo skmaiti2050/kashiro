@@ -1,5 +1,6 @@
 import type { Decision } from '@/engine/decisions';
 import type { SessionController } from './state/sessionController';
+import { CategoryTag } from './CategoryTag';
 import { WordTickList } from './WordTickList';
 
 interface Props {
@@ -19,6 +20,7 @@ export function TermsCard({ controller, card }: Props) {
 
   return (
     <div className="card terms">
+      <CategoryTag category="terms" />
       <h3>{card.label}</h3>
       <p className="hint">Words the dictionary doesn't know, spelled the same way every time. Untick any that are real typos.</p>
       <WordTickList

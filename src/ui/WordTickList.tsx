@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import { Kbd } from './Kbd';
 import { isTicked, NO_TICKS, tickSummary, toggleTick } from './state/cardTicks';
 
 interface Props {
@@ -38,8 +39,8 @@ export function WordTickList({ words, flagged, detail, onAdd }: Props) {
         })}
       </ul>
       <div className="actions">
-        <button className="primary" onClick={() => onAdd(keepAsTypos, tickedFlagged)}>
-          {addLabel}
+        <button className="primary" data-key="accept" aria-keyshortcuts="Enter" onClick={() => onAdd(keepAsTypos, tickedFlagged)}>
+          {addLabel} <Kbd>Enter</Kbd>
         </button>
       </div>
     </>

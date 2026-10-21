@@ -2,71 +2,116 @@ import { useState } from 'react';
 import type { Decision } from '@/engine/decisions';
 import type { Candidate } from '@/engine/types';
 import { WORD_REWRITE_KINDS } from '@/engine/wordFlags';
-import { decisionTitle, excerpt } from './state/labels';
+import { BatchPreview } from './BatchPreview';
+import { CategoryTag } from './CategoryTag';
+import { Diff } from './Diff';
+import { DismissMenu } from './DismissMenu';
+import { Kbd } from './Kbd';
+import { categoryOf } from './state/categories';
+import { batchApplyLabel, decisionTitle, excerpt } from './state/labels';
 import type { SessionController } from './state/sessionController';
-
-const CONTEXT_CHARS = 40;
 
 interface Props {
   controller: SessionController;
   decision: Decision;
   candidates: Map<string, Candidate>;
   paraText: Map<number, string>;
-  onSkip(): void;
+  /** Moves to the next card without deciding (J). */
+  onNext(): void;
   /** Shows a candidate in the document view (highlighted and scrolled into view). */
   onLocate(candidate: Candidate): void;
 }
 
 /**
  * One decision as a before/after diff. A fix offers Accept (per suggestion) / Reject; a flag with
- * nothing to apply ("This sentence is 42 words long") offers only Dismiss. Batches add Apply all /
- * See each and "Next place"; word flags add Add to dictionary / Ignore all.
+ * nothing to apply ("This sentence is 42 words long") offers only Dismiss. Batches apply after a
+ * preview, plus "Next place" / "See each"; word flags add Add to dictionary / Ignore all. Rules flags
+ * (not word flags, not AI rewrites) get the Dismiss ▾ scope menu. `data-key` marks the buttons the
+ * review keys press (Enter: accept, Backspace: reject).
  */
-export function DecisionCard({ controller, decision, candidates, paraText, onSkip, onLocate }: Props) {
+export function DecisionCard({ controller, decision, candidates, paraText, onNext, onLocate }: Props) {
   const [seeEach, setSeeEach] = useState(false);
   const [place, setPlace] = useState(0);
+  /** The replacement index whose "Apply all" preview is open. */
+  const [preview, setPreview] = useState<number | null>(null);
   const members = decision.candidateIds.map((id) => candidates.get(id)!);
   const first = members[0];
   const shown = members[place % members.length];
   const isBatch = decision.kind === 'batch';
   const isWordFlag = WORD_REWRITE_KINDS.has(first.kind);
   const flagOnly = first.replacements.length === 0;
+  const category = categoryOf(first, decision.kind);
+  const canIgnoreRule = !isWordFlag && first.source !== 'llm' && first.source !== 'hygiene';
+  const accept = (i: number) => (isBatch ? setPreview(i) : controller.accept(decision.id, i));
 
   return (
     <div className="card" title="Click to show it in the document" onClick={() => onLocate(shown)}>
+      <CategoryTag category={category} kind={first.kind} />
       <h3 className="card-title">{decisionTitle(decision, first)}</h3>
-      <p className="kind">
-        <span className="kind-name">{first.kind}</span> {first.message}
-      </p>
+      <p className="kind">{first.message}</p>
       <Diff candidate={shown} replacement={shown.replacements[0]} paraText={paraText} />
-      <div className="actions" onClick={(e) => e.stopPropagation()}>
-        {first.replacements.map((r, i) => (
-          <button key={i} className={i === 0 ? 'primary' : ''} onClick={() => controller.accept(decision.id, i)}>
-            {acceptLabel(r, first.replacements.length, isBatch, members.length)}
-          </button>
-        ))}
-        <button className={flagOnly ? 'primary' : ''} onClick={() => controller.reject(decision.id)}>
-          {flagOnly ? (isBatch ? 'Dismiss all' : 'Dismiss') : isBatch ? 'Reject all' : 'Reject'}
-        </button>
-        {isWordFlag && <button onClick={() => void controller.addToDictionary(decision.id)}>Add to dictionary</button>}
-        {isWordFlag && isBatch && <button onClick={() => controller.ignoreAll(decision.id)}>Ignore all</button>}
-        {isBatch && (
+      {preview !== null ? (
+        <BatchPreview
+          members={members}
+          replacementIndex={preview}
+          paraText={paraText}
+          onApply={(ids) => {
+            // Unticked places stay as a smaller batch under the same id: show its card, not the preview.
+            setPreview(null);
+            controller.applyBatch(decision.id, ids, preview);
+          }}
+          onCancel={() => setPreview(null)}
+        />
+      ) : (
+        <div className="actions" onClick={(e) => e.stopPropagation()}>
+          {first.replacements.map((r, i) => (
+            <button
+              key={i}
+              className={i === 0 ? 'primary' : ''}
+              data-key={i === 0 ? 'accept' : undefined}
+              aria-keyshortcuts={i === 0 ? 'Enter' : undefined}
+              onClick={() => accept(i)}
+            >
+              {acceptLabel(first, r, isBatch, members.length)}
+              {i === 0 && <Kbd>Enter</Kbd>}
+            </button>
+          ))}
           <button
-            onClick={() => {
-              const next = (place + 1) % members.length;
-              setPlace(next);
-              onLocate(members[next]);
-            }}
+            className={flagOnly ? 'primary' : ''}
+            data-key={flagOnly ? 'accept reject' : 'reject'}
+            aria-keyshortcuts={flagOnly ? 'Enter Backspace' : 'Backspace'}
+            onClick={() => controller.reject(decision.id)}
           >
-            Next place ({(place % members.length) + 1}/{members.length})
+            {flagOnly ? (isBatch ? 'Dismiss all' : 'Dismiss') : isBatch ? 'Reject all' : 'Reject'} <Kbd>Backspace</Kbd>
           </button>
-        )}
-        {isBatch && <button onClick={() => setSeeEach((v) => !v)}>{seeEach ? 'Hide places' : 'See each'}</button>}
-        <button className="quiet" onClick={onSkip}>
-          Skip
-        </button>
-      </div>
-      {isBatch && seeEach && (
+          {canIgnoreRule && (
+            <DismissMenu
+              rule={first.kind}
+              thisOneLabel={isBatch ? `These ${members.length} places` : 'This one'}
+              onThisOne={() => controller.reject(decision.id)}
+              onRule={(scope) => controller.ignoreRule(first.kind, scope)}
+            />
+          )}
+          {isWordFlag && <button onClick={() => void controller.addToDictionary(decision.id)}>Add to dictionary</button>}
+          {isWordFlag && isBatch && <button onClick={() => controller.ignoreAll(decision.id)}>Ignore all</button>}
+          {isBatch && (
+            <button
+              onClick={() => {
+                const next = (place + 1) % members.length;
+                setPlace(next);
+                onLocate(members[next]);
+              }}
+            >
+              Next place ({(place % members.length) + 1}/{members.length})
+            </button>
+          )}
+          {isBatch && <button onClick={() => setSeeEach((v) => !v)}>{seeEach ? 'Hide places' : 'See each'}</button>}
+          <button className="quiet" aria-keyshortcuts="J" onClick={onNext}>
+            Next card <Kbd>J</Kbd>
+          </button>
+        </div>
+      )}
+      {isBatch && seeEach && preview === null && (
         <ol className="members" onClick={(e) => e.stopPropagation()}>
           {members.map((c) => (
             <li key={c.id}>
@@ -85,46 +130,11 @@ export function DecisionCard({ controller, decision, candidates, paraText, onSki
   );
 }
 
-function acceptLabel(replacement: string, choices: number, isBatch: boolean, places: number): string {
+/** "Accept", "Use “its”", or for a batch its count and kind: "Apply all 12 formatting fixes" (opens the preview). */
+function acceptLabel(first: Candidate, replacement: string, isBatch: boolean, places: number): string {
   const what = replacement === '' ? 'delete' : `“${excerpt(replacement).text}”`;
-  if (isBatch && choices === 1) return `Apply all (${places})`;
-  if (isBatch) return `Apply ${what} to all`;
+  const choices = first.replacements.length;
+  if (isBatch && choices === 1) return batchApplyLabel(first.kind, places);
+  if (isBatch) return `Apply ${what} to all ${places}…`;
   return choices === 1 ? 'Accept' : `Use ${what}`;
-}
-
-/**
- * The text around the candidate with the original struck through and the replacement inserted. A long
- * original (a whole sentence flagged for length) is cut to its first words, with "Show more".
- */
-export function Diff({ candidate, replacement, paraText }: { candidate: Candidate; replacement?: string; paraText: Map<number, string> }) {
-  const [full, setFull] = useState(false);
-  const text = paraText.get(candidate.paraId) ?? '';
-  const { start, end } = candidate.span;
-  const original = text.slice(start, end);
-  const short = excerpt(original);
-  const shownOriginal = full || !short.cut ? original : short.text;
-  const from = Math.max(0, start - CONTEXT_CHARS);
-  const to = Math.min(text.length, end + CONTEXT_CHARS);
-  const isFix = replacement !== undefined;
-  return (
-    <p className="diff">
-      {from > 0 && '…'}
-      {text.slice(from, start)}
-      {end > start && (isFix ? <del>{shownOriginal}</del> : <mark>{shownOriginal}</mark>)}
-      {isFix && replacement !== '' && <ins>{replacement}</ins>}
-      {(full || !short.cut) && text.slice(end, to)}
-      {(full || !short.cut) && to < text.length && '…'}
-      {short.cut && (
-        <button
-          className="link"
-          onClick={(e) => {
-            e.stopPropagation();
-            setFull((v) => !v);
-          }}
-        >
-          {full ? 'Show less' : 'Show more'}
-        </button>
-      )}
-    </p>
-  );
 }
