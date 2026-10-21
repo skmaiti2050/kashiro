@@ -4,6 +4,7 @@ import { followsAbbreviation, overlapsLocked } from './factLock';
 import { HAS_DIGIT, isCodeNoiseFlag, isSlipFix, UPPER_START, WORD_REWRITE_KINDS } from './wordFlags';
 import { overlaps } from './sessionTypes';
 import { isRomanisedIndic } from './romanised/classifier';
+import { DEFAULT_MODULES, type ModuleSwitches } from './modules';
 
 // Public paths stay `engine/tiers`; the implementations live next to their own helpers.
 export { buildDecisions, foldsUnderMore, type Decision } from './decisions';
@@ -27,6 +28,8 @@ export interface TierContext {
   foreignSentences?: Map<number, Span[]>;
   /** paraId → sentences with a romanised Indian-language word (findRomanisedSentences): no two-letter fix there. */
   romanisedSentences?: Map<number, Span[]>;
+  /** The optional modules this check runs with (default DEFAULT_MODULES). */
+  modules?: ModuleSwitches;
 }
 
 const SAFE_RULE_KINDS = new Set(['Spelling', 'Typo', 'Repetition', 'Punctuation', 'Capitalization', 'Formatting']);
@@ -96,8 +99,10 @@ function isStyleChoice(c: Candidate): boolean {
  * romanised word (Punjabi "te" in "dhaba te ate makki di roti"): its one-letter "fix" would change the language.
  */
 function isOtherLanguageWord(c: Candidate, ctx: TierContext): boolean {
+  // The classifier needs the other-languages module's model; the foreign-sentence check below needs none.
+  const classifierOn = (ctx.modules ?? DEFAULT_MODULES).otherLanguageCard;
   // Protection skips the English-frequency gate: "na" in "Come fast na" is common as N/A but still Hindi here.
-  if (isRomanisedIndic(c.original, true)) return true;
+  if (classifierOn && isRomanisedIndic(c.original, true)) return true;
   const inAny = (sentences: Map<number, Span[]> | undefined) => (sentences?.get(c.paraId) ?? []).some((s) => overlaps(c.span, s));
   return inAny(ctx.foreignSentences) || (c.original.length === 2 && inAny(ctx.romanisedSentences));
 }

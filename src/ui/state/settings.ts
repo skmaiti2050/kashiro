@@ -1,4 +1,5 @@
 import type { ReviewDepth } from '@/engine/depth';
+import { DEFAULT_MODULES, resolveModules, type ModuleSwitches } from '@/engine/modules';
 import type { PresetId } from '@/engine/presets';
 import { DEFAULT_TERM_MIN_REPEATS } from '@/engine/terms';
 import type { Tier, Variant } from '@/engine/types';
@@ -24,6 +25,10 @@ export interface Settings {
   termMinRepeats: number;
   /** Kinds dismissed with "This rule everywhere"; listed under Settings › Ignored rules with Restore. */
   ignoredRules: string[];
+  /** Settings › Modules: the optional helpers on or off, for every goal without its own. */
+  modules: ModuleSwitches;
+  /** Goals with their own module switches ("Use different modules for this goal"). */
+  modulesByPreset: Partial<Record<PresetId, ModuleSwitches>>;
 }
 
 /** Region → variant, for English locales; India also covers hi-IN, bn-IN and other Indian locales. */
@@ -53,5 +58,29 @@ export function defaultSettings(locale: string): Settings {
     depthByPreset: {},
     termMinRepeats: DEFAULT_TERM_MIN_REPEATS,
     ignoredRules: [],
+    modules: { ...DEFAULT_MODULES },
+    modulesByPreset: {},
   };
+}
+
+/**
+ * The saved settings over `defaults`. Module switches go through resolveModules, so a file saved before a
+ * module existed gets its default, and an unknown key (a hand-edited "factLock": false) is dropped.
+ */
+export function withSavedSettings(defaults: Settings, saved: Partial<Settings> | undefined): Settings {
+  if (!saved) return defaults;
+  const modulesByPreset: Settings['modulesByPreset'] = {};
+  for (const [preset, modules] of Object.entries(saved.modulesByPreset ?? {})) {
+    modulesByPreset[preset as PresetId] = resolveModules(modules);
+  }
+  return { ...defaults, ...saved, modules: resolveModules(saved.modules ?? defaults.modules), modulesByPreset };
+}
+
+/**
+ * The module switches for `preset` (default: the current goal): its own when it has them, else the shared
+ * ones. AI rewrites stay off until a model is downloaded, whatever the switch says.
+ */
+export function modulesFor(settings: Settings, preset: PresetId = settings.preset): ModuleSwitches {
+  const modules = settings.modulesByPreset[preset] ?? settings.modules;
+  return { ...modules, aiRewrites: modules.aiRewrites && settings.modelPath !== null };
 }

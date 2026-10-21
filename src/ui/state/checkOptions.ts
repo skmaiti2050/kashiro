@@ -1,7 +1,7 @@
 import { DEFAULT_DEPTH, type ReviewDepth } from '@/engine/depth';
 import type { CheckOptions } from '@/engine/session';
 import type { Variant } from '@/engine/types';
-import type { Settings } from './settings';
+import { modulesFor, type Settings } from './settings';
 
 /** The review depth saved for the current preset, or the engine's default. */
 export function currentDepth(settings: Settings): ReviewDepth {
@@ -25,5 +25,6 @@ export function checkOptions(
     tierOverrides: settings.tierOverrides,
     depth: currentDepth(settings),
     termMinRepeats: settings.termMinRepeats,
+    modules: modulesFor(settings),
   };
 }

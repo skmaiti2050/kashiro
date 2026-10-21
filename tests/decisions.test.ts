@@ -14,6 +14,7 @@ import path from 'node:path';
 import { CheckSession, TRACKED_CHANGE_REASON } from '@/engine/session';
 import type { Decision } from '@/engine/tiers';
 import { createLinter, type RulesLinter } from '@/engine/linter';
+import { DEFAULT_MODULES } from '@/engine/modules';
 import type { PresetId } from '@/engine/presets';
 import type { Candidate } from '@/engine/types';
 import { adapterFor } from '@/formats/registry';
@@ -98,10 +99,11 @@ async function measureDoc(doc: Doc): Promise<Measure> {
   const { paras } = await adapter.read(new Uint8Array(fs.readFileSync(path.join(REF, doc.file))));
   const session = await CheckSession.start(
     paras,
-    { preset: doc.preset, fallbackVariant: 'American', language: adapter.language, dictionary: [], depth: 'standard' },
+    { preset: doc.preset, fallbackVariant: 'American', language: adapter.language, dictionary: [], depth: 'standard', modules: DEFAULT_MODULES },
     { linter },
   );
   expect(session.depth).toBe('standard'); // the budget is measured at the default depth
+  expect(session.modules).toEqual(DEFAULT_MODULES); // and with the default modules
   const words = countWords(paras);
   const top = session.decisionCount();
   const ranked = session.rankedDecisionCount();

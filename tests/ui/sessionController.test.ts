@@ -8,6 +8,7 @@ import { defaultSettings, type Settings } from '@/ui/state/settings';
 import { highlightRanges, locateCandidate } from '@/ui/state/highlights';
 import { progressOf } from '@/ui/state/progress';
 import { buildDocx } from '../fixtures/make_docx';
+import { DEFAULT_MODULES } from '@/engine/modules';
 
 let shared: RulesLinter;
 let lintCalls = 0;
@@ -661,5 +662,62 @@ describe('SessionController: U1 review flow', () => {
     await vi.advanceTimersByTimeAsync(300);
     await controller.settled();
     expect(controller.getState().checking).toBe(false);
+  });
+});
+
+describe('SessionController: modules (U2)', () => {
+  const cardKinds = (controller: SessionController) => {
+    const { top, more } = controller.getState().session!.decisions();
+    return [...top, ...more].map((d) => d.kind);
+  };
+
+  it('checks with the saved switches, and switching one re-checks the open document and saves it', async () => {
+    const { controller, saved } = makeController({ settings: { modules: { ...DEFAULT_MODULES, namesCard: false } } });
+    await controller.openSample();
+    expect(controller.getState().session!.modules).toEqual({ ...DEFAULT_MODULES, namesCard: false });
+    expect(cardKinds(controller)).not.toContain('names');
+    expect(cardKinds(controller)).toContain('terms');
+    controller.setModule('termsCard', false);
+    await controller.settled();
+    expect(cardKinds(controller)).not.toContain('terms');
+    expect(saved.at(-1)!.modules).toEqual({ ...DEFAULT_MODULES, namesCard: false, termsCard: false });
+  });
+
+  it('a goal with its own modules: switches change only that goal, and turning the override off goes back to the shared ones', async () => {
+    const { controller, saved } = makeController(); // preset: academic
+    await controller.openSample();
+    controller.useModulesForPreset(true);
+    controller.setModule('namesCard', false);
+    await controller.settled();
+    expect(saved.at(-1)!.modulesByPreset).toEqual({ academic: { ...DEFAULT_MODULES, namesCard: false } });
+    expect(saved.at(-1)!.modules).toEqual(DEFAULT_MODULES);
+    expect(cardKinds(controller)).not.toContain('names');
+
+    controller.setPreset('blog');
+    await controller.settled();
+    expect(cardKinds(controller)).toContain('names');
+    controller.setPreset('academic');
+    await controller.settled();
+    expect(cardKinds(controller)).not.toContain('names');
+
+    controller.useModulesForPreset(false);
+    await controller.settled();
+    expect(saved.at(-1)!.modulesByPreset).toEqual({});
+    expect(cardKinds(controller)).toContain('names');
+  });
+
+  it('word lookup loads the dictionary only while it is on; AI rewrites start no helper while off', async () => {
+    const dictionary = { lookup: vi.fn() };
+    const loadDictionary = vi.fn(async () => dictionary);
+    const startHelper = vi.fn(async () => ({ rewrite: async () => null }));
+    const { controller } = makeController({ loadDictionary, startHelper });
+    expect(await controller.dictionary()).toBe(dictionary);
+    expect(controller.helper()).toBeNull(); // off by default
+    controller.setModule('wordLookup', false);
+    expect(controller.dictionary()).toBeNull();
+    controller.setModule('wordLookup', true);
+    await controller.dictionary();
+    expect(loadDictionary).toHaveBeenCalledTimes(2); // dropped when switched off, loaded again
+    expect(startHelper).not.toHaveBeenCalled();
   });
 });

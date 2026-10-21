@@ -55,9 +55,18 @@ const NEIGHBOUR_KEYS: ReadonlySet<string> = (() => {
  * `paraText` is the flag's paragraph and `locked` its fact-locked spans.
  */
 export function improveSuggestions(c: Candidate, paraText?: string, locked?: Span[]): Candidate {
-  const allowed = writtenOnPurpose(c.original) ? c.replacements : c.replacements.filter((r) => !isOffensive(r));
-  if (!canImprove(c, paraText, locked)) return withReplacements(c, allowed);
-  return withReplacements(c, improvedList(c.original, allowed));
+  const filtered = withoutOffensiveSuggestions(c);
+  if (!canImprove(c, paraText, locked)) return filtered;
+  return withReplacements(c, improvedList(c.original, filtered.replacements));
+}
+
+/**
+ * The flag without offensive suggestions, unless the original was written on purpose ("shitt"). A core
+ * protection: it runs whether or not the "better suggestions" module is on.
+ */
+export function withoutOffensiveSuggestions(c: Candidate): Candidate {
+  if (writtenOnPurpose(c.original)) return c;
+  return withReplacements(c, c.replacements.filter((r) => !isOffensive(r)));
 }
 
 /** Memo for improvedList: a word repeats in a document ("coinfection" ×20) and each 2-edit search costs a few ms. */

@@ -1,6 +1,9 @@
 import { CheckSession } from '@/engine/session';
 import type { ReviewDepth } from '@/engine/depth';
+import type { Dictionary } from '@/engine/dictionary/lookup';
 import type { RulesLinter } from '@/engine/linter';
+import type { Rewriter } from '@/engine/llm/suggest';
+import type { ModuleSwitches } from '@/engine/modules';
 import type { PresetId } from '@/engine/presets';
 import type { Variant } from '@/engine/types';
 import { adapterFor as registryAdapterFor } from '@/formats/registry';
@@ -13,7 +16,8 @@ import { readDocument, readTypedText, type LoadedFile, type OpenDocument } from 
 import { RecheckQueue } from './recheckQueue';
 import { SAMPLE_NAME, SAMPLE_TEXT } from './sample';
 import { saveDocument, saveReport, type Files, type OpenedFile } from './saveFlow';
-import type { Settings } from './settings';
+import { OptionalModules, type ModuleLoaders } from './optionalModules';
+import { modulesFor, type Settings } from './settings';
 import * as settingsActions from './settingsActions';
 
 export type { Files, OpenedFile, SavedFile } from './saveFlow';
@@ -29,6 +33,9 @@ export interface ControllerDeps {
   /** Defaults to the format registry; tests pass adapters that refuse edits. */
   adapterFor?: (fileName: string) => FormatAdapter | null;
   now?: () => Date;
+  /** Loaders of the optional data and helper modules (see OptionalModules). */
+  loadDictionary?: ModuleLoaders['loadDictionary'];
+  startHelper?: ModuleLoaders['startHelper'];
 }
 
 export interface ControllerState {
@@ -87,10 +94,17 @@ export class SessionController {
     markUnsaved: () => (this.unsaved = true),
     dropLinter: () => (this.linter = null),
     recheck: () => this.recheck(),
+    modulesChanged: async () => {
+      // With a document open, the check that follows drops what the old switches held (see check).
+      if (this.loaded) return this.recheck();
+      this.optional.release(modulesFor(this.state.settings));
+    },
   };
+  private readonly optional: OptionalModules;
 
   constructor(private readonly deps: ControllerDeps) {
     this.adapterFor = deps.adapterFor ?? registryAdapterFor;
+    this.optional = new OptionalModules({ loadDictionary: deps.loadDictionary, startHelper: deps.startHelper });
     this.state = {
       phase: 'empty',
       document: null,
@@ -232,6 +246,8 @@ export class SessionController {
       session.setDepth(currentDepth(this.state.settings));
       if (before) carryDecisions(before, session, matchUnchangedParagraphs(before.paragraphs(), loaded.paras));
       this.set({ phase: 'ready', session, checking: this.queue.waiting });
+      // Only now: the session this one replaces may have needed what a switched-off module held.
+      this.optional.release(session.modules);
     } catch (e) {
       if (run !== this.checks) return;
       this.set({ phase: this.state.session ? 'ready' : 'empty', error: `The check failed: ${message(e)}`, checking: this.queue.waiting });
@@ -343,6 +359,26 @@ export class SessionController {
 
   async removeWord(word: string): Promise<void> {
     await settingsActions.removeWord(this.settingsHost, word);
+  }
+
+  /** See settingsActions.setModule. */
+  setModule(name: keyof ModuleSwitches, on: boolean): void {
+    settingsActions.setModule(this.settingsHost, name, on);
+  }
+
+  /** "Use different modules for this goal" (default: the current goal). */
+  useModulesForPreset(on: boolean, preset: PresetId = this.state.settings.preset): void {
+    settingsActions.useModulesForPreset(this.settingsHost, on, preset);
+  }
+
+  /** The offline dictionary, loaded on first use; null while word lookup is off. */
+  dictionary(): Promise<Dictionary> | null {
+    return this.optional.dictionary(modulesFor(this.state.settings));
+  }
+
+  /** The local writing helper, started on first use; null while AI rewrites are off. */
+  helper(): Promise<Rewriter> | null {
+    return this.optional.helper(modulesFor(this.state.settings));
   }
 
   /**

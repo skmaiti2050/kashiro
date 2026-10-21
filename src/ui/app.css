@@ -352,6 +352,14 @@ legend {
   margin-bottom: 4px;
 }
 
+/* Settings › Modules: the checkbox beside a two-line description */
+.module-switch {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px;
+  align-items: start;
+}
+
 /* Banner */
 .banner {
   margin: 0;

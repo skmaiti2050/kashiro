@@ -15,6 +15,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CheckSession } from '../src/engine/session';
+import { DEFAULT_MODULES } from '../src/engine/modules';
 import type { PresetId } from '../src/engine/presets';
 import { adapterFor } from '../src/formats/registry';
 import { acceptAllRules } from '../cli/run';
@@ -167,7 +168,11 @@ async function factLockGate(job: Job): Promise<string> {
     language: adapter.language,
     dictionary: [],
     depth: 'standard', // the trust suite always measures the default depth
+    modules: DEFAULT_MODULES, // and the default modules
   });
+  if (JSON.stringify(session.modules) !== JSON.stringify(DEFAULT_MODULES)) {
+    fail(`modules ${job.rel}: the trust suite must run with the default modules, got ${JSON.stringify(session.modules)}`);
+  }
   const auto = session.outcomes().filter((o) => o.status === 'applied' && o.auto);
   const badAuto = auto.filter((o) => session.touchesLocked(o.candidate.id));
   acceptAllRules(session);

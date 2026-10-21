@@ -2,6 +2,7 @@ import { DEFAULT_DEPTH } from '@/engine/depth';
 import { PRESETS } from '@/engine/presets';
 import type { Variant } from '@/engine/types';
 import { DepthSlider } from './DepthSlider';
+import { ModulesSettings } from './ModulesSettings';
 import { VARIANTS } from './Toolbar';
 import type { ControllerState, SessionController } from './state/sessionController';
 
@@ -94,6 +95,8 @@ export function SettingsPanel({ controller, state, onClose }: Props) {
           ))}
           <p className="hint">Never touches names, numbers, quotes or other protected text.</p>
         </fieldset>
+
+        <ModulesSettings controller={controller} settings={settings} />
 
         <fieldset>
           <legend>Ignored rules ({settings.ignoredRules.length})</legend>

@@ -1,5 +1,6 @@
 import type { ReviewDepth } from './depth';
 import type { RulesLinter } from './linter';
+import type { ModuleSwitches } from './modules';
 import type { PresetId } from './presets';
 import type { Candidate, Span, Tier, Variant } from './types';
 
@@ -18,6 +19,8 @@ export interface CheckOptions {
   depth?: ReviewDepth;
   /** Uses after which an unknown lowercase word goes on the terms card (spec §5): 2–5, default 3. */
   termMinRepeats?: number;
+  /** Optional helpers switched on or off (resolveModules: unset ones keep their defaults). */
+  modules?: Partial<ModuleSwitches>;
 }
 
 export interface SessionDeps {

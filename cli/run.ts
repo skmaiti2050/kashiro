@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { CheckSession, type CheckOptions } from '../src/engine/session';
 import { exportReport } from '../src/engine/report';
+import { DEFAULT_MODULES } from '../src/engine/modules';
 import { PRESETS, type PresetId } from '../src/engine/presets';
 import type { Variant } from '../src/engine/types';
 import { adapterFor } from '../src/formats/registry';
@@ -117,6 +118,8 @@ export async function run(argv: string[]): Promise<number> {
       fallbackVariant: localeVariant(),
       language: adapter.language,
       dictionary: [],
+      // The CLI (and so the trust suite) always checks with the default modules.
+      modules: DEFAULT_MODULES,
     };
     const session = await CheckSession.start(paras, opts);
     const safe = session.outcomes().filter((o) => o.status === 'applied' && o.auto).length;

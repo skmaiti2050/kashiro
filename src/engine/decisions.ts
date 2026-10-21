@@ -3,6 +3,7 @@ import { followsAbbreviation, overlapsLocked } from './factLock';
 import { isLikelyTypo, isNameFlag, TITLE_CASE_WORD, WORD_REWRITE_KINDS, withinOneEdit } from './wordFlags';
 import { DEFAULT_TERM_MIN_REPEATS, findTerms } from './terms';
 import { everydayWordNear, findOtherLanguageWords } from './otherLanguage';
+import { DEFAULT_MODULES, type ModuleSwitches } from './modules';
 
 export interface Decision {
   /** `batch:<key>` for a batch, the candidate id for a single, `names` / `terms` / `other-language` for the cards. */
@@ -151,6 +152,8 @@ interface DecisionOptions {
   termMinRepeats?: number;
   /** paraId → sentences mostly in another language (findForeignSentences), for findOtherLanguageWords. */
   foreignSentences?: ReadonlyMap<number, Span[]>;
+  /** Which cards to build (default DEFAULT_MODULES): a card switched off leaves its flags as per-word decisions. */
+  modules?: ModuleSwitches;
 }
 
 /** Decisions grouped by batch key, in first-appearance order. */
@@ -202,13 +205,17 @@ export function buildDecisions(
     blocked = () => false,
     termMinRepeats = DEFAULT_TERM_MIN_REPEATS,
     foreignSentences,
+    modules = DEFAULT_MODULES,
   }: DecisionOptions = {},
 ): { safe: string[]; decisions: Decision[]; demoted: string[]; blocked: Decision[] } {
   const reviewFlags = cands.filter((c) => (tiers.get(c.id) ?? 'review') === 'review');
-  const terms = paraText ? findTerms(reviewFlags, paraText, termMinRepeats, typoWords) : new Map<string, number>();
+  const terms =
+    paraText && modules.termsCard ? findTerms(reviewFlags, paraText, termMinRepeats, typoWords) : new Map<string, number>();
   // A term's capitalised uses ("Dosha" mid-sentence) join the terms card too: one word, one card.
   const isTermFlag = (c: Candidate) => WORD_REWRITE_KINDS.has(c.kind) && terms.has(c.original.toLowerCase());
-  const otherLanguage = findOtherLanguageWords(reviewFlags, typoWords, new Set(terms.keys()), foreignSentences);
+  const otherLanguage = modules.otherLanguageCard
+    ? findOtherLanguageWords(reviewFlags, typoWords, new Set(terms.keys()), foreignSentences)
+    : new Set<string>();
   const isOtherLanguageFlag = (c: Candidate) => WORD_REWRITE_KINDS.has(c.kind) && otherLanguage.has(c.original.toLowerCase());
   const safe: string[] = [];
   const wordOf = (c: Candidate) => (WORD_REWRITE_KINDS.has(c.kind) ? c.kind + c.original.toLowerCase() : null);
@@ -233,7 +240,7 @@ export function buildDecisions(
     const asWord = rankedAsWord(c);
     if (isTermFlag(c)) termFlags.push(c);
     else if (isOtherLanguageFlag(c)) otherLanguageFlags.push(c);
-    else if (isNameFlag(c) && !asWord) names.push(c);
+    else if (modules.namesCard && isNameFlag(c) && !asWord) names.push(c);
     else if (blocked(c)) blockedGroups.add(c);
     else if (!asWord && (fold(c) || (wordOf(c) !== null && lockedWords.has(wordOf(c)!)))) demoted.add(c);
     else normal.add(c);

@@ -1,4 +1,5 @@
 import type { ReviewDepth } from '@/engine/depth';
+import type { ModuleSwitches } from '@/engine/modules';
 import type { PresetId } from '@/engine/presets';
 import type { CheckSession } from '@/engine/session';
 import type { Variant } from '@/engine/types';
@@ -19,6 +20,8 @@ export interface SettingsHost {
   dropLinter(): void;
   /** Re-checks the open document, keeping the decisions on unchanged paragraphs. */
   recheck(): Promise<void>;
+  /** The module switches changed: re-checks the open document and drops what switched-off modules hold. */
+  modulesChanged(): Promise<void>;
 }
 
 /** The settings changeSettings takes. */
@@ -97,6 +100,31 @@ export async function addWords(host: SettingsHost, change: (s: CheckSession) => 
   const { dictionary } = host.state().settings;
   const known = new Set(dictionary);
   updateSettings(host, { dictionary: [...dictionary, ...session.addedWords().filter((w) => !known.has(w))] });
+}
+
+/** Settings › Modules: one switch, for the current goal when it has its own modules, else for every goal. */
+export function setModule(host: SettingsHost, name: keyof ModuleSwitches, on: boolean): void {
+  const { settings } = host.state();
+  const own = settings.modulesByPreset[settings.preset];
+  if (own) {
+    updateSettings(host, { modulesByPreset: { ...settings.modulesByPreset, [settings.preset]: { ...own, [name]: on } } });
+  } else {
+    updateSettings(host, { modules: { ...settings.modules, [name]: on } });
+  }
+  void host.modulesChanged();
+}
+
+/**
+ * "Use different modules for this goal": on starts `preset` with a copy of the shared switches; off drops
+ * its own, so it follows the shared ones again.
+ */
+export function useModulesForPreset(host: SettingsHost, on: boolean, preset: PresetId): void {
+  const { settings } = host.state();
+  const modulesByPreset = { ...settings.modulesByPreset };
+  if (on) modulesByPreset[preset] ??= { ...settings.modules };
+  else delete modulesByPreset[preset];
+  updateSettings(host, { modulesByPreset });
+  void host.modulesChanged();
 }
 
 /** Harper can't forget an imported word, so the linter is rebuilt without it. */

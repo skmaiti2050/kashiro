@@ -6,6 +6,7 @@ import { EditLedger } from './editLedger';
 import { prepareCheck } from './sessionSetup';
 import { DEFAULT_DEPTH, upFrontCount, type ReviewDepth } from './depth';
 import { countWords } from './words';
+import { DEFAULT_MODULES, type ModuleSwitches } from './modules';
 import { WORD_REWRITE_KINDS } from './wordFlags';
 import { sentenceWithEdits } from './sentences';
 import { lockedTokens, passesGuard, type GuardVerdict } from './llm/guard';
@@ -128,6 +129,7 @@ export class CheckSession {
       blocked: (c) => this.ledger.inTrackedChange.has(c.id),
       termMinRepeats: this.termMinRepeats,
       foreignSentences: this.ctx.foreignSentences,
+      modules: this.modules,
     });
     const topSize = upFrontCount(this.reviewDepth, this.words);
     return { top: decisions.slice(0, topSize), more: [...decisions.slice(topSize), ...blocked] };
@@ -135,6 +137,11 @@ export class CheckSession {
 
   get depth(): ReviewDepth {
     return this.reviewDepth;
+  }
+
+  /** The optional modules this check ran with. */
+  get modules(): ModuleSwitches {
+    return { ...(this.ctx.modules ?? DEFAULT_MODULES) };
   }
 
   /** Changes how many decisions show up front. Statuses and tiers are untouched. */
