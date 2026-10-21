@@ -48,6 +48,8 @@ export function Panel({ controller, request = null, onLocate = () => {} }: Panel
       keysEnabled
       onShowLog={() => {}}
       onSave={() => {}}
+      readAloud={null}
+      readCaret={() => null}
     />
   );
 }

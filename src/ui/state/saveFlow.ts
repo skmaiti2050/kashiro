@@ -61,14 +61,14 @@ export async function saveDocument({ session, adapter, handle, name, path, setti
   const saved = await files.save(target, bytes, { overwrite });
   if (!saved) return null;
   const n = unplaceable.length;
-  const backup = saved.backup ? ` (original backed up to ${saved.backup})` : '';
-  const unplaced = n ? `; ${n} change${n === 1 ? '' : 's'} couldn't be placed (see the change log)` : '';
-  return `Saved ${saved.path}${backup}${unplaced}`;
+  const backup = saved.backup ? ` with a backup at ${saved.backup}` : '';
+  const unplaced = n ? `. ${n} change${n === 1 ? '' : 's'} couldn't be placed: see the change log.` : '';
+  return `Saved as ${saved.path}${backup}${unplaced}`;
 }
 
 /** Saves the Markdown change report beside the document. Returns the notice, or null when cancelled. */
 export async function saveReport(session: CheckSession, name: string, path: string | null, files: Files): Promise<string | null> {
   const bytes = new TextEncoder().encode(exportReport(session, name));
   const saved = await files.save(siblingPath(path ?? name, '.report', '.md'), bytes, { overwrite: false });
-  return saved ? `Saved the report to ${saved.path}` : null;
+  return saved ? `Saved the report as ${saved.path}` : null;
 }

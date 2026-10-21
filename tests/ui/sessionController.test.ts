@@ -147,6 +147,8 @@ describe('SessionController: open and check', () => {
     const { controller } = makeController();
     await controller.openFile({ name: 'bad.docx', path: '/docs/bad.docx', bytes: encode('not a zip') });
     expect(controller.getState().error).toMatch(/not a Word document/);
+    // What to do next, too (plain language).
+    expect(controller.getState().error).toMatch(/\. Check that the file opens in Word or a text editor, then try again\.$/);
     expect(controller.getState().phase).toBe('empty');
   });
 });
@@ -267,7 +269,7 @@ describe('SessionController: save', () => {
     const xml = await documentXmlOf(saves[0].bytes);
     expect(xml.match(/<w:ins [^>]*w:author="writing-check"/g)).toHaveLength(2);
     expect(xml).toContain('cannot');
-    expect(controller.getState().notice).toBe('Saved /docs/essay.checked.docx');
+    expect(controller.getState().notice).toBe('Saved as /docs/essay.checked.docx');
   });
 
   it('clean + overwrite: asks the files module to overwrite the opened path (it backs up first)', async () => {
@@ -277,7 +279,7 @@ describe('SessionController: save', () => {
     await controller.save();
     expect(saves[0].path).toBe('/docs/essay.docx');
     expect(saves[0].overwrite).toBe(true);
-    expect(controller.getState().notice).toBe('Saved /docs/essay.docx (original backed up to /docs/essay.bak.docx)');
+    expect(controller.getState().notice).toBe('Saved as /docs/essay.docx with a backup at /docs/essay.bak.docx');
     const xml = await documentXmlOf(saves[0].bytes);
     expect(xml).not.toContain('<w:ins');
     expect(xml).toContain('I cannot go. You cannot stay.');
@@ -323,7 +325,7 @@ describe('SessionController: save', () => {
     expect(refused.unplaceable).toBe('crosses a field');
     expect(s.log().at(-1)!.reason).toBe('unplaceable: crosses a field');
     expect(decode(saves[0].bytes)).toBe("I can't go.\n\nYou cannot stay.");
-    expect(controller.getState().notice).toBe("Saved /docs/note.checked.txt; 1 change couldn't be placed (see the change log)");
+    expect(controller.getState().notice).toBe("Saved as /docs/note.checked.txt. 1 change couldn't be placed: see the change log.");
   });
 
   it('exportReport saves a Markdown report beside the document', async () => {
@@ -333,6 +335,59 @@ describe('SessionController: save', () => {
     await controller.exportReport();
     expect(saves[0].path).toBe('/docs/essay.report.md');
     expect(decode(saves[0].bytes)).toMatch(/^# Writing check report: essay\.docx/);
+    expect(controller.getState().notice).toBe('Saved the report as /docs/essay.report.md');
+  });
+});
+
+describe('SessionController: screen-reader announcements', () => {
+  const TWO = 'We could of finished it sooner. The data was handwriten.';
+
+  it('a decision is announced with what is left: "Accepted. N of M left."', async () => {
+    const { controller } = makeController();
+    await controller.openText(TWO);
+    expect(controller.getState().announcement).toBeNull();
+    const first = controller.getState().session!.decisions().top[0];
+    controller.accept(first.id);
+    const left = controller.getState().session!.rankedDecisionCount();
+    expect(left).toBeGreaterThan(0);
+    expect(controller.getState().announcement!.text).toBe(`Accepted. ${left} of ${left + 1} left.`);
+  });
+
+  it('reject, a flag dismissed and undo are announced too; each announcement is new', async () => {
+    const { controller } = makeController();
+    await controller.openText(TWO);
+    const [first] = controller.getState().session!.decisions().top;
+    controller.reject(first.id);
+    const rejected = controller.getState().announcement!;
+    expect(rejected.text).toMatch(/^Rejected\. 1 of 2 left\.$/);
+    controller.undo(first.candidateIds[0]);
+    const undone = controller.getState().announcement!;
+    expect(undone.text).toBe('Back to review. 2 of 2 left.');
+    expect(undone.seq).toBeGreaterThan(rejected.seq);
+  });
+
+  it('a flag with nothing to apply is "Dismissed"', async () => {
+    const { controller } = makeController({ settings: { depthByPreset: { academic: 'everything' } } });
+    await controller.openText(
+      'When the rains came early that year the farmers who had planted their seeds in the low fields along the river found that the ' +
+        'water rose faster than anyone in the village had expected and so they moved their animals and their families up the hill ' +
+        'to the old temple where they waited for many days.',
+    );
+    const { top, more } = controller.getState().session!.decisions();
+    const flag = [...top, ...more].find((d) => {
+      const c = controller.getState().session!.candidates().find((x) => x.id === d.candidateIds[0])!;
+      return c.replacements.length === 0;
+    });
+    expect(flag).toBeDefined();
+    controller.reject(flag!.id);
+    expect(controller.getState().announcement!.text).toMatch(/^Dismissed\. /);
+  });
+
+  it('a card adding words to the dictionary is announced', async () => {
+    const { controller } = makeController({ createLinter: (v, words) => createLinter(v, words) });
+    await controller.openText('We met Anjali Kulkarni in Nashik today.');
+    await controller.acceptNames([]);
+    expect(controller.getState().announcement!.text).toMatch(/^Added to your dictionary\. (All reviewed|\d+ of \d+ left)\.$/);
   });
 });
 

@@ -1,6 +1,6 @@
 // The review loop's keys (U1 item 1) and the app shortcuts (item 8), without a DOM.
 import { describe, it, expect } from 'vitest';
-import { appShortcut, reviewKeyAction, type KeyPress, type KeyTarget } from '@/ui/state/reviewKeys';
+import { appShortcut, readAloudKey, reviewKeyAction, type KeyPress, type KeyTarget } from '@/ui/state/reviewKeys';
 
 const press = (key: string, mods: Partial<KeyPress> = {}): KeyPress => ({
   key,
@@ -70,5 +70,31 @@ describe('appShortcut', () => {
   it('ignores other chords', () => {
     expect(appShortcut(press('o'), false, 'none')).toBeNull();
     expect(appShortcut(press('v', { ctrlKey: true, shiftKey: true }), false, 'none')).toBeNull();
+  });
+
+  it('F1 opens the keyboard shortcuts from anywhere; ? only where it would not type a question mark', () => {
+    expect(appShortcut(press('F1'), true, 'text-entry')).toBe('shortcuts');
+    expect(appShortcut(press('?', { shiftKey: true }), true, 'none')).toBe('shortcuts');
+    expect(appShortcut(press('?', { shiftKey: true }), true, 'control')).toBe('shortcuts');
+    expect(appShortcut(press('?', { shiftKey: true }), true, 'text-entry')).toBeNull();
+    expect(appShortcut(press('F1', { ctrlKey: true }), true, 'none')).toBeNull();
+  });
+
+  it('Ctrl+, opens Settings', () => {
+    expect(appShortcut(press(',', { ctrlKey: true }), true, 'text-entry')).toBe('settings');
+    expect(appShortcut(press(','), true, 'none')).toBeNull();
+  });
+});
+
+describe('readAloudKey', () => {
+  it('Alt+S reads the sentence, Alt+R the suggestion, Alt+P the paragraph, from anywhere', () => {
+    expect(['s', 'S', 'r', 'p', 'x'].map((k) => readAloudKey(press(k, { altKey: true })))).toEqual(['sentence', 'sentence', 'suggestion', 'paragraph', null]);
+  });
+
+  it('needs Alt alone: Ctrl+Alt is AltGr on many keyboards and types letters', () => {
+    expect(readAloudKey(press('s'))).toBeNull();
+    expect(readAloudKey(press('s', { altKey: true, ctrlKey: true }))).toBeNull();
+    expect(readAloudKey(press('s', { altKey: true, shiftKey: true }))).toBeNull();
+    expect(readAloudKey(press('s', { altKey: true, repeat: true }))).toBeNull();
   });
 });

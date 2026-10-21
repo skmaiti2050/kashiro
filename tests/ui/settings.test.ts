@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { DEFAULT_MODULES } from '@/engine/modules';
+import { DEFAULT_READING } from '@/ui/state/readingSettings';
 import { defaultSettings, modulesFor, variantForLocale, withSavedSettings, type Settings } from '@/ui/state/settings';
 
 describe('variantForLocale', () => {
@@ -32,6 +33,7 @@ describe('defaultSettings', () => {
       ignoredRules: [],
       modules: DEFAULT_MODULES,
       modulesByPreset: {},
+      reading: DEFAULT_READING,
     });
   });
 });

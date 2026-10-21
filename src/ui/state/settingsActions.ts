@@ -16,6 +16,8 @@ export interface SettingsHost {
   decisionMade(patch?: Partial<ControllerState>): void;
   /** Like a rejection, it is lost if the document is closed unsaved. */
   markUnsaved(): void;
+  /** Tells the screen reader what happened and what is left ("Added to your dictionary. 3 of 5 left."). */
+  announce(verb: string): void;
   /** The next check builds a new linter. */
   dropLinter(): void;
   /** Re-checks the open document, keeping the decisions on unchanged paragraphs. */
@@ -25,7 +27,7 @@ export interface SettingsHost {
 }
 
 /** The settings changeSettings takes. */
-export type SettingsPatch = Partial<Pick<Settings, 'saveMode' | 'overwrite' | 'fallbackVariant' | 'tierOverrides' | 'termMinRepeats'>>;
+export type SettingsPatch = Partial<Pick<Settings, 'saveMode' | 'overwrite' | 'fallbackVariant' | 'tierOverrides' | 'termMinRepeats' | 'reading'>>;
 
 export function updateSettings(host: SettingsHost, patch: Partial<Settings>): void {
   host.storeSettings({ ...host.state().settings, ...patch });
@@ -46,7 +48,8 @@ export function ignoreRule(host: SettingsHost, kind: string, scope: 'document' |
     host.markUnsaved();
     host.decisionMade({ documentIgnoredRules: [...documentIgnoredRules, kind] });
   }
-  void host.recheck();
+  // Announced once the re-check has hidden them, so "N left" is right.
+  void host.recheck().then(() => host.announce(`Dismissed all ${kind} suggestions ${scope === 'document' ? 'in this document' : 'everywhere'}`));
 }
 
 /** Settings › Ignored rules › Restore. */
@@ -74,8 +77,8 @@ export function setVariant(host: SettingsHost, variant: Variant | null): void {
 }
 
 /**
- * Settings that need no new check (save mode, overwrite) or that do (auto-apply kinds, default variant,
- * terms repeat count).
+ * Settings that need no new check (save mode, overwrite, reading and accessibility) or that do (auto-apply
+ * kinds, default variant, terms repeat count).
  */
 export function changeSettings(host: SettingsHost, patch: SettingsPatch): void {
   updateSettings(host, patch);
@@ -100,6 +103,7 @@ export async function addWords(host: SettingsHost, change: (s: CheckSession) => 
   const { dictionary } = host.state().settings;
   const known = new Set(dictionary);
   updateSettings(host, { dictionary: [...dictionary, ...session.addedWords().filter((w) => !known.has(w))] });
+  host.announce('Added to your dictionary');
 }
 
 /** Settings › Modules: one switch, for the current goal when it has its own modules, else for every goal. */

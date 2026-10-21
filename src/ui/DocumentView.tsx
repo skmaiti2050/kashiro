@@ -1,12 +1,14 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState, type MutableRefObject } from 'react';
 import { EditorState, StateEffect, StateField, type Range } from '@codemirror/state';
 import { Decoration, EditorView, WidgetType, keymap, placeholder, type DecorationSet } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import type { CheckSession } from '@/engine/session';
 import type { Candidate } from '@/engine/types';
 import { EmptyState } from './EmptyState';
+import type { CaretText } from './ReviewPanel';
 import { CATEGORIES } from './state/categories';
 import { highlightRanges, locateCandidate, toEditorPosition } from './state/highlights';
+import { plainMessage } from './state/plainMessages';
 import type { ControllerState, OpenDocument, SessionController } from './state/sessionController';
 
 /** The replacement text of an applied edit, shown right after the struck-through original. */
@@ -71,8 +73,10 @@ function documentMarks(doc: OpenDocument, viewText: string, session: CheckSessio
     const to = at(h.to);
     if (h.kind === 'pending') {
       const category = h.category ?? 'correctness';
-      const title = `${CATEGORIES[category].glyph} ${CATEGORIES[category].label}: ${h.message ?? ''}`;
-      const mark = Decoration.mark({ class: `cm-pending cat-${category}`, attributes: { title }, candidateId: h.candidateId });
+      // The tooltip shows the glyph; the spoken description leaves it out ("black circle" says nothing).
+      const description = `${CATEGORIES[category].label}: ${plainMessage(h.message ?? '')}`;
+      const title = `${CATEGORIES[category].glyph} ${description}`;
+      const mark = Decoration.mark({ class: `cm-pending cat-${category}`, attributes: { title }, candidateId: h.candidateId, description });
       ranges.push(mark.range(from, to));
       continue;
     }
@@ -89,19 +93,32 @@ export interface DocumentFocus {
   seq: number;
 }
 
-/** The pending flag whose underline was clicked, from the marks' `candidateId`. */
-function candidateAt(view: EditorView, event: MouseEvent): string | null {
-  const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
-  if (pos === null) return null;
-  let found: string | null = null;
-  view.state.field(marksField).between(pos, pos, (from, to, mark) => {
-    const id: unknown = mark.spec.candidateId;
-    if (typeof id !== 'string' || pos < from || pos > to) return;
-    found = id;
+/** A pending flag's underline: its candidate and its spoken "Correctness: message" description. */
+interface FlagMark {
+  candidateId: string;
+  description: string;
+}
+
+/** The pending flag whose underline covers `pos`, from the marks' `candidateId` and `description`. */
+function flagAt(state: EditorState, pos: number): FlagMark | null {
+  let found: FlagMark | null = null;
+  state.field(marksField).between(pos, pos, (from, to, mark) => {
+    const { candidateId, description } = mark.spec as Partial<FlagMark>;
+    if (typeof candidateId !== 'string' || pos < from || pos > to) return;
+    found = { candidateId, description: description ?? '' };
     return false;
   });
   return found;
 }
+
+/** The pending flag whose underline was clicked. */
+function candidateAt(view: EditorView, event: MouseEvent): string | null {
+  const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
+  return pos === null ? null : (flagAt(view.state, pos)?.candidateId ?? null);
+}
+
+/** The element that describes the flag under the cursor (aria-describedby of the text, and a polite live region). */
+const FLAG_AT_CURSOR_ID = 'flag-at-cursor';
 
 /** Room kept around a scrolled-to underline, so it never sits flush against the pane's edges. */
 const SCROLL_MARGINS = { top: 32, bottom: 32 };
@@ -110,21 +127,26 @@ interface Props {
   controller: SessionController;
   state: ControllerState;
   focus: DocumentFocus | null;
-  /** Clicking an underline brings up its card. */
-  onUnderlineClick(candidateId: string): void;
+  /** Clicking an underline (or Ctrl+. on it, `fromKeyboard`) brings up its card. */
+  onUnderlineClick(candidateId: string, fromKeyboard: boolean): void;
   onOpen(): void;
   onPaste(): void;
   onSample(): void;
+  /** Set to a reader of the text at the cursor while the text has focus (for "Read sentence"). */
+  caretReader: MutableRefObject<() => CaretText | null>;
 }
 
 /** CodeMirror view of the document: read-only for .docx, editable (and re-checked as you type) for text. */
-export function DocumentView({ controller, state, focus, onUnderlineClick, onOpen, onPaste, onSample }: Props) {
+export function DocumentView({ controller, state, focus, onUnderlineClick, onOpen, onPaste, onSample, caretReader }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const underlineClick = useRef(onUnderlineClick);
   useEffect(() => {
     underlineClick.current = onUnderlineClick;
   });
+  /** The flag under the cursor, read out when the cursor moves onto it. */
+  const [flagAtCursor, setFlagAtCursor] = useState('');
+  const spokenFlag = useRef('');
   const doc = state.document;
 
   // A new editor per opened document; typing goes to the controller, which re-checks after a pause.
@@ -143,16 +165,23 @@ export function DocumentView({ controller, state, focus, onUnderlineClick, onOpe
           EditorView.editable.of(doc.editable),
           EditorState.readOnly.of(!doc.editable),
           history(),
-          keymap.of([...defaultKeymap, ...historyKeymap]),
+          keymap.of([{ key: 'Mod-.', run: showCardAtCursor }, ...defaultKeymap, ...historyKeymap]),
           placeholder('Paste or type your text here.'),
+          EditorView.contentAttributes.of({ 'aria-label': 'Document text', 'aria-describedby': FLAG_AT_CURSOR_ID }),
           EditorView.updateListener.of((update) => {
             if (update.docChanged) controller.editText(update.state.sliceDoc());
+            if (update.docChanged || update.selectionSet || update.focusChanged) {
+              const flag = update.view.hasFocus ? flagAt(update.state, update.state.selection.main.head) : null;
+              const description = flag?.description ?? '';
+              // Only when it changes: no re-render on every keystroke.
+              if (description !== spokenFlag.current) setFlagAtCursor((spokenFlag.current = description));
+            }
           }),
           EditorView.scrollMargins.of(() => SCROLL_MARGINS),
           EditorView.domEventHandlers({
             click(event, editor) {
               const id = candidateAt(editor, event);
-              if (id) underlineClick.current(id);
+              if (id) underlineClick.current(id, false);
               return false;
             },
           }),
@@ -160,10 +189,13 @@ export function DocumentView({ controller, state, focus, onUnderlineClick, onOpe
       }),
     });
     view.current = editor;
+    // Positions count a line break as one character, as doc.toString() (LF) does; sliceDoc() may be CRLF.
+    caretReader.current = () => (editor.hasFocus ? { text: editor.state.doc.toString(), offset: editor.state.selection.main.head } : null);
     if (doc.editable) editor.focus();
     return () => {
       editor.destroy();
       view.current = null;
+      caretReader.current = () => null;
     };
     // Keyed on the document id, not its text: the editor's own edits flow out through editText.
   }, [doc?.id, controller]);
@@ -193,9 +225,20 @@ export function DocumentView({ controller, state, focus, onUnderlineClick, onOpe
 
   if (!doc) return <EmptyState onOpen={onOpen} onPaste={onPaste} onSample={onSample} />;
   return (
-    <section className="document">
+    <section className="document" aria-label={doc.name}>
       {doc.note && <p className="note">{doc.note}</p>}
       <div className="editor" ref={host} />
+      <p id={FLAG_AT_CURSOR_ID} className="visually-hidden" aria-live="polite">
+        {flagAtCursor}
+      </p>
     </section>
   );
+
+  /** Ctrl+. in the text: brings up the card of the underline at the cursor and moves focus to it. */
+  function showCardAtCursor(editor: EditorView): boolean {
+    const flag = flagAt(editor.state, editor.state.selection.main.head);
+    if (!flag) return false;
+    underlineClick.current(flag.candidateId, true);
+    return true;
+  }
 }

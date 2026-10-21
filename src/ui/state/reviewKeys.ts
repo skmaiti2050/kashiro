@@ -1,3 +1,5 @@
+import type { ReadTarget } from './readAloud';
+
 /** The keys of a keydown, without the DOM. */
 export interface KeyPress {
   key: string;
@@ -51,16 +53,34 @@ export function reviewKeyAction(press: KeyPress, target: KeyTarget): ReviewKeyAc
   }
 }
 
-export type AppShortcut = 'open' | 'paste';
+export type AppShortcut = 'open' | 'paste' | 'settings' | 'shortcuts';
 
 /**
  * App-wide shortcuts: Ctrl+O opens a file; Ctrl+V on the empty start screen pastes as a new document
- * (once a document is open, Ctrl+V is the editor's own paste).
+ * (once a document is open, Ctrl+V is the editor's own paste); Ctrl+, opens Settings; F1, or ? where it
+ * would not type a question mark, opens the keyboard shortcuts.
  */
 export function appShortcut(press: KeyPress, hasDocument: boolean, control: KeyTarget['control']): AppShortcut | null {
-  if (!press.ctrlKey || press.altKey || press.metaKey || press.shiftKey) return null;
+  if (press.altKey || press.metaKey) return null;
+  if (!press.ctrlKey) {
+    if (press.key === 'F1' && !press.shiftKey) return 'shortcuts';
+    return press.key === '?' && control !== 'text-entry' ? 'shortcuts' : null;
+  }
+  if (press.shiftKey) return null;
   const key = press.key.toLowerCase();
   if (key === 'o') return 'open';
+  if (key === ',') return 'settings';
   if (key === 'v' && !hasDocument && control !== 'text-entry') return 'paste';
   return null;
+}
+
+const READ_KEYS: Record<string, ReadTarget> = { s: 'sentence', r: 'suggestion', p: 'paragraph' };
+
+/**
+ * Read aloud: Alt+S the sentence, Alt+R the suggestion, Alt+P the paragraph, from anywhere (Alt+letter types
+ * nothing). Only Alt: Ctrl+Alt is AltGr on many keyboards, which types letters.
+ */
+export function readAloudKey(press: KeyPress): ReadTarget | null {
+  if (!press.altKey || press.ctrlKey || press.metaKey || press.shiftKey || press.repeat) return null;
+  return READ_KEYS[press.key.toLowerCase()] ?? null;
 }

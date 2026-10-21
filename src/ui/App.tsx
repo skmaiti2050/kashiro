@@ -1,22 +1,27 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { ChangeLog } from './ChangeLog';
 import { DocumentView, type DocumentFocus } from './DocumentView';
 import { GoogleDocsHelp } from './GoogleDocsHelp';
-import { ReviewPanel, type CardRequest } from './ReviewPanel';
+import { ReviewPanel, type CardRequest, type CaretText } from './ReviewPanel';
 import { SettingsPanel } from './SettingsPanel';
+import { ShortcutsSheet } from './ShortcutsSheet';
 import { StatusBar } from './StatusBar';
 import { Toolbar } from './Toolbar';
 import { UnsavedChangesDialog } from './UnsavedChangesDialog';
 import { useAppShortcuts } from './useKeys';
+import { useReadAloud } from './useReadAloud';
 import { files, onFileDrop } from './platform/files';
 import { createAppLinter } from './platform/linter';
 import { loadSettings, saveSettings } from './platform/settings';
+import { explain } from './state/errors';
+import { readingStyle } from './state/readingSettings';
 import { SessionController } from './state/sessionController';
 import { useSession } from './state/useSession';
+import './fonts';
 import './app.css';
+import './a11y.css';
 
-const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 export default function App() {
   const [controller, setController] = useState<SessionController | null>(null);
@@ -32,9 +37,9 @@ export default function App() {
         const c = new SessionController({ files, settings, saveSettings, createLinter: createAppLinter });
         setController(c);
         // Pre-warm Harper so the first check is quick (its first start takes ~650 ms).
-        c.warmUp().catch((e) => c.showError(`The checker could not start: ${message(e)}`));
+        c.warmUp().catch((e) => c.showError(explain('The checker could not start', e, 'Restart the app. If it happens again, reinstall it.')));
       },
-      (e) => setStartError(`Settings could not be loaded: ${message(e)}`),
+      (e) => setStartError(explain('Settings could not be loaded', e, 'Restart the app.')),
     );
   }, []);
 
@@ -42,9 +47,12 @@ export default function App() {
   return <Shell controller={controller} />;
 }
 
-function Shell({ controller }: { controller: SessionController }) {
+/** The app once settings are loaded (exported for the DOM tests). */
+export function Shell({ controller }: { controller: SessionController }) {
   const state = useSession(controller);
-  const [panel, setPanel] = useState<'none' | 'settings' | 'help'>('none');
+  const [panel, setPanel] = useState<'none' | 'settings' | 'help' | 'shortcuts'>('none');
+  const readAloud = useReadAloud(state.settings.reading);
+  const caretReader = useRef<() => CaretText | null>(() => null);
   const [logOpen, setLogOpen] = useState(false);
   const [focus, setFocus] = useState<DocumentFocus | null>(null);
   const [cardRequest, setCardRequest] = useState<CardRequest | null>(null);
@@ -67,7 +75,7 @@ function Shell({ controller }: { controller: SessionController }) {
           setPanel('none');
           unlessUnsaved(() => void controller.openFile(file));
         },
-        (e) => controller.showError(`Couldn't open the dropped file: ${message(e)}`),
+        (e) => controller.showError(explain("Couldn't open the dropped file", e, 'Use Open (Ctrl+O) to pick it instead.')),
       ),
     );
   }, [controller, unlessUnsaved]);
@@ -98,33 +106,44 @@ function Shell({ controller }: { controller: SessionController }) {
   useAppShortcuts(state.document !== null, (shortcut) => {
     if (dialogOpen) return;
     if (shortcut === 'open') onOpen();
-    else onPaste();
+    else if (shortcut === 'paste') onPaste();
+    else setPanel(shortcut);
   });
+  const { reading } = state.settings;
 
   return (
-    <div className="app">
-      <Toolbar
-        controller={controller}
-        state={state}
-        onOpen={onOpen}
-        onPaste={onPaste}
-        onSettings={() => setPanel('settings')}
-        onHelp={() => setPanel('help')}
-      />
-      {(state.error || state.notice) && (
-        <p className={state.error ? 'banner error' : 'banner'} role="status">
-          {state.error ?? state.notice}
+    <div className="app" style={readingStyle(reading) as CSSProperties} data-font={reading.font}>
+      <header className="app-header">
+        <Toolbar
+          controller={controller}
+          state={state}
+          onOpen={onOpen}
+          onPaste={onPaste}
+          onSettings={() => setPanel('settings')}
+          onHelp={() => setPanel('help')}
+          onShortcuts={() => setPanel('shortcuts')}
+        />
+        {/* Live regions exist before their text arrives, so screen readers announce it. */}
+        <div className="banners">
+          <div role="alert">{state.error && <p className="banner error">{state.error}</p>}</div>
+          <div role="status">{state.notice && !state.error && <p className="banner">{state.notice}</p>}</div>
+        </div>
+        <p className="visually-hidden" role="status" aria-atomic="true">
+          {state.announcement && <span key={state.announcement.seq}>{state.announcement.text}</span>}
         </p>
-      )}
+      </header>
       <main className="workspace">
         <DocumentView
           controller={controller}
           state={state}
           focus={focus}
-          onUnderlineClick={(candidateId) => setCardRequest((r) => ({ candidateId, seq: (r?.seq ?? 0) + 1 }))}
+          onUnderlineClick={(candidateId, fromKeyboard) =>
+            setCardRequest((r) => ({ candidateId, seq: (r?.seq ?? 0) + 1, focus: fromKeyboard || undefined }))
+          }
           onOpen={onOpen}
           onPaste={onPaste}
           onSample={() => unlessUnsaved(() => void controller.openSample())}
+          caretReader={caretReader}
         />
         <ReviewPanel
           key={state.document?.id ?? 0}
@@ -135,12 +154,15 @@ function Shell({ controller }: { controller: SessionController }) {
           keysEnabled={!dialogOpen}
           onShowLog={() => setLogOpen(true)}
           onSave={() => void controller.save()}
+          readAloud={readAloud}
+          readCaret={() => caretReader.current()}
         />
       </main>
       <StatusBar state={state} />
       <ChangeLog controller={controller} state={state} open={logOpen} onToggle={() => setLogOpen((v) => !v)} />
-      {panel === 'settings' && <SettingsPanel controller={controller} state={state} onClose={() => setPanel('none')} />}
+      {panel === 'settings' && <SettingsPanel controller={controller} state={state} readAloud={readAloud} onClose={() => setPanel('none')} />}
       {panel === 'help' && <GoogleDocsHelp onOpen={openFromHelp} onClose={() => setPanel('none')} />}
+      {panel === 'shortcuts' && <ShortcutsSheet readAloud={readAloud !== null} onClose={() => setPanel('none')} />}
       {afterUnsaved && (
         <UnsavedChangesDialog
           name={state.document?.name ?? 'this document'}

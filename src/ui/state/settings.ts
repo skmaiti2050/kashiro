@@ -4,6 +4,7 @@ import { PRESETS, type PresetId } from '@/engine/presets';
 import { DEFAULT_TERM_MIN_REPEATS } from '@/engine/terms';
 import type { Tier, Variant } from '@/engine/types';
 import type { SaveMode } from '@/formats/types';
+import { DEFAULT_READING, resolveReading, type ReadingSettings } from './readingSettings';
 
 /** Everything the app remembers between runs (stored by platform/settings.ts). */
 export interface Settings {
@@ -29,6 +30,8 @@ export interface Settings {
   modules: ModuleSwitches;
   /** Goals with their own module switches ("Use different modules for this goal"). */
   modulesByPreset: Partial<Record<PresetId, ModuleSwitches>>;
+  /** Text size, readable fonts, spacing and the read-aloud voice. */
+  reading: ReadingSettings;
 }
 
 /** Region → variant, for English locales; India also covers hi-IN, bn-IN and other Indian locales. */
@@ -60,12 +63,14 @@ export function defaultSettings(locale: string): Settings {
     ignoredRules: [],
     modules: { ...DEFAULT_MODULES },
     modulesByPreset: {},
+    reading: { ...DEFAULT_READING },
   };
 }
 
 /**
  * The saved settings over `defaults`. Module switches go through resolveModules, so a file saved before a
  * module existed gets its default, and an unknown key (a hand-edited "factLock": false) is dropped.
+ * Reading settings go through resolveReading, which clamps sizes and spacing to their ranges.
  */
 export function withSavedSettings(defaults: Settings, saved: Partial<Settings> | undefined): Settings {
   if (!saved) return defaults;
@@ -74,7 +79,13 @@ export function withSavedSettings(defaults: Settings, saved: Partial<Settings> |
   for (const [preset, modules] of Object.entries(isRecord(savedByPreset) ? savedByPreset : {})) {
     if (Object.hasOwn(PRESETS, preset)) modulesByPreset[preset as PresetId] = resolveModules(modules as Partial<ModuleSwitches>);
   }
-  return { ...defaults, ...saved, modules: resolveModules(saved.modules ?? defaults.modules), modulesByPreset };
+  return {
+    ...defaults,
+    ...saved,
+    modules: resolveModules(saved.modules ?? defaults.modules),
+    modulesByPreset,
+    reading: resolveReading(saved.reading ?? defaults.reading),
+  };
 }
 
 /**

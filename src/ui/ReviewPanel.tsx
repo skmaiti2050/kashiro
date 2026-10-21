@@ -8,16 +8,28 @@ import { MoreList } from './MoreList';
 import { NamesCard } from './NamesCard';
 import { OtherLanguageCard } from './OtherLanguageCard';
 import { TermsCard } from './TermsCard';
+import { ReadAloudBar } from './ReadAloudBar';
+import { cardLabel } from './state/announce';
 import { progressLabel, progressOf } from './state/progress';
+import { paragraphAt, sentenceAt, suggestionSpeech, type ReadTarget } from './state/readAloud';
 import { cursorAt, currentDecision, decisionWith, moveCursor, START } from './state/reviewCursor';
 import type { ReviewKeyAction } from './state/reviewKeys';
 import type { ControllerState, SessionController } from './state/sessionController';
 import { useReviewKeys } from './useKeys';
+import type { ReadAloud } from './useReadAloud';
 
 /** A request to bring up the card of a clicked underline; `seq` changes on every click. */
 export interface CardRequest {
   candidateId: string;
   seq: number;
+  /** Move keyboard focus to the card (Ctrl+. in the text); by default only in a read-only document. */
+  focus?: boolean;
+}
+
+/** The document text and cursor position while the user is in the text, for "Read sentence". */
+export interface CaretText {
+  text: string;
+  offset: number;
 }
 
 interface Props {
@@ -30,6 +42,10 @@ interface Props {
   keysEnabled: boolean;
   onShowLog(): void;
   onSave(): void;
+  /** Null hides read aloud (no local voice). */
+  readAloud: ReadAloud | null;
+  /** The text at the cursor while the document has focus, else null (read the card's text instead). */
+  readCaret(): CaretText | null;
 }
 
 /** The names, terms and Indian-language cards: Enter adds the ticked words; they have no reject. */
@@ -38,7 +54,7 @@ const isWordList = (d: Decision) => d.kind === 'names' || d.kind === 'terms' || 
 const reduceMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 
 /** The review queue: a progress header, one card at a time (Enter / Backspace / J / K), the rest under "More (N)". */
-export function ReviewPanel({ controller, state, onLocate, request, keysEnabled, onShowLog, onSave }: Props) {
+export function ReviewPanel({ controller, state, onLocate, request, keysEnabled, onShowLog, onSave, readAloud, readCaret }: Props) {
   const [cursor, setCursor] = useState(START);
   /**
    * Set when a card is picked from "More" or its underline clicked: the panel scrolls to the card and,
@@ -66,7 +82,7 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
     const d = decisionWith(top, more, request.candidateId);
     if (!d) return;
     setCursor((c) => cursorAt(top, d.id, c));
-    setReveal((r) => ({ seq: r.seq + 1, focus: !state.document?.editable }));
+    setReveal((r) => ({ seq: r.seq + 1, focus: request.focus ?? !state.document?.editable }));
   }, [request?.seq]);
 
   useEffect(() => {
@@ -98,21 +114,33 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
     setCursor((c) => cursorAt(top, d.id, c));
     setReveal((r) => ({ seq: r.seq + 1, focus: true }));
   };
+  const queue = [...top, ...more];
+  const slotLabel = current ? cardLabel(current, firstOf(current), queue.indexOf(current) + 1, queue.length) : 'Current card';
+  // Read aloud: the text at the cursor while the user is in the document, else the current card's.
+  const textFor = (target: ReadTarget): string => {
+    const first = current ? firstOf(current) : null;
+    if (target === 'suggestion') return current && first ? suggestionSpeech(current, first) : '';
+    const at = readCaret() ?? (first ? { text: paraText.get(first.paraId) ?? '', offset: first.span.start } : null);
+    if (!at) return '';
+    return target === 'sentence' ? sentenceAt(at.text, at.offset) : paragraphAt(at.text, at.offset);
+  };
 
   return (
     // tabIndex -1: a click on the panel's background keeps focus in the panel, so the review keys work.
     <aside className="review" aria-label="Review" tabIndex={-1}>
       <header>
-        <h2 aria-live="polite">{progressLabel(progress)}</h2>
+        {/* Not a live region: the app's announcer says "Accepted. 4 of 9 left." once per decision. */}
+        <h2>{progressLabel(progress)}</h2>
         <div className="progress-bar" aria-hidden="true">
           <span style={{ width: `${progress.total ? ((progress.total - progress.left) / progress.total) * 100 : 100}%` }} />
         </div>
         <DepthSlider value={session.depth} onChange={(d) => controller.setDepth(d)} />
       </header>
 
-      <div ref={cardSlot} className="card-slot" role="group" tabIndex={-1} aria-label="Current decision">
+      <div ref={cardSlot} className="card-slot" role="group" tabIndex={-1} aria-label={slotLabel}>
         {current && cardFor(current)}
       </div>
+      {readAloud && <ReadAloudBar readAloud={readAloud} textFor={textFor} keysEnabled={keysEnabled} />}
       {current ? (
         <p className="key-legend hint">
           <Kbd>Enter</Kbd> {isWordList(current) ? 'add' : 'accept'} ·{' '}

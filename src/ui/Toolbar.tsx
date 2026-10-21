@@ -1,3 +1,4 @@
+import { useRef, type KeyboardEvent } from 'react';
 import { PRESETS, type PresetId } from '@/engine/presets';
 import type { Variant } from '@/engine/types';
 import { siblingPath } from './state/documentText';
@@ -13,14 +14,40 @@ interface Props {
   onPaste(): void;
   onSettings(): void;
   onHelp(): void;
+  onShortcuts(): void;
+}
+
+/** Toolbar items the arrow keys move between (a select keeps its arrows: they change its value). */
+const ARROW_ITEMS = 'button:not(:disabled), select, summary';
+
+/**
+ * Left / Right move along the toolbar (Tab still reaches every item, so nothing depends on the arrows).
+ * Skipped inside a select or an open menu, whose arrows have their own job.
+ */
+function moveAlongToolbar(e: KeyboardEvent<HTMLElement>): void {
+  if ((e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') || e.altKey || e.ctrlKey || e.metaKey) return;
+  const from = e.target as HTMLElement;
+  if (from.tagName === 'SELECT' || from.closest('.menu')) return;
+  const items = [...e.currentTarget.querySelectorAll<HTMLElement>('*')].filter((el) => el.matches(ARROW_ITEMS) && !el.closest('.menu'));
+  const at = items.indexOf(from);
+  if (at === -1) return;
+  e.preventDefault();
+  items[(at + (e.key === 'ArrowRight' ? 1 : -1) + items.length) % items.length].focus();
 }
 
 /** Open · Paste · preset · variant chip · Save (with its save-mode menu) · Settings · Google Docs help. */
-export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onHelp }: Props) {
+export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onHelp, onShortcuts }: Props) {
   const { session, settings, variantOverride, document } = state;
+  const saveMenu = useRef<HTMLDetailsElement>(null);
+  const closeSaveMenu = (e: KeyboardEvent<HTMLDetailsElement>) => {
+    if (e.key !== 'Escape' || !saveMenu.current?.open) return;
+    e.stopPropagation();
+    saveMenu.current.open = false;
+    saveMenu.current.querySelector('summary')?.focus();
+  };
 
   return (
-    <nav className="toolbar">
+    <div className="toolbar" role="toolbar" aria-label="Document" onKeyDown={moveAlongToolbar}>
       <button onClick={onOpen} title="Open a .docx, .txt or .md file (Ctrl+O)" aria-keyshortcuts="Control+O">
         Open
       </button>
@@ -60,7 +87,10 @@ export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onHelp
       <button className="quiet" onClick={onHelp}>
         Google Docs
       </button>
-      <button className="quiet" onClick={onSettings}>
+      <button className="quiet" aria-keyshortcuts="F1" title="Keyboard shortcuts (F1)" onClick={onShortcuts}>
+        Shortcuts
+      </button>
+      <button className="quiet" aria-keyshortcuts="Control+Comma" title="Settings (Ctrl+,)" onClick={onSettings}>
         Settings
       </button>
 
@@ -73,7 +103,7 @@ export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onHelp
         >
           Save
         </button>
-        <details className="save-menu">
+        <details className="save-menu" ref={saveMenu} onKeyDown={closeSaveMenu}>
           <summary aria-label="Save options">▾</summary>
           <div className="menu">
             <fieldset>
@@ -109,7 +139,7 @@ export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onHelp
           </div>
         </details>
       </div>
-    </nav>
+    </div>
   );
 }
 

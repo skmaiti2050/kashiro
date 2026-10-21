@@ -17,7 +17,8 @@ function laterDecision(controller: SessionController): Decision {
   return later;
 }
 
-const slot = () => screen.getByRole('group', { name: /Current decision/ });
+/** The card slot, named for screen readers "Card N of M. <category>, <kind>. Change …". */
+const slot = () => screen.getByRole('group', { name: /^Card \d+ of \d+\. / });
 
 describe('clicking an underline brings up its card', () => {
   it('in a read-only document, the card comes up and takes keyboard focus', async () => {

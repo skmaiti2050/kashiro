@@ -44,7 +44,7 @@ export function ChangeLog({ controller, state, open, onToggle }: Props) {
   const applied = entries.filter((o) => o.status === 'applied').length;
 
   return (
-    <footer className={open ? 'changelog open' : 'changelog'}>
+    <section className={open ? 'changelog open' : 'changelog'} aria-label="Change log">
       <div className="changelog-bar">
         <button className="quiet" onClick={onToggle} aria-expanded={open}>
           {open ? '▾' : '▸'} Change log ({applied} applied)
@@ -61,7 +61,7 @@ export function ChangeLog({ controller, state, open, onToggle }: Props) {
           )}
         </ol>
       )}
-    </footer>
+    </section>
   );
 }
 

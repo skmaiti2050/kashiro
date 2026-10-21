@@ -9,6 +9,7 @@ import { DismissMenu } from './DismissMenu';
 import { Kbd } from './Kbd';
 import { categoryOf } from './state/categories';
 import { batchApplyLabel, decisionTitle, excerpt } from './state/labels';
+import { plainMessage } from './state/plainMessages';
 import type { SessionController } from './state/sessionController';
 
 interface Props {
@@ -51,7 +52,7 @@ export function DecisionCard({ controller, decision, candidates, paraText, touch
     <div className="card" title="Click to show it in the document" onClick={() => onLocate(shown)}>
       <CategoryTag category={category} kind={first.kind} />
       <h3 className="card-title">{decisionTitle(decision, first)}</h3>
-      <p className="kind">{first.message}</p>
+      <p className="kind">{plainMessage(first.message)}</p>
       <Diff candidate={shown} replacement={shown.replacements[0]} paraText={paraText} />
       {preview !== null ? (
         <BatchPreview

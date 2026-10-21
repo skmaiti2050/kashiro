@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
+import { Dialog } from './Dialog';
 
 interface Props {
   name: string;
@@ -8,11 +9,10 @@ interface Props {
   onCancel(): void;
 }
 
-/** "Save, Discard, or Cancel?" before something would drop the open document's unsaved work. */
+/** "Save, Discard, or Cancel?" before something would drop the open document's unsaved work. Escape cancels. */
 export function UnsavedChangesDialog({ name, onSave, onDiscard, onCancel }: Props) {
   const [saving, setSaving] = useState(false);
   const saveButton = useRef<HTMLButtonElement>(null);
-  useEffect(() => saveButton.current?.focus(), []);
 
   const save = async () => {
     setSaving(true);
@@ -26,24 +26,21 @@ export function UnsavedChangesDialog({ name, onSave, onDiscard, onCancel }: Prop
   };
 
   return (
-    <div className="dialog-backdrop" onKeyDown={(e) => e.key === 'Escape' && onCancel()}>
-      <section className="dialog unsaved" role="alertdialog" aria-modal="true" aria-labelledby="unsaved-title" aria-describedby="unsaved-text">
-        <h2 id="unsaved-title">Unsaved changes</h2>
-        <p id="unsaved-text">
-          You have unsaved changes in <b>{name}</b>. Save, Discard, or Cancel?
-        </p>
-        <div className="actions end">
-          <button className="quiet" onClick={onCancel} disabled={saving}>
-            Cancel
-          </button>
-          <button onClick={onDiscard} disabled={saving}>
-            Discard
-          </button>
-          <button ref={saveButton} className="primary" onClick={() => void save()} disabled={saving}>
-            {saving ? 'Saving…' : 'Save'}
-          </button>
-        </div>
-      </section>
-    </div>
+    <Dialog title="Unsaved changes" role="alertdialog" className="unsaved" describedBy="unsaved-text" initialFocus={saveButton} onClose={onCancel}>
+      <p id="unsaved-text">
+        You have unsaved changes in <b>{name}</b>. Save, Discard, or Cancel?
+      </p>
+      <div className="actions end">
+        <button className="quiet" onClick={onCancel} disabled={saving}>
+          Cancel
+        </button>
+        <button onClick={onDiscard} disabled={saving}>
+          Discard
+        </button>
+        <button ref={saveButton} className="primary" onClick={() => void save()} disabled={saving}>
+          {saving ? 'Saving…' : 'Save'}
+        </button>
+      </div>
+    </Dialog>
   );
 }

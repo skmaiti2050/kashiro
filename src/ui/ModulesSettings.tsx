@@ -62,7 +62,13 @@ export function ModulesSettings({ controller, settings }: Props) {
         const locked = m.name === 'aiRewrites' && noModel;
         return (
           <label key={m.name} className="module-switch">
-            <input type="checkbox" checked={shown[m.name] && !locked} disabled={locked} onChange={(e) => controller.setModule(m.name, e.target.checked)} />
+            <input
+              type="checkbox"
+              role="switch"
+              checked={shown[m.name] && !locked}
+              disabled={locked}
+              onChange={(e) => controller.setModule(m.name, e.target.checked)}
+            />
             <span>
               <strong>{m.label}</strong>: {m.description}
               <br />

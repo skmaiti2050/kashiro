@@ -2,7 +2,10 @@ import { DEFAULT_DEPTH } from '@/engine/depth';
 import { PRESETS } from '@/engine/presets';
 import type { Variant } from '@/engine/types';
 import { DepthSlider } from './DepthSlider';
+import { Dialog } from './Dialog';
 import { ModulesSettings } from './ModulesSettings';
+import { ReadingSettings } from './ReadingSettings';
+import type { ReadAloud } from './useReadAloud';
 import { VARIANTS } from './Toolbar';
 import type { ControllerState, SessionController } from './state/sessionController';
 
@@ -19,10 +22,12 @@ const TERM_REPEAT_CHOICES = [2, 3, 4, 5];
 interface Props {
   controller: SessionController;
   state: ControllerState;
+  /** Null when this PC has no local voice: Settings then says why read aloud is missing. */
+  readAloud: ReadAloud | null;
   onClose(): void;
 }
 
-export function SettingsPanel({ controller, state, onClose }: Props) {
+export function SettingsPanel({ controller, state, readAloud, onClose }: Props) {
   const { settings } = state;
   const setAutoApply = (kind: string, on: boolean) => {
     const tierOverrides = { ...settings.tierOverrides };
@@ -32,102 +37,90 @@ export function SettingsPanel({ controller, state, onClose }: Props) {
   };
 
   return (
-    <div className="dialog-backdrop" onClick={onClose}>
-      <section className="dialog settings" role="dialog" aria-label="Settings" onClick={(e) => e.stopPropagation()}>
-        <header>
-          <h2>Settings</h2>
-          <button className="quiet" onClick={onClose}>
-            Close
-          </button>
-        </header>
+    <Dialog title="Settings" className="settings" onClose={onClose}>
+      <ReadingSettings controller={controller} reading={settings.reading} readAloud={readAloud} />
 
-        <label className="field">
-          <span>Default English variant</span>
-          <select value={settings.fallbackVariant} onChange={(e) => controller.changeSettings({ fallbackVariant: e.target.value as Variant })}>
-            {VARIANTS.map((v) => (
-              <option key={v}>{v}</option>
-            ))}
-          </select>
-        </label>
-
-        <fieldset>
-          <legend>Saving</legend>
-          <label>
-            <input type="checkbox" checked={settings.saveMode === 'tracked'} onChange={(e) => controller.changeSettings({ saveMode: e.target.checked ? 'tracked' : 'clean' })} />
-            Tracked changes: your reviewer can accept or reject each change in Word (otherwise a clean copy)
-          </label>
-          <label>
-            <input type="checkbox" checked={settings.overwrite} onChange={(e) => controller.changeSettings({ overwrite: e.target.checked })} />
-            Overwrite the original (keeps a .bak backup) instead of saving a new copy
-          </label>
-        </fieldset>
-
-        <fieldset>
-          <legend>Review depth</legend>
-          {Object.values(PRESETS).map((p) => (
-            <DepthSlider
-              key={p.id}
-              label={p.label}
-              value={settings.depthByPreset[p.id] ?? DEFAULT_DEPTH}
-              onChange={(d) => controller.setDepth(d, p.id)}
-            />
+      <label className="field">
+        <span>Default English variant</span>
+        <select value={settings.fallbackVariant} onChange={(e) => controller.changeSettings({ fallbackVariant: e.target.value as Variant })}>
+          {VARIANTS.map((v) => (
+            <option key={v}>{v}</option>
           ))}
-        </fieldset>
+        </select>
+      </label>
 
-        <label className="field">
-          <span>Treat an unknown lowercase word as a term once it is used</span>
-          <select value={settings.termMinRepeats} onChange={(e) => controller.changeSettings({ termMinRepeats: Number(e.target.value) })}>
-            {TERM_REPEAT_CHOICES.map((n) => (
-              <option key={n} value={n}>
-                {n} times
-              </option>
-            ))}
-          </select>
+      <fieldset>
+        <legend>Saving</legend>
+        <label>
+          <input type="checkbox" checked={settings.saveMode === 'tracked'} onChange={(e) => controller.changeSettings({ saveMode: e.target.checked ? 'tracked' : 'clean' })} />
+          Tracked changes: your reviewer can accept or reject each change in Word (otherwise a clean copy)
         </label>
+        <label>
+          <input type="checkbox" checked={settings.overwrite} onChange={(e) => controller.changeSettings({ overwrite: e.target.checked })} />
+          Overwrite the original (keeps a .bak backup) instead of saving a new copy
+        </label>
+      </fieldset>
 
-        <fieldset>
-          <legend>Auto-apply these too</legend>
-          {AUTO_APPLY_KINDS.map((kind) => (
-            <label key={kind}>
-              <input type="checkbox" checked={settings.tierOverrides[kind] === 'safe'} onChange={(e) => setAutoApply(kind, e.target.checked)} />
-              {kind}
-            </label>
+      <fieldset>
+        <legend>Review depth</legend>
+        {Object.values(PRESETS).map((p) => (
+          <DepthSlider key={p.id} label={p.label} value={settings.depthByPreset[p.id] ?? DEFAULT_DEPTH} onChange={(d) => controller.setDepth(d, p.id)} />
+        ))}
+      </fieldset>
+
+      <label className="field">
+        <span>Treat an unknown lowercase word as a term once it is used</span>
+        <select value={settings.termMinRepeats} onChange={(e) => controller.changeSettings({ termMinRepeats: Number(e.target.value) })}>
+          {TERM_REPEAT_CHOICES.map((n) => (
+            <option key={n} value={n}>
+              {n} times
+            </option>
           ))}
-          <p className="hint">Never touches names, numbers, quotes or other protected text.</p>
-        </fieldset>
+        </select>
+      </label>
 
-        <ModulesSettings controller={controller} settings={settings} />
+      <fieldset>
+        <legend>Auto-apply these too</legend>
+        {AUTO_APPLY_KINDS.map((kind) => (
+          <label key={kind}>
+            <input type="checkbox" checked={settings.tierOverrides[kind] === 'safe'} onChange={(e) => setAutoApply(kind, e.target.checked)} />
+            {kind}
+          </label>
+        ))}
+        <p className="hint">Never touches names, numbers, quotes or other protected text.</p>
+      </fieldset>
 
-        <fieldset>
-          <legend>Ignored rules ({settings.ignoredRules.length})</legend>
-          {settings.ignoredRules.length === 0 && <p className="hint">Kinds of suggestion you dismiss with Dismiss ▾ › “All … suggestions everywhere” show up here.</p>}
-          <ul className="dictionary">
-            {settings.ignoredRules.map((rule) => (
-              <li key={rule}>
-                {rule}
-                <button className="quiet" onClick={() => controller.restoreRule(rule)}>
-                  Restore
-                </button>
-              </li>
-            ))}
-          </ul>
-        </fieldset>
+      <ModulesSettings controller={controller} settings={settings} />
 
-        <fieldset>
-          <legend>My dictionary ({settings.dictionary.length})</legend>
-          {settings.dictionary.length === 0 && <p className="hint">Words you add while reviewing show up here.</p>}
-          <ul className="dictionary">
-            {settings.dictionary.map((word) => (
-              <li key={word}>
-                {word}
-                <button className="quiet" onClick={() => void controller.removeWord(word)}>
-                  Remove
-                </button>
-              </li>
-            ))}
-          </ul>
-        </fieldset>
-      </section>
-    </div>
+      <fieldset>
+        <legend>Ignored rules ({settings.ignoredRules.length})</legend>
+        {settings.ignoredRules.length === 0 && <p className="hint">Kinds of suggestion you dismiss with Dismiss ▾ › “All … suggestions everywhere” show up here.</p>}
+        <ul className="dictionary">
+          {settings.ignoredRules.map((rule) => (
+            <li key={rule}>
+              {rule}
+              <button className="quiet" aria-label={`Restore ${rule}`} onClick={() => controller.restoreRule(rule)}>
+                Restore
+              </button>
+            </li>
+          ))}
+        </ul>
+      </fieldset>
+
+      <fieldset>
+        <legend>My dictionary ({settings.dictionary.length})</legend>
+        {settings.dictionary.length === 0 && <p className="hint">Words you add while reviewing show up here.</p>}
+        <ul className="dictionary">
+          {settings.dictionary.map((word) => (
+            <li key={word}>
+              {word}
+              <button className="quiet" aria-label={`Remove ${word}`} onClick={() => void controller.removeWord(word)}>
+                Remove
+              </button>
+            </li>
+          ))}
+        </ul>
+      </fieldset>
+    </Dialog>
   );
 }

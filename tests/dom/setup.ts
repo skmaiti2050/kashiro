@@ -10,5 +10,18 @@ const emptyRect = () => new DOMRect(0, 0, 0, 0);
 Range.prototype.getClientRects ??= emptyRects;
 Range.prototype.getBoundingClientRect ??= emptyRect;
 Element.prototype.scrollIntoView ??= () => {};
+// axe-core probes a canvas (icon fonts, contrast); jsdom has none and would log "Not implemented".
+HTMLCanvasElement.prototype.getContext = () => null;
+
+// harper.js fetches its 25 MB inlined WASM from a data: URL. Under jsdom, URL is jsdom's pure-JS parser,
+// which takes minutes on that string, so data: URLs are decoded here directly.
+const DATA_URL = /^data:([^;,]+);base64,/;
+const nodeFetch = globalThis.fetch;
+globalThis.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+  const header = typeof input === 'string' ? DATA_URL.exec(input.slice(0, 64)) : null;
+  if (!header || typeof input !== 'string') return nodeFetch(input, init);
+  const bytes = Buffer.from(input.slice(header[0].length), 'base64');
+  return Promise.resolve(new Response(bytes, { headers: { 'content-type': header[1] } }));
+};
 
 afterEach(() => cleanup());

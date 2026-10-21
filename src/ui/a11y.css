@@ -1,0 +1,262 @@
+/*
+ * Accessibility (Task A1): text size, readable fonts and spacing, reflow at 200 % / 400 %, Windows contrast
+ * themes and 24 px targets. Loaded after app.css. The custom properties come from readingStyle().
+ */
+
+/* Read by screen readers, not shown (announcements, the flag under the cursor). */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Readable fonts, bundled (src/ui/fonts.ts); the document and the app both use the choice. */
+.app {
+  font-family: var(--ui-font);
+}
+
+.app[data-font='atkinson'] {
+  --ui-font: 'Atkinson Hyperlegible', 'Segoe UI', system-ui, sans-serif;
+  --reading-font: 'Atkinson Hyperlegible', Georgia, serif;
+}
+
+.app[data-font='opendyslexic'] {
+  --ui-font: 'OpenDyslexic', 'Segoe UI', system-ui, sans-serif;
+  --reading-font: 'OpenDyslexic', Georgia, serif;
+}
+
+/*
+ * App text size (90–200 %): CSS zoom on the app's own parts, so text, padding and targets grow together and
+ * the layout reflows. The document pane is not zoomed: it has its own size, and CodeMirror measures it.
+ */
+.toolbar,
+.banners,
+.review,
+.statusbar,
+.changelog,
+.empty-state,
+.document .note,
+.dialog {
+  zoom: var(--ui-zoom, 1);
+}
+
+/* Document text size, line spacing and letter spacing (WCAG 1.4.12 text spacing). */
+.editor .cm-scroller {
+  font-size: calc(17px * var(--doc-scale, 1));
+  line-height: var(--doc-line, 1.6);
+  letter-spacing: var(--doc-letter, 0);
+}
+
+.dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Zoomed dialogs must still fit the window: vw/vh are not scaled down by zoom. */
+.dialog {
+  width: min(560px, calc(92vw / var(--ui-zoom, 1)));
+  max-height: calc(86vh / var(--ui-zoom, 1));
+}
+
+/* The header landmark holds the toolbar, the banners and the announcer in the first row (the second stays empty). */
+.app-header {
+  grid-row: 1;
+  position: relative;
+}
+
+/* The panel grows with the app text size, but never past half the window. */
+.workspace {
+  grid-template-columns: minmax(0, 1fr) clamp(300px, calc(380px * var(--ui-zoom, 1)), 50%);
+}
+
+.toolbar {
+  flex-wrap: wrap;
+}
+
+/*
+ * Reflow (WCAG 1.4.10): at 400 % zoom a 1280 px window is 320 CSS px wide. Below 720 px the review panel
+ * goes under the document instead of beside it, and the change log rows wrap.
+ */
+@media (max-width: 720px) {
+  .app {
+    height: auto;
+    min-height: 100vh;
+  }
+
+  .workspace {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(50vh, auto) auto;
+  }
+
+  .review {
+    border-left: none;
+    border-top: 1px solid var(--line);
+    overflow-y: visible;
+  }
+
+  .toolbar .spacer {
+    display: none;
+  }
+
+  .changelog .entries li {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .statusbar {
+    flex-wrap: wrap;
+    gap: 4px 16px;
+  }
+
+  .depth {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Target size (WCAG 2.5.8): every control is at least 24 × 24 px. */
+button,
+select,
+summary,
+.save-menu summary {
+  min-height: 24px;
+  min-width: 24px;
+}
+
+input[type='checkbox'],
+input[type='radio'] {
+  width: 18px;
+  height: 18px;
+  /* With the 3 px margin, the target and its spacing make 24 px. */
+  margin: 3px;
+}
+
+button.link {
+  min-height: 24px;
+}
+
+/* Read aloud row under the card. */
+.read-aloud {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin: 0 0 12px;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+/* Keyboard shortcuts sheet. */
+.shortcut-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 16px;
+}
+
+.shortcut-table caption {
+  text-align: left;
+  font-weight: 600;
+  padding: 4px 0;
+}
+
+.shortcut-table th,
+.shortcut-table td {
+  text-align: left;
+  padding: 4px 8px 4px 0;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+.shortcut-table thead th {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.shortcut-table kbd {
+  font-family: var(--ui-font);
+  white-space: nowrap;
+}
+
+/*
+ * Windows contrast themes across the UI: the system picks every colour. Borders come back on buttons, cards,
+ * menus and dialogs (they were drawn with background colours), focus uses Highlight, disabled uses GrayText.
+ */
+@media (forced-colors: active) {
+  button,
+  select,
+  summary,
+  .save-menu summary {
+    border: 1px solid ButtonText;
+  }
+
+  button.quiet,
+  button.link,
+  .row-label {
+    border-color: transparent;
+    color: LinkText;
+  }
+
+  button:disabled {
+    color: GrayText;
+    border-color: GrayText;
+    opacity: 1;
+  }
+
+  button.primary {
+    border-width: 2px;
+  }
+
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  summary:focus-visible,
+  [tabindex]:focus-visible,
+  .card-slot:focus-visible {
+    outline: 2px solid Highlight;
+  }
+
+  .card,
+  .done-state,
+  .dialog,
+  .menu,
+  .chip,
+  .banner,
+  .dropzone {
+    border: 1px solid CanvasText;
+  }
+
+  .diff del,
+  .changelog del,
+  .cm-old {
+    color: CanvasText;
+    text-decoration: line-through;
+  }
+
+  .diff ins,
+  .changelog ins,
+  .cm-new {
+    color: CanvasText;
+    text-decoration: underline;
+  }
+
+  .diff mark {
+    background: Mark;
+    color: MarkText;
+    forced-color-adjust: none;
+  }
+
+  .hint,
+  .category,
+  .statusbar {
+    color: CanvasText;
+  }
+
+  .progress-bar {
+    border: 1px solid CanvasText;
+  }
+}

@@ -9,6 +9,14 @@ interface Props {
   onRule(scope: 'document' | 'everywhere'): void;
 }
 
+/** Up / Down move between the menu's items, wrapping at the ends (WAI-ARIA menu pattern). */
+function moveInMenu(root: HTMLElement | null, step: 1 | -1): void {
+  const items = [...(root?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])];
+  if (items.length === 0) return;
+  const at = items.indexOf(document.activeElement as HTMLElement);
+  items[(at + step + items.length) % items.length].focus();
+}
+
 /**
  * Dismiss ▾ with its scope in every item (UI/UX research §3, LanguageTool's "ignore in this text" vs
  * "turn off everywhere"). "Everywhere" can be undone in Settings › Ignored rules.
@@ -38,7 +46,13 @@ export function DismissMenu({ rule, thisOneLabel, onThisOne, onRule }: Props) {
       className="menu-anchor"
       ref={root}
       onKeyDown={(e) => {
-        if (e.key !== 'Escape' || !open) return;
+        if (!open) return;
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          moveInMenu(root.current, e.key === 'ArrowDown' ? 1 : -1);
+          return;
+        }
+        if (e.key !== 'Escape') return;
         e.stopPropagation();
         setOpen(false);
         trigger.current?.focus();

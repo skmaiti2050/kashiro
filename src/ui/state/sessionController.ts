@@ -8,11 +8,14 @@ import type { PresetId } from '@/engine/presets';
 import type { Variant } from '@/engine/types';
 import { adapterFor as registryAdapterFor } from '@/formats/registry';
 import type { FormatAdapter } from '@/formats/types';
+import { afterAction } from './announce';
 import { carryDecisions } from './carryDecisions';
+import { explain } from './errors';
 import { checkOptions, currentDepth } from './checkOptions';
 import { DecisionTally } from './decisionTally';
 import { matchUnchangedParagraphs } from './documentText';
 import { readDocument, readTypedText, type LoadedFile, type OpenDocument } from './openDocument';
+import { progressOf } from './progress';
 import { RecheckQueue } from './recheckQueue';
 import { SAMPLE_NAME, SAMPLE_TEXT } from './sample';
 import type { Files, OpenedFile } from './saveFlow';
@@ -54,8 +57,15 @@ export interface ControllerState {
   decided: number;
   /** Kinds dismissed with "This rule in this document": dropped when another document is opened. */
   documentIgnoredRules: string[];
+  /** What the screen reader says after a decision ("Accepted. 4 of 9 left."); `seq` is new each time. */
+  announcement: Announcement | null;
   /** Bumped on every change: the session is mutable, so views re-read it when this moves. */
   revision: number;
+}
+
+export interface Announcement {
+  text: string;
+  seq: number;
 }
 
 const RECHECK_DELAY_MS = 300;
@@ -81,18 +91,22 @@ export class SessionController {
   /** Edits applied, decisions made or text typed since the document was opened or last saved. */
   private unsaved = false;
   private readonly tally = new DecisionTally();
+  private announcements = 0;
   private readonly settingsHost: settingsActions.SettingsHost = {
     state: () => this.state,
     set: (patch) => this.set(patch),
     storeSettings: (settings) => {
       this.set({ settings });
-      this.deps.saveSettings(settings).catch((e) => this.set({ error: `Settings were not saved: ${message(e)}` }));
+      this.deps
+        .saveSettings(settings)
+        .catch((e) => this.set({ error: explain('Settings were not saved', e, 'They apply until you close the app; change one again to retry saving.') }));
     },
     decisionMade: (patch) => {
       this.tally.made(1);
       this.set({ ...patch, decided: this.tally.decided });
     },
     markUnsaved: () => (this.unsaved = true),
+    announce: (verb) => this.set({ announcement: this.announcement(verb) }),
     dropLinter: () => (this.linter = null),
     recheck: () => this.recheck(),
     modulesChanged: async () => {
@@ -126,6 +140,7 @@ export class SessionController {
       checking: false,
       decided: 0,
       documentIgnoredRules: [],
+      announcement: null,
       revision: 0,
     };
   }
@@ -166,7 +181,7 @@ export class SessionController {
   async openFile(file: OpenedFile): Promise<void> {
     const adapter = this.adapterFor(file.name);
     if (!adapter) {
-      this.set({ error: `Can't open ${file.name}: writing-check opens .docx, .txt and .md files.` });
+      this.set({ error: `Can't open ${file.name}: writing-check opens .docx, .txt and .md files. Save it in one of those formats, then open it again.` });
       return;
     }
     await this.load(file.name, file.path, adapter, file.bytes);
@@ -188,7 +203,7 @@ export class SessionController {
     try {
       read = await readDocument(this.documents + 1, name, path, adapter, bytes);
     } catch (e) {
-      this.set({ error: `Can't open ${name}: ${message(e)}` });
+      this.set({ error: explain(`Can't open ${name}`, e, 'Check that the file opens in Word or a text editor, then try again.') });
       return;
     }
     const { loaded, document } = read;
@@ -206,6 +221,7 @@ export class SessionController {
       checking: true,
       decided: this.tally.decided,
       documentIgnoredRules: [],
+      announcement: null,
     });
     await this.queue.track(this.check(false));
   }
@@ -227,7 +243,7 @@ export class SessionController {
     try {
       read = await readTypedText(this.loaded, document, text);
     } catch (e) {
-      this.set({ error: `The typed text could not be checked: ${message(e)}`, checking: this.queue.waiting });
+      this.set({ error: explain('The typed text could not be checked', e, 'Keep typing to try again, or save and reopen the file.'), checking: this.queue.waiting });
       return;
     }
     this.loaded = read.loaded;
@@ -260,7 +276,8 @@ export class SessionController {
       this.releaseModules(session.modules);
     } catch (e) {
       if (run !== this.checks) return;
-      this.set({ phase: this.state.session ? 'ready' : 'empty', error: `The check failed: ${message(e)}`, checking: this.queue.waiting });
+      const error = explain('The check failed', e, 'Edit the text or reopen the file to try again.');
+      this.set({ phase: this.state.session ? 'ready' : 'empty', error, checking: this.queue.waiting });
     }
   }
 
@@ -273,33 +290,38 @@ export class SessionController {
   // ---- review --------------------------------------------------------------
 
   accept(decisionId: string, replacementIndex = 0): void {
-    this.act((s) => s.accept(decisionId, replacementIndex), () => this.tally.made(1));
+    this.act((s) => s.accept(decisionId, replacementIndex), () => this.tally.made(1), 'Accepted');
   }
 
   reject(decisionId: string): void {
-    this.rejectTogether(decisionId, (s) => s.reject(decisionId));
+    this.rejectTogether(decisionId, (s) => s.reject(decisionId), 'Rejected');
   }
 
   ignoreAll(decisionId: string): void {
-    this.rejectTogether(decisionId, (s) => s.ignoreAll(decisionId));
+    this.rejectTogether(decisionId, (s) => s.ignoreAll(decisionId), 'Ignored');
   }
 
-  /** Rejects a decision as one: "Review again" on several of its places gives back one decision made, not one each. */
-  private rejectTogether(decisionId: string, change: (s: CheckSession) => void): void {
+  /**
+   * Rejects a decision as one: "Review again" on several of its places gives back one decision made, not one
+   * each. A flag with nothing to apply is announced as dismissed, as its button says.
+   */
+  private rejectTogether(decisionId: string, change: (s: CheckSession) => void, verb: string): void {
     const session = this.state.session;
     if (!session) return;
     const { top, more } = session.decisions();
     const places = [...top, ...more].find((d) => d.id === decisionId)?.candidateIds ?? [decisionId];
-    this.act(change, () => this.tally.rejected(decisionId, places));
+    const replacements = new Map(session.candidates().map((c) => [c.id, c.replacements.length]));
+    const flagOnly = places.every((id) => replacements.get(id) === 0);
+    this.act(change, () => this.tally.rejected(decisionId, places), flagOnly ? 'Dismissed' : verb);
   }
 
   /** "Apply" after the batch preview: the chosen places as one change, undone together by undoBatch. */
   applyBatch(decisionId: string, candidateIds: string[], replacementIndex = 0): void {
-    this.act((s) => s.applyBatch(decisionId, candidateIds, replacementIndex), () => this.tally.made(1));
+    this.act((s) => s.applyBatch(decisionId, candidateIds, replacementIndex), () => this.tally.made(1), 'Applied');
   }
 
   undoBatch(batchId: string): void {
-    this.act((s) => s.undoBatch(batchId), () => {});
+    this.act((s) => s.undoBatch(batchId), () => {}, 'Undone');
   }
 
   /**
@@ -313,6 +335,7 @@ export class SessionController {
       () => {
         if (status === 'rejected') this.tally.reopen(candidateId);
       },
+      status === 'rejected' ? 'Back to review' : 'Undone',
     );
   }
 
@@ -392,14 +415,14 @@ export class SessionController {
   }
 
   private releaseModules(modules: ModuleSwitches): void {
-    this.optional.release(modules).catch((e) => this.set({ error: `The writing helper did not stop: ${message(e)}` }));
+    this.optional.release(modules).catch((e) => this.set({ error: explain('The writing helper did not stop', e, 'Restart the app to stop it.') }));
   }
 
   /**
-   * Runs a review action and, only once it succeeded, `count` (how it moves the tally of decisions made).
-   * A failure is shown, not thrown.
+   * Runs a review action and, only once it succeeded, `count` (how it moves the tally of decisions made) and
+   * the announcement "<verb>. N of M left.". A failure is shown, not thrown.
    */
-  private act(change: (s: CheckSession) => void, count: () => void): void {
+  private act(change: (s: CheckSession) => void, count: () => void, verb: string): void {
     const session = this.state.session;
     if (!session) return;
     try {
@@ -410,7 +433,13 @@ export class SessionController {
     }
     this.unsaved = true;
     count();
-    this.set({ error: null, decided: this.tally.decided });
+    this.set({ error: null, decided: this.tally.decided, announcement: this.announcement(verb) });
+  }
+
+  private announcement(verb: string): Announcement | null {
+    const session = this.state.session;
+    if (!session) return null;
+    return { text: afterAction(verb, progressOf(session, this.tally.decided)), seq: ++this.announcements };
   }
 
   // ---- saving --------------------------------------------------------------
