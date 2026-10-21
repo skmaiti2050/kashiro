@@ -112,7 +112,8 @@ export function tierOf(c: Candidate, ctx: TierContext): Tier {
   // "y0u" → "you" is likely right, but a token with a digit may be a code nobody recognised: ask first.
   if (WORD_REWRITE_KINDS.has(c.kind) && HAS_DIGIT.test(c.original)) return 'review';
   if (c.source === 'llm') return 'review';
-  if (c.replacements.length !== 1) return 'review';
+  // Safety rests on the linter's own list: one it offered alone, not one the engine filtered or added to.
+  if (c.replacements.length !== 1 || c.linterReplacements) return 'review';
   if (WORD_REWRITE_KINDS.has(c.kind) && (UPPER_START.test(c.original) || !isSlipFix(c))) return 'review';
   // "Mr. and Mrs. Rao": the linter reads the abbreviation's period as a sentence end.
   const text = ctx.paraText?.get(c.paraId);

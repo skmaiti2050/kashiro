@@ -1,6 +1,7 @@
 import type { Candidate } from './types';
 import { COMMON_WORDS } from './wordlists/common';
-import { PLAIN_WORD, UPPER_START, WORD_REWRITE_KINDS, withinOneEdit, withinTwoEdits } from './wordFlags';
+import { isCommonWord } from './suggestions/frequency';
+import { PLAIN_WORD, TWO_EDIT_LENGTH, UPPER_START, WORD_REWRITE_KINDS, withinOneEdit, withinTwoEdits } from './wordFlags';
 
 /** Spec §5 terms card: an unknown lowercase word used this many times is treated as an intended term. */
 export const DEFAULT_TERM_MIN_REPEATS = 3;
@@ -12,8 +13,6 @@ const TERM_SHAPE = /^\p{Ll}[\p{L}\p{N}]*$/u;
 const LETTER = /\p{L}/gu;
 /** One word token for counting uses: letters and digits ("dosha" in "dosha's" and in "(dosha)"). */
 const WORD_TOKEN = /[\p{L}\p{N}]+/gu;
-/** From this length a suggestion two edits away still marks a misspelling ("accomodate" → "accommodate"). */
-const TWO_EDIT_LENGTH = 6;
 
 /** Throws when `n` is not a whole number from 2 to 5 (the settings range). */
 export function checkTermMinRepeats(n: number): void {
@@ -41,14 +40,16 @@ function isSlipOfCommonWord(word: string): boolean {
 }
 
 /**
- * True when one of the linter's own one-word suggestions is close to the flagged word: one edit, or two
- * for words of 6+ letters ("occurence" → "occurrence"). The linter's dictionary is far bigger than the
- * common-words list, so this catches misspellings of rarer words. Splits ("co infection") don't count:
- * joining two words is a style choice, not a sign of a typo.
+ * True when one of the linter's own one-word suggestions (not words the engine added: "coinfection" →
+ * "infection") is a common word (Zipf ≥ 3.0) close to the flag: one edit,
+ * or two for words of 6+ letters ("occurence" → "occurrence"). This catches misspellings of words rarer
+ * than the common-words list. A rare neighbour doesn't count ("dosha" → "dosh"), nor does a split
+ * ("co infection"): joining two words is a style choice, not a sign of a typo.
  */
 function hasCloseSuggestion(c: Candidate): boolean {
   const close = c.original.length >= TWO_EDIT_LENGTH ? withinTwoEdits : withinOneEdit;
-  return c.replacements.some((r) => PLAIN_WORD.test(r) && close(c.original, r));
+  const offered = c.linterReplacements ?? c.replacements;
+  return offered.some((r) => PLAIN_WORD.test(r) && close(c.original, r) && isCommonWord(r));
 }
 
 /** Uses of each word in the document, exact case, counted once per paraText map (one per session). */
@@ -70,7 +71,7 @@ function wordUses(paraText: ReadonlyMap<number, string>): Map<string, number> {
  * The terms among `flags` (review-tier flags), as lowercase word → lowercase uses in the document
  * (spec §5): a lowercase word of 3+ letters and digits, written in lowercase at least `minRepeats`
  * times (unflagged uses count too), that is not a misspelling: not a common word or one edit from one
- * ("teh" ×3), and no flag of it has a close one-word suggestion ("occurence" ×3). Words in `typoWords`
+ * ("teh" ×3), and no flag of it has a close, common one-word suggestion ("occurence" ×3). Words in `typoWords`
  * (the user said they are typos) are left out. Capitalised uses ("Dosha" at a sentence start) don't count.
  */
 export function findTerms(

@@ -26,6 +26,11 @@ export interface Candidate {
   kind: string;
   message: string;
   source: Source;
+  /**
+   * The linter's own suggestions, kept when the engine added or removed some (spec §5 better suggestions).
+   * Such a flag is never auto-applied, and the terms card judges the word by these.
+   */
+  linterReplacements?: string[];
 }
 
 export type Tier = 'safe' | 'batch' | 'review' | 'hidden';

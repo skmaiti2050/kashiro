@@ -99,6 +99,31 @@ describe('terms card (spec §5)', () => {
     expect(decide(text, flagsOf(text, word, replacements)).map((x) => x.kind)).toEqual(['batch']);
   });
 
+  it('a close but rare suggestion does not stop a term: "dosha" ×3 with "dosh" (Zipf 2.3)', () => {
+    const text = 'Each dosha, the dosha and a dosha.';
+    expect(decide(text, flagsOf(text, 'dosha', ['dosh']))[0]).toMatchObject({ kind: 'terms', counts: { dosha: 3 } });
+  });
+
+  it('a close common suggestion still stops it: "kapha" ×3 with "kappa" (Zipf 3.5)', () => {
+    const text = 'Each kapha, the kapha and a kapha.';
+    expect(decide(text, flagsOf(text, 'kapha', ['kappa', 'kana'])).map((x) => x.kind)).toEqual(['batch']);
+  });
+
+  it('words the engine added to the suggestions do not stop a term ("coinfection" → added "infection")', () => {
+    const text = 'One coinfection, a second coinfection and a third coinfection.';
+    const cs = flagsOf(text, 'coinfection', ['co infection', 'infection']).map((c) => ({
+      ...c,
+      linterReplacements: ['co infection'],
+    }));
+    expect(decide(text, cs)[0].kind).toBe('terms');
+  });
+
+  it('in a hyphenated word the linter flags the part, so the part is the term ("vata-pitta" ×3 → "pitta")', () => {
+    // Harper flags "pitta" alone in "vata-pitta", and a hyphenated dictionary word would not clear that flag.
+    const text = 'The vata-pitta balance. Each vata-pitta type. A vata-pitta diet.';
+    expect(decide(text, flagsOf(text, 'pitta'))[0]).toMatchObject({ kind: 'terms', counts: { pitta: 3 } });
+  });
+
   it('a suggestion that only splits the word ("co infection") does not stop a term', () => {
     const text = 'One coinfection, a second coinfection and a third coinfection.';
     expect(decide(text, flagsOf(text, 'coinfection', ['co infection', 'co-infection']))[0].kind).toBe('terms');

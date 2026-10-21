@@ -29,6 +29,15 @@ const lastLog = (s: CheckSession, id: string) => s.log().filter((e) => e.candida
 const TEH = 'I think teh cat is is here.';
 
 describe('CheckSession.start', () => {
+  it('ranks spelling suggestions by likelihood and never offers an offensive word (spec §5)', async () => {
+    const s = await start([{ id: 0, text: 'The recods were filed. Sujit arived late.' }]);
+    expect(byOriginal(s, 'recods').replacements[0]).toBe('records');
+    expect(byOriginal(s, 'Sujit').replacements).not.toContain('Shit');
+    const arived = byOriginal(s, 'arived');
+    expect(arived.replacements[0]).toBe('arrived');
+    expect(s.tier(arived.id)).toBe('review');
+  });
+
   it('auto-applies safe candidates and logs them as auto', async () => {
     const s = await start([{ id: 0, text: TEH }]);
     const teh = byOriginal(s, 'teh');

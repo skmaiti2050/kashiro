@@ -9,6 +9,9 @@ export const TITLE_CASE_WORD = /^\p{Lu}\p{Ll}+$/u;
 /** One word of letters and apostrophes, no space or hyphen: "receive", "don't". */
 export const PLAIN_WORD = /^[\p{L}'’]+$/u;
 
+/** From this length a word two edits away still counts as close ("accomodate" → "accommodate"). */
+export const TWO_EDIT_LENGTH = 6;
+
 export const HAS_DIGIT = /\p{N}/u;
 /** A capital right after a lowercase letter: "preventDefault", "iPhone", "DevTools". */
 const INNER_CAPITAL = /\p{Ll}\p{Lu}/u;
@@ -76,21 +79,37 @@ export function withinTwoEdits(a: string, b: string): boolean {
   return withinEdits(a, b, 2);
 }
 
-/** Damerau-Levenshtein (optimal string alignment) distance ≤ `max`, case-insensitive. */
 function withinEdits(a: string, b: string, max: number): boolean {
+  return editDistance(a, b, max) <= max;
+}
+
+/**
+ * Damerau-Levenshtein (optimal string alignment) distance, case-insensitive: insertions, deletions,
+ * substitutions and swaps of two neighbouring letters each count 1 ("recieve" / "receive" is 1).
+ * Past `max` it stops early and returns max + 1 (the spelling search compares thousands of words).
+ */
+export function editDistance(a: string, b: string, max = Infinity): number {
   a = a.toLowerCase();
   b = b.toLowerCase();
-  if (Math.abs(a.length - b.length) > max) return false;
-  const d: number[][] = Array.from({ length: a.length + 1 }, (_, i) => [i, ...new Array(b.length).fill(0)]);
-  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  // Three rows of the usual table: two rows back (for swaps), the previous one and the current one.
+  let before = new Array<number>(b.length + 1).fill(0);
+  let previous = Array.from({ length: b.length + 1 }, (_, j) => j);
+  let current = new Array<number>(b.length + 1).fill(0);
   for (let i = 1; i <= a.length; i++) {
+    current[0] = i;
+    let rowMin = i;
     for (let j = 1; j <= b.length; j++) {
       const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
-      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+      let d = Math.min(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + cost);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d = Math.min(d, before[j - 2] + 1);
+      current[j] = d;
+      rowMin = Math.min(rowMin, d);
     }
+    if (rowMin > max) return max + 1;
+    [before, previous, current] = [previous, current, before];
   }
-  return d[a.length][b.length] <= max;
+  return Math.min(previous[b.length], max + 1);
 }
 
 /**
