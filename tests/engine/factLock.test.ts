@@ -206,6 +206,8 @@ describe('code tokens', () => {
     ['Please recieve/send it.', 'recieve', 'send'],
     ['Please recieve/send/get it.', 'recieve', 'get'],
     ['Pick yes/no/maybe now.', 'yes', 'maybe'],
+    // Known limit: a relative path with no file name and no "./" start reads as a list of words.
+    ['See src/utils/helpers now.', 'src', 'helpers'],
     ['Map input/ouput here.', 'input', 'ouput'],
     ['Mail sujit@home now.', 'sujit', 'home'],
   ])('plain words joined by ".", "/" or "@" are prose, not code: "%s"', (plain, left, right) => {

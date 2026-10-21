@@ -180,13 +180,13 @@ describe('SessionController: review', () => {
     expect([...top, ...more].find((d) => d.kind === 'names')).toBeUndefined();
   });
 
-  const TERMS = 'Each dosha has a role. The dosha shifts with the season, and a dosha can rise.';
+  const TERMS = 'Each plasmodium has a role. The plasmodium shifts with the season, and a plasmodium can rise.';
 
   it('acceptTerms adds the terms to the saved personal dictionary', async () => {
     const { controller, saved } = makeController({ createLinter: (v, words) => createLinter(v, words) });
     await controller.openText(TERMS);
     await controller.acceptTerms([]);
-    expect(saved.at(-1)!.dictionary).toEqual(['dosha']);
+    expect(saved.at(-1)!.dictionary).toEqual(['plasmodium']);
     const { top, more } = controller.getState().session!.decisions();
     expect([...top, ...more].find((d) => d.kind === 'terms')).toBeUndefined();
   });

@@ -1,7 +1,8 @@
 /**
- * The 5,000 most frequent English words, used only to tell a typing slip from an intended term
+ * About 4,800 of the most frequent English words, used only to tell a typing slip from an intended term
  * (spec §5 terms card): a repeated unknown word one edit from one of these ("teh", "recieve") is a slip.
- * Never offered as a suggestion. Source: the first 5,000 lines of google-10000-english (no-swears
+ * Never offered as a suggestion; Task S6's frequency list is meant to replace it. Source: the first 5,000
+ * lines of google-10000-english (no-swears
  * edition, from Peter Norvig's counts of the Google Web Trillion Word Corpus). Kept: letters only; of the
  * one- and two-letter tokens, only English words ("a", "of", "go"), since tokens like "ri" or "rt" would
  * make every three-letter term look like a slip; spam and adult tokens removed.

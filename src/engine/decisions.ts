@@ -1,7 +1,7 @@
 import type { Candidate, Span, Tier } from './types';
 import { followsAbbreviation, overlapsLocked } from './factLock';
 import { isLikelyTypo, isNameFlag, TITLE_CASE_WORD, WORD_REWRITE_KINDS, withinOneEdit } from './wordFlags';
-import { DEFAULT_TERM_MIN_REPEATS, findTerms, isLowercaseWordFlag } from './terms';
+import { DEFAULT_TERM_MIN_REPEATS, findTerms } from './terms';
 
 export interface Decision {
   /** `batch:<key>` for a batch, the candidate id for a single, `names` / `terms` for the two cards. */
@@ -161,8 +161,8 @@ class DecisionGroups {
  * their decision ids.
  * Names: every capitalised Spelling/Typo flag goes on one names card, ranked last (spec §5), except
  * likely typos (isLikelyTypo) and Spelling/Typo flags of words in `typoWords`: those rank like any word.
- * Terms: lowercase Spelling/Typo flags of a term (findTerms, needs `paraText`) go on one terms card,
- * ranked just above the names card (spec §5).
+ * Terms: Spelling/Typo flags of a term (findTerms, needs `paraText`), its capitalised uses included, go
+ * on one terms card, ranked just above the names card (spec §5).
  * Blocked candidates go into `blocked` (scored and sorted the same way), except name and term flags,
  * which join their card: adding a word to the dictionary changes no text.
  */
@@ -179,7 +179,8 @@ export function buildDecisions(
 ): { safe: string[]; decisions: Decision[]; demoted: string[]; blocked: Decision[] } {
   const reviewFlags = cands.filter((c) => (tiers.get(c.id) ?? 'review') === 'review');
   const terms = paraText ? findTerms(reviewFlags, paraText, termMinRepeats, typoWords) : new Map<string, number>();
-  const isTermFlag = (c: Candidate) => isLowercaseWordFlag(c) && terms.has(c.original.toLowerCase());
+  // A term's capitalised uses ("Dosha" mid-sentence) join the terms card too: one word, one card.
+  const isTermFlag = (c: Candidate) => WORD_REWRITE_KINDS.has(c.kind) && terms.has(c.original.toLowerCase());
   const safe: string[] = [];
   const wordOf = (c: Candidate) => (WORD_REWRITE_KINDS.has(c.kind) ? c.kind + c.original.toLowerCase() : null);
   // A word the document uses as a fact-locked name somewhere is a name everywhere (e.g. sentence-initial).

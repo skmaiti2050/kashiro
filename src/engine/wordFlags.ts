@@ -6,7 +6,8 @@ export const UPPER_START = /^\p{Lu}/u;
 export const WORD_REWRITE_KINDS = new Set(['Spelling', 'Typo']);
 /** A capital then lowercase letters ("Teh", "Priya"; not "NPCI", "MEGHNA" or "A."). */
 export const TITLE_CASE_WORD = /^\p{Lu}\p{Ll}+$/u;
-const PLAIN_WORD = /^[\p{L}'’]+$/u;
+/** One word of letters and apostrophes, no space or hyphen: "receive", "don't". */
+export const PLAIN_WORD = /^[\p{L}'’]+$/u;
 
 export const HAS_DIGIT = /\p{N}/u;
 /** A capital right after a lowercase letter: "preventDefault", "iPhone", "DevTools". */
@@ -65,11 +66,21 @@ export function isNameFlag(c: Candidate): boolean {
   return WORD_REWRITE_KINDS.has(c.kind) && UPPER_START.test(c.original);
 }
 
-/** Damerau-Levenshtein (optimal string alignment) distance, case-insensitive, stopping early above 1. */
+/** True when `a` and `b` are at most one edit apart (case-insensitive): "teh" / "the". */
 export function withinOneEdit(a: string, b: string): boolean {
+  return withinEdits(a, b, 1);
+}
+
+/** True when `a` and `b` are at most two edits apart (case-insensitive): "accomodate" / "accommodate". */
+export function withinTwoEdits(a: string, b: string): boolean {
+  return withinEdits(a, b, 2);
+}
+
+/** Damerau-Levenshtein (optimal string alignment) distance ≤ `max`, case-insensitive. */
+function withinEdits(a: string, b: string, max: number): boolean {
   a = a.toLowerCase();
   b = b.toLowerCase();
-  if (Math.abs(a.length - b.length) > 1) return false;
+  if (Math.abs(a.length - b.length) > max) return false;
   const d: number[][] = Array.from({ length: a.length + 1 }, (_, i) => [i, ...new Array(b.length).fill(0)]);
   for (let j = 1; j <= b.length; j++) d[0][j] = j;
   for (let i = 1; i <= a.length; i++) {
@@ -79,7 +90,7 @@ export function withinOneEdit(a: string, b: string): boolean {
       if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
     }
   }
-  return d[a.length][b.length] <= 1;
+  return d[a.length][b.length] <= max;
 }
 
 /**

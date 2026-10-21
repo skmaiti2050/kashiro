@@ -36,7 +36,7 @@ describe('performance', () => {
 
   it('building the decisions of a ~1,500-word check stays well under the budget (terms card included)', async () => {
     const paras: Paragraph[] = [];
-    for (let r = 0; r < 4; r++) PARAGRAPHS.forEach((text) => paras.push({ id: paras.length, text: `${text} The dosha and vivax.` }));
+    for (let r = 0; r < 4; r++) PARAGRAPHS.forEach((text) => paras.push({ id: paras.length, text: `${text} The plasmodium and culicifacies.` }));
     const s = await CheckSession.start(paras, OPTIONS, { linter });
     const t0 = performance.now();
     s.decisions();

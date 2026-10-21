@@ -23,7 +23,9 @@ export function TermsCard({ controller, card }: Props) {
       else next.add(word);
       return next;
     });
-  const ticked = words.length - unticked.size;
+  // A re-check can change the card under the same key: only words on it now count.
+  const keepAsTypos = words.filter((w) => unticked.has(w));
+  const ticked = words.length - keepAsTypos.length;
   const addLabel = ticked === words.length ? 'Add all to my dictionary' : `Add ${ticked} to my dictionary`;
 
   return (
@@ -42,7 +44,7 @@ export function TermsCard({ controller, card }: Props) {
         ))}
       </ul>
       <div className="actions">
-        <button className="primary" onClick={() => void controller.acceptTerms([...unticked])}>
+        <button className="primary" onClick={() => void controller.acceptTerms(keepAsTypos)}>
           {addLabel}
         </button>
       </div>

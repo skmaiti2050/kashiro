@@ -91,6 +91,33 @@ describe('terms card (spec §5)', () => {
     expect(d[1]).toMatchObject({ label: '2 terms used in this document', counts: { sarpanch: 3, dosha: 3 } });
   });
 
+  it.each([
+    ['occurence', ['occurrence', 'occurrences', 'occur']],
+    ['accomodate', ['accommodate', 'accommodated', 'accommodates']],
+  ])('a repeated misspelling whose own suggestion is close ("%s" ×3) stays a normal decision', (word, replacements) => {
+    const text = `The ${word} was noted. Another ${word} followed, and a third ${word} too.`;
+    expect(decide(text, flagsOf(text, word, replacements)).map((x) => x.kind)).toEqual(['batch']);
+  });
+
+  it('a suggestion that only splits the word ("co infection") does not stop a term', () => {
+    const text = 'One coinfection, a second coinfection and a third coinfection.';
+    expect(decide(text, flagsOf(text, 'coinfection', ['co infection', 'co-infection']))[0].kind).toBe('terms');
+  });
+
+  it('a word on both cards stays on one: the terms card, counting only lowercase uses', () => {
+    const text = 'Each dosha, the dosha and a dosha. We met Dosha there.';
+    const cs = [...flagsOf(text, 'dosha'), ...flagsOf(text, 'Dosha')];
+    expect(decide(text, cs)).toEqual([
+      expect.objectContaining({ kind: 'terms', candidateIds: cs.map((c) => c.id), counts: { dosha: 3 } }),
+    ]);
+  });
+
+  it('with too few lowercase uses, the capitalised use goes to the names card and the rest stay words', () => {
+    const text = 'Each dosha and a dosha. We met Dosha there.';
+    const cs = [...flagsOf(text, 'dosha'), ...flagsOf(text, 'Dosha')];
+    expect(decide(text, cs).map((x) => x.kind)).toEqual(['batch', 'names']);
+  });
+
   it('words the user kept as typos leave the card', () => {
     const cs = flagsOf(three, 'sarpanch');
     const r = buildDecisions(cs, review(cs), { paraText: new Map([[0, three]]), typoWords: new Set(['sarpanch']) });
@@ -99,7 +126,7 @@ describe('terms card (spec §5)', () => {
 });
 
 describe('COMMON_WORDS list', () => {
-  it('holds about 5,000 lowercase words, the core ones included', () => {
+  it('holds about 4,800 lowercase words, the core ones included', () => {
     expect(COMMON_WORDS.size).toBeGreaterThan(4500);
     expect(COMMON_WORDS.size).toBeLessThanOrEqual(5000);
     for (const w of COMMON_WORDS) expect(w).toMatch(/^\p{Ll}+$/u);
@@ -122,14 +149,16 @@ describe('terms card in a session (Harper)', () => {
     dictionary: [],
     ...over,
   });
+  // Harper's suggestions for these are far off (palladium, calcifies), so they read as terms.
   const text =
-    'Each dosha has a role. The dosha shifts with the season, and a dosha can rise. ' +
-    'The vivax strain spread. A vivax case was found, then a third vivax case.';
+    'Each plasmodium has a role. The plasmodium shifts with the season, and a plasmodium can rise. ' +
+    'The culicifacies strain spread. A culicifacies case was found, then a third culicifacies case.';
+  const words = ['culicifacies', 'plasmodium'];
 
   it('counts as one ranked decision: the ranked count drops by (terms − 1)', async () => {
     const withCard = await CheckSession.start([{ id: 0, text }], opts(), { linter });
     const card = [...withCard.decisions().top, ...withCard.decisions().more].find((d) => d.kind === 'terms')!;
-    expect(card.counts).toEqual({ dosha: 3, vivax: 3 });
+    expect(card.counts).toEqual({ plasmodium: 3, culicifacies: 3 });
     const without = await CheckSession.start([{ id: 0, text }], opts({ termMinRepeats: 5 }), { linter });
     expect(withCard.rankedDecisionCount()).toBe(without.rankedDecisionCount() - (2 - 1));
   });
@@ -137,19 +166,19 @@ describe('terms card in a session (Harper)', () => {
   it('acceptTerms adds the words to the dictionary; a later check does not flag them', async () => {
     const s = await CheckSession.start([{ id: 0, text }], opts()); // own linter: words are added to it
     await s.acceptTerms([]);
-    expect(s.addedWords().sort()).toEqual(['dosha', 'vivax']);
+    expect(s.addedWords().sort()).toEqual(words);
     expect(s.rankedDecisionCount()).toBe(0);
     const again = await CheckSession.start([{ id: 0, text }], opts({ dictionary: s.addedWords() }));
-    expect(again.candidates().filter((c) => ['dosha', 'vivax'].includes(c.original))).toEqual([]);
+    expect(again.candidates().filter((c) => words.includes(c.original))).toEqual([]);
   });
 
   it('keepAsTypos splits a word out of the card into its own decision', async () => {
     const s = await CheckSession.start([{ id: 0, text }], opts());
-    await s.acceptTerms(['VIVAX']);
-    expect(s.addedWords()).toEqual(['dosha']);
+    await s.acceptTerms(['CULICIFACIES']);
+    expect(s.addedWords()).toEqual(['plasmodium']);
     const left = [...s.decisions().top, ...s.decisions().more];
     expect(left.map((d) => d.kind)).toEqual(['batch']);
-    expect(left[0].label).toMatch(/^vivax/);
+    expect(left[0].label).toMatch(/^culicifacies/);
   });
 
   it('accept refuses the terms card (it is answered with acceptTerms)', async () => {
