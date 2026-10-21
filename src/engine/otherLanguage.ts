@@ -1,6 +1,5 @@
 import type { Candidate, Span } from './types';
 import { isRomanisedIndic, loadRomanisedModel } from './romanised/classifier';
-import { nameLanguages } from './romanised/languageNames';
 import { nearbyWords } from './suggestions/frequency';
 import { sentenceSpans } from './sentences';
 import { WORD_REWRITE_KINDS } from './wordFlags';
@@ -36,6 +35,23 @@ export async function loadModelIfNeeded(candidates: Candidate[]): Promise<void> 
  * "te" is Bengali "at", not "the".
  */
 export function findForeignSentences(candidates: Candidate[], paraText: ReadonlyMap<number, string>): Map<number, Span[]> {
+  return sentencesWhere(candidates, paraText, (flags, sentence) => flags.length * 2 > (sentence.match(WORD) ?? []).length);
+}
+
+/**
+ * paraId → the sentences with a Spelling/Typo flag of a romanised Indian-language word ("dhaba te ate makki di
+ * roti"). A two-letter "slip" there is more likely a word of that language (Punjabi "te", "and") than a typo.
+ */
+export function findRomanisedSentences(candidates: Candidate[], paraText: ReadonlyMap<number, string>): Map<number, Span[]> {
+  return sentencesWhere(candidates, paraText, (flags) => flags.some((c) => isLowercaseWordFlag(c) && isRomanisedIndic(c.original)));
+}
+
+/** paraId → the sentences whose Spelling/Typo flags (and text) satisfy `keep`. */
+function sentencesWhere(
+  candidates: Candidate[],
+  paraText: ReadonlyMap<number, string>,
+  keep: (flags: Candidate[], sentence: string) => boolean,
+): Map<number, Span[]> {
   const flagsByPara = new Map<number, Candidate[]>();
   for (const c of candidates) {
     if (!WORD_REWRITE_KINDS.has(c.kind)) continue;
@@ -43,32 +59,33 @@ export function findForeignSentences(candidates: Candidate[], paraText: Readonly
     if (flags) flags.push(c);
     else flagsByPara.set(c.paraId, [c]);
   }
-  const foreign = new Map<number, Span[]>();
+  const found = new Map<number, Span[]>();
   for (const [paraId, flags] of flagsByPara) {
     const text = paraText.get(paraId) ?? '';
-    const spans = sentenceSpans(text).filter((s) => {
-      const flagged = flags.filter((c) => s.start <= c.span.start && c.span.end <= s.end).length;
-      return flagged * 2 > (text.slice(s.start, s.end).match(WORD) ?? []).length;
-    });
-    if (spans.length) foreign.set(paraId, spans);
+    const spans = sentenceSpans(text).filter((s) =>
+      keep(
+        flags.filter((c) => s.start <= c.span.start && c.span.end <= s.end),
+        text.slice(s.start, s.end),
+      ),
+    );
+    if (spans.length) found.set(paraId, spans);
   }
-  return foreign;
+  return found;
 }
 
 /**
  * The words among `flags` (review-tier flags) that are romanised Indian-language words (spec §5 words in
- * Indian languages), lowercased, each with its language's name ("konjam" → "Tamil", named in the context of
- * the others: nameLanguages). Only a word the document
- * writes in lowercase somewhere counts: a capitalised word alone is more likely a name ("Venkatraman"). Words
- * in `typoWords` (the user said they are typos) and `exclude` (already on the terms card) are left out.
- * `foreignSentences` (findForeignSentences) lets a two-letter word common in English ("ki") count there.
+ * Indian languages), lowercased. Only a word the document writes in lowercase somewhere counts: a capitalised
+ * word alone is more likely a name ("Venkatraman"). Words in `typoWords` (the user said they are typos) and
+ * `exclude` (already on the terms card) are left out. `foreignSentences` (findForeignSentences) lets a word
+ * common in English ("ki", "mom") count there.
  */
 export function findOtherLanguageWords(
   flags: Candidate[],
   typoWords: ReadonlySet<string>,
   exclude: ReadonlySet<string>,
   foreignSentences: ReadonlyMap<number, Span[]> = new Map(),
-): Map<string, string> {
+): Set<string> {
   const words = new Set<string>();
   for (const c of flags) {
     if (!isLowercaseWordFlag(c)) continue;
@@ -76,7 +93,7 @@ export function findOtherLanguageWords(
     const inForeignSentence = (foreignSentences.get(c.paraId) ?? []).some((s) => s.start <= c.span.start && c.span.end <= s.end);
     if (isRomanisedIndic(c.original, inForeignSentence)) words.add(c.original);
   }
-  return nameLanguages([...words]);
+  return words;
 }
 
 /** The most common everyday English word one edit from `word` ("jion" → "join"), if there is one. */

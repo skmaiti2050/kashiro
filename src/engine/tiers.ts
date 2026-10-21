@@ -23,6 +23,8 @@ export interface TierContext {
   variant?: Variant;
   /** paraId → sentences mostly in another language (findForeignSentences): no word there is auto-fixed. */
   foreignSentences?: Map<number, Span[]>;
+  /** paraId → sentences with a romanised Indian-language word (findRomanisedSentences): no two-letter fix there. */
+  romanisedSentences?: Map<number, Span[]>;
 }
 
 const SAFE_RULE_KINDS = new Set(['Spelling', 'Typo', 'Repetition', 'Punctuation', 'Capitalization', 'Formatting']);
@@ -88,11 +90,13 @@ function isStyleChoice(c: Candidate): boolean {
 
 /**
  * A flagged word that is likely romanised Indian-language (prakriti → Prakrit, dharshan → darshan) or sits in a
- * sentence mostly in another language (Bengali "te" → the): its one-letter "fix" would change the language.
+ * sentence mostly in another language (Bengali "te" → the), or is a two-letter word in a sentence with a
+ * romanised word (Punjabi "te" in "dhaba te ate makki di roti"): its one-letter "fix" would change the language.
  */
 function isOtherLanguageWord(c: Candidate, ctx: TierContext): boolean {
   if (isRomanisedIndic(c.original)) return true;
-  return (ctx.foreignSentences?.get(c.paraId) ?? []).some((s) => overlaps(c.span, s));
+  const inAny = (sentences: Map<number, Span[]> | undefined) => (sentences?.get(c.paraId) ?? []).some((s) => overlaps(c.span, s));
+  return inAny(ctx.foreignSentences) || (c.original.length === 2 && inAny(ctx.romanisedSentences));
 }
 
 function baseTier(c: Candidate, ctx: TierContext): Tier {

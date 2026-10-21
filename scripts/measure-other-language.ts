@@ -22,7 +22,6 @@ import { createLinter, type RulesLinter } from '../src/engine/linter';
 import { CheckSession, type CheckOptions } from '../src/engine/session';
 import type { Decision } from '../src/engine/decisions';
 import { isRomanisedIndic, loadRomanisedModel } from '../src/engine/romanised/classifier';
-import { nameLanguages } from '../src/engine/romanised/languageNames';
 import { INDIAN_LANGUAGES, type IndianLanguage } from '../src/engine/romanised/modelData';
 import { wordsByFrequency, zipfOf } from '../src/engine/suggestions/frequency';
 
@@ -118,16 +117,8 @@ async function measureTune(rows: DatasetRow[], linter: RulesLinter, languages: I
   for (const language of languages) {
     const sentences = rows.filter((r) => splitOf(r.roman) === 'tune' && r.language === LANGUAGE_CODES[language]);
     const words = await flaggedWords(linter, [...new Set(sentences.flatMap((r) => romanWords(r.roman)))]);
-    const judged = new Set(words.filter((w) => isRomanisedIndic(w)));
-    // Named sentence by sentence, as a check names the words of one document.
-    let named = 0;
-    let namedRight = 0;
-    for (const { roman } of sentences) {
-      const names = nameLanguages([...new Set(romanWords(roman).filter((w) => judged.has(w)))]);
-      named += names.size;
-      namedRight += [...names.values()].filter((name) => namesLanguage(name, language)).length;
-    }
-    console.log(`tune: ${language} flagged words judged romanised ${percent(judged.size, words.length)}, named ${language} ${percent(namedRight, named)}`);
+    const judged = words.filter((w) => isRomanisedIndic(w));
+    console.log(`tune: ${language} flagged words judged romanised ${percent(judged.length, words.length)}`);
   }
   const nextTypo = typoMaker(7);
   const flaggedTypos = await flaggedWords(linter, [...new Set(Array.from({ length: 3000 }, nextTypo))]);
@@ -172,10 +163,6 @@ async function checkShortTypo(sentence: string, typo: string, random: () => numb
   totals.examples.push(typo);
 }
 
-/** The language the card names for `word` counts as right for `language` ("Hindi/Urdu" is right for both). */
-const namesLanguage = (named: string | undefined, language: IndianLanguage) =>
-  named !== undefined && named.toLowerCase().split('/').includes(language);
-
 /** The gate on one language's held-out test sentences; prints its lines and returns its table row. */
 async function measureLanguage(language: IndianLanguage, rows: DatasetRow[], linter: RulesLinter): Promise<string> {
   // Seeds per language, so languages measured apart (in parallel runs) plant the same typos. Hindi keeps S7's.
@@ -192,7 +179,6 @@ async function measureLanguage(language: IndianLanguage, rows: DatasetRow[], lin
     flagged: 0,
     onCard: 0,
     onCardPreTicked: 0,
-    namedRight: 0,
     autoFixed: 0,
     capitalised: 0,
     typos: 0,
@@ -212,7 +198,6 @@ async function measureLanguage(language: IndianLanguage, rows: DatasetRow[], lin
     const clean = await CheckSession.start([{ id: 0, text: roman }], OPTIONS, { linter });
     const { card: cleanCard, preTicked } = otherLanguageCard(clean);
     const cardIds = new Set(cleanCard?.candidateIds ?? []);
-    const named = new Map(cleanCard?.wordLanguages ?? []);
     const autoIds = new Set(clean.log().filter((e) => e.auto && e.status === 'applied').map((e) => e.candidateId));
     for (const c of clean.candidates().filter((c) => isWordFlag(c.kind))) {
       if (!/^[a-z]+$/.test(c.original)) {
@@ -227,7 +212,6 @@ async function measureLanguage(language: IndianLanguage, rows: DatasetRow[], lin
       if (cardIds.has(c.id)) {
         totals.onCard++;
         if (preTicked(c.original)) totals.onCardPreTicked++;
-        if (namesLanguage(named.get(c.original), language)) totals.namedRight++;
       } else missed.set(c.original, (missed.get(c.original) ?? 0) + 1);
     }
     for (const pool of shortPools) await checkShortTypo(roman, pool.next(), shortRandom, linter, pool.totals);
@@ -253,7 +237,7 @@ async function measureLanguage(language: IndianLanguage, rows: DatasetRow[], lin
   const say = (line: string) => console.log(`[${language}] ${line}`);
   say(`${totals.sentences} held-out sentences`);
   say(`gate 1: flagged lowercase romanised words on the card ${percent(totals.onCard, totals.flagged)}` +
-    ` (pre-ticked ${percent(totals.onCardPreTicked, totals.onCard)} of them; named ${language} ${percent(totals.namedRight, totals.onCard)};` +
+    ` (pre-ticked ${percent(totals.onCardPreTicked, totals.onCard)} of them;` +
     ` capitalised flags, which go to the names card: ${totals.capitalised})`);
   say(`flagged lowercase words auto-fixed as a slip: ${totals.autoFixed} (${[...new Set(autoFixed)].slice(0, 30).join(' ')})`);
   say(`gate 2: flagged planted typos kept off the card ${percent(totals.typos - totals.cardTypos, totals.typos)}` +
@@ -264,18 +248,18 @@ async function measureLanguage(language: IndianLanguage, rows: DatasetRow[], lin
     say(`short typos (${name}): flagged ${t.flagged}; on the card ${percent(t.onCard, t.flagged)};` +
       ` on the card AND pre-ticked ${percent(t.preTicked, t.flagged)} (${t.examples.slice(0, 20).join(' ')})`);
   }
-  say(`most missed: ${[...missed].sort((a, b) => b[1] - a[1]).slice(0, 30).map(([w, n]) => `${w}×${n}`).join(' ')}`);
+  say(`most missed:${[...missed].sort((a, b) => b[1] - a[1]).slice(0, 30).map(([w, n]) => `${w}×${n}`).join(' ')}`);
 
   const coverage = totals.onCard / totals.flagged;
   const precision = (totals.typos - totals.cardTypos) / totals.typos;
   const pass = coverage >= 0.7 && precision >= 0.95 ? 'yes' : '**no**';
   const [short2, short3] = shortPools.map(({ totals: t }) => `${percent(t.onCard, t.flagged)} / ${percent(t.preTicked, t.flagged)}`);
-  return `| ${language} | ${percent(totals.onCard, totals.flagged)} | ${percent(totals.typos - totals.cardTypos, totals.typos)} | ${short2} | ${short3} | ${percent(totals.namedRight, totals.onCard)} | ${pass} |`;
+  return `| ${language} | ${percent(totals.onCard, totals.flagged)} | ${percent(totals.typos - totals.cardTypos, totals.typos)} | ${short2} | ${short3} | ${pass} |`;
 }
 
 async function measureTest(rows: DatasetRow[], linter: RulesLinter, languages: IndianLanguage[]): Promise<void> {
-  const table = ['| Language | Gate 1: on the card (≥ 70%) | Gate 2: typos kept off (≥ 95%) | Short 2-3: on card / AND pre-ticked | Short 3-5: on card / AND pre-ticked | Named right | Pass |'];
-  table.push('|---|---|---|---|---|---|---|');
+  const table = ['| Language | Gate 1: on the card (≥ 70%) | Gate 2: typos kept off (≥ 95%) | Short 2-3: on card / AND pre-ticked | Short 3-5: on card / AND pre-ticked | Pass |'];
+  table.push('|---|---|---|---|---|---|');
   for (const language of languages) table.push(await measureLanguage(language, rows, linter));
   console.log(table.join('\n'));
 }

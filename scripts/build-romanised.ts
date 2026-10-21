@@ -1,7 +1,7 @@
 /**
  * Builds resources/romanised/romanised-ngrams.json: character n-gram counts for ten romanised Indian languages
  * (INDIAN_LANGUAGES) and English, used to tell a flagged Indian-language word ("accha", "khub", "konjam") from
- * an English typo and to name its language (spec §5 words in Indian languages).
+ * an English typo (spec §5 words in Indian languages).
  *
  * Source: the Dakshina dataset's romanised sentences (Roark, Wolf-Sonkin, Kirov et al., Google Research), as
  *         mirrored on Hugging Face: one CSV with columns lang_code,indic,roman

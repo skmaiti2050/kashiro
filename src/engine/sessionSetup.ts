@@ -5,7 +5,7 @@ import { findLockedSpans } from './factLock';
 import { PRESETS } from './presets';
 import { findContractions } from './contractions';
 import { improveSuggestions } from './suggestions/improve';
-import { findForeignSentences, loadModelIfNeeded } from './otherLanguage';
+import { findForeignSentences, findRomanisedSentences, loadModelIfNeeded } from './otherLanguage';
 import { byPosition, type CheckOptions, type SessionDeps } from './sessionTypes';
 import type { TierContext } from './tiers';
 import type { Candidate, Paragraph, Span, Variant } from './types';
@@ -53,6 +53,16 @@ export async function prepareCheck(
   found.sort(byPosition);
   await loadModelIfNeeded(found);
   const foreignSentences = findForeignSentences(found, paraText);
-  const ctx: TierContext = { locked, variantWords, preset, userTierOverrides: opts.tierOverrides, paraText, variant, foreignSentences };
+  const romanisedSentences = findRomanisedSentences(found, paraText);
+  const ctx: TierContext = {
+    locked,
+    variantWords,
+    preset,
+    userTierOverrides: opts.tierOverrides,
+    paraText,
+    variant,
+    foreignSentences,
+    romanisedSentences,
+  };
   return { linter, variant, mixedVariant: mixed, ctx, found };
 }

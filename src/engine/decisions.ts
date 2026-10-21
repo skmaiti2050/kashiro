@@ -24,8 +24,6 @@ export interface Decision {
    * acceptOtherLanguage adds it only when ticked explicitly.
    */
   likelyTypos?: [string, string][];
-  /** Words-in-Indian-languages card only: each word with its language, in order of appearance ([["konjam", "Tamil"]]). */
-  wordLanguages?: [string, string][];
 }
 
 const WEIGHTS: Record<string, number> = {
@@ -83,11 +81,8 @@ function termsCard(flags: Candidate[], uses: Map<string, number>): Decision {
 /** Id of the words-in-other-languages card decision (there is at most one). */
 export const OTHER_LANGUAGE_CARD_ID = 'other-language';
 
-/**
- * The words-in-Indian-languages card: every flag of a romanised Indian-language word as one decision (spec §5).
- * `languages` maps each word (lowercased) to its language's name.
- */
-function otherLanguageCard(flags: Candidate[], languages: ReadonlyMap<string, string>): Decision {
+/** The words-in-Indian-languages card: every flag of a romanised Indian-language word as one decision (spec §5). */
+function otherLanguageCard(flags: Candidate[]): Decision {
   const words = [...new Set(flags.map((c) => c.original.toLowerCase()))];
   const label = words.length === 1 ? '1 word in an Indian language' : `${words.length} words in Indian languages`;
   const likelyTypos: [string, string][] = [];
@@ -95,16 +90,7 @@ function otherLanguageCard(flags: Candidate[], languages: ReadonlyMap<string, st
     const everyday = everydayWordNear(word);
     if (everyday) likelyTypos.push([word, everyday]);
   }
-  const wordLanguages = words.map((word): [string, string] => [word, languages.get(word)!]);
-  return {
-    id: OTHER_LANGUAGE_CARD_ID,
-    kind: 'otherLanguage',
-    candidateIds: flags.map((c) => c.id),
-    label,
-    score: 0,
-    likelyTypos,
-    wordLanguages,
-  };
+  return { id: OTHER_LANGUAGE_CARD_ID, kind: 'otherLanguage', candidateIds: flags.map((c) => c.id), label, score: 0, likelyTypos };
 }
 
 /**
@@ -262,7 +248,7 @@ export function buildDecisions(
   const demotedDecisions = demoted.toDecisions(() => 0);
   const cards: Decision[] = [];
   if (termFlags.length) cards.push(termsCard(termFlags, terms));
-  if (otherLanguageFlags.length) cards.push(otherLanguageCard(otherLanguageFlags, otherLanguage));
+  if (otherLanguageFlags.length) cards.push(otherLanguageCard(otherLanguageFlags));
   if (names.length) cards.push(namesCard(names));
   return {
     safe,

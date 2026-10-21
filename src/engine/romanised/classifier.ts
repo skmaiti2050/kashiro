@@ -1,6 +1,6 @@
 // Character n-gram models of ten romanised Indian languages and English, from the Dakshina dataset and
 // wordfreq (CC BY-SA 4.0; see resources/romanised/ATTRIBUTION.md), loaded by loadRomanisedModel.
-import { INDIAN_LANGUAGES, type IndianLanguage, type RomanisedModelData } from './modelData';
+import { INDIAN_LANGUAGES, type RomanisedModelData } from './modelData';
 import { nearbyWords, wordsByFrequency, zipfOf } from '../suggestions/frequency';
 import { withinOneEdit } from '../wordFlags';
 
@@ -23,11 +23,11 @@ const MIN_INDIC_PROBABILITY = 0.3;
 const MIN_LOG_PROBABILITY_PER_CHAR = -3.2;
 
 /**
- * A two-letter word this common in English text (Zipf 3.9: "ra", "po", "da", "ok") is English unless its
- * sentence is mostly in another language: two letters are too few to tell the languages apart, and Hindi
- * "ki" is exactly as common in English text as "ra". "ke" (3.5) is judged like any word.
+ * A word this common in English text (Zipf 3.9: "ra", "po", "mom", "etc", "mrs", "aug") is English unless its
+ * sentence is mostly in another language. Short and everyday words are where the letters say least, and Hindi
+ * "ki" is exactly as common in English text as "ra". "ke" (3.5) and "hai" (3.6) are judged like any word.
  */
-const TWO_LETTER_ENGLISH_ZIPF = 3.9;
+const ENGLISH_WORD_ZIPF = 3.9;
 
 /**
  * A slip of one of the commonest English words always wins (spec §5 "a slip wins"): "hai" stays a flag
@@ -64,7 +64,7 @@ interface CharModel {
   contextDistinct: Uint32Array[];
 }
 
-let models: { english: CharModel; indian: [IndianLanguage, CharModel][] } | undefined;
+let models: { english: CharModel; indian: CharModel[] } | undefined;
 
 function charCode(ch: string): number {
   if (ch === '^') return 26;
@@ -103,7 +103,7 @@ function loadModel(tables: string[], order: number): CharModel {
 
 /**
  * Loads and parses the models. The check calls it only when a document has a lowercase unknown word, and the
- * dynamic import keeps the JSON (about 430 KB gzipped) out of the app's main bundle. Later calls do nothing.
+ * dynamic import keeps the JSON (about 1.2 MB gzipped) out of the app's main bundle. Later calls do nothing.
  */
 export async function loadRomanisedModel(): Promise<void> {
   if (models) return;
@@ -111,7 +111,7 @@ export async function loadRomanisedModel(): Promise<void> {
   const { order, english, indian } = data as RomanisedModelData;
   models ??= {
     english: loadModel(english, order),
-    indian: INDIAN_LANGUAGES.map((language) => [language, loadModel(indian[language], order)]),
+    indian: INDIAN_LANGUAGES.map((language) => loadModel(indian[language], order)),
   };
 }
 
@@ -146,8 +146,6 @@ function logSum(a: number, b: number): number {
 
 let alwaysSlipWords: string[] | undefined;
 const verdicts = new Map<string, boolean>();
-/** word → its log-likelihood under each Indian language, in INDIAN_LANGUAGES order. */
-const languageScores = new Map<string, number[]>();
 
 /** True when `word` is one edit from one of the commonest English words ("hai" → "had"). */
 function isSlipOfTopWord(word: string): boolean {
@@ -157,26 +155,14 @@ function isSlipOfTopWord(word: string): boolean {
   return alwaysSlipWords.some((w) => Math.abs(w.length - word.length) <= 1 && withinOneEdit(w, word));
 }
 
-/**
- * The log-likelihood of `word` under each Indian language's model, in INDIAN_LANGUAGES order (memoised).
- * Throws when loadRomanisedModel has not finished.
- */
-export function indianLanguageScores(word: string): number[] {
-  let scores = languageScores.get(word);
-  if (!scores) {
-    scores = getModels().indian.map(([, model]) => logLikelihood(model, word));
-    languageScores.set(word, scores);
-  }
-  return scores;
-}
-
 function judge(word: string): boolean {
   if (!ROMAN_WORD.test(word) || isSlipOfTopWord(word)) return false;
+  const { english, indian } = getModels();
   // The Indian languages count as one class against English (one card), each an equal share of it.
-  const scores = indianLanguageScores(word);
+  const scores = indian.map((model) => logLikelihood(model, word));
   if (Math.max(...scores) / (word.length + 1) < MIN_LOG_PROBABILITY_PER_CHAR) return false;
   const indic = scores.reduce(logSum, -Infinity) - Math.log(scores.length);
-  const notIndic = logLikelihood(getModels().english, word);
+  const notIndic = logLikelihood(english, word);
   if (1 / (1 + Math.exp(notIndic - indic)) < MIN_INDIC_PROBABILITY) return false;
   const slipMass = nearbyWords(word, 1).reduce((sum, near) => sum + 10 ** near.zipf, 0);
   return slipMass === 0 || indic / Math.LN10 + SLIP_ODDS_OFFSET > Math.log10(slipMass);
@@ -186,12 +172,12 @@ function judge(word: string): boolean {
  * True when a word the English spell checker flagged is a romanised Indian-language word ("accha", "khub",
  * "konjam") rather than a typo (spec §5 words in Indian languages). Only lowercase a-z words qualify; a slip of
  * a very common English word never does, and a slip of a rarer one only when the word is the likelier reading.
- * A two-letter word common in English ("ra", "ki") qualifies only when `inForeignSentence` (it sits in a
+ * A word common in English ("ra", "ki", "mom") qualifies only when `inForeignSentence` (it sits in a
  * sentence mostly in another language: findForeignSentences). Throws when a word needs the model and
  * loadRomanisedModel has not finished.
  */
 export function isRomanisedIndic(word: string, inForeignSentence = false): boolean {
-  if (!inForeignSentence && word.length === 2 && zipfOf(word) >= TWO_LETTER_ENGLISH_ZIPF) return false;
+  if (!inForeignSentence && zipfOf(word) >= ENGLISH_WORD_ZIPF) return false;
   let verdict = verdicts.get(word);
   if (verdict === undefined) {
     verdict = judge(word);

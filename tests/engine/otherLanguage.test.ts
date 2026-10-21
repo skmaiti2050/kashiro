@@ -4,7 +4,6 @@ import { buildDecisions } from '@/engine/decisions';
 import { CheckSession, type CheckOptions } from '@/engine/session';
 import { createLinter, type RulesLinter } from '@/engine/linter';
 import { isRomanisedIndic, loadRomanisedModel } from '@/engine/romanised/classifier';
-import { nameLanguages } from '@/engine/romanised/languageNames';
 import { findForeignSentences } from '@/engine/otherLanguage';
 
 beforeAll(() => loadRomanisedModel());
@@ -65,8 +64,9 @@ describe('isRomanisedIndic (spec §5 words in other languages)', () => {
   });
 });
 
-describe('nameLanguages: each word of a document with its language', () => {
+describe('isRomanisedIndic across the ten languages', () => {
   it.each([
+    ['Hindi/Urdu', 'kaise mujhe kyunki shukriya lekin aapka zaroor'],
     ['Bengali', 'kal bazare giyechilam khub bhalo laglo ebong kichu'],
     ['Tamil', 'naan kadaikku nalla irunthuchu aana konjam vilai adhigam'],
     ['Telugu', 'nenu vellanu chala bagundi kani konchem ekkuva dhara'],
@@ -75,28 +75,15 @@ describe('nameLanguages: each word of a document with its language', () => {
     ['Marathi', 'mala khup aavadla tumhi kasa aahat udya kahi aahe nahi majha ghar aamhi'],
     ['Gujarati', 'kem naam majama chhu nathi'],
     ['Punjabi', 'tusi kiddan assi aavange bahut laggeya nahi sanu kitthe karde haan'],
-  ])('a %s text: every word is named %s', (language, text) => {
-    const words = text.split(' ');
-    expect(words.filter((w) => !isRomanisedIndic(w))).toEqual([]);
-    expect(new Set(nameLanguages(words).values())).toEqual(new Set([language]));
-  });
-
-  it('the other words decide: "nahi" is Marathi in a Marathi text, Hindi/Urdu in a Hindi one', () => {
-    expect(nameLanguages('mala khup aavadla kasa aahe nahi majha'.split(' ')).get('nahi')).toBe('Marathi');
-    expect(nameLanguages('aap kaise hain mujhe nahi lekin aapka ghar'.split(' ')).get('nahi')).toBe('Hindi/Urdu');
-  });
-
-  it('Hindi and Urdu share most romanised words: those are named "Hindi/Urdu", the rest Hindi or Urdu', () => {
-    const names = nameLanguages('aap kaise hain mujhe nahi kyunki shukriya lekin aapka ghar'.split(' '));
-    expect(new Set(names.values())).toEqual(new Set(['Hindi/Urdu', 'Urdu']));
-    expect(names.get('kyunki')).toBe('Urdu');
+  ])('%s words are romanised Indian-language words: %s', (_language, text) => {
+    expect(text.split(' ').filter((w) => !isRomanisedIndic(w))).toEqual([]);
   });
 });
 
 describe('words-in-other-languages card (spec §5)', () => {
   const text = 'He said chalo, and the food was khub bhalo. I got teh letter.';
 
-  it('flagged Indian-language words go on one card, each with its language; an English typo stays its own decision', () => {
+  it('flagged Indian-language words go on one card; an English typo stays its own decision', () => {
     const t = 'It was khub bhalo laglo, ebong kichu cheap. I got teh letter.';
     const bengali = ['khub', 'bhalo', 'laglo', 'ebong', 'kichu'];
     const words = bengali.flatMap((w) => flagsOf(t, w));
@@ -111,18 +98,15 @@ describe('words-in-other-languages card (spec §5)', () => {
       score: 0,
       // The rule is deliberately cautious: Bengali "khub" is one letter from "hub", so it starts unticked too.
       likelyTypos: [['khub', 'hub']],
-      wordLanguages: bengali.map((w) => [w, 'Bengali']),
     });
   });
 
-  it('words of several languages share the one card, each named', () => {
+  it('words of several languages share the one card', () => {
     const t = 'It was konjam nalla irunthuchu, khub bhalo laglo, and tusi kiddan assi said so.';
     const words = ['konjam', 'nalla', 'irunthuchu', 'khub', 'bhalo', 'laglo', 'tusi', 'kiddan', 'assi'];
     const cs = words.flatMap((w) => flagsOf(t, w));
     const card = decide(t, cs).find((d) => d.kind === 'otherLanguage')!;
     expect(card.candidateIds).toEqual(cs.map((c) => c.id));
-    const named = new Map(card.wordLanguages);
-    expect([named.get('konjam'), named.get('khub'), named.get('tusi')]).toEqual(['Tamil', 'Bengali', 'Punjabi']);
   });
 
   it('a card word one edit from an everyday English word (Zipf ≥ 4) is marked as a likely typo of it', () => {
@@ -218,6 +202,19 @@ describe('words-in-other-languages card in a session (Harper)', () => {
     expect(onCard.filter((w) => english.includes(w))).toEqual([]);
   });
 
+  it('common English words (Zipf ≥ 3.9: mom, etc, mrs, aug) in English sentences stay off the card', async () => {
+    const t =
+      'I bought eggs, milk, bread etc and went home. My mom said we should leave early. We met mrs sharma at the ' +
+      'gate. The deadline is 5 aug this year, and the food was khub bhalo laglo.';
+    const s = await CheckSession.start([{ id: 0, text: t }], opts, { linter });
+    const card = [...s.decisions().top, ...s.decisions().more].find((d) => d.kind === 'otherLanguage')!;
+    const byId = new Map(s.candidates().map((c) => [c.id, c.original]));
+    const onCard = card.candidateIds.map((id) => byId.get(id)!);
+    expect(onCard).toEqual(expect.arrayContaining(['khub', 'bhalo']));
+    expect(onCard.filter((w) => ['mom', 'etc', 'mrs', 'aug'].includes(w))).toEqual([]);
+    expect(['mom', 'etc', 'mrs', 'aug', 'gps', 'uber', 'nhs', 'cia', 'abc'].filter((w) => isRomanisedIndic(w))).toEqual([]);
+  });
+
   it('"ki" joins the card from a Hindi sentence; "ra" and "po" in an English sentence stay ordinary flags', async () => {
     const t = 'Mujhe ghar ki yaad aati, bahut zyada. We met Ra and the po box near the ra office.';
     const s = await CheckSession.start([{ id: 0, text: t }], opts, { linter });
@@ -300,5 +297,12 @@ describe('romanised words are never auto-fixed (Harper)', () => {
     const s = await CheckSession.start([{ id: 0, text: 'teh.' }], opts, { linter });
     const flag = s.candidates().find((c) => c.original === 'teh')!;
     expect(s.tier(flag.id)).toBe('review');
+  });
+
+  it('a two-letter flag next to a romanised word in its sentence is not fixed: Punjabi "te" (and) stays', async () => {
+    const t = 'We went to the dhaba te ate makki di roti with sarson da saag.';
+    const s = await CheckSession.start([{ id: 0, text: t }], opts, { linter });
+    expect(autoFixedIn(s).filter((fix) => fix.startsWith('te '))).toEqual([]);
+    expect(s.tier(s.candidates().find((c) => c.original === 'te')!.id)).toBe('review');
   });
 });

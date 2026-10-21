@@ -12,15 +12,13 @@ interface Props {
 
 /**
  * The words-in-Indian-languages card (spec §5): romanised words of ten Indian languages ("accha", "khub",
- * "konjam"), each shown with its language ("konjam · Tamil"), that the
- * English dictionary doesn't know. They are never changed automatically: ticked words join the personal
+ * "konjam") that the English dictionary doesn't know. They are never changed automatically: ticked words join the personal
  * dictionary; unticked ones become their own decisions so a real typo can be fixed. A likely typo ("jion",
  * one letter from "join") starts unticked with a hint, and joins the dictionary only when ticked.
  */
 export function OtherLanguageCard({ controller, card, candidates }: Props) {
   const words = [...new Set(card.candidateIds.map((id) => candidates.get(id)!.original.toLowerCase()))];
   const typoOf = new Map(card.likelyTypos ?? []);
-  const languageOf = new Map(card.wordLanguages ?? []);
   const likelyTypos = new Set(typoOf.keys());
   // A re-check can change the card under the same key: only words on it now, and their flags now, count.
   const [ticks, setTicks] = useState(NO_TICKS);
@@ -41,7 +39,6 @@ export function OtherLanguageCard({ controller, card, candidates }: Props) {
             <label>
               <input type="checkbox" checked={ticked(word)} onChange={() => toggle(word)} />
               {word}
-              {languageOf.has(word) && <span className="hint"> · {languageOf.get(word)}</span>}
               {typoOf.has(word) && (
                 <span className="hint">
                   {' '}

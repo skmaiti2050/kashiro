@@ -1,6 +1,6 @@
 // The file format shared by the build script (scripts/build-romanised.ts) and the runtime (classifier.ts).
 
-/** The Indian languages on the card, by the name the card shows (capitalised). */
+/** The Indian languages the card collects, one n-gram model each. */
 export const INDIAN_LANGUAGES = [
   'hindi',
   'bengali',

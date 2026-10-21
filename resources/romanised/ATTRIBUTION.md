@@ -3,7 +3,7 @@
 `romanised-ngrams.json` holds character n-gram counts (orders 1–4) for ten romanised Indian languages (Hindi,
 Bengali, Tamil, Telugu, Kannada, Malayalam, Marathi, Gujarati, Punjabi and Urdu) and English. writing-check
 uses them to tell a romanised Indian-language word that the English spell checker flags ("accha", "khub
-bhalo", "konjam") from an English typo, and to name its language, for the "Words in Indian languages" card.
+bhalo", "konjam") from an English typo, for the "Words in Indian languages" card.
 
 ## Dakshina dataset (Indian-language counts)
 
