@@ -7,6 +7,7 @@ import { ModulesSettings } from './ModulesSettings';
 import { ReadingSettings } from './ReadingSettings';
 import type { ReadAloud } from './useReadAloud';
 import { VARIANTS } from './Toolbar';
+import { kindLabel } from './state/kindLabels';
 import type { ControllerState, SessionController } from './state/sessionController';
 
 /**
@@ -84,7 +85,7 @@ export function SettingsPanel({ controller, state, readAloud, onClose }: Props) 
         {AUTO_APPLY_KINDS.map((kind) => (
           <label key={kind}>
             <input type="checkbox" checked={settings.tierOverrides[kind] === 'safe'} onChange={(e) => setAutoApply(kind, e.target.checked)} />
-            {kind}
+            {kindLabel(kind)}
           </label>
         ))}
         <p className="hint">Never touches names, numbers, quotes or other protected text.</p>
@@ -98,8 +99,8 @@ export function SettingsPanel({ controller, state, readAloud, onClose }: Props) 
         <ul className="dictionary">
           {settings.ignoredRules.map((rule) => (
             <li key={rule}>
-              {rule}
-              <button className="quiet" aria-label={`Restore ${rule}`} onClick={() => controller.restoreRule(rule)}>
+              {kindLabel(rule)}
+              <button className="quiet" aria-label={`Restore ${kindLabel(rule)}`} onClick={() => controller.restoreRule(rule)}>
                 Restore
               </button>
             </li>

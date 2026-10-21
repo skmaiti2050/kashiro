@@ -1,6 +1,7 @@
 import { CATEGORIES, type Category } from './state/categories';
+import { kindLabel } from './state/kindLabels';
 
-/** The card's category line: glyph and name (and the flag's kind), matching the underline in the text. */
+/** The card's category line: glyph and name (and the label of the flag's kind), matching the underline in the text. */
 export function CategoryTag({ category, kind }: { category: Category; kind?: string }) {
   return (
     <p className={`category cat-${category}`}>
@@ -8,7 +9,7 @@ export function CategoryTag({ category, kind }: { category: Category; kind?: str
         {CATEGORIES[category].glyph}
       </span>{' '}
       {CATEGORIES[category].label}
-      {kind && ` · ${kind}`}
+      {kind && ` · ${kindLabel(kind)}`}
     </p>
   );
 }

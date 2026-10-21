@@ -10,7 +10,7 @@ describe('DismissMenu', () => {
     const onRule = vi.fn();
     render(
       <div>
-        <DismissMenu rule="Readability" thisOneLabel="This one" onThisOne={onThisOne} onRule={onRule} />
+        <DismissMenu kind="WordChoice"thisOneLabel="This one" onThisOne={onThisOne} onRule={onRule} />
         <p>outside</p>
       </div>,
     );
@@ -41,12 +41,13 @@ describe('DismissMenu', () => {
   it('each item states its scope and calls its action once', () => {
     const { trigger, onThisOne, onRule } = renderMenu();
     fireEvent.click(trigger);
-    fireEvent.click(screen.getByRole('menuitem', { name: 'All Readability suggestions in this document' }));
+    // The kind by its label ("Word choice"), not its rule name ("WordChoice").
+    fireEvent.click(screen.getByRole('menuitem', { name: 'All “Word choice” suggestions in this document' }));
     expect(onRule).toHaveBeenCalledWith('document');
     expect(screen.queryByRole('menu')).toBeNull();
 
     fireEvent.click(trigger);
-    fireEvent.click(screen.getByRole('menuitem', { name: /All Readability suggestions everywhere/ }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /All “Word choice” suggestions everywhere/ }));
     expect(onRule).toHaveBeenLastCalledWith('everywhere');
 
     fireEvent.click(trigger);

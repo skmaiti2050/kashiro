@@ -74,7 +74,7 @@ function documentMarks(doc: OpenDocument, viewText: string, session: CheckSessio
     if (h.kind === 'pending') {
       const category = h.category ?? 'correctness';
       // The tooltip shows the glyph; the spoken description leaves it out ("black circle" says nothing).
-      const description = `${CATEGORIES[category].label}: ${plainMessage(h.message ?? '')}`;
+      const description = `${CATEGORIES[category].label}: ${h.flag ? plainMessage(h.flag) : ''}`;
       const title = `${CATEGORIES[category].glyph} ${description}`;
       const mark = Decoration.mark({ class: `cm-pending cat-${category}`, attributes: { title }, candidateId: h.candidateId, description });
       ranges.push(mark.range(from, to));
@@ -170,7 +170,9 @@ export function DocumentView({ controller, state, focus, onUnderlineClick, onOpe
           EditorView.contentAttributes.of({ 'aria-label': 'Document text', 'aria-describedby': FLAG_AT_CURSOR_ID }),
           EditorView.updateListener.of((update) => {
             if (update.docChanged) controller.editText(update.state.sliceDoc());
-            if (update.docChanged || update.selectionSet || update.focusChanged) {
+            // New marks from a re-check can add or remove the flag under a caret that did not move.
+            const marksChanged = update.transactions.some((tr) => tr.effects.some((effect) => effect.is(setMarks)));
+            if (update.docChanged || update.selectionSet || update.focusChanged || marksChanged) {
               const flag = update.view.hasFocus ? flagAt(update.state, update.state.selection.main.head) : null;
               const description = flag?.description ?? '';
               // Only when it changes: no re-render on every keystroke.

@@ -15,7 +15,7 @@ beforeAll(warmLinter);
 
 describe('menus and the toolbar', () => {
   it('Dismiss ▾: Up / Down move between the items and wrap', () => {
-    render(<DismissMenu rule="Readability" thisOneLabel="This one" onThisOne={() => {}} onRule={() => {}} />);
+    render(<DismissMenu kind="Readability"thisOneLabel="This one" onThisOne={() => {}} onRule={() => {}} />);
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss ▾' }));
     const items = screen.getAllByRole('menuitem');
     expect(document.activeElement).toBe(items[0]);
@@ -72,13 +72,29 @@ describe('the document text', () => {
     expect(described.textContent).toBe('');
   });
 
+  it('a re-check that removes the flag under a still cursor clears its description', async () => {
+    const { controller } = makeController();
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openSample());
+    const described = document.getElementById('flag-at-cursor')!;
+    cursorOn('could of');
+    expect(described.textContent).not.toBe('');
+
+    const kind = controller.getState().session!.candidates().find((c) => c.original === 'could of')!.kind;
+    await act(async () => {
+      controller.ignoreRule(kind, 'document');
+      await controller.settled();
+    });
+    expect(described.textContent).toBe('');
+  });
+
   it('Ctrl+. on an underline brings up its card and moves focus to it', async () => {
     const { controller } = makeController();
     renderShell(controller);
     await openAndWait(controller, () => controller.openSample());
     const view = cursorOn('ferrocement');
     fireEvent.keyDown(view.contentDOM, { key: '.', ctrlKey: true });
-    const slot = screen.getByRole('group', { name: /^Card \d+ of \d+\. Terms\./ });
+    const slot = screen.getByRole('group', { name: /^Card \d+ of \d+ left\. Terms\./ });
     expect(document.activeElement).toBe(slot);
   });
 });

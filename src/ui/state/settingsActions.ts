@@ -3,6 +3,7 @@ import type { ModuleSwitches } from '@/engine/modules';
 import type { PresetId } from '@/engine/presets';
 import type { CheckSession } from '@/engine/session';
 import type { Variant } from '@/engine/types';
+import { kindLabel } from './kindLabels';
 import type { Settings } from './settings';
 import type { ControllerState } from './sessionController';
 
@@ -49,7 +50,8 @@ export function ignoreRule(host: SettingsHost, kind: string, scope: 'document' |
     host.decisionMade({ documentIgnoredRules: [...documentIgnoredRules, kind] });
   }
   // Announced once the re-check has hidden them, so "N left" is right.
-  void host.recheck().then(() => host.announce(`Dismissed all ${kind} suggestions ${scope === 'document' ? 'in this document' : 'everywhere'}`));
+  const where = scope === 'document' ? 'in this document' : 'everywhere';
+  void host.recheck().then(() => host.announce(`Dismissed all “${kindLabel(kind)}” suggestions ${where}`));
 }
 
 /** Settings › Ignored rules › Restore. */

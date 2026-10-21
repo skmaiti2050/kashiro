@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { isSpeaking, loadLocalVoices, speak, stopSpeaking } from './platform/speech';
+import { isSpeaking, loadLocalVoices, onVoicesChanged, speak, stopSpeaking } from './platform/speech';
 import { pickVoice } from './state/readAloud';
 import type { ReadingSettings } from './state/readingSettings';
 
@@ -23,8 +23,11 @@ export function useReadAloud(reading: ReadingSettings): ReadAloud | null {
     void loadLocalVoices().then((found) => {
       if (mounted && found.length > 0) setVoices(found);
     });
+    // No new state while there is still no voice: an empty list for an empty list would only re-render.
+    const stopListening = onVoicesChanged((found) => setVoices((current) => (current.length === 0 && found.length === 0 ? current : found)));
     return () => {
       mounted = false;
+      stopListening();
       stopSpeaking();
     };
   }, []);
@@ -34,8 +37,9 @@ export function useReadAloud(reading: ReadingSettings): ReadAloud | null {
       // Not prevented: the same Escape still closes a menu or dialog.
       if (e.key === 'Escape' && isSpeaking()) stopSpeaking();
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    // Capture: a dialog or menu stops its Escape from bubbling, and that Escape must still stop the reading.
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
   }, []);
 
   if (voices.length === 0) return null;

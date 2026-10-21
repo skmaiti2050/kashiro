@@ -18,7 +18,7 @@ const MODULES: ModuleInfo[] = [
     name: 'otherLanguageCard',
     label: 'Indian-language words card',
     description: 'Groups romanised Hindi, Bengali, Tamil and other Indian-language words into one card you add in one go.',
-    cost: 'No extra memory. Off, each word is its own decision; such words are never auto-fixed either way.',
+    cost: 'No extra memory. Off, each word is its own decision. Either way, your spelling of such words is never auto-changed.',
   },
   {
     name: 'betterSuggestions',

@@ -115,6 +115,7 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
     setReveal((r) => ({ seq: r.seq + 1, focus: true }));
   };
   const queue = [...top, ...more];
+  // The queue holds every open card, so its length is the "left" of the announcements (tracked-change rows aside).
   const slotLabel = current ? cardLabel(current, firstOf(current), queue.indexOf(current) + 1, queue.length) : 'Current card';
   // Read aloud: the text at the cursor while the user is in the document, else the current card's.
   const textFor = (target: ReadTarget): string => {

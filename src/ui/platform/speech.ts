@@ -23,6 +23,18 @@ export function loadLocalVoices(): Promise<SpeechSynthesisVoice[]> {
 }
 
 /**
+ * Calls `changed` with the local voices each time the system's voice list changes: a voice can arrive
+ * well after start-up (installed, or filled in late). Returns the unsubscribe.
+ */
+export function onVoicesChanged(changed: (voices: SpeechSynthesisVoice[]) => void): () => void {
+  const speech = synth();
+  if (!speech) return () => {};
+  const listener = () => changed(localVoices(speech.getVoices()));
+  speech.addEventListener('voiceschanged', listener);
+  return () => speech.removeEventListener('voiceschanged', listener);
+}
+
+/**
  * Speaks `text` with `voice`, stopping whatever was being read. A voice that is not local is refused here
  * too, so the text can never go to an online voice, whatever the caller passed.
  */

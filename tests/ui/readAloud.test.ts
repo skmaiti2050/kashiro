@@ -90,31 +90,31 @@ describe('suggestionSpeech', () => {
   });
   const single = { id: 'c1', kind: 'single', label: 'recieve', candidateIds: ['c1'] } as unknown as Decision;
 
-  it('a fix: category, before and after, then the message', () => {
-    expect(suggestionSpeech(single, candidate({}))).toBe('Correctness, Spelling. Change “recieve” to “receive”. Did you mean “receive”?');
+  it('a fix: category and kind label, before and after, then the message', () => {
+    expect(suggestionSpeech(single, candidate({}))).toBe('Correctness: Spelling. Change “recieve” to “receive”. Did you mean “receive”?');
   });
 
   it('several suggestions, a deletion, and a flag with nothing to apply', () => {
     expect(suggestionSpeech(single, candidate({ replacements: ['its', 'it is'], kind: 'WordChoice', message: 'Check this word.' }))).toBe(
-      'Clarity, WordChoice. Change “recieve” to “its” or “it is”. Check this word.',
+      'Clarity: Word choice. Change “recieve” to “its” or “it is”. Check this word.',
     );
     expect(suggestionSpeech(single, candidate({ original: 'the the', replacements: [''], kind: 'Repetition', message: 'Repeated word.' }))).toBe(
-      'Correctness, Repetition. Delete “the the”. Repeated word.',
+      'Correctness: Repeated words. Delete “the the”. Repeated word.',
     );
     expect(suggestionSpeech(single, candidate({ replacements: [], kind: 'Readability', message: 'This sentence is 42 words long.' }))).toBe(
-      'Clarity, Readability. “recieve”. This sentence is 42 words long.',
+      'Clarity: Readability. “recieve”. This sentence is 42 words long.',
     );
   });
 
   it('reads the plain-words explanation, not the grammar terms', () => {
     expect(suggestionSpeech(single, candidate({ original: 'a', replacements: ['the'], kind: 'Typo', message: 'Did you mean the definite article?' }))).toBe(
-      'Correctness, Typo. Change “a” to “the”. Did you mean “the”?',
+      'Correctness: Typos. Change “a” to “the”. Did you mean “the”?',
     );
   });
 
   it('a batch says how many places', () => {
     const batch = { id: 'batch:x', kind: 'batch', label: 'recieve', candidateIds: ['c1', 'c2'] } as unknown as Decision;
-    expect(suggestionSpeech(batch, candidate({ message: 'Spelling.' }))).toBe('Correctness, Spelling. Change “recieve” to “receive” in 2 places. Spelling.');
+    expect(suggestionSpeech(batch, candidate({ message: 'Spelling.' }))).toBe('Correctness: Spelling. Change “recieve” to “receive” in 2 places. Spelling.');
   });
 
   it('a word-list card reads its label', () => {

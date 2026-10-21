@@ -18,8 +18,13 @@ const candidate: Candidate = {
 const single = { id: 'c1', kind: 'single', label: 'recieve', candidateIds: ['c1'], score: 1 } as Decision;
 
 describe('cardLabel', () => {
-  it('position, category, before and after, and the message', () => {
-    expect(cardLabel(single, candidate, 2, 9)).toBe('Card 2 of 9. Correctness, Spelling. Change “recieve” to “receive”. Did you mean “receive”?');
+  it('position among the cards left, category and kind label, before and after, and the message', () => {
+    expect(cardLabel(single, candidate, 2, 9)).toBe('Card 2 of 9 left. Correctness: Spelling. Change “recieve” to “receive”. Did you mean “receive”?');
+  });
+
+  it('names a kind by its label, never by its rule name', () => {
+    const joined = { ...candidate, kind: 'BoundaryError', original: 'any where', replacements: ['anywhere'] };
+    expect(cardLabel(single, joined, 1, 3)).toMatch(/^Card 1 of 3 left\. Correctness: Words joined or split\. /);
   });
 });
 

@@ -12,8 +12,8 @@ export interface Highlight {
   kind: 'auto' | 'accepted' | 'pending';
   /** For applied edits: the new text, shown after the struck-through original. */
   replacement?: string;
-  /** For pending ones: the linter's message, shown on hover. */
-  message?: string;
+  /** For pending ones: the flag's message and flagged text, for its plain explanation on hover. */
+  flag?: Pick<Candidate, 'message' | 'original'>;
   /** For pending ones: the flag, so clicking the underline can bring up its card. */
   candidateId?: string;
   /** For pending ones: sets the underline's colour, style and glyph. */
@@ -76,7 +76,7 @@ export function highlightRanges(doc: OpenDocument, viewText: string, session: Ch
     if (o.status === 'applied') out.push({ from, to, kind: o.auto ? 'auto' : 'accepted', replacement: o.replacement });
     else if (pendingIn && to > from) {
       const category = categoryOf(o.candidate, pendingIn);
-      out.push({ from, to, kind: 'pending', message: o.candidate.message, candidateId: o.candidate.id, category });
+      out.push({ from, to, kind: 'pending', flag: o.candidate, candidateId: o.candidate.id, category });
     }
   }
   return out;

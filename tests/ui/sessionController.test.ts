@@ -693,6 +693,8 @@ describe('SessionController: U1 review flow', () => {
     controller.ignoreRule('Contraction', 'everywhere');
     await controller.settled();
     expect(saved.at(-1)!.ignoredRules).toEqual(['Contraction']);
+    // Announced by its label, not the rule's name.
+    expect(controller.getState().announcement!.text).toBe('Dismissed all “Contractions” suggestions everywhere. All reviewed.');
     expect(controller.getState().session!.decisionCount()).toBe(0);
     controller.restoreRule('Contraction');
     await controller.settled();

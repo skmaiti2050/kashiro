@@ -27,9 +27,13 @@ interface FakeVoice {
 export const LOCAL_VOICE: FakeVoice = { voiceURI: 'David', name: 'Microsoft David - English (United States)', lang: 'en-US', localService: true, default: false };
 export const ONLINE_VOICE: FakeVoice = { voiceURI: 'Aria', name: 'Microsoft Aria Online (Natural)', lang: 'en-US', localService: false, default: true };
 
-/** A fake Web Speech API with `voices`; `spoken` records every utterance. Remove it with the returned function. */
+/**
+ * A fake Web Speech API with `voices`; `spoken` records every utterance and `synth.cancelled` counts the
+ * stops. `changeVoices` replaces the list and fires `voiceschanged`. Remove it with the returned function.
+ */
 export function installSpeech(voices: FakeVoice[]) {
   const spoken: { text: string; voice: FakeVoice | null; rate: number; pitch: number }[] = [];
+  const listeners = new Set<() => void>();
   class Utterance {
     voice: FakeVoice | null = null;
     lang = '';
@@ -39,11 +43,19 @@ export function installSpeech(voices: FakeVoice[]) {
   }
   const synth = {
     speaking: false,
+    cancelled: 0,
     getVoices: () => voices,
     speak: (u: Utterance) => spoken.push({ text: u.text, voice: u.voice, rate: u.rate, pitch: u.pitch }),
-    cancel: () => {},
-    addEventListener: () => {},
-    removeEventListener: () => {},
+    cancel: () => {
+      synth.cancelled++;
+      synth.speaking = false;
+    },
+    addEventListener: (_type: string, listener: () => void) => listeners.add(listener),
+    removeEventListener: (_type: string, listener: () => void) => listeners.delete(listener),
+  };
+  const changeVoices = (next: FakeVoice[]) => {
+    voices = next;
+    for (const listener of [...listeners]) listener();
   };
   Object.defineProperty(window, 'speechSynthesis', { value: synth, configurable: true });
   Object.defineProperty(globalThis, 'SpeechSynthesisUtterance', { value: Utterance, configurable: true });
@@ -51,5 +63,5 @@ export function installSpeech(voices: FakeVoice[]) {
     delete (window as { speechSynthesis?: unknown }).speechSynthesis;
     delete (globalThis as { SpeechSynthesisUtterance?: unknown }).SpeechSynthesisUtterance;
   };
-  return { spoken, remove };
+  return { spoken, synth, changeVoices, remove };
 }

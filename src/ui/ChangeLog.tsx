@@ -1,4 +1,5 @@
 import type { Outcome } from '@/engine/session';
+import { kindLabel } from './state/kindLabels';
 import { fixesLabel } from './state/labels';
 import type { ControllerState, SessionController } from './state/sessionController';
 
@@ -73,7 +74,7 @@ function ChangeRow({ controller, o }: { controller: SessionController; o: Outcom
         <del>{o.candidate.original || '·'}</del> → <ins>{o.replacement === '' ? '(deleted)' : o.replacement}</ins>
       </span>
       <span className="status">
-        {o.candidate.kind} · {statusLabel(o)}
+        {kindLabel(o.candidate.kind)} · {statusLabel(o)}
       </span>
       {o.status === 'applied' && <button onClick={() => controller.undo(o.candidate.id)}>Undo</button>}
       {/* A word in the dictionary stays unflagged until it is removed in Settings, so "Review again" would not hold. */}

@@ -21,14 +21,18 @@ interface Props {
  * inside, Escape closes, and focus goes back to where it was (the button that opened it) on close.
  */
 export function Dialog({ title, onClose, role = 'dialog', className, describedBy, initialFocus, children }: Props) {
+  const backdrop = useRef<HTMLDivElement>(null);
   const box = useRef<HTMLElement>(null);
   const titleId = useId();
 
   useEffect(() => {
     const previous = document.activeElement;
+    const restorePage = backdrop.current ? inertOutside(backdrop.current) : () => {};
     const first = initialFocus?.current ?? focusableIn(box.current)[0] ?? box.current;
     first?.focus();
     return () => {
+      // The page first: an inert element can't take focus back.
+      restorePage();
       if (previous instanceof HTMLElement && previous.isConnected) previous.focus();
     };
   }, []);
@@ -43,7 +47,7 @@ export function Dialog({ title, onClose, role = 'dialog', className, describedBy
   };
 
   return (
-    <div className="dialog-backdrop" onClick={role === 'dialog' ? onClose : undefined}>
+    <div ref={backdrop} className="dialog-backdrop" onClick={role === 'dialog' ? onClose : undefined}>
       <section
         ref={box}
         className={className ? `dialog ${className}` : 'dialog'}
@@ -68,6 +72,23 @@ export function Dialog({ title, onClose, role = 'dialog', className, describedBy
       </section>
     </div>
   );
+}
+
+/**
+ * Makes the rest of the page inert (no focus, no clicks, out of the accessibility tree) while the dialog is
+ * open: every sibling of the dialog and of each of its ancestors up to <body>. Returns the undo, which
+ * clears only what it set.
+ */
+function inertOutside(dialog: HTMLElement): () => void {
+  const madeInert: Element[] = [];
+  for (let el: Element = dialog; el.parentElement && el !== document.body; el = el.parentElement) {
+    for (const sibling of el.parentElement.children) {
+      if (sibling === el || sibling.hasAttribute('inert')) continue;
+      sibling.setAttribute('inert', '');
+      madeInert.push(sibling);
+    }
+  }
+  return () => madeInert.forEach((el) => el.removeAttribute('inert'));
 }
 
 /** The controls inside `box` in document order (matches() per element: jsdom's querySelectorAll groups a selector list). */

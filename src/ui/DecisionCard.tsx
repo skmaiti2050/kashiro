@@ -52,7 +52,7 @@ export function DecisionCard({ controller, decision, candidates, paraText, touch
     <div className="card" title="Click to show it in the document" onClick={() => onLocate(shown)}>
       <CategoryTag category={category} kind={first.kind} />
       <h3 className="card-title">{decisionTitle(decision, first)}</h3>
-      <p className="kind">{plainMessage(first.message)}</p>
+      <p className="kind">{plainMessage(first)}</p>
       <Diff candidate={shown} replacement={shown.replacements[0]} paraText={paraText} />
       {preview !== null ? (
         <BatchPreview
@@ -90,7 +90,7 @@ export function DecisionCard({ controller, decision, candidates, paraText, touch
           </button>
           {canIgnoreRule && (
             <DismissMenu
-              rule={first.kind}
+              kind={first.kind}
               thisOneLabel={isBatch ? `These ${members.length} places` : 'This one'}
               onThisOne={() => controller.reject(decision.id)}
               onRule={(scope) => controller.ignoreRule(first.kind, scope)}

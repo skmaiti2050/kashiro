@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
+import { kindLabel } from './state/kindLabels';
 
 interface Props {
-  /** The rule as the user sees it ("Readability"). */
-  rule: string;
+  /** The kind of suggestion ("WordChoice"); the menu shows its label ("Word choice"). */
+  kind: string;
   /** Batch cards dismiss all their places with "This one". */
   thisOneLabel: string;
   onThisOne(): void;
@@ -21,7 +22,8 @@ function moveInMenu(root: HTMLElement | null, step: 1 | -1): void {
  * Dismiss ▾ with its scope in every item (UI/UX research §3, LanguageTool's "ignore in this text" vs
  * "turn off everywhere"). "Everywhere" can be undone in Settings › Ignored rules.
  */
-export function DismissMenu({ rule, thisOneLabel, onThisOne, onRule }: Props) {
+export function DismissMenu({ kind, thisOneLabel, onThisOne, onRule }: Props) {
+  const label = kindLabel(kind);
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -67,10 +69,10 @@ export function DismissMenu({ rule, thisOneLabel, onThisOne, onRule }: Props) {
             {thisOneLabel}
           </button>
           <button role="menuitem" onClick={() => choose(() => onRule('document'))}>
-            All {rule} suggestions in this document
+            All “{label}” suggestions in this document
           </button>
           <button role="menuitem" onClick={() => choose(() => onRule('everywhere'))}>
-            All {rule} suggestions everywhere <span className="hint">· undo in Settings</span>
+            All “{label}” suggestions everywhere <span className="hint">· undo in Settings</span>
           </button>
         </div>
       )}

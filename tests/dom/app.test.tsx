@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, vi } from 'vitest';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { makeController, noFiles, warmLinter } from './harness';
 import { installSpeech, LOCAL_VOICE, ONLINE_VOICE, openAndWait, renderShell, reviewPanel } from './shell';
 
@@ -58,6 +58,7 @@ describe('keyboard: shortcuts sheet and Settings', () => {
     renderShell(controller);
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
     expect(screen.getByRole('switch', { name: /Names card/ })).toBeTruthy();
+    expect(screen.getByRole('switch', { name: /your spelling of such words is never auto-changed/ })).toBeTruthy();
   });
 });
 
@@ -86,7 +87,7 @@ describe('screen reader: announcements', () => {
     const { controller } = makeController();
     renderShell(controller);
     await openAndWait(controller, () => controller.openSample());
-    expect(screen.getByRole('group', { name: /^Card 1 of \d+\. (Correctness|Clarity|Style|Terms|Names and places)/ })).toBeTruthy();
+    expect(screen.getByRole('group', { name: /^Card 1 of \d+ left\. (Correctness|Clarity|Style|Terms|Names and places)/ })).toBeTruthy();
   });
 });
 
@@ -102,6 +103,38 @@ describe('read aloud', () => {
       expect(speech.spoken).toEqual([]);
       fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
       expect(screen.getByText(/No voice that works offline is installed/)).toBeTruthy();
+    } finally {
+      speech.remove();
+    }
+  });
+
+  it('Escape in a dialog closes it and also stops the reading', async () => {
+    const speech = installSpeech([LOCAL_VOICE]);
+    try {
+      renderShell(makeController().controller);
+      fireEvent.keyDown(document.body, { key: ',', ctrlKey: true });
+      const settings = screen.getByRole('dialog', { name: 'Settings' });
+      await within(settings).findByRole('button', { name: 'Play a sample' });
+      speech.synth.speaking = true;
+      const stopsBefore = speech.synth.cancelled;
+      fireEvent.keyDown(within(settings).getByRole('combobox', { name: 'Font' }), { key: 'Escape' });
+      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(speech.synth.cancelled).toBeGreaterThan(stopsBefore);
+    } finally {
+      speech.remove();
+    }
+  });
+
+  it('a local voice that arrives late (after a first, empty voiceschanged) still turns read aloud on', async () => {
+    const speech = installSpeech([]);
+    try {
+      const { controller } = makeController();
+      renderShell(controller);
+      await openAndWait(controller, () => controller.openSample());
+      act(() => speech.changeVoices([ONLINE_VOICE]));
+      expect(screen.queryByRole('group', { name: 'Read aloud' })).toBeNull();
+      act(() => speech.changeVoices([ONLINE_VOICE, LOCAL_VOICE]));
+      expect(await screen.findByRole('group', { name: 'Read aloud' })).toBeTruthy();
     } finally {
       speech.remove();
     }

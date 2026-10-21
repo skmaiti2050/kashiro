@@ -59,6 +59,18 @@ describe('Dialog', () => {
     expect(document.activeElement).toBe(opener());
   });
 
+  it('makes the rest of the page inert while it is open, and only while it is open', () => {
+    render(<Page />);
+    opener().focus();
+    fireEvent.click(opener());
+    expect(opener().closest('[inert]')).not.toBeNull();
+    expect(screen.getByRole('dialog').closest('[inert]')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(document.querySelector('[inert]')).toBeNull();
+    expect(document.activeElement).toBe(opener());
+  });
+
   it('Tab from the last control wraps to the first, Shift+Tab from the first to the last', () => {
     render(<Page />);
     fireEvent.click(opener());

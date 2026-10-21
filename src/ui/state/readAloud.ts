@@ -2,6 +2,7 @@ import type { Decision } from '@/engine/decisions';
 import { sentenceSpans } from '@/engine/sentences';
 import type { Candidate } from '@/engine/types';
 import { CATEGORIES, categoryOf } from './categories';
+import { kindLabel } from './kindLabels';
 import { plainMessage } from './plainMessages';
 
 /** The fields of a SpeechSynthesisVoice the app reads (tests pass plain objects). */
@@ -66,5 +67,5 @@ export function suggestionSpeech(decision: Decision, first: Candidate): string {
   let change = quoted(first.original);
   if (first.replacements.length > 0 && fixes.length === 0) change = `Delete ${quoted(first.original)}`;
   else if (fixes.length > 0) change = `Change ${quoted(first.original)} to ${fixes.map(quoted).join(' or ')}`;
-  return `${category}, ${first.kind}. ${change}${places}. ${plainMessage(first.message)}`;
+  return `${category}: ${kindLabel(first.kind)}. ${change}${places}. ${plainMessage(first)}`;
 }
