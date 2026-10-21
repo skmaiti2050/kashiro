@@ -1,5 +1,7 @@
 import type { CheckSession } from '@/engine/session';
+import type { Decision } from '@/engine/decisions';
 import type { Candidate } from '@/engine/types';
+import { categoryOf, type Category } from './categories';
 import type { OpenDocument } from './sessionController';
 
 /** One highlight in the document view, as offsets into the view text. */
@@ -12,6 +14,10 @@ export interface Highlight {
   replacement?: string;
   /** For pending ones: the linter's message, shown on hover. */
   message?: string;
+  /** For pending ones: the flag, so clicking the underline can bring up its card. */
+  candidateId?: string;
+  /** For pending ones: sets the underline's colour, style and glyph. */
+  category?: Category;
 }
 
 /**
@@ -59,14 +65,19 @@ export function highlightRanges(doc: OpenDocument, viewText: string, session: Ch
     starts.set(p.id, start);
   }
   const { top, more } = session.decisions();
-  const pending = new Set([...top, ...more].flatMap((d) => d.candidateIds));
+  const decisionKind = new Map<string, Decision['kind']>();
+  for (const d of [...top, ...more]) for (const id of d.candidateIds) decisionKind.set(id, d.kind);
   const out: Highlight[] = [];
   for (const o of session.outcomes()) {
     const base = starts.get(o.candidate.paraId)!;
     const from = base + o.candidate.span.start;
     const to = base + o.candidate.span.end;
+    const pendingIn = decisionKind.get(o.candidate.id);
     if (o.status === 'applied') out.push({ from, to, kind: o.auto ? 'auto' : 'accepted', replacement: o.replacement });
-    else if (pending.has(o.candidate.id) && to > from) out.push({ from, to, kind: 'pending', message: o.candidate.message });
+    else if (pendingIn && to > from) {
+      const category = categoryOf(o.candidate, pendingIn);
+      out.push({ from, to, kind: 'pending', message: o.candidate.message, candidateId: o.candidate.id, category });
+    }
   }
   return out;
 }

@@ -91,6 +91,39 @@ describe('decisions, accept, undo', () => {
     expect(s.decisions().top.map((d) => d.id)).toContain(second);
   });
 
+  it('applyBatch applies the chosen members as one batch; undoBatch takes them all back in one step', async () => {
+    const s = await start([{ id: 0, text: "I can't go. You can't stay. We can't eat." }], { preset: 'academic' });
+    const batch = s.decisions().top.find((d) => d.kind === 'batch')!;
+    const [a, b, c] = batch.candidateIds;
+    const batchId = s.applyBatch(batch.id, [a, c]);
+    expect(s.outputText(0)).toBe("I cannot go. You can't stay. We cannot eat.");
+    const inBatch = s.outcomes().filter((o) => o.batch === batchId).map((o) => o.candidate.id);
+    expect(inBatch).toEqual([a, c]);
+    // The unchosen member stays for review.
+    expect(s.decisions().top.map((d) => d.id)).toContain(b);
+
+    s.undoBatch(batchId);
+    expect(s.outputText(0)).toBe("I can't go. You can't stay. We can't eat.");
+    expect([lastLog(s, a)!.status, lastLog(s, c)!.status]).toEqual(['rejected', 'rejected']);
+  });
+
+  it('applyBatch without a list applies every member; a member of another decision is refused', async () => {
+    const s = await start([{ id: 0, text: "I can't go. You can't stay. I think teh cat is here." }], { preset: 'academic' });
+    const batch = s.decisions().top.find((d) => d.kind === 'batch')!;
+    expect(() => s.applyBatch(batch.id, ['not-a-member'])).toThrow(/not part of/);
+    expect(() => s.applyBatch(batch.id, [])).toThrow(/at least one/);
+    s.applyBatch(batch.id);
+    expect(s.outputText(0)).toBe('I cannot go. You cannot stay. I think the cat is here.');
+    expect(() => s.undoBatch('batch-99')).toThrow(/unknown batch/);
+  });
+
+  it('ignoredRules hides every flag of those kinds', async () => {
+    const shown = await start(paras, { preset: 'academic' });
+    expect(shown.decisionCount()).toBe(1);
+    const ignored = await start(paras, { preset: 'academic', ignoredRules: ['Contraction'] });
+    expect(ignored.decisionCount()).toBe(0);
+  });
+
   it("accept uses each candidate's own replacement at the index", async () => {
     const s = await start([{ id: 0, text: "It's late. it's cold." }], { preset: 'academic' });
     const ids = s.decisions().top.flatMap((d) => d.candidateIds);

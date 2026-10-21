@@ -59,6 +59,7 @@ export async function prepareCheck(
     variantWords,
     preset,
     userTierOverrides: opts.tierOverrides,
+    ignoredKinds: new Set(opts.ignoredRules ?? []),
     paraText,
     variant,
     foreignSentences,

@@ -8,6 +8,7 @@ import type { FormatAdapter } from '@/formats/types';
 import { carryDecisions } from './carryDecisions';
 import { joinParagraphs, matchUnchangedParagraphs, paragraphStarts } from './documentText';
 import { RecheckQueue } from './recheckQueue';
+import { SAMPLE_NAME, SAMPLE_TEXT } from './sample';
 import { saveDocument, saveReport, type Files, type OpenedFile } from './saveFlow';
 import type { Settings } from './settings';
 
@@ -54,6 +55,12 @@ export interface ControllerState {
   variantOverride: Variant | null;
   notice: string | null;
   error: string | null;
+  /** Typed text waits for its re-check, or a re-check is running (the status bar's "Checking…"). */
+  checking: boolean;
+  /** Decisions the user made since the document was opened (the progress header's "of M"). */
+  decided: number;
+  /** Kinds dismissed with "This rule in this document": dropped when another document is opened. */
+  documentIgnoredRules: string[];
   /** Bumped on every change: the session is mutable, so views re-read it when this moves. */
   revision: number;
 }
@@ -98,7 +105,19 @@ export class SessionController {
   constructor(private readonly deps: ControllerDeps) {
     this.adapterFor = deps.adapterFor ?? registryAdapterFor;
     const settings = deps.settings;
-    this.state = { phase: 'empty', document: null, session: null, settings, variantOverride: null, notice: null, error: null, revision: 0 };
+    this.state = {
+      phase: 'empty',
+      document: null,
+      session: null,
+      settings,
+      variantOverride: null,
+      notice: null,
+      error: null,
+      checking: false,
+      decided: 0,
+      documentIgnoredRules: [],
+      revision: 0,
+    };
   }
 
   getState = (): ControllerState => this.state;
@@ -148,6 +167,11 @@ export class SessionController {
     await this.load(PASTED_NAME, null, this.adapterFor(PASTED_NAME)!, new TextEncoder().encode(text));
   }
 
+  /** "Try a sample paragraph": a built-in text with one of each card, opened like pasted text. */
+  async openSample(): Promise<void> {
+    await this.load(SAMPLE_NAME, null, this.adapterFor(SAMPLE_NAME)!, new TextEncoder().encode(SAMPLE_TEXT));
+  }
+
   private async load(name: string, path: string | null, adapter: FormatAdapter, bytes: Uint8Array): Promise<void> {
     this.queue.cancel();
     let read: { paras: Paragraph[]; handle: unknown };
@@ -172,7 +196,17 @@ export class SessionController {
       paraStarts: view.starts,
       note: isDocx ? DOCX_NOTE : null,
     };
-    this.set({ phase: 'checking', document, session: null, variantOverride: null, notice: null, error: null });
+    this.set({
+      phase: 'checking',
+      document,
+      session: null,
+      variantOverride: null,
+      notice: null,
+      error: null,
+      checking: true,
+      decided: 0,
+      documentIgnoredRules: [],
+    });
     await this.queue.track(this.check(false));
   }
 
@@ -183,6 +217,7 @@ export class SessionController {
     if (!this.state.document?.editable) return;
     this.unsaved = true;
     this.queue.push(text);
+    if (!this.state.checking) this.set({ checking: true });
   }
 
   private async checkTypedText(text: string): Promise<void> {
@@ -194,7 +229,7 @@ export class SessionController {
     try {
       read = await adapter.read(bom ? new Uint8Array([...UTF8_BOM, ...encoded]) : encoded);
     } catch (e) {
-      this.set({ error: `The typed text could not be checked: ${message(e)}` });
+      this.set({ error: `The typed text could not be checked: ${message(e)}`, checking: this.queue.waiting });
       return;
     }
     this.loaded = { adapter, ...read, bom };
@@ -204,7 +239,9 @@ export class SessionController {
 
   /** Re-checks the current document, keeping the decisions on paragraphs that did not change. */
   private recheck(): Promise<void> {
-    return this.loaded ? this.queue.track(this.check(true)) : Promise.resolve();
+    if (!this.loaded) return Promise.resolve();
+    this.set({ checking: true });
+    return this.queue.track(this.check(true));
   }
 
   private async check(keepDecisions: boolean): Promise<void> {
@@ -221,9 +258,10 @@ export class SessionController {
       // The depth may have moved while the check ran.
       session.setDepth(this.currentDepth());
       if (before) carryDecisions(before, session, matchUnchangedParagraphs(before.paragraphs(), loaded.paras));
-      this.set({ phase: 'ready', session });
+      this.set({ phase: 'ready', session, checking: this.queue.waiting });
     } catch (e) {
-      if (run === this.checks) this.set({ phase: this.state.session ? 'ready' : 'empty', error: `The check failed: ${message(e)}` });
+      if (run !== this.checks) return;
+      this.set({ phase: this.state.session ? 'ready' : 'empty', error: `The check failed: ${message(e)}`, checking: this.queue.waiting });
     }
   }
 
@@ -233,8 +271,9 @@ export class SessionController {
   }
 
   private checkOptions(language: 'plaintext' | 'markdown') {
-    const { settings, variantOverride } = this.state;
+    const { settings, variantOverride, documentIgnoredRules } = this.state;
     return {
+      ignoredRules: [...settings.ignoredRules, ...documentIgnoredRules],
       preset: settings.preset,
       variant: variantOverride ?? undefined,
       fallbackVariant: settings.fallbackVariant,
@@ -255,20 +294,49 @@ export class SessionController {
   // ---- review --------------------------------------------------------------
 
   accept(decisionId: string, replacementIndex = 0): void {
-    this.act((s) => s.accept(decisionId, replacementIndex));
+    this.act((s) => s.accept(decisionId, replacementIndex), 1);
   }
 
   reject(decisionId: string): void {
-    this.act((s) => s.reject(decisionId));
+    this.act((s) => s.reject(decisionId), 1);
   }
 
   ignoreAll(decisionId: string): void {
-    this.act((s) => s.ignoreAll(decisionId));
+    this.act((s) => s.ignoreAll(decisionId), 1);
   }
 
-  /** Undo from the change log: applied → rejected, rejected → back to review. */
+  /** "Apply" after the batch preview: the chosen places as one change, undone together by undoBatch. */
+  applyBatch(decisionId: string, candidateIds: string[], replacementIndex = 0): void {
+    this.act((s) => s.applyBatch(decisionId, candidateIds, replacementIndex), 1);
+  }
+
+  undoBatch(batchId: string): void {
+    this.act((s) => s.undoBatch(batchId), 0);
+  }
+
+  /** Undo from the change log: applied → rejected, rejected → back to review (one decision fewer made). */
   undo(candidateId: string): void {
-    this.act((s) => s.undo(candidateId));
+    const status = this.state.session?.outcomes().find((o) => o.candidate.id === candidateId)?.status;
+    this.act((s) => s.undo(candidateId), status === 'rejected' ? -1 : 0);
+  }
+
+  /**
+   * Dismiss › "This rule in this document" or "everywhere": hides every flag of `kind` (never LLM, hygiene
+   * or fact-locked ones, see the engine's isIgnoredRule). "Everywhere" is saved and listed in Settings.
+   */
+  ignoreRule(kind: string, scope: 'document' | 'everywhere'): void {
+    const { settings, documentIgnoredRules, decided } = this.state;
+    if (scope === 'everywhere') this.updateSettings({ ignoredRules: [...settings.ignoredRules, kind] });
+    else this.unsaved = true; // like a rejection, it is lost if the document is closed unsaved
+    const forDocument = scope === 'document' ? [...documentIgnoredRules, kind] : documentIgnoredRules;
+    this.set({ documentIgnoredRules: forDocument, decided: decided + 1 });
+    void this.recheck();
+  }
+
+  /** Settings › Ignored rules › Restore. */
+  restoreRule(kind: string): void {
+    this.updateSettings({ ignoredRules: this.state.settings.ignoredRules.filter((k) => k !== kind) });
+    void this.recheck();
   }
 
   async addToDictionary(decisionId: string): Promise<void> {
@@ -329,18 +397,20 @@ export class SessionController {
     await this.recheck();
   }
 
-  private act(change: (s: CheckSession) => void): void {
+  /** Runs a review action; `decisions` is how it moves the count of decisions made (+1, 0, or -1 for back to review). */
+  private act(change: (s: CheckSession) => void, decisions: 1 | 0 | -1): void {
     const session = this.state.session;
     if (!session) return;
     try {
       change(session);
       this.unsaved = true;
-      this.set({ error: null });
+      this.set({ error: null, decided: Math.max(0, this.state.decided + decisions) });
     } catch (e) {
       this.set({ error: message(e) });
     }
   }
 
+  /** A card or dictionary action: one decision made, and the words it added are saved. */
   private async actAsync(change: (s: CheckSession) => Promise<void>): Promise<void> {
     const session = this.state.session;
     if (!session) return;
@@ -351,6 +421,7 @@ export class SessionController {
       return;
     }
     this.unsaved = true;
+    this.set({ decided: this.state.decided + 1 });
     const known = new Set(this.state.settings.dictionary);
     const added = session.addedWords().filter((w) => !known.has(w));
     this.updateSettings({ dictionary: [...this.state.settings.dictionary, ...added] });

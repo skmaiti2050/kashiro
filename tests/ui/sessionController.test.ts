@@ -528,3 +528,97 @@ describe('SessionController: typing re-checks', () => {
     expect(controller.getState().document!.text).toBe("I can't go.");
   });
 });
+
+describe('SessionController: U1 review flow', () => {
+  it('counts the decisions made for the progress header; "Review again" gives one back; a new document starts at 0', async () => {
+    const { controller } = makeController();
+    await controller.openText("I can't go. It's late.\n\nThe the cat sat.");
+    expect(controller.getState().decided).toBe(0);
+    const [first, second] = controller.getState().session!.decisions().top;
+    controller.accept(first.id);
+    controller.reject(second.id);
+    expect(controller.getState().decided).toBe(2);
+    controller.undo(second.candidateIds[0]); // rejected → back to review
+    expect(controller.getState().decided).toBe(1);
+    await controller.openText('Fine text.');
+    expect(controller.getState().decided).toBe(0);
+  });
+
+  it('applyBatch applies the previewed places as one change; undoBatch takes them back together', async () => {
+    const { controller } = makeController();
+    await controller.openText("I can't go. You can't stay. We can't eat.");
+    const batch = controller.getState().session!.decisions().top.find((d) => d.kind === 'batch')!;
+    const [a, , c] = batch.candidateIds;
+    controller.applyBatch(batch.id, [a, c]);
+    const session = controller.getState().session!;
+    expect(session.outputText(0)).toBe("I cannot go. You can't stay. We cannot eat.");
+    const batchId = session.outcomes().find((o) => o.candidate.id === a)!.batch!;
+    expect(controller.hasUnsavedWork()).toBe(true);
+    expect(controller.getState().decided).toBe(1);
+    controller.undoBatch(batchId);
+    expect(controller.getState().session!.outputText(0)).toBe("I can't go. You can't stay. We can't eat.");
+  });
+
+  it('dismissing a rule in this document hides it until another document is opened, and is not saved', async () => {
+    const { controller, saved } = makeController();
+    await controller.openText(CANT);
+    controller.ignoreRule('Contraction', 'document');
+    await controller.settled();
+    expect(controller.getState().session!.decisionCount()).toBe(0);
+    expect(controller.getState().documentIgnoredRules).toEqual(['Contraction']);
+    expect(saved.every((s) => s.ignoredRules.length === 0)).toBe(true);
+    await controller.openText(CANT);
+    expect(controller.getState().session!.decisionCount()).toBe(1);
+  });
+
+  it('dismissing a rule everywhere is saved in settings; Restore brings it back', async () => {
+    const { controller, saved } = makeController();
+    await controller.openText(CANT);
+    controller.ignoreRule('Contraction', 'everywhere');
+    await controller.settled();
+    expect(saved.at(-1)!.ignoredRules).toEqual(['Contraction']);
+    expect(controller.getState().session!.decisionCount()).toBe(0);
+    controller.restoreRule('Contraction');
+    await controller.settled();
+    expect(saved.at(-1)!.ignoredRules).toEqual([]);
+    expect(controller.getState().session!.decisionCount()).toBe(1);
+  });
+
+  it('the sample paragraph shows each kind of card: a safe fix, a review, a batch, names and terms', async () => {
+    const { controller } = makeController({ settings: { preset: 'business' } });
+    await controller.openSample();
+    const { document, session } = controller.getState();
+    expect(document!.name).toBe('Sample.txt');
+    expect(document!.editable).toBe(true);
+    expect(session!.outcomes().some((o) => o.auto && o.status === 'applied')).toBe(true);
+    const kinds = session!.decisions().top.map((d) => d.kind);
+    expect(kinds).toEqual(expect.arrayContaining(['single', 'batch', 'names', 'terms']));
+    expect(controller.hasUnsavedWork()).toBe(false);
+  });
+
+  it('pending underlines carry their flag (to bring up its card) and their category (to style it)', async () => {
+    const { controller } = makeController();
+    await controller.openText('We met Anjali today.\n\n' + CANT);
+    const { document, session } = controller.getState();
+    const pending = highlightRanges(document!, document!.text, session!)!.filter((h) => h.kind === 'pending');
+    const byText = pending.map((h) => [document!.text.slice(h.from, h.to), h.category]);
+    expect(byText).toEqual([
+      ['Anjali', 'names'],
+      ["can't", 'style'],
+      ["can't", 'style'],
+    ]);
+    expect(pending.every((h) => session!.candidates().some((c) => c.id === h.candidateId))).toBe(true);
+  });
+
+  it('reports "checking" while typed text waits for its re-check, and "up to date" after', async () => {
+    const { controller } = makeController();
+    await controller.openText('Fine text.');
+    expect(controller.getState().checking).toBe(false);
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    controller.editText('Fine text, more.');
+    expect(controller.getState().checking).toBe(true);
+    await vi.advanceTimersByTimeAsync(300);
+    await controller.settled();
+    expect(controller.getState().checking).toBe(false);
+  });
+});

@@ -28,6 +28,7 @@ describe('defaultSettings', () => {
       modelPath: null,
       depthByPreset: {},
       termMinRepeats: 3,
+      ignoredRules: [],
     });
   });
 });

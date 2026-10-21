@@ -13,6 +13,11 @@ export class RecheckQueue {
     private readonly run: (text: string) => Promise<void>,
   ) {}
 
+  /** True while typed text waits for its check. */
+  get waiting(): boolean {
+    return this.pendingText !== null;
+  }
+
   /** The text as typed; it is checked `delayMs` after the last call. */
   push(text: string): void {
     this.pendingText = text;

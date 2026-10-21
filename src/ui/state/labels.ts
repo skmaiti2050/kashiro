@@ -11,6 +11,21 @@ export function excerpt(text: string, words = EXCERPT_WORDS): { text: string; cu
   return { text: parts.slice(0, words).join(' ') + ' …', cut: true };
 }
 
+/** Readable names for kinds whose own name says little ("BoundaryError"); others are lowercased. */
+const FIX_NOUNS: Record<string, string> = {
+  BoundaryError: 'word-joining',
+  Capitalization: 'capitalisation',
+  Repetition: 'repeated-word',
+  WordChoice: 'word-choice',
+  WordOrder: 'word-order',
+  Variant: 'spelling-variant',
+};
+
+/** The batch button: "Apply all 12 formatting fixes" (count and kind, before the preview). */
+export function batchApplyLabel(kind: string, places: number): string {
+  return `Apply all ${places} ${FIX_NOUNS[kind] ?? kind.toLowerCase()} fixes`;
+}
+
 /**
  * A short title for a decision card or "More" row: the (shortened) original and its suggestions, or
  * only the original for a flag with nothing to apply (its message is shown separately).

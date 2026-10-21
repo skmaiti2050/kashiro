@@ -12,6 +12,8 @@ export interface CheckOptions {
   dictionary: string[];
   /** Per-kind tier overrides (passed to TierContext.userTierOverrides). */
   tierOverrides?: Partial<Record<string, Tier>>;
+  /** Kinds the user dismissed as a rule: hidden, except LLM, hygiene and fact-locked flags (TierContext.ignoredKinds). */
+  ignoredRules?: string[];
   /** How many decisions to show up front and rewrites to run automatically (default 'standard'). */
   depth?: ReviewDepth;
   /** Uses after which an unknown lowercase word goes on the terms card (spec §5): 2–5, default 3. */
@@ -54,6 +56,8 @@ export interface Outcome {
   replacement?: string;
   reason?: string;
   unplaceable?: string;
+  /** Set when the edit was applied by applyBatch: its id, for undoBatch. */
+  batch?: string;
 }
 
 export const TRACKED_CHANGE_REASON = 'inside an existing tracked change';

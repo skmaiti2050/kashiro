@@ -50,6 +50,9 @@ export class CheckSession {
   private readonly sentToHelperKeys = new Set<string>();
   /** Ids of LLM rewrites added by addRewrite, i.e. ones that passed the meaning-drift guard. */
   private readonly guardedRewrites = new Set<string>();
+  /** Candidate id → the applyBatch it was applied by, while it stays applied. */
+  private readonly batchOf = new Map<string, string>();
+  private batchCount = 0;
   private readonly words: number;
 
   private constructor(
@@ -197,6 +200,7 @@ export class CheckSession {
       replacement: this.ledger.replacement.get(c.id) ?? c.replacements[0],
       reason: this.ledger.reasons.get(c.id),
       unplaceable: this.unplaceable.get(c.id),
+      batch: this.ledger.status.get(c.id) === 'applied' ? this.batchOf.get(c.id) : undefined,
     }));
   }
 
@@ -211,7 +215,39 @@ export class CheckSession {
     // Replacing names or terms with dictionary words by index would damage them (spec §5).
     const card = CARD_ACCEPT_METHODS.get(decisionId);
     if (card) throw new Error(`the ${card.name} is answered with ${card.method}(keepAsTypos), not accept`);
+    this.applyMembers(decisionId, this.members(decisionId), replacementIndex);
+  }
+
+  /**
+   * "Apply all" after the batch preview: applies replacement `replacementIndex` to `candidateIds` (default:
+   * every member of the batch) as accept does, and groups them so undoBatch can take them back in one step.
+   * Unchosen members stay pending. Returns the batch id (also on each member's Outcome.batch).
+   */
+  applyBatch(decisionId: string, candidateIds?: string[], replacementIndex = 0): string {
     const members = this.members(decisionId);
+    const chosen = (candidateIds ?? members.map((c) => c.id)).map((id) => {
+      const member = members.find((c) => c.id === id);
+      if (!member) throw new Error(`${id} is not part of ${decisionId}`);
+      return member;
+    });
+    if (chosen.length === 0) throw new Error(`choose at least one place of ${decisionId} to apply`);
+    this.applyMembers(decisionId, chosen, replacementIndex);
+    const batchId = `batch-${++this.batchCount}`;
+    for (const c of chosen) if (this.ledger.status.get(c.id) === 'applied') this.batchOf.set(c.id, batchId);
+    return batchId;
+  }
+
+  /** Undoes every edit of an applyBatch that is still applied (applied → rejected, as undo does). */
+  undoBatch(batchId: string): void {
+    const ids = [...this.batchOf].filter(([, b]) => b === batchId).map(([id]) => id);
+    if (ids.length === 0) throw new Error(`unknown batch ${batchId}`);
+    for (const id of ids) {
+      this.batchOf.delete(id);
+      if (this.ledger.status.get(id) === 'applied') this.undo(id);
+    }
+  }
+
+  private applyMembers(decisionId: string, members: Candidate[], replacementIndex: number): void {
     for (const c of members) {
       if (c.replacements[replacementIndex] === undefined) {
         throw new Error(`candidate ${c.id} has no replacement at index ${replacementIndex}`);
@@ -326,6 +362,7 @@ export class CheckSession {
   undo(candidateId: string): void {
     const s = this.ledger.status.get(candidateId);
     if (s === 'applied') {
+      this.batchOf.delete(candidateId);
       this.ledger.autoApplied.delete(candidateId);
       this.userRejected.add(candidateId);
       this.ledger.record(candidateId, 'rejected', false, 'undone');

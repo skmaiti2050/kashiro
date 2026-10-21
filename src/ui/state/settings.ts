@@ -22,6 +22,8 @@ export interface Settings {
   depthByPreset: Partial<Record<PresetId, ReviewDepth>>;
   /** Uses after which an unknown lowercase word goes on the terms card (2–5). */
   termMinRepeats: number;
+  /** Kinds dismissed with "This rule everywhere"; listed under Settings › Ignored rules with Restore. */
+  ignoredRules: string[];
 }
 
 /** Region → variant, for English locales; India also covers hi-IN, bn-IN and other Indian locales. */
@@ -50,5 +52,6 @@ export function defaultSettings(locale: string): Settings {
     modelPath: null,
     depthByPreset: {},
     termMinRepeats: DEFAULT_TERM_MIN_REPEATS,
+    ignoredRules: [],
   };
 }

@@ -498,6 +498,28 @@ describe('Task 10 budget tuning', () => {
   });
 });
 
+describe('ignored rules (Dismiss › this rule)', () => {
+  const ignoring = (...kinds: string[]) => ({ ignoredKinds: new Set(kinds) });
+
+  it('an ignored kind is hidden, whether it would be safe or reviewed', () => {
+    const readability = cand({ original: 'long sentence', kind: 'Readability' });
+    const punctuation = cand({ original: ' ,', replacements: [','], kind: 'Punctuation' });
+    expect(tierOf(readability, ctx(ignoring('Readability')))).toBe('hidden');
+    expect(tierOf(punctuation, ctx(ignoring('Punctuation')))).toBe('hidden');
+    expect(tierOf(readability, ctx(ignoring('Punctuation')))).toBe('review');
+  });
+
+  it('never touches LLM rewrites, hygiene fixes or flags on fact-locked text', () => {
+    const llm = cand({ original: 'x', replacements: ['y'], kind: 'Rewrite', source: 'llm' });
+    expect(tierOf(llm, ctx(ignoring('Rewrite')))).toBe('review');
+    const [hygiene] = findInvisible({ id: 1, text: 'a​b' });
+    expect(tierOf(hygiene, ctx(ignoring(hygiene.kind)))).toBe('safe');
+    const locked = new Map([[0, [{ start: 0, end: 10 }]]]);
+    const agr = cand({ original: 'has', replacements: ['have'], kind: 'Agreement' });
+    expect(tierOf(agr, ctx({ locked, ...ignoring('Agreement') }))).toBe('review');
+  });
+});
+
 describe('userTierOverrides', () => {
   const agr = cand({ original: 'has', replacements: ['have'], kind: 'Agreement' });
 

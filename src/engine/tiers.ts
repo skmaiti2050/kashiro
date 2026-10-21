@@ -17,6 +17,8 @@ export interface TierContext {
   preset: Preset;
   /** Keyed by candidate kind. */
   userTierOverrides?: Partial<Record<string, Tier>>;
+  /** Kinds the user dismissed as a rule ("This rule in this document / everywhere"): hidden, see isIgnoredRule. */
+  ignoredKinds?: ReadonlySet<string>;
   /** paraId → paragraph text, for context-dependent safety rules. */
   paraText?: Map<number, string>;
   /** The document's spelling variant (some suggestions are wrong for some variants). */
@@ -100,6 +102,15 @@ function isOtherLanguageWord(c: Candidate, ctx: TierContext): boolean {
   return inAny(ctx.foreignSentences) || (c.original.length === 2 && inAny(ctx.romanisedSentences));
 }
 
+/**
+ * A flag of a rule the user dismissed. LLM rewrites, hygiene fixes and flags on fact-locked text are never
+ * affected: the dismiss menu only quiets the rules passes, never the protections.
+ */
+function isIgnoredRule(c: Candidate, ctx: TierContext): boolean {
+  if (!ctx.ignoredKinds?.has(c.kind) || c.source === 'llm' || c.source === 'hygiene') return false;
+  return !overlapsLocked(c, ctx.locked.get(c.paraId));
+}
+
 function baseTier(c: Candidate, ctx: TierContext): Tier {
   const { preset } = ctx;
   if (isStyleChoice(c)) return 'review';
@@ -121,10 +132,12 @@ function baseTier(c: Candidate, ctx: TierContext): Tier {
  * with a capital (names, acronyms) or more than one letter away (see isSlipFix), or is a word
  * of the document's variant, holds a digit ("y0u") or is a word in another language (isOtherLanguageWord).
  * Spelling/Typo/Capitalization flags on code tokens
- * ("q2", "preventDefault", "src/ui") and respellings of stray single letters are always hidden.
+ * ("q2", "preventDefault", "src/ui") and respellings of stray single letters are always hidden, and so are
+ * kinds the user dismissed as a rule (isIgnoredRule).
  */
 export function tierOf(c: Candidate, ctx: TierContext): Tier {
   if (isCodeNoiseFlag(c, ctx.paraText?.get(c.paraId))) return 'hidden';
+  if (isIgnoredRule(c, ctx)) return 'hidden';
   const override = ctx.userTierOverrides?.[c.kind];
   const tier = override ?? baseTier(c, ctx);
   if (tier !== 'safe') return tier;
