@@ -16,6 +16,8 @@ interface Props {
   decision: Decision;
   candidates: Map<string, Candidate>;
   paraText: Map<number, string>;
+  /** A member overlaps a fact-locked or tracked-change span (CheckSession.touchesLocked). */
+  touchesLocked: boolean;
   /** Moves to the next card without deciding (J). */
   onNext(): void;
   /** Shows a candidate in the document view (highlighted and scrolled into view). */
@@ -29,7 +31,7 @@ interface Props {
  * (not word flags, not AI rewrites) get the Dismiss ▾ scope menu. `data-key` marks the buttons the
  * review keys press (Enter: accept, Backspace: reject).
  */
-export function DecisionCard({ controller, decision, candidates, paraText, onNext, onLocate }: Props) {
+export function DecisionCard({ controller, decision, candidates, paraText, touchesLocked, onNext, onLocate }: Props) {
   const [seeEach, setSeeEach] = useState(false);
   const [place, setPlace] = useState(0);
   /** The replacement index whose "Apply all" preview is open. */
@@ -42,7 +44,6 @@ export function DecisionCard({ controller, decision, candidates, paraText, onNex
   const flagOnly = first.replacements.length === 0;
   const category = categoryOf(first, decision.kind);
   // The engine never hides word flags, AI rewrites, hygiene fixes or flags on protected text, so don't offer it.
-  const touchesLocked = members.some((c) => controller.getState().session?.touchesLocked(c.id));
   const canIgnoreRule = !isWordFlag && first.source !== 'llm' && first.source !== 'hygiene' && !touchesLocked;
   const accept = (i: number) => (isBatch ? setPreview(i) : controller.accept(decision.id, i));
 

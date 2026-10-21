@@ -1,18 +1,23 @@
 import { CheckSession } from '@/engine/session';
-import { DEFAULT_DEPTH, type ReviewDepth } from '@/engine/depth';
+import type { ReviewDepth } from '@/engine/depth';
 import type { RulesLinter } from '@/engine/linter';
 import type { PresetId } from '@/engine/presets';
-import type { Paragraph, Variant } from '@/engine/types';
+import type { Variant } from '@/engine/types';
 import { adapterFor as registryAdapterFor } from '@/formats/registry';
 import type { FormatAdapter } from '@/formats/types';
 import { carryDecisions } from './carryDecisions';
-import { joinParagraphs, matchUnchangedParagraphs, paragraphStarts } from './documentText';
+import { checkOptions, currentDepth } from './checkOptions';
+import { DecisionTally } from './decisionTally';
+import { matchUnchangedParagraphs } from './documentText';
+import { readDocument, readTypedText, type LoadedFile, type OpenDocument } from './openDocument';
 import { RecheckQueue } from './recheckQueue';
 import { SAMPLE_NAME, SAMPLE_TEXT } from './sample';
 import { saveDocument, saveReport, type Files, type OpenedFile } from './saveFlow';
 import type { Settings } from './settings';
+import * as settingsActions from './settingsActions';
 
 export type { Files, OpenedFile, SavedFile } from './saveFlow';
+export { DOCX_NOTE, type OpenDocument } from './openDocument';
 
 export interface ControllerDeps {
   files: Files;
@@ -24,26 +29,6 @@ export interface ControllerDeps {
   /** Defaults to the format registry; tests pass adapters that refuse edits. */
   adapterFor?: (fileName: string) => FormatAdapter | null;
   now?: () => Date;
-}
-
-export interface OpenDocument {
-  /** New for every opened file or paste, so the editor knows when to replace its content. */
-  id: number;
-  name: string;
-  path: string | null;
-  /** The text in the document view: the file's text, or a .docx's paragraphs separated by blank lines. */
-  text: string;
-  /**
-   * The line break the editor splits and joins lines with, so its text round-trips exactly: CRLF for
-   * a file that uses only CRLF, LF otherwise (a mixed file keeps its stray CRs inside the lines).
-   */
-  lineSeparator: '\n' | '\r\n';
-  /** Plain text and Markdown can be edited in place; .docx is read-only. */
-  editable: boolean;
-  /** Paragraph id → its start offset in `text`. */
-  paraStarts: Map<number, number>;
-  /** A short note about what this format leaves unchecked. */
-  note: string | null;
 }
 
 export interface ControllerState {
@@ -65,24 +50,10 @@ export interface ControllerState {
   revision: number;
 }
 
-export const DOCX_NOTE = 'Headers, footers and footnotes are kept as they are but not checked in this version.';
 const RECHECK_DELAY_MS = 300;
 const PASTED_NAME = 'Untitled.txt';
-const UTF8_BOM = [0xef, 0xbb, 0xbf];
-/** A line feed without a carriage return before it ("a\nb", but not "a\r\nb"). */
-const BARE_LF = /(?:^|[^\r])\n/;
-
-interface LoadedFile {
-  adapter: FormatAdapter;
-  handle: unknown;
-  paras: Paragraph[];
-  /** The file started with a UTF-8 byte-order mark: typed text is re-read with it, so the save keeps it. */
-  bom: boolean;
-}
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
-const startsWithBom = (bytes: Uint8Array) => UTF8_BOM.every((b, i) => bytes[i] === b);
-const lineSeparatorOf = (text: string): '\n' | '\r\n' => (text.includes('\r\n') && !BARE_LF.test(text) ? '\r\n' : '\n');
 
 /**
  * The desktop flow without React: open → check → review → save. Holds one document and its
@@ -101,19 +72,30 @@ export class SessionController {
   private checks = 0;
   /** Edits applied, decisions made or text typed since the document was opened or last saved. */
   private unsaved = false;
-  /** Rejected candidate id → the rejection it was part of; `reopened` holds rejections already given back. */
-  private readonly rejectedAs = new Map<string, string>();
-  private readonly reopened = new Set<string>();
-  private rejections = 0;
+  private readonly tally = new DecisionTally();
+  private readonly settingsHost: settingsActions.SettingsHost = {
+    state: () => this.state,
+    set: (patch) => this.set(patch),
+    storeSettings: (settings) => {
+      this.set({ settings });
+      this.deps.saveSettings(settings).catch((e) => this.set({ error: `Settings were not saved: ${message(e)}` }));
+    },
+    decisionMade: (patch) => {
+      this.tally.made(1);
+      this.set({ ...patch, decided: this.tally.decided });
+    },
+    markUnsaved: () => (this.unsaved = true),
+    dropLinter: () => (this.linter = null),
+    recheck: () => this.recheck(),
+  };
 
   constructor(private readonly deps: ControllerDeps) {
     this.adapterFor = deps.adapterFor ?? registryAdapterFor;
-    const settings = deps.settings;
     this.state = {
       phase: 'empty',
       document: null,
       session: null,
-      settings,
+      settings: deps.settings,
       variantOverride: null,
       notice: null,
       error: null,
@@ -178,30 +160,18 @@ export class SessionController {
 
   private async load(name: string, path: string | null, adapter: FormatAdapter, bytes: Uint8Array): Promise<void> {
     this.queue.cancel();
-    let read: { paras: Paragraph[]; handle: unknown };
+    let read: { loaded: LoadedFile; document: OpenDocument };
     try {
-      read = await adapter.read(bytes);
+      read = await readDocument(this.documents + 1, name, path, adapter, bytes);
     } catch (e) {
       this.set({ error: `Can't open ${name}: ${message(e)}` });
       return;
     }
-    this.loaded = { adapter, ...read, bom: startsWithBom(bytes) };
+    const { loaded, document } = read;
+    this.documents = document.id;
+    this.loaded = loaded;
     this.unsaved = false;
-    this.rejectedAs.clear();
-    this.reopened.clear();
-    const isDocx = name.toLowerCase().endsWith('.docx');
-    const text = isDocx ? null : new TextDecoder().decode(bytes); // the decoder drops a byte-order mark
-    const view = text === null ? joinParagraphs(read.paras) : { text, starts: paragraphStarts(text, read.paras) };
-    const document: OpenDocument = {
-      id: ++this.documents,
-      name,
-      path,
-      text: view.text,
-      lineSeparator: text === null ? '\n' : lineSeparatorOf(text),
-      editable: !isDocx,
-      paraStarts: view.starts,
-      note: isDocx ? DOCX_NOTE : null,
-    };
+    this.tally.reset();
     this.set({
       phase: 'checking',
       document,
@@ -210,7 +180,7 @@ export class SessionController {
       notice: null,
       error: null,
       checking: true,
-      decided: 0,
+      decided: this.tally.decided,
       documentIgnoredRules: [],
     });
     await this.queue.track(this.check(false));
@@ -229,17 +199,15 @@ export class SessionController {
   private async checkTypedText(text: string): Promise<void> {
     const document = this.state.document;
     if (!document || !this.loaded) return;
-    const { adapter, bom } = this.loaded;
-    const encoded = new TextEncoder().encode(text);
-    let read: { paras: Paragraph[]; handle: unknown };
+    let read: { loaded: LoadedFile; document: OpenDocument };
     try {
-      read = await adapter.read(bom ? new Uint8Array([...UTF8_BOM, ...encoded]) : encoded);
+      read = await readTypedText(this.loaded, document, text);
     } catch (e) {
       this.set({ error: `The typed text could not be checked: ${message(e)}`, checking: this.queue.waiting });
       return;
     }
-    this.loaded = { adapter, ...read, bom };
-    this.set({ document: { ...document, text, paraStarts: paragraphStarts(text, read.paras) } });
+    this.loaded = read.loaded;
+    this.set({ document: read.document });
     await this.check(true);
   }
 
@@ -256,39 +224,18 @@ export class SessionController {
     const before = keepDecisions ? this.state.session : null;
     try {
       const linter = await this.getLinter();
-      const session = await CheckSession.start(loaded.paras, this.checkOptions(loaded.adapter.language), {
-        linter,
-        now: this.deps.now,
-      });
+      const { settings, variantOverride, documentIgnoredRules } = this.state;
+      const options = checkOptions(settings, variantOverride, documentIgnoredRules, loaded.adapter.language);
+      const session = await CheckSession.start(loaded.paras, options, { linter, now: this.deps.now });
       if (run !== this.checks) return;
       // The depth may have moved while the check ran.
-      session.setDepth(this.currentDepth());
+      session.setDepth(currentDepth(this.state.settings));
       if (before) carryDecisions(before, session, matchUnchangedParagraphs(before.paragraphs(), loaded.paras));
       this.set({ phase: 'ready', session, checking: this.queue.waiting });
     } catch (e) {
       if (run !== this.checks) return;
       this.set({ phase: this.state.session ? 'ready' : 'empty', error: `The check failed: ${message(e)}`, checking: this.queue.waiting });
     }
-  }
-
-  private currentDepth(): ReviewDepth {
-    const { depthByPreset, preset } = this.state.settings;
-    return depthByPreset[preset] ?? DEFAULT_DEPTH;
-  }
-
-  private checkOptions(language: 'plaintext' | 'markdown') {
-    const { settings, variantOverride, documentIgnoredRules } = this.state;
-    return {
-      ignoredRules: [...settings.ignoredRules, ...documentIgnoredRules],
-      preset: settings.preset,
-      variant: variantOverride ?? undefined,
-      fallbackVariant: settings.fallbackVariant,
-      language,
-      dictionary: settings.dictionary,
-      tierOverrides: settings.tierOverrides,
-      depth: this.currentDepth(),
-      termMinRepeats: settings.termMinRepeats,
-    };
   }
 
   private getLinter(): Promise<RulesLinter> {
@@ -300,7 +247,7 @@ export class SessionController {
   // ---- review --------------------------------------------------------------
 
   accept(decisionId: string, replacementIndex = 0): void {
-    this.act((s) => s.accept(decisionId, replacementIndex), 1);
+    this.act((s) => s.accept(decisionId, replacementIndex), () => this.tally.made(1));
   }
 
   reject(decisionId: string): void {
@@ -317,18 +264,16 @@ export class SessionController {
     if (!session) return;
     const { top, more } = session.decisions();
     const places = [...top, ...more].find((d) => d.id === decisionId)?.candidateIds ?? [decisionId];
-    if (!this.act(change, 1)) return;
-    const rejection = `${decisionId}#${++this.rejections}`;
-    for (const id of places) this.rejectedAs.set(id, rejection);
+    this.act(change, () => this.tally.rejected(decisionId, places));
   }
 
   /** "Apply" after the batch preview: the chosen places as one change, undone together by undoBatch. */
   applyBatch(decisionId: string, candidateIds: string[], replacementIndex = 0): void {
-    this.act((s) => s.applyBatch(decisionId, candidateIds, replacementIndex), 1);
+    this.act((s) => s.applyBatch(decisionId, candidateIds, replacementIndex), () => this.tally.made(1));
   }
 
   undoBatch(batchId: string): void {
-    this.act((s) => s.undoBatch(batchId), 0);
+    this.act((s) => s.undoBatch(batchId), () => {});
   }
 
   /**
@@ -337,50 +282,36 @@ export class SessionController {
    */
   undo(candidateId: string): void {
     const status = this.state.session?.outcomes().find((o) => o.candidate.id === candidateId)?.status;
-    let givesBack = false;
-    if (status === 'rejected') {
-      const rejection = this.rejectedAs.get(candidateId);
-      this.rejectedAs.delete(candidateId);
-      givesBack = rejection === undefined || !this.reopened.has(rejection);
-      if (rejection !== undefined) this.reopened.add(rejection);
-    }
-    this.act((s) => s.undo(candidateId), givesBack ? -1 : 0);
+    this.act(
+      (s) => s.undo(candidateId),
+      () => {
+        if (status === 'rejected') this.tally.reopen(candidateId);
+      },
+    );
   }
 
-  /**
-   * Dismiss › "All <kind> suggestions in this document" or "everywhere": hides every flag of `kind` (never
-   * word flags, LLM, hygiene or fact-locked ones, see the engine's isIgnoredRule). "Everywhere" is saved and
-   * listed in Settings. Dismissing a kind already dismissed (here or everywhere) changes nothing.
-   */
+  /** See settingsActions.ignoreRule. */
   ignoreRule(kind: string, scope: 'document' | 'everywhere'): void {
-    const { settings, documentIgnoredRules, decided } = this.state;
-    if (settings.ignoredRules.includes(kind) || (scope === 'document' && documentIgnoredRules.includes(kind))) return;
-    const list = scope === 'everywhere' ? settings.ignoredRules : documentIgnoredRules;
-    if (scope === 'everywhere') this.updateSettings({ ignoredRules: [...list, kind] });
-    else this.unsaved = true; // like a rejection, it is lost if the document is closed unsaved
-    const forDocument = scope === 'document' ? [...list, kind] : documentIgnoredRules;
-    this.set({ documentIgnoredRules: forDocument, decided: decided + 1 });
-    void this.recheck();
+    settingsActions.ignoreRule(this.settingsHost, kind, scope);
   }
 
   /** Settings › Ignored rules › Restore. */
   restoreRule(kind: string): void {
-    this.updateSettings({ ignoredRules: this.state.settings.ignoredRules.filter((k) => k !== kind) });
-    void this.recheck();
+    settingsActions.restoreRule(this.settingsHost, kind);
   }
 
   async addToDictionary(decisionId: string): Promise<void> {
-    await this.actAsync((s) => s.addToDictionary(decisionId));
+    await settingsActions.addWords(this.settingsHost, (s) => s.addToDictionary(decisionId));
   }
 
   /** The names card: every name joins the dictionary except `keepAsTypos`, which become their own decisions. */
   async acceptNames(keepAsTypos: string[]): Promise<void> {
-    await this.actAsync((s) => s.acceptNames(keepAsTypos));
+    await settingsActions.addWords(this.settingsHost, (s) => s.acceptNames(keepAsTypos));
   }
 
   /** The terms card: every term joins the dictionary except `keepAsTypos`, which become their own decisions. */
   async acceptTerms(keepAsTypos: string[]): Promise<void> {
-    await this.actAsync((s) => s.acceptTerms(keepAsTypos));
+    await settingsActions.addWords(this.settingsHost, (s) => s.acceptTerms(keepAsTypos));
   }
 
   /**
@@ -388,84 +319,48 @@ export class SessionController {
    * likely typos, which join only when in `tickedLikelyTypos`.
    */
   async acceptOtherLanguage(keepAsTypos: string[], tickedLikelyTypos: string[] = []): Promise<void> {
-    await this.actAsync((s) => s.acceptOtherLanguage(keepAsTypos, tickedLikelyTypos));
+    await settingsActions.addWords(this.settingsHost, (s) => s.acceptOtherLanguage(keepAsTypos, tickedLikelyTypos));
   }
 
   /** Review depth for `preset` (default: the current one), saved per preset; the current one applies at once. */
   setDepth(depth: ReviewDepth, preset: PresetId = this.state.settings.preset): void {
-    const { settings } = this.state;
-    if (preset === settings.preset) this.state.session?.setDepth(depth);
-    this.updateSettings({ depthByPreset: { ...settings.depthByPreset, [preset]: depth } });
+    settingsActions.setDepth(this.settingsHost, depth, preset);
   }
 
   setPreset(preset: PresetId): void {
-    this.updateSettings({ preset });
-    void this.recheck();
+    settingsActions.setPreset(this.settingsHost, preset);
   }
 
   /** null goes back to the detected variant. */
   setVariant(variant: Variant | null): void {
-    this.set({ variantOverride: variant });
-    void this.recheck();
+    settingsActions.setVariant(this.settingsHost, variant);
   }
 
-  /**
-   * Settings that need no new check (save mode, overwrite) or that do (auto-apply kinds, default variant,
-   * terms repeat count).
-   */
-  changeSettings(
-    patch: Partial<Pick<Settings, 'saveMode' | 'overwrite' | 'fallbackVariant' | 'tierOverrides' | 'termMinRepeats'>>,
-  ): void {
-    this.updateSettings(patch);
-    if (patch.tierOverrides || patch.fallbackVariant || patch.termMinRepeats) void this.recheck();
+  /** See settingsActions.changeSettings. */
+  changeSettings(patch: settingsActions.SettingsPatch): void {
+    settingsActions.changeSettings(this.settingsHost, patch);
   }
 
-  /** Harper can't forget an imported word, so the linter is rebuilt without it. */
   async removeWord(word: string): Promise<void> {
-    this.updateSettings({ dictionary: this.state.settings.dictionary.filter((w) => w !== word) });
-    this.linter = null;
-    await this.recheck();
+    await settingsActions.removeWord(this.settingsHost, word);
   }
 
   /**
-   * Runs a review action; `decisions` is how it moves the count of decisions made (+1, 0, or -1 for back to
-   * review). Returns false when it failed (the error is shown).
+   * Runs a review action and, only once it succeeded, `count` (how it moves the tally of decisions made).
+   * A failure is shown, not thrown.
    */
-  private act(change: (s: CheckSession) => void, decisions: 1 | 0 | -1): boolean {
-    const session = this.state.session;
-    if (!session) return false;
-    try {
-      change(session);
-      this.unsaved = true;
-      this.set({ error: null, decided: Math.max(0, this.state.decided + decisions) });
-      return true;
-    } catch (e) {
-      this.set({ error: message(e) });
-      return false;
-    }
-  }
-
-  /** A card or dictionary action: one decision made, and the words it added are saved. */
-  private async actAsync(change: (s: CheckSession) => Promise<void>): Promise<void> {
+  private act(change: (s: CheckSession) => void, count: () => void): void {
     const session = this.state.session;
     if (!session) return;
     try {
-      await change(session);
+      change(session);
     } catch (e) {
       this.set({ error: message(e) });
       return;
     }
     this.unsaved = true;
-    this.set({ decided: this.state.decided + 1 });
-    const known = new Set(this.state.settings.dictionary);
-    const added = session.addedWords().filter((w) => !known.has(w));
-    this.updateSettings({ dictionary: [...this.state.settings.dictionary, ...added] });
-  }
-
-  private updateSettings(patch: Partial<Settings>): void {
-    const settings = { ...this.state.settings, ...patch };
-    this.set({ settings });
-    this.deps.saveSettings(settings).catch((e) => this.set({ error: `Settings were not saved: ${message(e)}` }));
+    count();
+    this.set({ error: null, decided: this.tally.decided });
   }
 
   // ---- saving --------------------------------------------------------------

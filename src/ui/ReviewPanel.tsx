@@ -152,6 +152,7 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
         decision={d}
         candidates={candidates}
         paraText={paraText}
+        touchesLocked={d.candidateIds.some((id) => session!.touchesLocked(id))}
         onNext={() => setCursor((c) => moveCursor(top, more, c, 1))}
         onLocate={onLocate}
       />
