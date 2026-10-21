@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import type { Candidate } from '@/engine/types';
+import { loadRomanisedModel } from '@/engine/romanised/classifier';
 import { improveSuggestions } from '@/engine/suggestions/improve';
 import { nearbyWords, wordsByFrequency, zipfOf } from '@/engine/suggestions/frequency';
 import { isOffensive, writtenOnPurpose } from '@/engine/suggestions/offensive';
@@ -7,6 +8,9 @@ import { CheckSession } from '@/engine/session';
 import type { RulesLinter } from '@/engine/linter';
 import { tierOf, type TierContext } from '@/engine/tiers';
 import { PRESETS } from '@/engine/presets';
+
+// tierOf judges lowercase flags as romanised Hindi/Bengali; a session loads the model itself.
+beforeAll(() => loadRomanisedModel());
 
 function flag(original: string, replacements: string[], kind = 'Spelling', start = 4): Candidate {
   return {

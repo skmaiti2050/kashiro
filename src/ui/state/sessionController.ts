@@ -285,9 +285,12 @@ export class SessionController {
     await this.actAsync((s) => s.acceptTerms(keepAsTypos));
   }
 
-  /** The words-in-other-languages card: every word joins the dictionary except `keepAsTypos`. */
-  async acceptOtherLanguage(keepAsTypos: string[]): Promise<void> {
-    await this.actAsync((s) => s.acceptOtherLanguage(keepAsTypos));
+  /**
+   * The words-in-other-languages card: every word joins the dictionary except `keepAsTypos` and the card's
+   * likely typos, which join only when in `tickedLikelyTypos`.
+   */
+  async acceptOtherLanguage(keepAsTypos: string[], tickedLikelyTypos: string[] = []): Promise<void> {
+    await this.actAsync((s) => s.acceptOtherLanguage(keepAsTypos, tickedLikelyTypos));
   }
 
   /** Review depth for `preset` (default: the current one), saved per preset; the current one applies at once. */

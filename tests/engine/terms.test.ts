@@ -4,6 +4,10 @@ import { buildDecisions } from '@/engine/decisions';
 import { CheckSession, type CheckOptions } from '@/engine/session';
 import { createLinter, type RulesLinter } from '@/engine/linter';
 import { COMMON_WORDS } from '@/engine/wordlists/common';
+import { loadRomanisedModel } from '@/engine/romanised/classifier';
+
+// buildDecisions judges lowercase flags for the other-languages card; a session loads the model itself.
+beforeAll(() => loadRomanisedModel());
 
 /** Spelling flags of every whole-word `word` in `text` (paragraph 0), as Harper would report them. */
 function flagsOf(text: string, word: string, replacements = ['sarong', 'parch']): Candidate[] {

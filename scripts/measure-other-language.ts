@@ -5,7 +5,9 @@
  *   tune: word-level rates of the classifier alone on the tune split (used to choose its thresholds)
  *   test: the gate, through the real engine, one sentence per check:
  *     1. of the lowercase romanised words the English checker flags, the share on the card (≥ 70%);
- *     2. an English typo planted in each sentence: the share of flagged typos kept off the card (≥ 95%).
+ *     2. an English typo planted in each sentence: the share of flagged typos kept off the card (≥ 95%);
+ *     3. short typos (one edit of a word of 2-3 or 3-5 letters) planted in each sentence: the share on the
+ *        card, and on the card pre-ticked (not marked as a likely typo), which "Add all" would add.
  *
  * Usage: npx tsx scripts/measure-other-language.ts <google-dakshina.csv> [tune|test]
  */
@@ -16,7 +18,8 @@ import { fileURLToPath } from 'node:url';
 import { LANGUAGE_CODES, parseDataset, romanWords, splitOf, type DatasetRow } from './build-romanised';
 import { createLinter, type RulesLinter } from '../src/engine/linter';
 import { CheckSession, type CheckOptions } from '../src/engine/session';
-import { isRomanisedIndic } from '../src/engine/romanised/classifier';
+import type { Decision } from '../src/engine/decisions';
+import { isRomanisedIndic, loadRomanisedModel } from '../src/engine/romanised/classifier';
 import { wordsByFrequency, zipfOf } from '../src/engine/suggestions/frequency';
 
 /** Classic misspellings (as in tests/engine/suggestionRanking.test.ts), planted alongside synthetic slips. */
@@ -86,6 +89,13 @@ export function typoMaker(seed: number): () => string {
   };
 }
 
+/** Words of `minLength`-`maxLength` letters with Zipf ≥ 3.5, each as likely as the next, with one random edit. */
+function shortTypoMaker(seed: number, minLength: number, maxLength: number): () => string {
+  const random = seededRandom(seed);
+  const pool = wordsByFrequency().filter((w) => /^[a-z]+$/.test(w) && w.length >= minLength && w.length <= maxLength && zipfOf(w) >= 3.5);
+  return () => slip(pool[Math.floor(random() * pool.length)], random);
+}
+
 const percent = (part: number, whole: number) => `${((part / whole) * 100).toFixed(1)}% (${part}/${whole})`;
 const isWordFlag = (kind: string) => kind === 'Spelling' || kind === 'Typo';
 
@@ -104,6 +114,7 @@ async function measureTune(rows: DatasetRow[], linter: RulesLinter): Promise<voi
   const indicWords = await flaggedWords(linter, [...new Set(sentences.flatMap((r) => romanWords(r.roman)))]);
   const nextTypo = typoMaker(7);
   const flaggedTypos = await flaggedWords(linter, [...new Set(Array.from({ length: 3000 }, nextTypo))]);
+  await loadRomanisedModel();
   console.log(`tune: Hindi/Bengali flagged words judged romanised ${percent(indicWords.filter(isRomanisedIndic).length, indicWords.length)}`);
   console.log(`tune: English typos judged romanised ${percent(flaggedTypos.filter(isRomanisedIndic).length, flaggedTypos.length)}`);
 }
@@ -115,33 +126,92 @@ function plantTypo(sentence: string, typo: string, random: () => number): { text
   return { text: `${sentence.slice(0, at)} ${typo}${sentence.slice(at)}`, start: at + 1 };
 }
 
+/** The words-in-other-languages card of a check, if any, and whether `word` is pre-ticked on it. */
+function otherLanguageCard(session: CheckSession): { card?: Decision; preTicked: (word: string) => boolean } {
+  const card = [...session.decisions().top, ...session.decisions().more].find((d) => d.kind === 'otherLanguage');
+  const unticked = new Set((card?.likelyTypos ?? []).map(([word]) => word));
+  return { card, preTicked: (word) => !unticked.has(word.toLowerCase()) };
+}
+
+interface ShortTypoTotals {
+  flagged: number;
+  onCard: number;
+  preTicked: number;
+  examples: string[];
+}
+
+/** Plants `typo` in `sentence` and records whether its flag lands on the card, and pre-ticked. */
+async function checkShortTypo(sentence: string, typo: string, random: () => number, linter: RulesLinter, totals: ShortTypoTotals) {
+  const planted = plantTypo(sentence, typo, random);
+  const session = await CheckSession.start([{ id: 0, text: planted.text }], OPTIONS, { linter });
+  const flag = session
+    .candidates()
+    .find((c) => isWordFlag(c.kind) && c.span.start === planted.start && c.original === typo && session.tier(c.id) !== 'hidden');
+  if (!flag) return;
+  totals.flagged++;
+  const { card, preTicked } = otherLanguageCard(session);
+  if (!card?.candidateIds.includes(flag.id)) return;
+  totals.onCard++;
+  if (!preTicked(typo)) return;
+  totals.preTicked++;
+  totals.examples.push(typo);
+}
+
 async function measureTest(rows: DatasetRow[], linter: RulesLinter): Promise<void> {
   const nextTypo = typoMaker(20261021);
   const random = seededRandom(42);
-  const totals = { flagged: 0, onCard: 0, capitalised: 0, typos: 0, typosOff: 0, typosAuto: 0, cardWords: 0, cardTypos: 0, sentences: 0 };
+  // Its own generator, so gate 2 plants exactly as before the short typos were added.
+  const shortRandom = seededRandom(43);
+  const shortPools = [
+    { name: '2-3 letters', next: shortTypoMaker(23, 2, 3) },
+    { name: '3-5 letters', next: shortTypoMaker(35, 3, 5) },
+  ].map((pool) => ({ ...pool, totals: { flagged: 0, onCard: 0, preTicked: 0, examples: [] } as ShortTypoTotals }));
+  const totals = {
+    flagged: 0,
+    onCard: 0,
+    onCardPreTicked: 0,
+    autoFixed: 0,
+    capitalised: 0,
+    typos: 0,
+    typosOff: 0,
+    typosAuto: 0,
+    cardWords: 0,
+    cardTypos: 0,
+    cardTyposPreTicked: 0,
+    sentences: 0,
+  };
   const missed = new Map<string, number>();
   const typosOnCard: string[] = [];
+  const autoFixed: string[] = [];
   for (const code of Object.values(LANGUAGE_CODES)) {
     for (const { roman } of rows.filter((r) => r.language === code && splitOf(r.roman) === 'test')) {
       totals.sentences++;
       const clean = await CheckSession.start([{ id: 0, text: roman }], OPTIONS, { linter });
-      const { top, more } = clean.decisions();
-      const cardIds = new Set([...top, ...more].filter((d) => d.kind === 'otherLanguage').flatMap((d) => d.candidateIds));
+      const { card: cleanCard, preTicked } = otherLanguageCard(clean);
+      const cardIds = new Set(cleanCard?.candidateIds ?? []);
+      const autoIds = new Set(clean.log().filter((e) => e.auto && e.status === 'applied').map((e) => e.candidateId));
       for (const c of clean.candidates().filter((c) => isWordFlag(c.kind))) {
         if (!/^[a-z]+$/.test(c.original)) {
           if (/^\p{Lu}/u.test(c.original)) totals.capitalised++;
           continue;
         }
         totals.flagged++;
-        if (cardIds.has(c.id)) totals.onCard++;
-        else missed.set(c.original, (missed.get(c.original) ?? 0) + 1);
+        if (autoIds.has(c.id)) {
+          totals.autoFixed++;
+          autoFixed.push(c.original);
+        }
+        if (cardIds.has(c.id)) {
+          totals.onCard++;
+          if (preTicked(c.original)) totals.onCardPreTicked++;
+        } else missed.set(c.original, (missed.get(c.original) ?? 0) + 1);
       }
+      for (const pool of shortPools) await checkShortTypo(roman, pool.next(), shortRandom, linter, pool.totals);
 
       const typo = nextTypo();
       const planted = plantTypo(roman, typo, random);
       const withTypo = await CheckSession.start([{ id: 0, text: planted.text }], OPTIONS, { linter });
       const decisions = [...withTypo.decisions().top, ...withTypo.decisions().more];
-      const card = decisions.find((d) => d.kind === 'otherLanguage');
+      const { card, preTicked: typoPreTicked } = otherLanguageCard(withTypo);
       const typoFlag = withTypo.candidates().find((c) => isWordFlag(c.kind) && c.span.start === planted.start && c.original === typo);
       if (card) totals.cardWords += card.candidateIds.length;
       if (!typoFlag) continue;
@@ -151,17 +221,24 @@ async function measureTest(rows: DatasetRow[], linter: RulesLinter): Promise<voi
       else if (withTypo.log().some((e) => e.candidateId === typoFlag.id && e.auto && e.status === 'applied')) totals.typosAuto++;
       if (card?.candidateIds.includes(typoFlag.id)) {
         totals.cardTypos++;
+        if (typoPreTicked(typo)) totals.cardTyposPreTicked++;
         typosOnCard.push(typo);
       }
     }
   }
   console.log(`test: ${totals.sentences} held-out sentences`);
   console.log(`gate 1: flagged lowercase romanised words on the card ${percent(totals.onCard, totals.flagged)}` +
-    ` (capitalised flags, which go to the names card: ${totals.capitalised})`);
+    ` (pre-ticked ${percent(totals.onCardPreTicked, totals.onCard)} of them;` +
+    ` capitalised flags, which go to the names card: ${totals.capitalised})`);
+  console.log(`flagged lowercase words auto-fixed as a slip: ${totals.autoFixed} (${[...new Set(autoFixed)].slice(0, 30).join(' ')})`);
   console.log(`gate 2: flagged planted typos kept off the card ${percent(totals.typos - totals.cardTypos, totals.typos)}` +
-    ` (own decision ${totals.typosOff}, auto-fixed as a slip ${totals.typosAuto}, on the card ${totals.cardTypos});` +
-    ` card members that are planted typos ${percent(totals.cardTypos, totals.cardWords)}`);
+    ` (own decision ${totals.typosOff}, auto-fixed as a slip ${totals.typosAuto}, on the card ${totals.cardTypos},` +
+    ` of them pre-ticked ${totals.cardTyposPreTicked}); card members that are planted typos ${percent(totals.cardTypos, totals.cardWords)}`);
   console.log(`typos on the card: ${typosOnCard.join(' ')}`);
+  for (const { name, totals: t } of shortPools) {
+    console.log(`short typos (${name}): flagged ${t.flagged}; on the card ${percent(t.onCard, t.flagged)};` +
+      ` on the card AND pre-ticked ${percent(t.preTicked, t.flagged)} (${t.examples.slice(0, 20).join(' ')})`);
+  }
   console.log(`most missed: ${[...missed].sort((a, b) => b[1] - a[1]).slice(0, 30).map(([w, n]) => `${w}×${n}`).join(' ')}`);
 }
 

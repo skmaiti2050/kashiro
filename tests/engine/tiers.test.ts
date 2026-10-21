@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import type { Candidate, Tier } from '@/engine/types';
+import { loadRomanisedModel } from '@/engine/romanised/classifier';
 import { PRESETS } from '@/engine/presets';
 import type { Preset } from '@/engine/presets';
 import { tierOf, buildDecisions, findContractions, foldsUnderMore } from '@/engine/tiers';
@@ -7,6 +8,9 @@ import type { TierContext } from '@/engine/tiers';
 import { findLockedSpans } from '@/engine/factLock';
 import { findInvisible } from '@/engine/hygiene';
 import { createLinter } from '@/engine/linter';
+
+// tierOf and buildDecisions judge lowercase flags as romanised Hindi/Bengali; a session loads the model itself.
+beforeAll(() => loadRomanisedModel());
 
 let n = 0;
 function cand(p: Partial<Candidate> & { original: string }): Candidate {

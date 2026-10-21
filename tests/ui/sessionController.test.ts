@@ -194,10 +194,23 @@ describe('SessionController: review', () => {
   it('acceptOtherLanguage adds the Hindi/Bengali words to the saved personal dictionary', async () => {
     const { controller, saved } = makeController({ createLinter: (v, words) => createLinter(v, words) });
     await controller.openText('He said chalo, and the food was khub bhalo.');
-    await controller.acceptOtherLanguage([]);
+    await controller.acceptOtherLanguage([], ['khub']); // "khub" is one letter from "hub": added only when ticked
     expect(saved.at(-1)!.dictionary).toEqual(['chalo', 'khub', 'bhalo']);
     const { top, more } = controller.getState().session!.decisions();
     expect([...top, ...more].find((d) => d.kind === 'otherLanguage')).toBeUndefined();
+  });
+
+  it('acceptOtherLanguage saves a likely typo ("jion", near "join") only when it was ticked', async () => {
+    const text = 'He said chalo, and we will jion the bhalo party.';
+    const first = makeController({ createLinter: (v, words) => createLinter(v, words) });
+    await first.controller.openText(text);
+    await first.controller.acceptOtherLanguage([]);
+    expect(first.saved.at(-1)!.dictionary).toEqual(['chalo', 'bhalo']);
+
+    const second = makeController({ createLinter: (v, words) => createLinter(v, words) });
+    await second.controller.openText(text);
+    await second.controller.acceptOtherLanguage([], ['jion']);
+    expect(second.saved.at(-1)!.dictionary).toEqual(['chalo', 'jion', 'bhalo']);
   });
 
   it('the terms repeat setting is saved and checks again with it', async () => {

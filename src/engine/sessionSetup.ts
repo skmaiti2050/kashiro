@@ -5,6 +5,7 @@ import { findLockedSpans } from './factLock';
 import { PRESETS } from './presets';
 import { findContractions } from './contractions';
 import { improveSuggestions } from './suggestions/improve';
+import { findForeignSentences, loadModelIfNeeded } from './otherLanguage';
 import { byPosition, type CheckOptions, type SessionDeps } from './sessionTypes';
 import type { TierContext } from './tiers';
 import type { Candidate, Paragraph, Span, Variant } from './types';
@@ -41,7 +42,6 @@ export async function prepareCheck(
   for (const p of paras) locked.set(p.id, [...findLockedSpans(p.text), ...(p.locked ?? [])]);
   const preset = PRESETS[opts.preset];
   const paraText = new Map(paras.map((p) => [p.id, p.text]));
-  const ctx: TierContext = { locked, variantWords, preset, userTierOverrides: opts.tierOverrides, paraText, variant };
 
   const found: Candidate[] = (await linter.lintParagraphs(paras, opts.language)).map((c) =>
     improveSuggestions(c, paraText.get(c.paraId), locked.get(c.paraId)),
@@ -51,5 +51,8 @@ export async function prepareCheck(
     if (preset.extraRules.includes('contractions')) found.push(...findContractions(p, locked.get(p.id)));
   }
   found.sort(byPosition);
+  await loadModelIfNeeded(found);
+  const foreignSentences = findForeignSentences(found, paraText);
+  const ctx: TierContext = { locked, variantWords, preset, userTierOverrides: opts.tierOverrides, paraText, variant, foreignSentences };
   return { linter, variant, mixedVariant: mixed, ctx, found };
 }

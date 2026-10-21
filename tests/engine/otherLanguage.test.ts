@@ -3,7 +3,9 @@ import type { Candidate, Tier } from '@/engine/types';
 import { buildDecisions } from '@/engine/decisions';
 import { CheckSession, type CheckOptions } from '@/engine/session';
 import { createLinter, type RulesLinter } from '@/engine/linter';
-import { isRomanisedIndic } from '@/engine/romanised/classifier';
+import { isRomanisedIndic, loadRomanisedModel } from '@/engine/romanised/classifier';
+
+beforeAll(() => loadRomanisedModel());
 
 /** Spelling flags of every whole-word `word` in `text` (paragraph 0), as Harper would report them. */
 function flagsOf(text: string, word: string, replacements = ['chalk', 'halo']): Candidate[] {
@@ -38,6 +40,11 @@ describe('isRomanisedIndic (spec §5 words in other languages)', () => {
   it('judges only lowercase a-z words: never Devanagari or Bengali script, capitals or apostrophes', () => {
     for (const word of ['अच्छा', 'খুব', 'Accha', "accha's", 'k', 'acc4a']) expect(isRomanisedIndic(word)).toBe(false);
   });
+
+  it('English two-letter slips are never romanised, so they stay off the card', () => {
+    const slips = ['ot', 'fo', 'si', 'ti', 'th', 'nd', 'ur', 'im', 'ok', 'po', 'da', 'ma', 'pa'];
+    expect(slips.filter(isRomanisedIndic)).toEqual([]);
+  });
 });
 
 describe('words-in-other-languages card (spec §5)', () => {
@@ -54,7 +61,23 @@ describe('words-in-other-languages card (spec §5)', () => {
       candidateIds: words.map((c) => c.id),
       label: '3 words in Hindi/Bengali',
       score: 0,
+      // The rule is deliberately cautious: Bengali "khub" is one letter from "hub", so it starts unticked too.
+      likelyTypos: [['khub', 'hub']],
     });
+  });
+
+  it('a card word one edit from an everyday English word (Zipf ≥ 4) is marked as a likely typo of it', () => {
+    const t = 'He said chalo, we will jion the byos, the poro and the babo, and dinr bhalo.';
+    const slips = ['jion', 'byos', 'poro', 'babo', 'dinr'];
+    const cs = [...flagsOf(t, 'chalo'), ...flagsOf(t, 'bhalo'), ...slips.flatMap((w) => flagsOf(t, w))];
+    const card = decide(t, cs).find((d) => d.kind === 'otherLanguage')!;
+    expect(card.likelyTypos).toEqual([
+      ['jion', 'join'],
+      ['byos', 'boys'],
+      ['poro', 'poor'],
+      ['babo', 'baby'],
+    ]);
+    // "dinr" has no everyday neighbour (din, dine and diner are all below Zipf 4), so it is not marked.
   });
 
   it('one word: singular label; repeats of it count once', () => {
@@ -119,5 +142,53 @@ describe('words-in-other-languages card in a session (Harper)', () => {
   it('accept refuses the card (it is answered with acceptOtherLanguage)', async () => {
     const s = await CheckSession.start([{ id: 0, text }], opts, { linter });
     expect(() => s.accept('other-language', 0)).toThrow(/acceptOtherLanguage/);
+  });
+
+  it('"Add all" never adds a likely typo: it splits out unless the user ticked it explicitly', async () => {
+    const slipText = 'He said chalo, and we will jion the khub bhalo party.';
+    const first = await CheckSession.start([{ id: 0, text: slipText }], opts);
+    const card = [...first.decisions().top, ...first.decisions().more].find((d) => d.kind === 'otherLanguage')!;
+    expect(card.likelyTypos).toEqual([
+      ['jion', 'join'],
+      ['khub', 'hub'],
+    ]);
+    await first.acceptOtherLanguage([]);
+    expect(first.addedWords().sort()).toEqual(['bhalo', 'chalo']);
+    expect([...first.decisions().top, ...first.decisions().more].some((d) => d.label.startsWith('jion'))).toBe(true);
+
+    const second = await CheckSession.start([{ id: 0, text: slipText }], opts);
+    await second.acceptOtherLanguage([], ['KHUB']);
+    expect(second.addedWords().sort()).toEqual(['bhalo', 'chalo', 'khub']);
+  });
+});
+
+describe('romanised words are never auto-fixed (Harper)', () => {
+  let linter: RulesLinter;
+  beforeAll(async () => {
+    linter = await createLinter('American');
+  });
+  const opts: CheckOptions = { preset: 'blog', variant: 'Indian', fallbackVariant: 'Indian', language: 'plaintext', dictionary: [] };
+  const autoFixedIn = (s: CheckSession) =>
+    s.outcomes().filter((o) => o.auto && o.status === 'applied').map((o) => `${o.candidate.original} → ${o.replacement}`);
+  const autoFixed = async (text: string) => autoFixedIn(await CheckSession.start([{ id: 0, text }], opts, { linter }));
+
+  it.each([
+    ['te', 'ami kal school te jabo, tumi aschho?'], // Bengali "at", not "the"
+    ['prakriti', 'Each person is born with a prakriti that shapes the doshas.'],
+    ['dharshan', 'Hum mandir mein dharshan ke liye gaye the.'],
+    ['bhittite', 'amader bhittite onek kaj hoyeche.'],
+  ])('"%s" (romanised, or in a sentence mostly in Hindi/Bengali) goes to review, not to a slip fix', async (word, text) => {
+    const s = await CheckSession.start([{ id: 0, text }], opts, { linter });
+    const flag = s.candidates().find((c) => c.original === word)!;
+    expect(s.tier(flag.id)).toBe('review');
+    expect(autoFixedIn(s)).toEqual([]);
+  });
+
+  it('a slip in an English sentence is still fixed, also next to Hindi words or with one inside it', async () => {
+    expect(await autoFixed('I got teh letter and read it.')).toEqual(['teh → the']);
+    expect(await autoFixed('He said chalo. I got teh letter and read it.')).toEqual(['teh → the']);
+    expect(await autoFixed('We ate the batata vadas while my father explained, for teh twentieth year, the old road.')).toEqual([
+      'teh → the',
+    ]);
   });
 });

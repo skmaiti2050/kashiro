@@ -1,6 +1,5 @@
 // Character n-gram models of romanised Hindi, romanised Bengali and English, from the Dakshina dataset and
-// wordfreq (CC BY-SA 4.0; see resources/romanised/ATTRIBUTION.md). A JSON import, like the frequency list.
-import data from '../../../resources/romanised/romanised-ngrams.json';
+// wordfreq (CC BY-SA 4.0; see resources/romanised/ATTRIBUTION.md), loaded by loadRomanisedModel.
 import type { RomanisedModelData } from './modelData';
 import { nearbyWords, wordsByFrequency } from '../suggestions/frequency';
 import { withinOneEdit } from '../wordFlags';
@@ -87,15 +86,23 @@ function loadModel(tables: string[], order: number): CharModel {
   return model;
 }
 
-/** Parses the bundled models on first use (only when a document has a lowercase unknown word). */
-function getModels(): NonNullable<typeof models> {
-  if (models) return models;
+/**
+ * Loads and parses the models. The check calls it only when a document has a lowercase unknown word, and the
+ * dynamic import keeps the JSON (about 430 KB gzipped) out of the app's main bundle. Later calls do nothing.
+ */
+export async function loadRomanisedModel(): Promise<void> {
+  if (models) return;
+  const { default: data } = await import('../../../resources/romanised/romanised-ngrams.json');
   const { order, languages } = data as RomanisedModelData;
-  models = {
+  models ??= {
     hindi: loadModel(languages.hindi, order),
     bengali: loadModel(languages.bengali, order),
     english: loadModel(languages.english, order),
   };
+}
+
+function getModels(): NonNullable<typeof models> {
+  if (!models) throw new Error('The romanised model is not loaded: await loadRomanisedModel() before isRomanisedIndic.');
   return models;
 }
 
@@ -149,6 +156,7 @@ function judge(word: string): boolean {
  * True when a word the English spell checker flagged is romanised Hindi or Bengali ("accha", "chalo",
  * "khub") rather than a typo (spec §5 words in other languages). Only lowercase a-z words qualify; a slip of
  * a very common English word never does, and a slip of a rarer one only when the word is the likelier reading.
+ * Throws when a word needs the model and loadRomanisedModel has not finished.
  */
 export function isRomanisedIndic(word: string): boolean {
   let verdict = verdicts.get(word);

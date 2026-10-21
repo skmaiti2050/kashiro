@@ -28,6 +28,12 @@ export { TRACKED_CHANGE_REASON, type CheckOptions, type Edit, type LogEntry, typ
 
 const sentenceKey = (paraId: number, span: Span) => `${paraId}:${span.start}-${span.end}`;
 
+/** The cards answered by their own method, never by accept: card id → method name. */
+const CARD_ACCEPT_METHODS = new Map([
+  [NAMES_CARD_ID, 'acceptNames'],
+  [TERMS_CARD_ID, 'acceptTerms'],
+  [OTHER_LANGUAGE_CARD_ID, 'acceptOtherLanguage'],
+]);
 
 export class CheckSession {
   private readonly paras = new Map<number, Paragraph>();
@@ -202,11 +208,8 @@ export class CheckSession {
    */
   accept(decisionId: string, replacementIndex = 0): void {
     // Replacing names or terms with dictionary words by index would damage them (spec §5).
-    if (decisionId === NAMES_CARD_ID) throw new Error('the names card is answered with acceptNames(keepAsTypos), not accept');
-    if (decisionId === TERMS_CARD_ID) throw new Error('the terms card is answered with acceptTerms(keepAsTypos), not accept');
-    if (decisionId === OTHER_LANGUAGE_CARD_ID) {
-      throw new Error('the words-in-other-languages card is answered with acceptOtherLanguage(keepAsTypos), not accept');
-    }
+    const cardMethod = CARD_ACCEPT_METHODS.get(decisionId);
+    if (cardMethod) throw new Error(`the ${decisionId} card is answered with ${cardMethod}(keepAsTypos), not accept`);
     const members = this.members(decisionId);
     for (const c of members) {
       if (c.replacements[replacementIndex] === undefined) {
@@ -269,17 +272,26 @@ export class CheckSession {
 
   /**
    * Accepts the words-in-other-languages card (spec §5) the same way as acceptNames: the Hindi/Bengali words
-   * join the dictionary, `keepAsTypos` split out.
+   * join the dictionary, `keepAsTypos` split out. So do the card's likely typos ("jion", near "join"), unless
+   * they are in `tickedLikelyTypos` (the user ticked them explicitly): "Add all" never adds one.
    */
-  async acceptOtherLanguage(keepAsTypos: string[]): Promise<void> {
-    await this.acceptCard('otherLanguage', keepAsTypos);
+  async acceptOtherLanguage(keepAsTypos: string[], tickedLikelyTypos: string[] = []): Promise<void> {
+    const ticked = new Set(tickedLikelyTypos.map((w) => w.toLowerCase()));
+    await this.acceptCard('otherLanguage', keepAsTypos, (card) =>
+      (card.likelyTypos ?? []).map(([word]) => word).filter((word) => !ticked.has(word)),
+    );
   }
 
-  private async acceptCard(kind: 'names' | 'terms' | 'otherLanguage', keepAsTypos: string[]): Promise<void> {
+  /** `alsoTypos`: words of the card that split out whatever the caller passed in `keepAsTypos`. */
+  private async acceptCard(
+    kind: 'names' | 'terms' | 'otherLanguage',
+    keepAsTypos: string[],
+    alsoTypos: (card: Decision) => string[] = () => [],
+  ): Promise<void> {
     const { top, more } = this.decisions();
     const card = [...top, ...more].find((d) => d.kind === kind);
     if (!card) throw new Error(`there is no ${kind} card to accept: none of its words are pending`);
-    const typos = new Set(keepAsTypos.map((w) => w.toLowerCase()));
+    const typos = new Set([...keepAsTypos, ...alsoTypos(card)].map((w) => w.toLowerCase()));
     const words = new Map<string, string>(); // lowercased → first spelling seen
     for (const id of card.candidateIds) {
       const original = this.cands.get(id)!.original;

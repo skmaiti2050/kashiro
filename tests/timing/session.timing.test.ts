@@ -43,11 +43,11 @@ describe('performance', () => {
     expect(performance.now() - t0).toBeLessThan(50);
   });
 
-  it('with romanised Hindi/Bengali words: the rules pass stays < 300 ms, the first decisions (models loaded) < 150 ms', async () => {
+  it('with romanised Hindi/Bengali words: the rules pass (words classified) stays < 300 ms, the decisions < 150 ms', async () => {
     const hinglish = ' Accha, chalo, the food was khub bhalo and nahi too spicy, kya baat, bahut paisa and jaldi service.';
     const paras: Paragraph[] = [];
     for (let r = 0; r < 4; r++) PARAGRAPHS.forEach((text) => paras.push({ id: paras.length, text: text + hinglish }));
-    await CheckSession.start(paras, OPTIONS, { linter }); // warm-up of the linter only: decisions are not built
+    await CheckSession.start(paras, OPTIONS, { linter }); // warm-up: the linter, and the romanised model loads once
     const t0 = performance.now();
     const s = await CheckSession.start(paras, OPTIONS, { linter });
     const rulesMs = performance.now() - t0;

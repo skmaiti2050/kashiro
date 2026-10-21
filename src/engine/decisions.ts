@@ -2,7 +2,7 @@ import type { Candidate, Span, Tier } from './types';
 import { followsAbbreviation, overlapsLocked } from './factLock';
 import { isLikelyTypo, isNameFlag, TITLE_CASE_WORD, WORD_REWRITE_KINDS, withinOneEdit } from './wordFlags';
 import { DEFAULT_TERM_MIN_REPEATS, findTerms } from './terms';
-import { findOtherLanguageWords } from './otherLanguage';
+import { everydayWordNear, findOtherLanguageWords } from './otherLanguage';
 
 export interface Decision {
   /** `batch:<key>` for a batch, the candidate id for a single, `names` / `terms` / `other-language` for the cards. */
@@ -18,6 +18,12 @@ export interface Decision {
   nearDuplicates?: [string, string][];
   /** Terms card only: each term (lowercased) → its uses in the document ({ sarpanch: 5 }). */
   counts?: Record<string, number>;
+  /**
+   * Words-in-other-languages card only: its words one edit from an everyday English word, with that word, in
+   * order of appearance ([["jion", "join"]]). Each may be a typo, so the UI pre-unticks it and
+   * acceptOtherLanguage adds it only when ticked explicitly.
+   */
+  likelyTypos?: [string, string][];
 }
 
 const WEIGHTS: Record<string, number> = {
@@ -77,9 +83,14 @@ export const OTHER_LANGUAGE_CARD_ID = 'other-language';
 
 /** The words-in-other-languages card: every flag of a romanised Hindi/Bengali word as one decision (spec §5). */
 function otherLanguageCard(flags: Candidate[]): Decision {
-  const n = new Set(flags.map((c) => c.original.toLowerCase())).size;
-  const label = `${n} ${n === 1 ? 'word' : 'words'} in Hindi/Bengali`;
-  return { id: OTHER_LANGUAGE_CARD_ID, kind: 'otherLanguage', candidateIds: flags.map((c) => c.id), label, score: 0 };
+  const words = [...new Set(flags.map((c) => c.original.toLowerCase()))];
+  const label = `${words.length} ${words.length === 1 ? 'word' : 'words'} in Hindi/Bengali`;
+  const likelyTypos: [string, string][] = [];
+  for (const word of words) {
+    const everyday = everydayWordNear(word);
+    if (everyday) likelyTypos.push([word, everyday]);
+  }
+  return { id: OTHER_LANGUAGE_CARD_ID, kind: 'otherLanguage', candidateIds: flags.map((c) => c.id), label, score: 0, likelyTypos };
 }
 
 /**

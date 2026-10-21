@@ -2,6 +2,8 @@ import type { Candidate, Span, Tier, Variant } from './types';
 import type { Preset } from './presets';
 import { followsAbbreviation, overlapsLocked } from './factLock';
 import { HAS_DIGIT, isCodeNoiseFlag, isSlipFix, UPPER_START, WORD_REWRITE_KINDS } from './wordFlags';
+import { overlaps } from './sessionTypes';
+import { isRomanisedIndic } from './romanised/classifier';
 
 // Public paths stay `engine/tiers`; the implementations live next to their own helpers.
 export { buildDecisions, foldsUnderMore, type Decision } from './decisions';
@@ -19,6 +21,8 @@ export interface TierContext {
   paraText?: Map<number, string>;
   /** The document's spelling variant (some suggestions are wrong for some variants). */
   variant?: Variant;
+  /** paraId → sentences mostly in another language (findForeignSentences): no word there is auto-fixed. */
+  foreignSentences?: Map<number, Span[]>;
 }
 
 const SAFE_RULE_KINDS = new Set(['Spelling', 'Typo', 'Repetition', 'Punctuation', 'Capitalization', 'Formatting']);
@@ -82,6 +86,15 @@ function isStyleChoice(c: Candidate): boolean {
   return c.kind === 'Punctuation' && c.original !== '' && c.replacements.length === 1 && c.replacements[0] === `${c.original},`;
 }
 
+/**
+ * A flagged word that is likely romanised Hindi/Bengali (prakriti → Prakrit, dharshan → darshan) or sits in a
+ * sentence mostly in another language (Bengali "te" → the): its one-letter "fix" would change the language.
+ */
+function isOtherLanguageWord(c: Candidate, ctx: TierContext): boolean {
+  if (isRomanisedIndic(c.original)) return true;
+  return (ctx.foreignSentences?.get(c.paraId) ?? []).some((s) => overlaps(c.span, s));
+}
+
 function baseTier(c: Candidate, ctx: TierContext): Tier {
   const { preset } = ctx;
   if (isStyleChoice(c)) return 'review';
@@ -101,7 +114,8 @@ function baseTier(c: Candidate, ctx: TierContext): Tier {
  * fixed rules and the preset, but nothing becomes safe if it is LLM output, touches
  * a fact-locked span, lacks exactly one replacement, is a Spelling/Typo fix of a word starting
  * with a capital (names, acronyms) or more than one letter away (see isSlipFix), or is a word
- * of the document's variant, or holds a digit ("y0u"). Spelling/Typo/Capitalization flags on code tokens
+ * of the document's variant, holds a digit ("y0u") or is a word in another language (isOtherLanguageWord).
+ * Spelling/Typo/Capitalization flags on code tokens
  * ("q2", "preventDefault", "src/ui") and respellings of stray single letters are always hidden.
  */
 export function tierOf(c: Candidate, ctx: TierContext): Tier {
@@ -115,6 +129,7 @@ export function tierOf(c: Candidate, ctx: TierContext): Tier {
   // Safety rests on the linter's own list: one it offered alone, not one the engine filtered or added to.
   if (c.replacements.length !== 1 || c.linterReplacements) return 'review';
   if (WORD_REWRITE_KINDS.has(c.kind) && (UPPER_START.test(c.original) || !isSlipFix(c))) return 'review';
+  if (WORD_REWRITE_KINDS.has(c.kind) && isOtherLanguageWord(c, ctx)) return 'review';
   // "Mr. and Mrs. Rao": the linter reads the abbreviation's period as a sentence end.
   const text = ctx.paraText?.get(c.paraId);
   if (c.kind === 'Capitalization' && text !== undefined && followsAbbreviation(text, c.span.start)) return 'review';
