@@ -87,7 +87,7 @@ function isStyleChoice(c: Candidate): boolean {
 }
 
 /**
- * A flagged word that is likely romanised Hindi/Bengali (prakriti → Prakrit, dharshan → darshan) or sits in a
+ * A flagged word that is likely romanised Indian-language (prakriti → Prakrit, dharshan → darshan) or sits in a
  * sentence mostly in another language (Bengali "te" → the): its one-letter "fix" would change the language.
  */
 function isOtherLanguageWord(c: Candidate, ctx: TierContext): boolean {

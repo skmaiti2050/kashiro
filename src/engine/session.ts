@@ -32,7 +32,7 @@ const sentenceKey = (paraId: number, span: Span) => `${paraId}:${span.start}-${s
 const CARD_ACCEPT_METHODS = new Map([
   [NAMES_CARD_ID, { name: 'names and places card', method: 'acceptNames' }],
   [TERMS_CARD_ID, { name: 'terms card', method: 'acceptTerms' }],
-  [OTHER_LANGUAGE_CARD_ID, { name: 'Indian-language words card', method: 'acceptOtherLanguage' }],
+  [OTHER_LANGUAGE_CARD_ID, { name: 'words in Indian languages card', method: 'acceptOtherLanguage' }],
 ]);
 
 export class CheckSession {
@@ -124,6 +124,7 @@ export class CheckSession {
       // Inside an existing tracked change: can't be applied, so never in `top`.
       blocked: (c) => this.ledger.inTrackedChange.has(c.id),
       termMinRepeats: this.termMinRepeats,
+      foreignSentences: this.ctx.foreignSentences,
     });
     const topSize = upFrontCount(this.reviewDepth, this.words);
     return { top: decisions.slice(0, topSize), more: [...decisions.slice(topSize), ...blocked] };
@@ -271,7 +272,7 @@ export class CheckSession {
   }
 
   /**
-   * Accepts the words-in-other-languages card (spec §5) the same way as acceptNames: the Hindi/Bengali words
+   * Accepts the words-in-Indian-languages card (spec §5) the same way as acceptNames: the Indian-language words
    * join the dictionary, `keepAsTypos` split out. So do the card's likely typos ("jion", near "join"), unless
    * they are in `tickedLikelyTypos` (the user ticked them explicitly): "Add all" never adds one.
    */

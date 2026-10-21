@@ -19,11 +19,13 @@ export interface Decision {
   /** Terms card only: each term (lowercased) → its uses in the document ({ sarpanch: 5 }). */
   counts?: Record<string, number>;
   /**
-   * Words-in-other-languages card only: its words one edit from an everyday English word, with that word, in
+   * Words-in-Indian-languages card only: its words one edit from an everyday English word, with that word, in
    * order of appearance ([["jion", "join"]]). Each may be a typo, so the UI pre-unticks it and
    * acceptOtherLanguage adds it only when ticked explicitly.
    */
   likelyTypos?: [string, string][];
+  /** Words-in-Indian-languages card only: each word with its language, in order of appearance ([["konjam", "Tamil"]]). */
+  wordLanguages?: [string, string][];
 }
 
 const WEIGHTS: Record<string, number> = {
@@ -81,16 +83,28 @@ function termsCard(flags: Candidate[], uses: Map<string, number>): Decision {
 /** Id of the words-in-other-languages card decision (there is at most one). */
 export const OTHER_LANGUAGE_CARD_ID = 'other-language';
 
-/** The words-in-other-languages card: every flag of a romanised Hindi/Bengali word as one decision (spec §5). */
-function otherLanguageCard(flags: Candidate[]): Decision {
+/**
+ * The words-in-Indian-languages card: every flag of a romanised Indian-language word as one decision (spec §5).
+ * `languages` maps each word (lowercased) to its language's name.
+ */
+function otherLanguageCard(flags: Candidate[], languages: ReadonlyMap<string, string>): Decision {
   const words = [...new Set(flags.map((c) => c.original.toLowerCase()))];
-  const label = `${words.length} ${words.length === 1 ? 'word' : 'words'} in Hindi/Bengali`;
+  const label = words.length === 1 ? '1 word in an Indian language' : `${words.length} words in Indian languages`;
   const likelyTypos: [string, string][] = [];
   for (const word of words) {
     const everyday = everydayWordNear(word);
     if (everyday) likelyTypos.push([word, everyday]);
   }
-  return { id: OTHER_LANGUAGE_CARD_ID, kind: 'otherLanguage', candidateIds: flags.map((c) => c.id), label, score: 0, likelyTypos };
+  const wordLanguages = words.map((word): [string, string] => [word, languages.get(word)!]);
+  return {
+    id: OTHER_LANGUAGE_CARD_ID,
+    kind: 'otherLanguage',
+    candidateIds: flags.map((c) => c.id),
+    label,
+    score: 0,
+    likelyTypos,
+    wordLanguages,
+  };
 }
 
 /**
@@ -149,6 +163,8 @@ interface DecisionOptions {
   blocked?: (c: Candidate) => boolean;
   /** Uses a lowercase unknown word needs to count as a term (default 3); needs `paraText`. */
   termMinRepeats?: number;
+  /** paraId → sentences mostly in another language (findForeignSentences), for findOtherLanguageWords. */
+  foreignSentences?: ReadonlyMap<number, Span[]>;
 }
 
 /** Decisions grouped by batch key, in first-appearance order. */
@@ -185,7 +201,7 @@ class DecisionGroups {
  * likely typos (isLikelyTypo) and Spelling/Typo flags of words in `typoWords`: those rank like any word.
  * Terms: Spelling/Typo flags of a term (findTerms, needs `paraText`), its capitalised uses included, go
  * on one terms card, ranked just above the names card (spec §5).
- * Other languages: Spelling/Typo flags of a romanised Hindi/Bengali word (findOtherLanguageWords; a term
+ * Other languages: Spelling/Typo flags of a romanised Indian-language word (findOtherLanguageWords; a term
  * stays on the terms card), its capitalised uses included, go on one card between the terms and names cards.
  * Blocked candidates go into `blocked` (scored and sorted the same way), except flags that join a card:
  * adding a word to the dictionary changes no text.
@@ -199,13 +215,14 @@ export function buildDecisions(
     paraText,
     blocked = () => false,
     termMinRepeats = DEFAULT_TERM_MIN_REPEATS,
+    foreignSentences,
   }: DecisionOptions = {},
 ): { safe: string[]; decisions: Decision[]; demoted: string[]; blocked: Decision[] } {
   const reviewFlags = cands.filter((c) => (tiers.get(c.id) ?? 'review') === 'review');
   const terms = paraText ? findTerms(reviewFlags, paraText, termMinRepeats, typoWords) : new Map<string, number>();
   // A term's capitalised uses ("Dosha" mid-sentence) join the terms card too: one word, one card.
   const isTermFlag = (c: Candidate) => WORD_REWRITE_KINDS.has(c.kind) && terms.has(c.original.toLowerCase());
-  const otherLanguage = findOtherLanguageWords(reviewFlags, typoWords, new Set(terms.keys()));
+  const otherLanguage = findOtherLanguageWords(reviewFlags, typoWords, new Set(terms.keys()), foreignSentences);
   const isOtherLanguageFlag = (c: Candidate) => WORD_REWRITE_KINDS.has(c.kind) && otherLanguage.has(c.original.toLowerCase());
   const safe: string[] = [];
   const wordOf = (c: Candidate) => (WORD_REWRITE_KINDS.has(c.kind) ? c.kind + c.original.toLowerCase() : null);
@@ -245,7 +262,7 @@ export function buildDecisions(
   const demotedDecisions = demoted.toDecisions(() => 0);
   const cards: Decision[] = [];
   if (termFlags.length) cards.push(termsCard(termFlags, terms));
-  if (otherLanguageFlags.length) cards.push(otherLanguageCard(otherLanguageFlags));
+  if (otherLanguageFlags.length) cards.push(otherLanguageCard(otherLanguageFlags, otherLanguage));
   if (names.length) cards.push(namesCard(names));
   return {
     safe,

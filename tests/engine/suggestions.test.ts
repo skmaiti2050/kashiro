@@ -9,7 +9,7 @@ import type { RulesLinter } from '@/engine/linter';
 import { tierOf, type TierContext } from '@/engine/tiers';
 import { PRESETS } from '@/engine/presets';
 
-// tierOf judges lowercase flags as romanised Hindi/Bengali; a session loads the model itself.
+// tierOf judges lowercase flags as romanised Indian-language words; a session loads the model itself.
 beforeAll(() => loadRomanisedModel());
 
 function flag(original: string, replacements: string[], kind = 'Spelling', start = 4): Candidate {

@@ -9,7 +9,7 @@ import { findLockedSpans } from '@/engine/factLock';
 import { findInvisible } from '@/engine/hygiene';
 import { createLinter } from '@/engine/linter';
 
-// tierOf and buildDecisions judge lowercase flags as romanised Hindi/Bengali; a session loads the model itself.
+// tierOf and buildDecisions judge lowercase flags as romanised Indian-language words; a session loads the model itself.
 beforeAll(() => loadRomanisedModel());
 
 let n = 0;

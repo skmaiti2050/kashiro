@@ -191,7 +191,7 @@ describe('SessionController: review', () => {
     expect([...top, ...more].find((d) => d.kind === 'terms')).toBeUndefined();
   });
 
-  it('acceptOtherLanguage adds the Hindi/Bengali words to the saved personal dictionary', async () => {
+  it('acceptOtherLanguage adds the Indian-language words to the saved personal dictionary', async () => {
     const { controller, saved } = makeController({ createLinter: (v, words) => createLinter(v, words) });
     await controller.openText('He said chalo, and the food was khub bhalo.');
     await controller.acceptOtherLanguage([], ['khub']); // "khub" is one letter from "hub": added only when ticked

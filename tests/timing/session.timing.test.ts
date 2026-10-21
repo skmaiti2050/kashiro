@@ -43,8 +43,10 @@ describe('performance', () => {
     expect(performance.now() - t0).toBeLessThan(50);
   });
 
-  it('with romanised Hindi/Bengali words: the rules pass (words classified) stays < 300 ms, the decisions < 150 ms', async () => {
-    const hinglish = ' Accha, chalo, the food was khub bhalo and nahi too spicy, kya baat, bahut paisa and jaldi service.';
+  it('with romanised Indian-language words: the rules pass (words classified) stays < 300 ms, the decisions < 150 ms', async () => {
+    const hinglish =
+      ' Accha, chalo, the food was khub bhalo and nahi too spicy, kya baat, bahut paisa and jaldi service.' +
+      ' It was romba nalla, chala bagundi, tusi changa and majama too.';
     const paras: Paragraph[] = [];
     for (let r = 0; r < 4; r++) PARAGRAPHS.forEach((text) => paras.push({ id: paras.length, text: text + hinglish }));
     await CheckSession.start(paras, OPTIONS, { linter }); // warm-up: the linter, and the romanised model loads once

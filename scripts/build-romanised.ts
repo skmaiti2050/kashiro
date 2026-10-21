@@ -1,7 +1,7 @@
 /**
- * Builds resources/romanised/romanised-ngrams.json: character n-gram counts for romanised Hindi, romanised
- * Bengali and English, used to tell a flagged Hindi/Bengali word ("accha", "khub") from an English typo
- * (spec §5 words in other languages).
+ * Builds resources/romanised/romanised-ngrams.json: character n-gram counts for ten romanised Indian languages
+ * (INDIAN_LANGUAGES) and English, used to tell a flagged Indian-language word ("accha", "khub", "konjam") from
+ * an English typo and to name its language (spec §5 words in Indian languages).
  *
  * Source: the Dakshina dataset's romanised sentences (Roark, Wolf-Sonkin, Kirov et al., Google Research), as
  *         mirrored on Hugging Face: one CSV with columns lang_code,indic,roman
@@ -13,7 +13,7 @@
  * Only the train split of the sentences is used (splitOf); the tune and test splits are kept for choosing the
  * thresholds and for the acceptance gate (scripts/measure-other-language.ts). Of the romanised words, only
  * those the English spell checker flags are counted: the others are English loanwords ("park", "railway").
- * The English side is the word frequency list (resources/frequency), minus those Hindi/Bengali words.
+ * The English side is the word frequency list (resources/frequency), minus those Indian-language words.
  *
  * Usage: npm run build:romanised -- <google-dakshina.csv>
  */
@@ -23,13 +23,24 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createLinter } from '../src/engine/linter';
 import { wordsByFrequency } from '../src/engine/suggestions/frequency';
-import type { RomanisedLanguage, RomanisedModelData } from '../src/engine/romanised/modelData';
+import { INDIAN_LANGUAGES, type IndianLanguage, type RomanisedModelData } from '../src/engine/romanised/modelData';
 
 export const PINNED_SHA256 = '8886730d2c020f8e7cceb784ede2b22e1472c4cacaa0ae79af514ff7cf7c5cf3';
-/** Longest n-gram: 4 separates the languages clearly better than 3 and still fits in about 1.5 MB. */
+/** Longest n-gram: 4 separates the languages clearly better than 3 and still fits the 4 MB budget. */
 export const ORDER = 4;
-/** Dataset language codes of the two languages on the card. */
-export const LANGUAGE_CODES: Record<Exclude<RomanisedLanguage, 'english'>, string> = { hindi: 'hi', bengali: 'bn' };
+/** Dataset language codes of the languages on the card (Sindhi "sd" and Sinhala "si" are left out). */
+export const LANGUAGE_CODES: Record<IndianLanguage, string> = {
+  hindi: 'hi',
+  bengali: 'bn',
+  tamil: 'ta',
+  telugu: 'te',
+  kannada: 'kn',
+  malayalam: 'ml',
+  marathi: 'mr',
+  gujarati: 'gu',
+  punjabi: 'pa',
+  urdu: 'ur',
+};
 
 /** One lowercase a-z word of a romanised sentence: "accha" in "Accha, chalo!". */
 const ROMAN_WORD = /[a-z]+/g;
@@ -138,25 +149,25 @@ async function main(): Promise<void> {
   const rows = parseDataset(source.toString('utf8'));
   const trainWords = (code: string) =>
     [...new Set(rows.filter((r) => r.language === code && splitOf(r.roman) === 'train').flatMap((r) => romanWords(r.roman)))].sort();
-  const hindiWords = trainWords(LANGUAGE_CODES.hindi);
-  const bengaliWords = trainWords(LANGUAGE_CODES.bengali);
-  const flagged = await flaggedByEnglishChecker([...new Set([...hindiWords, ...bengaliWords])].sort());
-  const hindi = hindiWords.filter((w) => flagged.has(w));
-  const bengali = bengaliWords.filter((w) => flagged.has(w));
+  const wordsOf = new Map(INDIAN_LANGUAGES.map((language) => [language, trainWords(LANGUAGE_CODES[language])]));
+  const flagged = await flaggedByEnglishChecker([...new Set([...wordsOf.values()].flat())].sort());
+  for (const [language, words] of wordsOf) wordsOf.set(language, words.filter((w) => flagged.has(w)));
   // The frequency list holds romanised words from the web too ("kiya", "hain"): they are not English here.
-  const indic = new Set([...hindi, ...bengali]);
-  const english = wordsByFrequency().filter((w) => AZ_WORD.test(w) && !indic.has(w));
+  const indian = new Set([...wordsOf.values()].flat());
+  const english = wordsByFrequency().filter((w) => AZ_WORD.test(w) && !indian.has(w));
 
   const data: RomanisedModelData = {
-    format: 1,
+    format: 2,
     order: ORDER,
-    languages: { hindi: countNgrams(hindi), bengali: countNgrams(bengali), english: countNgrams(english) },
+    english: countNgrams(english),
+    indian: Object.fromEntries(INDIAN_LANGUAGES.map((l) => [l, countNgrams(wordsOf.get(l)!)])) as RomanisedModelData['indian'],
   };
   const outputPath = resolve(dirname(fileURLToPath(import.meta.url)), '../resources/romanised/romanised-ngrams.json');
   mkdirSync(dirname(outputPath), { recursive: true });
   const output = JSON.stringify(data);
   writeFileSync(outputPath, output);
-  console.log(`hindi ${hindi.length}, bengali ${bengali.length}, english ${english.length} words; ${output.length} bytes -> ${outputPath}`);
+  const counts = INDIAN_LANGUAGES.map((l) => `${l} ${wordsOf.get(l)!.length}`).join(', ');
+  console.log(`${counts}, english ${english.length} words; ${output.length} bytes -> ${outputPath}`);
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await main();
