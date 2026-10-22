@@ -1,6 +1,21 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { moveInMenu } from './DismissMenu';
 import { useT } from './i18n/useT';
+
+interface Size {
+  width: number;
+  height: number;
+}
+
+/** Room kept between the menu and the window's edges. */
+const EDGE_MARGIN = 4;
+
+/** Where a menu of `size` opened at `at` goes so it stays inside `viewport`: moved left / up near the edges. */
+export function placeInViewport(at: { x: number; y: number }, size: Size, viewport: Size): { x: number; y: number } {
+  const x = Math.max(EDGE_MARGIN, Math.min(at.x, viewport.width - size.width - EDGE_MARGIN));
+  const y = Math.max(EDGE_MARGIN, Math.min(at.y, viewport.height - size.height - EDGE_MARGIN));
+  return { x, y };
+}
 
 interface Props {
   /** Where the right-click happened (viewport pixels). */
@@ -22,14 +37,29 @@ interface Props {
 export function TextMenu({ at, word, canCopy, onLookUp, onCopy, onClose }: Props) {
   const t = useT();
   const menu = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState(at);
+
+  // Measured before paint, so a menu opened near the window's edge never shows cut off.
+  useLayoutEffect(() => {
+    const box = menu.current?.getBoundingClientRect();
+    if (box) setPosition(placeInViewport(at, box, { width: window.innerWidth, height: window.innerHeight }));
+  }, []);
 
   useEffect(() => {
-    menu.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+    menu.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus({ preventScroll: true });
     const closeOutside = (e: MouseEvent) => {
       if (!menu.current?.contains(e.target as Node)) onClose(false);
     };
+    // The menu is placed in window pixels: once the text scrolls or the window resizes, it points at the wrong word.
+    const closeMoved = () => onClose(false);
     document.addEventListener('mousedown', closeOutside);
-    return () => document.removeEventListener('mousedown', closeOutside);
+    document.addEventListener('scroll', closeMoved, true);
+    window.addEventListener('resize', closeMoved);
+    return () => {
+      document.removeEventListener('mousedown', closeOutside);
+      document.removeEventListener('scroll', closeMoved, true);
+      window.removeEventListener('resize', closeMoved);
+    };
   }, []);
 
   return (
@@ -38,7 +68,7 @@ export function TextMenu({ at, word, canCopy, onLookUp, onCopy, onClose }: Props
       className="menu text-menu"
       role="menu"
       aria-label={t.t('doc.textMenu')}
-      style={{ left: at.x, top: at.y }}
+      style={{ left: position.x, top: position.y }}
       onKeyDown={(e) => {
         if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
           e.preventDefault();

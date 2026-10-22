@@ -3,7 +3,7 @@ import type { LookupResult, Sense } from '@/engine/dictionary/lookup';
 import { Dialog } from './Dialog';
 import type { MessageKey } from './i18n/catalogues';
 import { useT } from './i18n/useT';
-import type { LookupState } from './state/wordLookup';
+import { sensesToShow, wordLanguage, type LookupState } from './state/wordLookup';
 
 /** Senses shown per word (the dictionary keeps up to 3 per part of speech). */
 const MAX_SENSES = 3;
@@ -56,11 +56,11 @@ export function LookupPanel({ lookup, onClose }: Props) {
 function LookupColumn({ result, label }: { result: LookupResult; label?: string }) {
   const t = useT();
   const headingId = useId();
-  const senses = result.senses.slice(0, MAX_SENSES);
+  const senses = sensesToShow(result.senses, MAX_SENSES);
   return (
     <section className="lookup-column" aria-labelledby={headingId}>
       <h3 id={headingId}>
-        {label && <span className="hint">{label}:</span>} <span lang="en">{result.word}</span>
+        {label && <span className="hint">{label}:</span>} <span lang={wordLanguage(result.word)}>{result.word}</span>
       </h3>
       {(result.inPersonalDictionary || result.inIndianEnglishList) && (
         <p className="lookup-badges">

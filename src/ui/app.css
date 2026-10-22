@@ -238,6 +238,8 @@ summary:focus-visible,
 /* Toolbar */
 .toolbar {
   display: flex;
+  /* Hindi and Bengali labels are longer: at the 760 px minimum width the items wrap rather than overflow. */
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   padding: 8px 12px;

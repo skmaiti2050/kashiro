@@ -1,4 +1,4 @@
-import type { Dictionary, LookupResult } from '@/engine/dictionary/lookup';
+import type { Dictionary, LookupResult, Sense } from '@/engine/dictionary/lookup';
 import type { MessageKey } from '../i18n/catalogues';
 import { msg, type Message } from '../i18n/message';
 import { explain } from './errors';
@@ -36,6 +36,25 @@ export function wordsToCompare(original: string, suggestion: string | undefined)
   if (!word || HAS_SPACE.test(word)) return null;
   const other = suggestion ? wordToLookUp(suggestion, 0, suggestion.length) : null;
   return other && other !== word ? [word, other] : [word];
+}
+
+/**
+ * At most `max` senses, spread across parts of speech: the first sense of each part of speech, then the next
+ * ones, shown in the dictionary's order ("affect" shows a verb and a noun sense, not three verb senses).
+ */
+export function sensesToShow(senses: Sense[], max: number): Sense[] {
+  const firstOfEach = senses.filter((s, i) => senses.findIndex((other) => other.pos === s.pos) === i).slice(0, max);
+  const rest = senses.filter((s) => !firstOfEach.includes(s)).slice(0, max - firstOfEach.length);
+  const chosen = new Set([...firstOfEach, ...rest]);
+  return senses.filter((s) => chosen.has(s));
+}
+
+/** Latin letters, with marks, digits and word joiners: "café", "COVID-19", "don’t". */
+const LATIN_WORD = /^[\p{Script=Latin}\p{M}\p{Nd}'’\- ]+$/u;
+
+/** The lang of a looked-up word: English for a Latin-script word; none for other scripts (the UI's language applies). */
+export function wordLanguage(word: string): 'en' | undefined {
+  return LATIN_WORD.test(word) ? 'en' : undefined;
 }
 
 /** The word that touches offset `at` on either side, joiners included. */

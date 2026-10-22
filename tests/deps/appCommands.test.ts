@@ -24,10 +24,15 @@ describe('app commands (src-tauri)', () => {
   });
 
   it('the default capability grants exactly those commands, with Tauri allow-<command> permissions', () => {
-    // An entry is a permission name or a scoped permission object ({ identifier, allow }); app commands are names.
-    const permissions = (JSON.parse(read('src-tauri/capabilities/default.json')) as { permissions: unknown[] }).permissions;
-    const granted = permissions.filter((p): p is string => typeof p === 'string' && p.startsWith('allow-')).sort();
+    // An entry is a permission name or a scoped permission object ({ identifier, allow }).
+    type Entry = string | { identifier: string };
+    const entries = (JSON.parse(read('src-tauri/capabilities/default.json')) as { permissions: Entry[] }).permissions;
+    const identifiers = entries.map((p) => (typeof p === 'string' ? p : p.identifier));
+    const granted = identifiers.filter((id) => id.startsWith('allow-')).sort();
     expect(granted).toEqual(handlers.map(allowPermission).sort());
+    // App commands take no scope: a scoped object form of one would be a grant this check could misread.
+    const scopedAppCommands = entries.filter((p) => typeof p !== 'string' && p.identifier.startsWith('allow-'));
+    expect(scopedAppCommands).toEqual([]);
   });
 
   it('every command the frontend invokes is registered', () => {

@@ -188,12 +188,27 @@ describe('axe-core: no serious or critical violations', () => {
       view.focus();
       view.dispatch({ selection: { anchor: view.state.doc.toString().indexOf('lakh') + 1 } });
     });
+    fireEvent.keyDown(view.contentDOM, { key: 'd', ctrlKey: true });
+    expect(await within(screen.getByRole('dialog', { name: 'Look up “lakh”' })).findByText('No definition found')).toBeTruthy();
+    await audit('lookup: no definition');
+  });
+
+  it('word lookup: the failed-load message, and the text menu in a read-only .docx', async () => {
+    const { controller } = makeController({}, undefined, undefined, () => Promise.reject(new Error('resource not found')));
+    renderShell(controller);
+    const bytes = await buildDocx('<w:p><w:r><w:t>The cat sat on the mat.</w:t></w:r></w:p>');
+    await openAndWait(controller, () => controller.openFile({ name: 'essay.docx', path: '/docs/essay.docx', bytes }));
+    const view = EditorView.findFromDOM(document.querySelector<HTMLElement>('.cm-editor')!)!;
+    const node = view.contentDOM.querySelector('.cm-line')!.firstChild!;
+    act(() => {
+      window.getSelection()!.collapse(node, node.textContent!.indexOf('cat') + 1);
+    });
     fireEvent.contextMenu(view.contentDOM);
     expect(screen.getByRole('menu', { name: 'Text actions' })).toBeTruthy();
     await audit('text menu');
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Look up “lakh”' }));
-    expect(await within(screen.getByRole('dialog', { name: 'Look up “lakh”' })).findByText('No definition found')).toBeTruthy();
-    await audit('lookup: no definition');
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Look up “cat”' }));
+    expect(await screen.findByText(/The dictionary could not be loaded/)).toBeTruthy();
+    await audit('lookup: failed load');
   });
 
   it('About, with every notice open', async () => {

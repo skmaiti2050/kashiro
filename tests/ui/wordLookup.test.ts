@@ -1,9 +1,9 @@
 // Task 11b UI: the word lookup's state (the panel's loading / result / failure) and which word a selection means.
 import { gzipSync } from 'node:zlib';
 import { describe, it, expect } from 'vitest';
-import { loadDictionary, type Dictionary } from '@/engine/dictionary/lookup';
+import { loadDictionary, type Dictionary, type Sense } from '@/engine/dictionary/lookup';
 import type { DictionaryData } from '@/engine/dictionary/types';
-import { WordLookup, wordsToCompare, wordToLookUp } from '@/ui/state/wordLookup';
+import { sensesToShow, WordLookup, wordLanguage, wordsToCompare, wordToLookUp } from '@/ui/state/wordLookup';
 
 const DATA: DictionaryData = {
   format: 1,
@@ -96,6 +96,38 @@ describe('wordsToCompare: what a review item’s Look up shows', () => {
   it('null when the original is not one word (a phrase or a sentence to rewrite)', () => {
     expect(wordsToCompare('could of', 'could have')).toBeNull();
     expect(wordsToCompare('  ', 'x')).toBeNull();
+  });
+});
+
+describe('sensesToShow: up to 3, spread across parts of speech', () => {
+  const sense = (pos: Sense['pos'], definition: string): Sense => ({ pos, definition, synonyms: [] });
+  const affect = [sense('verb', 'v1'), sense('verb', 'v2'), sense('verb', 'v3'), sense('noun', 'n1'), sense('noun', 'n2')];
+
+  it('one per part of speech first, then the next senses, in the dictionary’s order', () => {
+    expect(sensesToShow(affect, 3).map((s) => s.definition)).toEqual(['v1', 'v2', 'n1']);
+    expect(sensesToShow(affect, 2).map((s) => s.definition)).toEqual(['v1', 'n1']);
+  });
+
+  it('a single part of speech keeps its first senses; fewer senses than slots shows them all', () => {
+    expect(sensesToShow(affect.slice(0, 3), 2).map((s) => s.definition)).toEqual(['v1', 'v2']);
+    expect(sensesToShow([sense('adverb', 'r1')], 3).map((s) => s.definition)).toEqual(['r1']);
+  });
+
+  it('on the real data shape: "affect" shows its verb and noun senses', async () => {
+    const result = (await dictionaryFile()).lookup('affect', { personal: new Set() });
+    expect(sensesToShow(result.senses, 1).map((s) => s.pos)).toEqual(['verb']);
+    expect(new Set(sensesToShow(result.senses, 3).map((s) => s.pos))).toEqual(new Set(['verb', 'noun']));
+  });
+});
+
+describe('wordLanguage: the lang of a looked-up word', () => {
+  it('English for Latin letters (with marks, hyphens, apostrophes, digits)', () => {
+    expect(['receive', 'café', 'well-known', 'don’t', 'COVID-19'].map(wordLanguage)).toEqual(['en', 'en', 'en', 'en', 'en']);
+  });
+
+  it('none for other scripts, so a screen reader does not read किताब as English', () => {
+    expect(wordLanguage('किताब')).toBeUndefined();
+    expect(wordLanguage('বই')).toBeUndefined();
   });
 });
 
