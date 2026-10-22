@@ -7,7 +7,17 @@ import { memorySessionFiles } from '../fixtures/memorySessionFiles';
 import { makeController, noFiles, warmLinter } from './harness';
 import { openAndWait, renderShell } from './shell';
 
-vi.mock('@tauri-apps/api/window', async () => (await import('./platformMocks')).tauriWindow);
+/** The window's close-requested handler, as App registers it. */
+const closeWindow = vi.hoisted(() => ({ handler: null as ((event: { preventDefault(): void }) => Promise<void>) | null }));
+vi.mock('@tauri-apps/api/window', () => ({
+  getCurrentWindow: () => ({
+    onCloseRequested: async (handler: (event: { preventDefault(): void }) => Promise<void>) => {
+      closeWindow.handler = handler;
+      return () => {};
+    },
+    destroy: async () => {},
+  }),
+}));
 vi.mock('@/ui/platform/files', async () => (await import('./platformMocks')).platformFiles);
 vi.mock('@/ui/platform/linter', async () => (await import('./platformMocks')).platformLinter);
 vi.mock('@/ui/platform/settings', async () => (await import('./platformMocks')).platformSettings);
@@ -129,8 +139,38 @@ describe('Settings', () => {
     await waitFor(() => expect(saved.at(-1)!.keepPastedText).toBe(true));
     fireEvent.change(screen.getByRole('combobox', { name: 'Keep saved reviews for' }), { target: { value: '7' } });
     await waitFor(() => expect(saved.at(-1)!.sessionRetentionDays).toBe(7));
-    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Delete all saved reviews' })));
+    // Asked first; Cancel keeps them.
+    fireEvent.click(screen.getByRole('button', { name: 'Delete all saved reviews' }));
+    const ask = screen.getByRole('alertdialog', { name: 'Delete all saved reviews?' });
+    expect(document.activeElement).toBe(within(ask).getByRole('button', { name: 'Cancel' }));
+    fireEvent.click(within(ask).getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(disk.stored.size).toBe(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Delete all saved reviews' }));
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Delete all' })));
     await waitFor(() => expect(disk.stored.size).toBe(0));
+    expect(screen.queryByRole('alertdialog')).toBeNull();
     expect(announced()).toBe('Saved reviews deleted.');
+  });
+});
+
+describe('closing the window', () => {
+  it('a failed autosave keeps the window open and shows why', async () => {
+    const disk = memorySessionFiles();
+    disk.files.save = async () => {
+      throw new Error('disk full');
+    };
+    const { controller } = makeController({}, noFiles, disk.files);
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openFile(FILE));
+    const session = controller.getState().session!;
+    act(() => controller.accept(session.candidates().find((c) => c.original === 'recieved')!.id));
+    await waitFor(() => expect(closeWindow.handler).not.toBeNull());
+    const event = { prevented: false, preventDefault() {
+      this.prevented = true;
+    } };
+    await act(() => closeWindow.handler!(event));
+    expect(event.prevented).toBe(true);
+    expect(screen.getByRole('alert').textContent).toContain('disk full');
   });
 });

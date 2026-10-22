@@ -110,7 +110,11 @@ function ShellView({ controller, state }: { controller: SessionController; state
     return listenWhileMounted(
       appWindow.onCloseRequested(async (event) => {
         // The autosave waiting for its 1 s pause is written before the window goes (Tauri awaits this handler).
-        await controller.reviews.flush();
+        // If that write fails, the window stays open with the error showing; closing again goes ahead.
+        if (!(await controller.reviews.flush())) {
+          event.preventDefault();
+          return;
+        }
         if (!controller.hasUnsavedWork()) return;
         event.preventDefault();
         setAfterUnsaved(() => () => void appWindow.destroy());

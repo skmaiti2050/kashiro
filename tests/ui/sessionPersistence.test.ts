@@ -377,7 +377,78 @@ describe('saved reviews: pasted text and the recent list', () => {
     const { controller } = run(disk);
     await controller.openFile(FILE);
     controller.accept(decisionOn(controller, 'recieved'));
-    await controller.reviews.flush();
+    expect(await controller.reviews.flush()).toBe(false);
     expect(english(controller.getState().error)).toContain('disk full');
+    // Nothing is waiting any more: a second close goes ahead.
+    expect(await controller.reviews.flush()).toBe(true);
+  });
+
+  it('a saved review file that could not be read is shown at start-up; the rest are listed', async () => {
+    const { disk } = await reviewed();
+    const list = disk.files.list;
+    disk.files.list = async () => ({ ...(await list()), problems: ['0b6e.json: stream did not contain valid UTF-8'] });
+    const { controller } = run(disk);
+    await controller.reviews.startUp();
+    expect(controller.getState().recentReviews).toHaveLength(1);
+    expect(english(controller.getState().error)).toContain('0b6e.json: stream did not contain valid UTF-8');
+  });
+});
+
+describe('saved reviews: fix round 1', () => {
+  it('"N decisions restored" counts decisions as the prompt does: a rejected batch of two places is one', async () => {
+    const disk = memorySessionFiles();
+    const first = run(disk);
+    await first.controller.openFile({ ...FILE, bytes: encode('They recieve it.\n\nWe recieve it too.') });
+    const batch = first.controller.getState().session!.decisions().top.find((d) => d.candidateIds.length === 2)!;
+    first.controller.reject(batch.id);
+    await first.controller.reviews.flush();
+
+    const { controller } = run(disk);
+    await controller.openFile({ ...FILE, bytes: encode('They recieve it.\n\nWe recieve it too.') });
+    expect(controller.getState().resumeOffer).toMatchObject({ made: 1 });
+    await controller.reviews.resume();
+    expect(english(controller.getState().announcement!.message)).toBe('Review resumed: 1 decision restored, 0 paragraphs re-checked.');
+    expect(controller.getState().decided).toBe(1);
+  });
+
+  it('a failed resume leaves the goal, the variant and the dismissed rules as they were', async () => {
+    const disk = memorySessionFiles();
+    const first = run(disk, { settings: { preset: 'academic' } });
+    await first.controller.openFile(FILE);
+    first.controller.setVariant('British');
+    await first.controller.settled();
+    first.controller.accept(decisionOn(first.controller, 'recieved'));
+    await first.controller.reviews.flush();
+
+    let failing = false;
+    const flaky: RulesLinter = { ...linter, variant: linter.variant, lintParagraphs: (p, l) => (failing ? Promise.reject(new Error('checker stopped')) : linter.lintParagraphs(p, l)) };
+    const { controller } = run(disk, { createLinter: async () => flaky });
+    await controller.openFile(FILE);
+    failing = true;
+    await controller.reviews.resume();
+    const state = controller.getState();
+    expect(english(state.error)).toContain('checker stopped');
+    expect(state.settings.preset).toBe('business');
+    expect(state.variantOverride).toBeNull();
+    expect(state.checking).toBe(false);
+  });
+
+  it('a recent file that fails to open is not resumed later without asking', async () => {
+    const { disk } = await reviewed();
+    const { files } = fakeFiles({ name: 'note.xyz', path: '/docs/note.xyz', bytes: FILE.bytes });
+    const { controller } = run(disk, { files });
+    await controller.reviews.startUp();
+    await controller.reviews.openRecent(controller.getState().recentReviews[0]);
+    expect(controller.getState().document).toBeNull();
+    await controller.openFile(FILE);
+    expect(controller.getState().resumeOffer).not.toBeNull();
+  });
+
+  it('Delete all also stops saving the open review: it is not recreated at once', async () => {
+    const { controller, disk } = await reviewed();
+    await controller.reviews.deleteAll();
+    undoAutoFix(controller);
+    await controller.reviews.flush();
+    expect(disk.stored.size).toBe(0);
   });
 });

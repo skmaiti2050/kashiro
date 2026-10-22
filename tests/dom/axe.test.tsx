@@ -154,6 +154,11 @@ describe('axe-core: no serious or critical violations', () => {
     await openAndWait(controller, () => controller.openFile(file));
     await screen.findByRole('alertdialog', { name: 'Resume your review?' });
     await audit('resume prompt');
+    fireEvent.click(screen.getByRole('button', { name: 'Start fresh' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete all saved reviews' }));
+    expect(screen.getByRole('alertdialog', { name: 'Delete all saved reviews?' })).toBeTruthy();
+    await audit('delete all saved reviews: confirmation');
   });
 
   it('Settings without a local voice', async () => {

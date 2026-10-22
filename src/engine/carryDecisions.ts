@@ -1,5 +1,5 @@
 import type { CheckSession } from './session';
-import type { Span } from './types';
+import type { Source, Span } from './types';
 
 /** One decision the user made on a flag, as a re-check or a resumed review replays it. */
 export interface UserDecision {
@@ -12,6 +12,9 @@ export interface UserDecision {
   status: 'applied' | 'rejected';
   /** The replacement chosen, for an applied edit. */
   replacement?: string;
+  /** Its index in the candidate's replacements: a saved review keeps this, never the text (-1: not in the list). */
+  replacementIndex?: number;
+  source: Source;
 }
 
 const sameFlag = (a: { kind: string; original: string; span: Span }, b: { kind: string; original: string; span: Span }) =>
@@ -27,8 +30,9 @@ export function userDecisions(session: CheckSession): UserDecision[] {
   for (const o of session.outcomes()) {
     if (o.auto || o.unplaceable !== undefined || (o.status !== 'applied' && o.status !== 'rejected')) continue;
     if (o.reason?.endsWith('added to dictionary')) continue;
-    const { id, paraId, kind, original, span } = o.candidate;
-    decisions.push({ candidateId: id, paraId, kind, original, span: { ...span }, status: o.status, replacement: o.replacement });
+    const { id, paraId, kind, original, span, source, replacements } = o.candidate;
+    const replacementIndex = o.status === 'applied' ? replacements.indexOf(o.replacement ?? '') : undefined;
+    decisions.push({ candidateId: id, paraId, kind, original, span: { ...span }, status: o.status, replacement: o.replacement, replacementIndex, source });
   }
   return decisions;
 }
@@ -52,7 +56,7 @@ export function carryDecisions(decisions: UserDecision[], after: CheckSession, u
     carried.set(d.candidateId, twin.id);
     const now = statusAfter.get(twin.id);
     if (d.status === 'applied' && now === 'pending') {
-      const index = twin.replacements.indexOf(d.replacement ?? '');
+      const index = d.replacement !== undefined ? twin.replacements.indexOf(d.replacement) : (d.replacementIndex ?? -1);
       if (index >= 0) after.accept(twin.id, index);
     } else if (d.status === 'rejected' && now === 'applied') {
       after.undo(twin.id);

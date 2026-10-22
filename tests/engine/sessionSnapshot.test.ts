@@ -3,6 +3,9 @@ import { CheckSession, type CheckOptions } from '@/engine/session';
 import { createLinter, type RulesLinter } from '@/engine/linter';
 import { restore, snapshot, SNAPSHOT_VERSION, type SessionSnapshot } from '@/engine/sessionSnapshot';
 import type { Paragraph } from '@/engine/types';
+import { adapterFor } from '@/formats/registry';
+import { SAMPLE_TEXT } from '@/ui/state/sample';
+import { readFileSync } from 'node:fs';
 
 let linter: RulesLinter;
 beforeAll(async () => {
@@ -24,6 +27,27 @@ const byOriginal = (s: CheckSession, original: string) => s.candidates().find((c
 const statuses = (s: CheckSession) =>
   Object.fromEntries(s.outcomes().map((o) => [`${o.paragraphNumber}:${o.candidate.original}@${o.candidate.span.start}`, [o.status, o.replacement]]));
 
+/** The longest run of a paragraph's text (in characters) that also appears in `json`. */
+function longestSharedRun(json: string, paras: Paragraph[]): number {
+  let longest = 0;
+  for (const { text } of paras) {
+    for (let start = 0; start < text.length; start++) {
+      let length = longest + 1;
+      while (start + length <= text.length && json.includes(text.slice(start, start + length))) longest = length++;
+    }
+  }
+  return longest;
+}
+
+/** Runs `first`; when the engine refuses it (a clash with an edit already applied), runs `otherwise`. */
+function tryOr(first: () => void, otherwise: () => void): void {
+  try {
+    first();
+  } catch {
+    otherwise();
+  }
+}
+
 /** A session with an accept, a reject and an undone auto-fix. */
 async function decided(paras: Paragraph[]): Promise<CheckSession> {
   const s = await start(paras);
@@ -42,13 +66,54 @@ describe('snapshot', () => {
     expect(snap).toMatchObject({ preset: 'academic', depth: 'standard', variantOverride: 'British', documentIgnoredRules: ['Style'] });
     expect(snap.paragraphs).toHaveLength(3);
     for (const hash of snap.paragraphs) expect(hash).toMatch(/^[0-9a-f]{64}$/);
-    expect(snap.decisions.map((d) => [d.paragraph, d.original, d.status])).toEqual([
-      [0, 'teh', 'rejected'],
-      [1, 'recieved', 'applied'],
-      [2, 'was', 'rejected'],
+    // No words at all: a flag is its paragraph, kind and offsets; an accepted fix is the index of its replacement.
+    expect(snap.decisions).toEqual([
+      { paragraph: 0, kind: 'Typo', start: 8, end: 11, status: 'rejected' },
+      { paragraph: 1, kind: 'Spelling', start: 4, end: 12, status: 'applied', replacementIndex: 0 },
+      { paragraph: 2, kind: 'Agreement', start: 3, end: 6, status: 'rejected' },
     ]);
     const json = JSON.stringify(snap);
     for (const p of PARAS) expect(json).not.toContain(p.text);
+  });
+
+  it('never holds a sentence: an accepted LLM rewrite and a rejected sentence-long flag leave no text behind', async () => {
+    const long =
+      'This is a very long sentence that goes on and on and on with many many words in it so that the checker will surely ' +
+      'think that it is far too long for anyone to read comfortably in one breath without stopping at all today.';
+    const paras: Paragraph[] = [
+      { id: 0, text: 'The meeting was held on Monday and everyone who could come attended it.' },
+      { id: 1, text: long },
+    ];
+    const s = await start(paras);
+    const rewrite = 'Everyone who could come attended the meeting on Monday.';
+    expect(s.addRewrite(0, { start: 0, end: paras[0].text.length }, rewrite)!.ok).toBe(true);
+    s.accept(`llm:0:0-${paras[0].text.length}`);
+    const readability = s.candidates().find((c) => c.paraId === 1 && c.span.end - c.span.start === long.length)!;
+    s.reject(readability.id);
+
+    const json = JSON.stringify(await snapshot(s, VIEW));
+    expect(json).not.toContain(rewrite);
+    expect(longestSharedRun(json, paras)).toBeLessThan(12);
+    expect(JSON.parse(json).decisions).toEqual([{ paragraph: 1, kind: 'Readability', start: 0, end: long.length, status: 'rejected' }]);
+  });
+
+  it('no paragraph text of 12 or more characters in the snapshot of any sample document, every flag decided', async () => {
+    const docs = ['paper.md', 'paper.txt', 'prose.md', 'prose.txt', 'prose_zw.txt'].map((name) => ({ name, bytes: readFileSync(`trust/corpus/${name}`) }));
+    docs.push({ name: 'Sample.txt', bytes: Buffer.from(SAMPLE_TEXT) });
+    for (const { name, bytes } of docs) {
+      const adapter = adapterFor(name)!;
+      const { paras } = await adapter.read(new Uint8Array(bytes));
+      const s = await CheckSession.start(paras, { ...opts, language: adapter.language }, { linter });
+      // Every candidate decided: the first fix accepted where there is one, else rejected; auto-fixes undone.
+      for (const o of s.outcomes()) {
+        if (o.status === 'applied' && o.auto) s.undo(o.candidate.id);
+        else if (o.status !== 'pending') continue;
+        else if (o.candidate.replacements.length > 0) tryOr(() => s.accept(o.candidate.id), () => s.reject(o.candidate.id));
+        else s.reject(o.candidate.id);
+      }
+      const json = JSON.stringify(await snapshot(s, VIEW));
+      expect(longestSharedRun(json, paras), name).toBeLessThan(12);
+    }
   });
 
   it('leaves out pending flags, auto-fixes still applied and words added to the dictionary', async () => {

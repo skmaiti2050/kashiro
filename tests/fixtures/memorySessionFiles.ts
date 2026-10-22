@@ -22,7 +22,7 @@ export function memorySessionFiles(now: () => Date = () => new Date()) {
       checkKey(key);
       return stored.get(key)?.json ?? null;
     },
-    list: async () => [...stored].map(([key, { json }]) => ({ key, json })),
+    list: async () => ({ sessions: [...stored].map(([key, { json }]) => ({ key, json })), problems: [] }),
     delete: async (key) => {
       checkKey(key);
       stored.delete(key);

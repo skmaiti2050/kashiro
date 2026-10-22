@@ -8,7 +8,7 @@ import type { SessionFiles } from '../state/sessionStore';
 export const sessionFiles: SessionFiles = {
   save: (key, json) => invoke('session_save', { key, json }),
   load: (key) => invoke<string | null>('session_load', { key }),
-  list: () => invoke<{ key: string; json: string }[]>('session_list'),
+  list: () => invoke<{ sessions: { key: string; json: string }[]; problems: string[] }>('session_list'),
   delete: (key) => invoke('session_delete', { key }),
   prune: (keepDays) => invoke('session_prune', { keepDays }),
 };

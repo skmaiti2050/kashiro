@@ -44,6 +44,8 @@ describe('defaultSettings', () => {
     const defaults = defaultSettings('en-IN');
     expect(withSavedSettings(defaults, { sessionRetentionDays: 0 }).sessionRetentionDays).toBe(0);
     expect(withSavedSettings(defaults, { sessionRetentionDays: 90 }).sessionRetentionDays).toBe(90);
+    expect(withSavedSettings(defaults, { sessionRetentionDays: 3650 }).sessionRetentionDays).toBe(3650);
+    expect(withSavedSettings(defaults, { sessionRetentionDays: 1e9 }).sessionRetentionDays).toBe(3650); // ten years at most
     for (const bad of [-1, 2.5, '7', null]) {
       expect(withSavedSettings(defaults, { sessionRetentionDays: bad as never }).sessionRetentionDays).toBe(30);
     }

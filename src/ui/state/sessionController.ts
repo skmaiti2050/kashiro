@@ -22,8 +22,8 @@ import { RecheckQueue } from './recheckQueue';
 import { SAMPLE_NAME, SAMPLE_TEXT } from './sample';
 import type { Files, OpenedFile } from './saveFlow';
 import * as saveActions from './saveActions';
-import { SessionPersistence, type ResumeOffer } from './sessionPersistence';
-import { SessionStore, type RecentReview, type SessionFiles } from './sessionStore';
+import { SessionPersistence, type PersistenceHost, type SavedReviewsState } from './sessionPersistence';
+import { SessionStore, type SessionFiles } from './sessionStore';
 import { OptionalModules, type ModuleLoaders } from './optionalModules';
 import { modulesFor, type Settings } from './settings';
 import * as settingsActions from './settingsActions';
@@ -48,7 +48,7 @@ export interface ControllerDeps {
   sessions?: SessionFiles;
 }
 
-export interface ControllerState {
+export interface ControllerState extends SavedReviewsState {
   phase: 'empty' | 'checking' | 'ready';
   document: OpenDocument | null;
   session: CheckSession | null;
@@ -66,10 +66,6 @@ export interface ControllerState {
   documentIgnoredRules: string[];
   /** What the screen reader says after a decision ("Accepted. 4 of 9 left."); `seq` is new each time. */
   announcement: Announcement | null;
-  /** A saved review of the opened document, waiting for "Resume" or "Start fresh". */
-  resumeOffer: ResumeOffer | null;
-  /** The start screen's Recent reviews, newest first. */
-  recentReviews: RecentReview[];
   /** Bumped on every change: the session is mutable, so views re-read it when this moves. */
   revision: number;
 }
@@ -131,24 +127,6 @@ export class SessionController {
   readonly reviews: SessionPersistence;
 
   constructor(private readonly deps: ControllerDeps) {
-    this.reviews = new SessionPersistence(
-      {
-        ...this.settingsHost, // state, set, storeSettings and markUnsaved, as the settings actions have them
-        loaded: () => this.loaded,
-        tally: this.tally,
-        linter: () => this.getLinter(),
-        now: () => deps.now?.() ?? new Date(),
-        showSession: (session) => {
-          ++this.checks; // a check still running would replace the resumed session
-          this.set({ phase: 'ready', session, decided: this.tally.decided, checking: this.queue.waiting });
-        },
-        announce: (message) => this.set({ announcement: { message, seq: ++this.announcements } }),
-        files: deps.files,
-        openFile: (file) => this.openFile(file),
-        openText: (text) => this.openText(text),
-      },
-      deps.sessions ? new SessionStore(deps.sessions) : null,
-    );
     this.saveHost = {
       state: () => this.state,
       set: (patch) => this.set(patch),
@@ -157,6 +135,7 @@ export class SessionController {
       files: deps.files,
       markSaved: () => (this.unsaved = false),
     };
+    this.reviews = new SessionPersistence(this.reviewsHost(), deps.sessions ? new SessionStore(deps.sessions) : null);
     this.adapterFor = deps.adapterFor ?? registryAdapterFor;
     this.optional = new OptionalModules({ loadDictionary: deps.loadDictionary, startHelper: deps.startHelper });
     this.state = {
@@ -174,6 +153,23 @@ export class SessionController {
       resumeOffer: null,
       recentReviews: [],
       revision: 0,
+    };
+  }
+
+  /** What SessionPersistence sees of the controller: the settings and save actions' hosts, and the check. */
+  private reviewsHost(): PersistenceHost {
+    return {
+      ...this.settingsHost,
+      ...this.saveHost,
+      tally: this.tally,
+      linter: () => this.getLinter(),
+      now: this.deps.now,
+      showSession: (session) => {
+        ++this.checks; // a check still running would replace the resumed session
+        this.set({ phase: 'ready', session, decided: this.tally.decided, checking: this.queue.waiting });
+      },
+      announce: (message) => this.set({ announcement: { message, seq: ++this.announcements } }),
+      opener: this,
     };
   }
 

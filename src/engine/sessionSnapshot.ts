@@ -7,19 +7,21 @@ import { sha256Hex } from './sha256';
 import type { Paragraph, Variant } from './types';
 
 /** Bumped when the format changes: a saved review of another version is not resumed. */
-export const SNAPSHOT_VERSION = 1;
+export const SNAPSHOT_VERSION = 2;
 
-/** One user decision, by its paragraph's position and the flag's identity in that paragraph. */
+/**
+ * One user decision, by its paragraph's position and the flag's kind and offsets there: no words at all. The
+ * flagged text comes back from the paragraph itself once its hash matches.
+ */
 export interface SavedDecision {
   /** Index into SessionSnapshot.paragraphs. */
   paragraph: number;
   kind: string;
-  original: string;
   start: number;
   end: number;
   status: 'applied' | 'rejected';
-  /** The replacement chosen, for an applied edit only. */
-  replacement?: string;
+  /** For an applied edit only: the index of the replacement chosen in the flag's suggestions. */
+  replacementIndex?: number;
 }
 
 /** What the review was looking at, beside the session itself (the controller holds these). */
@@ -31,8 +33,8 @@ export interface SnapshotView {
 }
 
 /**
- * A review to resume later (Task S3). It never holds the document: paragraphs are SHA-256 hashes of their
- * text, and a decision keeps only the flagged words and the replacement chosen.
+ * A review to resume later (Task S3). It never holds the document's words: paragraphs are SHA-256 hashes of
+ * their text, and a decision is kind, offsets, status and a replacement index.
  */
 export interface SessionSnapshot extends SnapshotView {
   version: typeof SNAPSHOT_VERSION;
@@ -44,7 +46,7 @@ export interface SessionSnapshot extends SnapshotView {
 
 export interface RestoredReview {
   session: CheckSession;
-  /** Saved decisions replayed (their paragraph and flag were found again). */
+  /** Saved decisions that changed a flag's status when replayed (their paragraph and flag were found again). */
   restored: number;
   /** Paragraphs of the document with no unchanged twin in the snapshot: checked afresh. */
   rechecked: number;
@@ -60,17 +62,22 @@ export async function snapshot(session: CheckSession, view: SnapshotView): Promi
     documentIgnoredRules: [...view.documentIgnoredRules],
     depth: session.depth,
     paragraphs: await Promise.all(paras.map((p) => sha256Hex(p.text))),
-    decisions: userDecisions(session).map((d) => ({
+    decisions: userDecisions(session).filter(isReplayable).map((d) => ({
       paragraph: position.get(d.paraId)!,
       kind: d.kind,
-      original: d.original,
       start: d.span.start,
       end: d.span.end,
       status: d.status,
-      ...(d.status === 'applied' ? { replacement: d.replacement } : {}),
+      ...(d.status === 'applied' ? { replacementIndex: d.replacementIndex } : {}),
     })),
   };
 }
+
+/**
+ * LLM rewrites are left out: the next check doesn't make them again, so there is nothing to replay them on,
+ * and their text is a whole sentence. So is an applied edit whose text is not among the flag's suggestions.
+ */
+const isReplayable = (d: UserDecision) => d.source !== 'llm' && (d.status !== 'applied' || (d.replacementIndex ?? -1) >= 0);
 
 /**
  * Checks `paras` afresh (with `opts`, at the snapshot's depth) and replays the saved decisions through
@@ -81,17 +88,27 @@ export async function restore(paras: Paragraph[], snap: SessionSnapshot, opts: C
   const session = await CheckSession.start(paras, { ...opts, depth: snap.depth }, deps);
   const hashes = await Promise.all(paras.map((p) => sha256Hex(p.text)));
   const unchanged = matchSavedParagraphs(snap.paragraphs, hashes, paras);
-  const decisions: UserDecision[] = snap.decisions.map((d, i) => ({
-    candidateId: `saved-${i}`,
-    paraId: d.paragraph,
-    kind: d.kind,
-    original: d.original,
-    span: { start: d.start, end: d.end },
-    status: d.status,
-    replacement: d.replacement,
-  }));
+  const textOf = new Map(paras.map((p) => [p.id, p.text]));
+  const decisions: UserDecision[] = [];
+  snap.decisions.forEach((d, i) => {
+    const paraId = unchanged.get(d.paragraph);
+    if (paraId === undefined) return; // its paragraph changed: checked afresh
+    decisions.push({
+      candidateId: `saved-${i}`,
+      paraId: d.paragraph,
+      kind: d.kind,
+      original: textOf.get(paraId)!.slice(d.start, d.end),
+      span: { start: d.start, end: d.end },
+      status: d.status,
+      replacementIndex: d.replacementIndex,
+      source: 'rules',
+    });
+  });
+  const before = new Map(session.outcomes().map((o) => [o.candidate.id, o.status]));
   const carried = carryDecisions(decisions, session, unchanged);
-  return { session, restored: carried.size, rechecked: paras.length - unchanged.size };
+  const after = new Map(session.outcomes().map((o) => [o.candidate.id, o.status]));
+  const restored = [...carried.values()].filter((id) => before.get(id) !== after.get(id)).length;
+  return { session, restored, rechecked: paras.length - unchanged.size };
 }
 
 /**

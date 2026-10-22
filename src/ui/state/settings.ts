@@ -79,8 +79,14 @@ export function defaultSettings(locale: string): Settings {
   };
 }
 
-/** A hand-edited or damaged retention (negative, a fraction, text) means the default. */
-const resolveRetention = (days: unknown): number => (Number.isInteger(days) && (days as number) >= 0 ? (days as number) : DEFAULT_RETENTION_DAYS);
+/** Ten years: a longer retention in a hand-edited file is cut to this. */
+const MAX_RETENTION_DAYS = 3650;
+
+/** A hand-edited or damaged retention (negative, a fraction, text) means the default; a huge one, the maximum. */
+function resolveRetention(days: unknown): number {
+  if (!Number.isInteger(days) || (days as number) < 0) return DEFAULT_RETENTION_DAYS;
+  return Math.min(days as number, MAX_RETENTION_DAYS);
+}
 
 /**
  * The saved settings over `defaults`. Module switches go through resolveModules, so a file saved before a
