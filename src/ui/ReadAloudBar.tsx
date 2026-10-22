@@ -23,7 +23,11 @@ const BUTTONS: { target: ReadTarget; label: MessageKey; keys: string }[] = [
 /** "Read: Sentence · Suggestion · Paragraph", with Alt+S / Alt+R / Alt+P from anywhere. */
 export function ReadAloudBar({ readAloud, textFor, keysEnabled }: Props) {
   const t = useT();
+  // The sentence and paragraph are the English document; a card can also be read in the UI language.
+  const english = readAloud.speaks('en');
+  const canRead = (target: ReadTarget) => english || (target === 'suggestion' && readAloud.speaks(t.language));
   const read = (target: ReadTarget) => {
+    if (!canRead(target)) return;
     const { text, language } = textFor(target);
     readAloud.read(text, language);
   };
@@ -47,10 +51,11 @@ export function ReadAloudBar({ readAloud, textFor, keysEnabled }: Props) {
     <div className="read-aloud" role="group" aria-label={t.t('read.group')}>
       <span className="hint">{t.t('read.label')}</span>
       {BUTTONS.map((b) => (
-        <button key={b.target} className="quiet" aria-keyshortcuts={b.keys} onClick={() => read(b.target)}>
+        <button key={b.target} className="quiet" aria-keyshortcuts={b.keys} disabled={!canRead(b.target)} onClick={() => read(b.target)}>
           {t.t(b.label)} <Kbd>{b.keys}</Kbd>
         </button>
       ))}
+      {!english && <span className="hint">{t.t('read.needsEnglishVoice')}</span>}
     </div>
   );
 }

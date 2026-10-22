@@ -185,6 +185,7 @@
   "read.sentence": "Sentence",
   "read.suggestion": "Suggestion",
   "read.paragraph": "Paragraph",
+  "read.needsEnglishVoice": "Sentence and Paragraph need an English voice on this PC.",
 
   "speech.card": "Card {position, number} of {left, number} left. {speech}",
   "speech.wordCard": "{category}. {title}.",
@@ -331,6 +332,7 @@
   "reading.pitchValue": "{value, number, ::.0}",
   "reading.sample": "Play a sample",
   "reading.voiceNote": "Only voices installed on this PC are used, so your text is never sent anywhere.",
+  "reading.voiceLanguageHint": "The document is always read by an English voice. A Hindi or Bengali voice reads only the cards, when the app is in that language.",
 
   "modules.legend": "Modules",
   "modules.perGoal": "Use different modules for the {goal} goal",

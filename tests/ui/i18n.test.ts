@@ -128,6 +128,12 @@ describe('plurals', () => {
     expect(t.t('panel.autoFixed', { count: 3 })).toBe('3টি সংশোধন নিজে থেকে হয়েছে।');
   });
 
+  it('Bengali: no decision made reads as words, not "0টি সিদ্ধান্ত"', () => {
+    const t = createTranslator('bn', ['bn-IN']);
+    expect(t.t('progress.done', { count: 0 })).not.toMatch(/0/);
+    expect(t.t('progress.done', { count: 3 })).toBe('শেষ: 3টি সিদ্ধান্ত নেওয়া হয়েছে');
+  });
+
   it('Hindi: no decision made reads as words, not "0 फ़ैसला"', () => {
     const t = createTranslator('hi', ['hi-IN']);
     expect(t.t('progress.done', { count: 0 })).not.toMatch(/0/);

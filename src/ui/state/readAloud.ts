@@ -26,23 +26,16 @@ export function localVoices<V extends VoiceInfo>(voices: readonly V[]): V[] {
   return voices.filter((v) => v.localService === true);
 }
 
-/** The local voice with `voiceURI`, else the default local voice, else the first local one; null with none. */
-export function pickVoice<V extends VoiceInfo>(voices: readonly V[], voiceURI: string | null): V | null {
-  const local = localVoices(voices);
-  return local.find((v) => v.voiceURI === voiceURI) ?? local.find((v) => v.default) ?? local[0] ?? null;
-}
-
 /** "hi-IN" or "hi_IN" (some Windows voices) → "hi". */
 const baseLanguage = (lang: string) => lang.split(/[-_]/)[0].toLowerCase();
 
 /**
- * The local voice for text in `language`. English text (the document, or an English UI) uses the chosen
- * voice, as pickVoice. Hindi or Bengali text needs a local voice of that language (the chosen one, else the
- * default, else the first): an English voice garbles Devanagari and Bengali. Null when there is none.
+ * The local voice for text in `language`: one of that language (the chosen one, else the default, else the
+ * first), or null. English text (the document) is never read by a Hindi or Bengali voice, and Hindi or
+ * Bengali text never by an English one, which garbles it. The pseudo-locale (en-XA) counts as English.
  */
 export function voiceFor<V extends VoiceInfo>(voices: readonly V[], language: string, voiceURI: string | null): V | null {
   const base = baseLanguage(language);
-  if (base === 'en') return pickVoice(voices, voiceURI);
   const speaking = localVoices(voices).filter((v) => baseLanguage(v.lang) === base);
   return speaking.find((v) => v.voiceURI === voiceURI) ?? speaking.find((v) => v.default) ?? speaking[0] ?? null;
 }

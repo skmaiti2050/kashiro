@@ -87,7 +87,7 @@
 
   "progress.left": "{total, number}টির মধ্যে {left, number}টি বাকি · ~{minutes, number} মিনিট",
   "progress.nothing": "শেষ: সিদ্ধান্ত নেওয়ার কিছু নেই",
-  "progress.done": "শেষ: {count, plural, other {#টি সিদ্ধান্ত নেওয়া হয়েছে}}",
+  "progress.done": "শেষ: {count, plural, =0 {কোনো সিদ্ধান্ত নেওয়া হয়নি} other {#টি সিদ্ধান্ত নেওয়া হয়েছে}}",
 
   "depth.label": "রিভিউয়ের গভীরতা",
   "depth.light": "হালকা",
@@ -186,6 +186,7 @@
   "read.sentence": "বাক্য",
   "read.suggestion": "পরামর্শ",
   "read.paragraph": "অনুচ্ছেদ",
+  "read.needsEnglishVoice": "বাক্য আর অনুচ্ছেদ পড়ার জন্য এই PC-তে ইংরেজি ভয়েস দরকার।",
 
   "speech.card": "বাকি {left, number}টির মধ্যে কার্ড {position, number}। {speech}",
   "speech.wordCard": "{category}। {title}।",
@@ -332,6 +333,7 @@
   "reading.pitchValue": "{value, number, ::.0}",
   "reading.sample": "নমুনা শুনুন",
   "reading.voiceNote": "শুধু এই PC-তে ইনস্টল করা ভয়েস ব্যবহার হয়, তাই আপনার লেখা কোথাও পাঠানো হয় না।",
+  "reading.voiceLanguageHint": "ডকুমেন্ট সবসময় ইংরেজি ভয়েসে পড়া হয়। হিন্দি বা বাংলা ভয়েস শুধু কার্ড পড়ে, যখন অ্যাপ সেই ভাষায় থাকে।",
 
   "modules.legend": "মডিউল",
   "modules.perGoal": "{goal} লক্ষ্যের জন্য আলাদা মডিউল ব্যবহার করুন",

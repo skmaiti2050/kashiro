@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import type { Decision } from '@/engine/decisions';
 import type { Candidate } from '@/engine/types';
-import { localVoices, paragraphAt, pickVoice, sentenceAt, suggestionSpeech, voiceFor, type VoiceInfo } from '@/ui/state/readAloud';
+import { localVoices, paragraphAt, sentenceAt, suggestionSpeech, voiceFor, type VoiceInfo } from '@/ui/state/readAloud';
 import { en } from './english';
 
 const voice = (name: string, localService: boolean, extra: Partial<VoiceInfo> = {}): VoiceInfo => ({
@@ -31,24 +31,24 @@ describe('localVoices', () => {
   });
 });
 
-describe('pickVoice', () => {
+describe('voiceFor: the chosen voice and its fallbacks (English text)', () => {
   const david = voice('David', true);
   const heera = voice('Heera', true, { lang: 'en-IN', default: true });
   const online = voice('Aria Online', false, { default: true });
 
   it('the chosen local voice', () => {
-    expect(pickVoice([david, heera], 'David')).toBe(david);
+    expect(voiceFor([david, heera], 'en', 'David')).toBe(david);
   });
 
   it('a saved choice that is gone or not local falls back to the default local voice, then the first', () => {
-    expect(pickVoice([david, heera], 'Gone')).toBe(heera);
-    expect(pickVoice([david, online], 'Aria Online')).toBe(david);
-    expect(pickVoice([david], null)).toBe(david);
+    expect(voiceFor([david, heera], 'en', 'Gone')).toBe(heera);
+    expect(voiceFor([david, online], 'en', 'Aria Online')).toBe(david);
+    expect(voiceFor([david], 'en', null)).toBe(david);
   });
 
   it('no local voice: nothing to speak with', () => {
-    expect(pickVoice([online], 'Aria Online')).toBeNull();
-    expect(pickVoice([], null)).toBeNull();
+    expect(voiceFor([online], 'en', 'Aria Online')).toBeNull();
+    expect(voiceFor([], 'en', null)).toBeNull();
   });
 });
 
@@ -60,9 +60,22 @@ describe('voiceFor (the voice for text in a language)', () => {
   const onlineHindi = voice('Swara Online', false, { lang: 'hi-IN' });
   const tanishaa = voice('Tanishaa', true, { lang: 'bn-IN' });
 
-  it('English text: the chosen voice, as pickVoice', () => {
+  it('English text: the chosen voice when it is English, else the English default, else the first English one', () => {
     expect(voiceFor([david, heera, kalpana], 'en', 'David')).toBe(david);
     expect(voiceFor([david, heera, kalpana], 'en-XA', null)).toBe(heera);
+    expect(voiceFor([kalpana, david], 'en', null)).toBe(david);
+  });
+
+  it('English text is never read by a Hindi or Bengali voice', () => {
+    // A Hindi default voice (likely on Hindi-display Windows), listed first.
+    expect(voiceFor([hemant, david, heera], 'en', null)).toBe(heera);
+    expect(voiceFor([hemant, david], 'en', null)).toBe(david);
+    // A Hindi voice the user chose (for Hindi cards).
+    expect(voiceFor([david, kalpana], 'en', 'Kalpana')).toBe(david);
+    // Only Hindi and Bengali voices: none for English.
+    expect(voiceFor([kalpana, hemant, tanishaa], 'en', 'Kalpana')).toBeNull();
+    // Network English voices still never count.
+    expect(voiceFor([kalpana, voice('Aria Online', false)], 'en', null)).toBeNull();
   });
 
   it('Hindi or Bengali text: a local voice of that language (the chosen one, else the default, else the first)', () => {

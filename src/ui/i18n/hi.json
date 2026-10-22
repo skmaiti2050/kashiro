@@ -186,6 +186,7 @@
   "read.sentence": "वाक्य",
   "read.suggestion": "सुझाव",
   "read.paragraph": "पैराग्राफ़",
+  "read.needsEnglishVoice": "वाक्य और पैराग्राफ़ पढ़ने के लिए इस PC पर अंग्रेज़ी आवाज़ चाहिए।",
 
   "speech.card": "बाक़ी {left, number} में से कार्ड {position, number}। {speech}",
   "speech.wordCard": "{category}। {title}।",
@@ -332,6 +333,7 @@
   "reading.pitchValue": "{value, number, ::.0}",
   "reading.sample": "नमूना सुनें",
   "reading.voiceNote": "सिर्फ़ इस PC पर इंस्टॉल आवाज़ें इस्तेमाल होती हैं, इसलिए आपका टेक्स्ट कहीं नहीं भेजा जाता।",
+  "reading.voiceLanguageHint": "दस्तावेज़ हमेशा अंग्रेज़ी आवाज़ में पढ़ा जाता है। हिंदी या बांग्ला आवाज़ सिर्फ़ कार्ड पढ़ती है, जब ऐप उसी भाषा में हो।",
 
   "modules.legend": "मॉड्यूल",
   "modules.perGoal": "{goal} लक्ष्य के लिए अलग मॉड्यूल इस्तेमाल करें",

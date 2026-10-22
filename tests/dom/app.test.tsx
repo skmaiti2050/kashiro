@@ -33,8 +33,9 @@ describe('live regions behind a dialog', () => {
     });
     expect(alert.closest('[inert]')).toBeNull();
     for (const status of document.querySelectorAll('[role="status"]')) expect(status.closest('[inert]')).toBeNull();
-    // The rest of the page still is inert while the dialog is open.
-    if (screen.queryByRole('alertdialog')) expect(document.querySelector('.toolbar')!.closest('[inert]')).not.toBeNull();
+    // The dialog stays open after a failed save, and the rest of the page is still inert behind it.
+    expect(screen.getByRole('alertdialog', { name: 'Unsaved changes' })).toBeTruthy();
+    expect(document.querySelector('.toolbar')!.closest('[inert]')).not.toBeNull();
   });
 });
 

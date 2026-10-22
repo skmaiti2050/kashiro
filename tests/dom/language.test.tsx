@@ -3,6 +3,7 @@ import { describe, it, expect, beforeAll, vi } from 'vitest';
 import axe from 'axe-core';
 import { act, fireEvent, screen, within } from '@testing-library/react';
 import { makeController, warmLinter } from './harness';
+import { createTranslator } from '@/ui/i18n/translator';
 import { installSpeech, LOCAL_VOICE, openAndWait, renderShell } from './shell';
 
 vi.mock('@tauri-apps/api/window', async () => (await import('./platformMocks')).tauriWindow);
@@ -96,6 +97,57 @@ describe('app language', () => {
       expect(suggestion.text).toMatch(DEVANAGARI);
       expect(sentence.voice).toEqual(LOCAL_VOICE);
       expect(sentence.text).not.toMatch(DEVANAGARI);
+    });
+
+    it('the document is read by an English voice even when a Hindi voice is the default and listed first', async () => {
+      const hindiDefault = { ...HINDI_VOICE, default: true };
+      const speech = installSpeech([hindiDefault, LOCAL_VOICE]);
+      try {
+        const { controller } = makeController();
+        renderShell(controller);
+        await openAndWait(controller, () => controller.openSample());
+        await screen.findByRole('group', { name: 'Read aloud' });
+        fireEvent.keyDown(screen.getByRole('complementary', { name: 'Review' }), { key: 's', altKey: true });
+        expect(speech.spoken).toHaveLength(1);
+        expect(speech.spoken[0].voice).toEqual(LOCAL_VOICE);
+      } finally {
+        speech.remove();
+      }
+    });
+
+    it('with only a Hindi voice: Sentence and Paragraph are off and say why; a Hindi card is still read', async () => {
+      const speech = installSpeech([HINDI_VOICE]);
+      try {
+        const { controller } = makeController({ uiLanguage: 'hi' });
+        renderShell(controller);
+        await openAndWait(controller, () => controller.openSample());
+        const bar = await screen.findByRole('group', { name: 'पढ़कर सुनाएँ' });
+        const buttons = within(bar).getAllByRole('button');
+        expect(buttons.map((b) => (b as HTMLButtonElement).disabled)).toEqual([true, false, true]);
+        expect(bar.textContent).toContain(createTranslator('hi', []).t('read.needsEnglishVoice'));
+        const panel = screen.getByRole('complementary', { name: 'समीक्षा' });
+        fireEvent.keyDown(panel, { key: 's', altKey: true });
+        expect(speech.spoken).toEqual([]);
+        fireEvent.keyDown(panel, { key: 'r', altKey: true });
+        expect(speech.spoken.map((s) => s.voice)).toEqual([HINDI_VOICE]);
+        expect(speech.spoken[0].text).toMatch(DEVANAGARI);
+      } finally {
+        speech.remove();
+      }
+    });
+
+    it('Settings says a Hindi or Bengali voice reads only the cards in that language', async () => {
+      const speech = installSpeech([LOCAL_VOICE, HINDI_VOICE]);
+      try {
+        const { controller } = makeController();
+        renderShell(controller);
+        await openAndWait(controller, () => controller.openSample());
+        await screen.findByRole('group', { name: 'Read aloud' });
+        fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+        expect(screen.getByRole('dialog').textContent).toContain(createTranslator('en', []).t('reading.voiceLanguageHint'));
+      } finally {
+        speech.remove();
+      }
     });
 
     it('with only an English local voice (a Hindi one only online): the card is read in English, never by the online voice', async () => {

@@ -111,6 +111,7 @@ function VoiceSettings({ reading, readAloud, change }: { reading: Reading; readA
           ))}
         </select>
       </label>
+      <p className="hint">{t.t('reading.voiceLanguageHint')}</p>
       <label className="field">
         <span>{t.t('reading.speed')}</span>
         <input
@@ -136,7 +137,10 @@ function VoiceSettings({ reading, readAloud, change }: { reading: Reading; readA
         />
       </label>
       <div className="actions">
-        <button onClick={() => readAloud.read(SAMPLE)}>{t.t('reading.sample')}</button>
+        {/* In the chosen voice's language, so a Hindi or Bengali voice can be heard too. */}
+        <button onClick={() => readAloud.read(SAMPLE, readAloud.voices.find((v) => v.voiceURI === reading.voice)?.lang ?? 'en')}>
+          {t.t('reading.sample')}
+        </button>
       </div>
       <p className="hint">{t.t('reading.voiceNote')}</p>
     </>
