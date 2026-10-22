@@ -38,7 +38,8 @@ export default defineConfig({
           name: "timing",
           include: ["tests/timing/**/*.test.ts"],
           pool: "forks",
-          poolOptions: { forks: { singleFork: true } },
+          // Vitest 4: one test file at a time (replaces v3's poolOptions.forks.singleFork).
+          fileParallelism: false,
           sequence: { groupOrder: 1 },
         },
       },
