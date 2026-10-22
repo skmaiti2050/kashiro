@@ -370,7 +370,7 @@
     "tinyvec@1.13.3": "Zlib OR Apache-2.0 OR MIT",
     "tokio-macros@2.7.2": "MIT",
     "tokio-util@0.7.20": "MIT",
-    "tokio@1.54.0": "MIT",
+    "tokio@1.54.1": "MIT",
     "toml@0.8.2": "MIT OR Apache-2.0",
     "toml@1.1.8+spec-1.1.0": "MIT OR Apache-2.0",
     "toml_datetime@0.6.3": "MIT OR Apache-2.0",
