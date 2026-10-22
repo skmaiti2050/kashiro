@@ -74,6 +74,29 @@ function sampleValuesFor(message: string): Record<string, string | number | ((ch
   return values;
 }
 
+describe('wording that must not be confused (review fix round 1)', () => {
+  const text = (catalogue: unknown, key: string) => (catalogue as Record<string, string>)[key];
+
+  it('Discard (unsaved changes) does not reuse the Reject word, and says what is discarded', () => {
+    for (const catalogue of TRANSLATIONS) {
+      expect(text(catalogue, 'unsaved.discard')).not.toBe(text(catalogue, 'card.reject'));
+    }
+    expect(text(hi, 'unsaved.discard')).toContain('बदलाव');
+    expect(text(bn, 'unsaved.discard')).toContain('পরিবর্তন');
+  });
+
+  it('Bengali Dismiss does not read as removing text (সরিয়ে)', () => {
+    for (const key of ['card.dismiss', 'card.dismissAll', 'dismiss.menu', 'dismiss.button', 'verb.dismissed', 'shortcuts.reject', 'settings.ignoredEmpty']) {
+      expect(text(bn, key), key).not.toContain('সরিয়ে');
+    }
+  });
+
+  it('Overwrite names the action on the original', () => {
+    expect(text(hi, 'save.overwrite')).toContain('बदलें');
+    expect(text(bn, 'save.overwrite')).toContain('বদলে');
+  });
+});
+
 describe('plurals', () => {
   const count = (language: 'en' | 'hi' | 'bn', n: number) => createTranslator(language, ['en-IN']).t('status.words', { count: n });
 

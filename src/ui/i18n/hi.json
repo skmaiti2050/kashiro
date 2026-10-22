@@ -38,7 +38,7 @@
   "save.whereLegend": "कहाँ सेव हो",
   "save.newCopy": "नई कॉपी",
   "save.newCopyDetail": "मूल फ़ाइल के पास {name} नाम से सेव होगी। मूल फ़ाइल नहीं बदलेगी।",
-  "save.overwrite": "मूल फ़ाइल पर (बैकअप के साथ)",
+  "save.overwrite": "मूल फ़ाइल बदलें (बैकअप के साथ)",
   "save.overwriteDetail": "पहले मूल फ़ाइल की .bak कॉपी बनती है, फिर उसकी जगह नई फ़ाइल आती है। पेस्ट किया गया टेक्स्ट हमेशा नई कॉपी में सेव होता है।",
 
   "variant.American": "अमेरिकी",
@@ -258,10 +258,10 @@
   "status.upToDate": "जाँच पूरी है",
 
   "unsaved.title": "बिना सेव किए बदलाव",
-  "unsaved.text": "<b>{name}</b> में बदलाव अभी सेव नहीं हुए हैं। सेव करें, छोड़ दें, या रद्द करें?",
+  "unsaved.text": "<b>{name}</b> में बदलाव अभी सेव नहीं हुए हैं। सेव करें, बदलाव हटाएँ, या रद्द करें?",
   "unsaved.thisDocument": "यह दस्तावेज़",
   "unsaved.cancel": "रद्द करें",
-  "unsaved.discard": "छोड़ दें",
+  "unsaved.discard": "बदलाव हटाएँ",
   "unsaved.save": "सेव करें",
   "unsaved.saving": "सेव हो रहा है…",
 
@@ -371,7 +371,7 @@
   "explain.toToo": "यहाँ “to” लिखें: “too” का मतलब है “भी” या “ज़रूरत से ज़्यादा”।",
   "explain.verbMatchesWord": "क्रिया को उससे पहले वाले शब्द से मिलाएँ (“he walks”, “they walk”)।",
   "explain.verbMatchesSubject": "क्रिया को उसके कर्ता से मिलाएँ (“he walks”, “they walk”)।",
-  "explain.its": "किसी चीज़ का होना बताने के लिए “its” (बिना ’ के) लिखें। “It’s” का मतलब है “it is” या “it has”।",
+  "explain.its": "“उसका” या “उसकी” के अर्थ में “its” (बिना ’ के) लिखें। “It’s” का मतलब है “it is” या “it has”।",
   "explain.repeated": "दोहराया गया “{word}” हटाएँ।",
   "explain.probablyMean": "शायद आपका मतलब यहाँ “{word}” है।",
   "explain.contraction": "औपचारिक लेखन में छोटा रूप; पूरा रूप लिखने पर विचार करें।",
@@ -404,7 +404,7 @@
   "error.checkerStartNext": "ऐप दोबारा शुरू करें। फिर भी ऐसा हो, तो इसे दोबारा इंस्टॉल करें।",
   "error.settingsLoad": "सेटिंग्स लोड नहीं हो सकीं",
   "error.settingsLoadNext": "ऐप दोबारा शुरू करें।",
-  "error.drop": "छोड़ी गई फ़ाइल नहीं खुल सकी",
+  "error.drop": "खींचकर लाई गई फ़ाइल नहीं खुल सकी",
   "error.dropNext": "इसकी जगह ‘खोलें’ (Ctrl+O) से फ़ाइल चुनें।",
 
   "files.documents": "दस्तावेज़"
