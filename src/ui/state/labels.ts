@@ -48,11 +48,33 @@ export function wordCardTitle(t: Translator, card: WordCard, candidates: Map<str
  * only the original for a flag with nothing to apply (its message is shown separately).
  */
 export function decisionTitle(t: Translator, decision: Decision, candidates: Map<string, Candidate>): string {
-  if (isWordCard(decision)) return wordCardTitle(t, decision, candidates);
+  return decisionTitleParts(t, decision, candidates)
+    .map((part) => part.text)
+    .join('');
+}
+
+/** A piece of a title: the document's own (English) words, or the UI's. */
+export interface TitlePart {
+  text: string;
+  document: boolean;
+}
+
+/** Marks the quote's value, to split “{text}” around it in any language. */
+const VALUE_MARK = '\u0000';
+
+/** decisionTitle in parts, so the document's words can be marked lang="en" and nothing else. */
+export function decisionTitleParts(t: Translator, decision: Decision, candidates: Map<string, Candidate>): TitlePart[] {
+  const ui = (text: string): TitlePart => ({ text, document: false });
+  const doc = (text: string): TitlePart => ({ text, document: true });
+  if (isWordCard(decision)) return [ui(wordCardTitle(t, decision, candidates))];
   const first = candidates.get(decision.candidateIds[0])!;
-  const original = excerpt(first.original).text || t.t('card.empty');
-  const places = decision.kind === 'batch' ? ` ${t.t('card.places', { count: decision.candidateIds.length })}` : '';
-  if (first.replacements.length === 0) return `${t.t('quote', { text: original })}${places}`;
-  const fixes = first.replacements.map((r) => (r === '' ? t.t('card.delete') : excerpt(r).text)).join(' / ');
-  return `${original} → ${fixes}${places}`;
+  const originalText = excerpt(first.original).text;
+  const original = originalText ? doc(originalText) : ui(t.t('card.empty'));
+  const places = decision.kind === 'batch' ? [ui(` ${t.t('card.places', { count: decision.candidateIds.length })}`)] : [];
+  if (first.replacements.length === 0) {
+    const [before, after] = t.t('quote', { text: VALUE_MARK }).split(VALUE_MARK);
+    return [ui(before), original, ui(after), ...places].filter((part) => part.text !== '');
+  }
+  const fixes = first.replacements.flatMap((r, i) => [...(i > 0 ? [ui(' / ')] : []), r === '' ? ui(t.t('card.delete')) : doc(excerpt(r).text)]);
+  return [original, ui(' → '), ...fixes, ...places];
 }

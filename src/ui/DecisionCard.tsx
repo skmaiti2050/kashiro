@@ -10,7 +10,8 @@ import { Kbd } from './Kbd';
 import type { Translator } from './i18n/translator';
 import { useT } from './i18n/useT';
 import { categoryOf } from './state/categories';
-import { batchApplyLabel, decisionTitle, excerpt } from './state/labels';
+import { DecisionTitle } from './DecisionTitle';
+import { batchApplyLabel, excerpt } from './state/labels';
 import { englishOnly, explanation } from './state/plainMessages';
 import type { SessionController } from './state/sessionController';
 
@@ -56,8 +57,8 @@ export function DecisionCard({ controller, decision, candidates, paraText, touch
   return (
     <div className="card" title={t.t('card.clickToShow')} onClick={() => onLocate(shown)}>
       <CategoryTag category={category} kind={first.kind} />
-      <h3 className="card-title" lang="en">
-        {decisionTitle(t, decision, candidates)}
+      <h3 className="card-title">
+        <DecisionTitle decision={decision} candidates={candidates} />
       </h3>
       {englishOnly(explained) ? (
         // Harper's own message, not translated yet: marked English for screen readers, and said so.

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { Decision } from '@/engine/decisions';
 import type { Candidate } from '@/engine/types';
-import { decisionTitle, excerpt, wordCardWords } from '@/ui/state/labels';
+import { decisionTitle, decisionTitleParts, excerpt, wordCardWords } from '@/ui/state/labels';
 import { createTranslator } from '@/ui/i18n/translator';
 import { en } from './english';
 
@@ -54,6 +54,33 @@ describe('decisionTitle', () => {
     expect(decisionTitle(en, otherLanguage, words)).toBe('2 words in Indian languages');
     const hi = createTranslator('hi', ['hi-IN']);
     expect(decisionTitle(hi, otherLanguage, words)).toBe('भारतीय भाषाओं के 2 शब्द');
+  });
+});
+
+describe('decisionTitleParts (which parts are the document’s English words)', () => {
+  const words = (parts: { text: string; document: boolean }[]) => parts.filter((p) => p.document).map((p) => p.text);
+
+  it('marks only the original and the suggestions as document text', () => {
+    const c = cand("can't", ['cannot', 'can not']);
+    const batch: Decision = { id: 'batch:x', kind: 'batch', candidateIds: ['c', 'b'], label: '', score: 1 };
+    const parts = decisionTitleParts(en, batch, byId(c));
+    expect(words(parts)).toEqual(["can't", 'cannot', 'can not']);
+    expect(parts.map((p) => p.text).join('')).toBe("can't → cannot / can not (2 places)");
+  });
+
+  it('the UI’s own words are not document text: "(delete)", "(empty)", the quote marks, a word card title', () => {
+    const deletion = cand('very', ['']);
+    expect(words(decisionTitleParts(en, single(deletion), byId(deletion)))).toEqual(['very']);
+    const flag = cand('teh', []);
+    expect(decisionTitleParts(en, single(flag), byId(flag))).toEqual([
+      { text: '“', document: false },
+      { text: 'teh', document: true },
+      { text: '”', document: false },
+    ]);
+    const empty = cand('', ['x']);
+    expect(decisionTitleParts(en, single(empty), byId(empty))[0]).toEqual({ text: '(empty)', document: false });
+    const terms: Decision = { id: 'terms', kind: 'terms', candidateIds: ['a'], label: '', score: 0, counts: { sarpanch: 5 } };
+    expect(words(decisionTitleParts(en, terms, byId(cand('sarpanch', [], 'a'))))).toEqual([]);
   });
 });
 

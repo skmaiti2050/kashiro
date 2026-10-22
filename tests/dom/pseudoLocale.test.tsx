@@ -25,11 +25,13 @@ const name = (key: MessageKey) => pseudo.t(key);
 const RAW_WORD = /[A-Za-z]{2,}/g;
 /** A file name ("Sample.checked.txt"): the user's data, not UI text. */
 const FILE_NAME = /[\w-]+(?:\.[\w-]+)*\.(?:docx|txt|md|bak)\b/g;
-/** Quoted document text (“could of”): the user's words, shown in English. */
-const QUOTED = /“[^”]*”/g;
+/** Quoted text (“could of”): stripped only when it is the user's words, so a quoted UI label is still checked. */
+const QUOTED = /“([^”]*)”/g;
 
 /** Rows of controls and labels that must wrap rather than overflow when the text grows. */
-const KEY_ROWS = '.toolbar, .statusbar, .empty-actions, .actions, .read-aloud, .changelog-bar, .dictionary li, .dialog-header';
+const KEY_ROWS = ['.toolbar', '.statusbar', '.empty-actions', '.actions', '.read-aloud', '.changelog-bar', '.dictionary li', '.dialog-header'];
+/** The KEY_ROWS some screen rendered: each must, or its check proved nothing. */
+const rowsSeen = new Set<string>();
 /** A generous average glyph width for 14px text (0.6em): pseudo text is wider than plain English. */
 const CHAR_PX = 8.4;
 
@@ -40,9 +42,14 @@ beforeAll(async () => {
   document.head.append(style);
 });
 
-/** The UI's own text is in the UI language; document words, Harper's messages and endonyms carry their own lang. */
-const isUiText = (el: Element | null): el is Element =>
-  el !== null && el.closest('[lang]')?.getAttribute('lang') === 'en-XA' && !el.closest('kbd, .cm-content');
+/**
+ * Text to check: in the UI language (en-XA), or marked English (lang="en": checked unless it is the
+ * document's own words, see isDocumentText). Endonyms (lang="hi", "bn"), key caps and the editor are skipped.
+ */
+const isUiText = (el: Element | null): el is Element => {
+  const lang = el?.closest('[lang]')?.getAttribute('lang');
+  return el !== null && (lang === 'en-XA' || lang === 'en') && !el.closest('kbd, .cm-content');
+};
 
 /** "button.primary": where a finding is, for the failure message. */
 const elementName = (el: Element) => `${el.tagName.toLowerCase()}${typeof el.className === 'string' && el.className ? `.${el.className.split(' ')[0]}` : ''}`;
@@ -72,18 +79,34 @@ const listWords = (['conjunction', 'disjunction'] as const).flatMap((type) =>
 
 /**
  * Text the app shows as it is, in any language: Harper's own messages (English by design, flagged on the
- * card), voice names, endonyms, and Intl's list words.
+ * card), the user's dictionary words, voice names, endonyms, and Intl's list words.
  */
 function dataStrings(controller: SessionController): string[] {
   const harper = (controller.getState().session?.candidates() ?? []).filter((c) => englishOnly(explanation(c))).map((c) => c.message);
-  return [...harper, LOCAL_VOICE.name, ...Object.values(LANGUAGE_NAMES), ...listWords].sort((a, b) => b.length - a.length);
+  const dictionary = controller.getState().settings.dictionary;
+  return [...harper, ...dictionary, LOCAL_VOICE.name, ...Object.values(LANGUAGE_NAMES), ...listWords].sort((a, b) => b.length - a.length);
+}
+
+/** The user's own words, as the app may show them: the paragraphs, the suggested replacements, the dictionary. */
+function documentTexts(controller: SessionController): string[] {
+  const { session, settings } = controller.getState();
+  const fromDocument = session ? [...session.paragraphs().map((p) => p.text), ...session.candidates().flatMap((c) => c.replacements)] : [];
+  return [...fromDocument, ...settings.dictionary].map((s) => s.toLowerCase());
+}
+
+/** True when `text` is the document's words (an excerpt may end in " …"; the Indian-language card lowercases). */
+function isDocumentText(text: string, documents: string[]): boolean {
+  const words = text.trim().replace(/ …$/, '').toLowerCase();
+  return words !== '' && documents.some((d) => d.includes(words));
 }
 
 /** Every ASCII word left in the UI's text once the user's data is taken out. */
 function rawEnglish(controller: SessionController): string[] {
   const data = dataStrings(controller);
-  return uiTexts().flatMap(({ text, where }) => {
-    let rest = text.replace(FILE_NAME, '').replace(QUOTED, '');
+  const documents = documentTexts(controller);
+  return uiTexts().flatMap(({ text, el, where }) => {
+    if (el.closest('[lang]')?.getAttribute('lang') === 'en' && (isDocumentText(text, documents) || data.includes(text.trim()))) return [];
+    let rest = text.replace(FILE_NAME, '').replace(QUOTED, (quoted, inner: string) => (isDocumentText(inner, documents) ? '' : quoted));
     for (const value of data) rest = rest.split(value).join('');
     return (rest.match(RAW_WORD) ?? []).map((word) => `${where}: “${word}” in “${text.trim()}”`);
   });
@@ -95,9 +118,12 @@ const gridTracks = (template: string) => template.match(/[\w.-]+\([^)]*\)|\S+/g)
 /** Places where longer text would overflow its container instead of wrapping. */
 function overflowRisks(): string[] {
   const risks: string[] = [];
-  for (const row of document.querySelectorAll(KEY_ROWS)) {
-    const style = getComputedStyle(row);
-    if (style.display.endsWith('flex') && style.flexWrap !== 'wrap') risks.push(`${elementName(row)}: a flex row that does not wrap`);
+  for (const selector of KEY_ROWS) {
+    for (const row of document.querySelectorAll(selector)) {
+      rowsSeen.add(selector);
+      const style = getComputedStyle(row);
+      if (style.display.endsWith('flex') && style.flexWrap !== 'wrap') risks.push(`${elementName(row)}: a flex row that does not wrap`);
+    }
   }
   for (const { el, where } of uiTexts()) {
     const unbreakable = ancestors(el).find((a) => getComputedStyle(a).whiteSpace === 'nowrap' && !a.matches('.visually-hidden'));
@@ -158,7 +184,8 @@ describe('pseudo-locale (en-XA)', () => {
   it('Settings, keyboard shortcuts and unsaved changes', async () => {
     const speech = installSpeech([LOCAL_VOICE]);
     try {
-      const { controller } = makeController({ uiLanguage: 'en-XA' });
+      // A dictionary word, so Settings shows its rows.
+      const { controller } = makeController({ uiLanguage: 'en-XA', dictionary: ['sarpanch'] });
       renderShell(controller);
       await openAndWait(controller, () => controller.openSample());
       fireEvent.click(screen.getByRole('button', { name: name('toolbar.settings') }));
@@ -193,10 +220,14 @@ describe('pseudo-locale (en-XA)', () => {
     await expectTranslatedAndFitting(controller);
   });
 
-  it('the check catches raw English and a fixed column too narrow for its word', () => {
-    document.body.innerHTML = `<div lang="en-XA"><button>Save</button><div style="display:grid;grid-template-columns:40px 1fr"><span>[Ŧĥöŕöûĝĥ ~~]</span><span>x</span></div></div>`;
+  it('every key row was rendered by some screen above', () => {
+    expect([...rowsSeen].sort()).toEqual([...KEY_ROWS].sort());
+  });
+
+  it('the check catches raw English (also marked lang="en", or quoted) and a fixed column too narrow for its word', () => {
+    document.body.innerHTML = `<div lang="en-XA"><button>Save</button><span lang="en">Delete</span><p>[Àļļ “Formatting” ~]</p><div style="display:grid;grid-template-columns:40px 1fr"><span>[Ŧĥöŕöûĝĥ ~~]</span><span>x</span></div></div>`;
     const controller = makeController().controller;
-    expect(rawEnglish(controller)).toEqual(['button: “Save” in “Save”']);
+    expect(rawEnglish(controller)).toEqual(['button: “Save” in “Save”', 'span: “Delete” in “Delete”', 'p: “Formatting” in “[Àļļ “Formatting” ~]”']);
     expect(overflowRisks()).toEqual(['div column 1 (40px): “[Ŧĥöŕöûĝĥ ~~]”']);
     document.body.innerHTML = '';
   });

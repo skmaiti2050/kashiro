@@ -1,7 +1,7 @@
 import type { Decision } from '@/engine/decisions';
 import type { Candidate } from '@/engine/types';
 import { useT } from './i18n/useT';
-import { decisionTitle } from './state/labels';
+import { DecisionTitle } from './DecisionTitle';
 
 interface Props {
   more: Decision[];
@@ -21,7 +21,7 @@ export function MoreList({ more, currentId, candidates, onPick }: Props) {
         {more.map((d) => (
           <li key={d.id} className={d.id === currentId ? 'current' : undefined}>
             <button className="row-label" onClick={() => onPick(d)}>
-              {decisionTitle(t, d, candidates)}
+              <DecisionTitle decision={d} candidates={candidates} />
             </button>
             <button className="row-action" onClick={() => onPick(d)}>
               {t.t('more.review')}
