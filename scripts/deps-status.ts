@@ -1,8 +1,9 @@
 /**
  * `npm run deps:status` (Task S8): what could be upgraded, known advisories and the licence check, as
  * deps/reports/deps-status.md. Developer-only: it uses the network (npm, cargo, release pages); the app
- * never does. It exits 1 when a licence is not on the allowlist (scripts/deps/licences.ts) or a production
- * package is not installed to read it from. A tool that is not installed is skipped with a warning (see
+ * never does. It exits 1 when a licence is not on the allowlist (scripts/deps/licences.ts), a production
+ * package is not installed to read it from, or a production npm package has a known advisory. Dev-tool
+ * advisories (they run here during tests) are listed separately; high or critical ones are warnings. A tool that is not installed is skipped with a warning (see
  * docs/UPGRADING.md for the pinned versions); a skipped licence check makes the headline "not fully checked".
  */
 import fs from 'node:fs';
@@ -12,6 +13,7 @@ import { ASSETS } from './deps/assets';
 import { licenceFailures, readNpmLicences, type LicenceFailure } from './deps/licences';
 import { lastLines, runTool, type ToolResult } from './deps/run';
 import { checkUpstream } from './deps/upstream';
+import { advisoryLines, advisoryVerdict, devActionNeeded, devOnlyVulnerabilities } from './deps/advisories';
 import { licenceVerdict, readCargoAudit, readCargoUpdate, readNpmAudit, readNpmOutdated } from './deps/toolReports';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -22,6 +24,8 @@ const warnings: string[] = [];
 let licenceFailed = false;
 /** Licence checks that were skipped: the headline must not say "all on the allowlist" then. */
 const licencesNotChecked: string[] = [];
+let advisoryFailed = false;
+let advisoryHeadline = '';
 
 /** A missing tool becomes a warning; a failed run still shows its output. */
 function toolNote(name: string, result: ToolResult): string | undefined {
@@ -75,17 +79,28 @@ async function assetUpdates(): Promise<string[]> {
   return [...lines, ''];
 }
 
+/** Production advisories fail the run; dev-tool ones (they run on this machine in tests) warn when serious. */
 function npmAdvisories(): string[] {
-  const lines = ['### npm (`npm audit --omit=dev`)', ''];
-  const report = readNpmAudit(runTool('npm audit --omit=dev --json', ROOT));
-  if (!report.ok) return [...lines, couldNotCheck('npm audit', report.reason), ''];
-  const found = Object.entries(report.value.vulnerabilities);
-  if (!found.length) lines.push('No known vulnerabilities in production npm packages.');
-  for (const [name, v] of found) {
-    const titles = v.via.map((via) => (typeof via === 'string' ? `via ${via}` : `${via.title} (${via.url})`)).join('; ');
-    lines.push(`- **${name}** (${v.severity}): ${titles}`);
+  const production = readNpmAudit(runTool('npm audit --omit=dev --json', ROOT));
+  const full = readNpmAudit(runTool('npm audit --json', ROOT));
+  const lines = ['### npm production packages (`npm audit --omit=dev`)', ''];
+  if (!production.ok) lines.push(couldNotCheck('npm audit --omit=dev', production.reason));
+  else {
+    const found = advisoryLines(production.value.vulnerabilities);
+    lines.push(...(found.length ? found : ['No known vulnerabilities in production npm packages.']));
   }
-  return [...lines, ''];
+  lines.push('', '### npm dev tools (`npm audit`, minus the production advisories)', '');
+  if (!full.ok || !production.ok) {
+    const reason = full.ok ? 'the production audit failed, so dev-only advisories cannot be told apart' : full.reason;
+    return [...lines, couldNotCheck('npm audit (dev tools)', reason), ''];
+  }
+  const dev = devOnlyVulnerabilities(full.value, production.value);
+  const verdict = advisoryVerdict(production.value.vulnerabilities, dev);
+  if (verdict.failed) advisoryFailed = true;
+  if (verdict.text) advisoryHeadline = verdict.text;
+  warnings.push(...devActionNeeded(dev));
+  const found = advisoryLines(dev);
+  return [...lines, ...(found.length ? found : ['No known vulnerabilities in dev npm packages.']), ''];
 }
 
 function advisories(): string[] {
@@ -139,7 +154,7 @@ function licences(): string[] {
 
 async function main(): Promise<void> {
   const sections = [...npmOutdated(), ...cargoOutdated(), ...(await assetUpdates()), ...advisories(), ...licences()];
-  const verdict = licenceVerdict(licenceFailed, licencesNotChecked);
+  const verdict = [licenceVerdict(licenceFailed, licencesNotChecked), advisoryHeadline].filter(Boolean).join(' ');
   const report = [
     '# deps:status',
     '',
@@ -152,7 +167,7 @@ async function main(): Promise<void> {
   fs.writeFileSync(REPORT, report);
   for (const warning of warnings) console.warn(`warning: ${warning}`);
   console.log(`${verdict} Report: ${path.relative(ROOT, REPORT)}`);
-  if (licenceFailed) process.exitCode = 1;
+  if (licenceFailed || advisoryFailed) process.exitCode = 1;
 }
 
 await main();

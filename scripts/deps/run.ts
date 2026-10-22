@@ -36,6 +36,11 @@ export function argumentAfter(argv: string[], flag: string): string | undefined 
   return index >= 0 ? argv[index + 1] : undefined;
 }
 
+/** Every value of a repeated flag: "--expect tokio --expect mio" gives ["tokio", "mio"]. */
+export function argumentsAfter(argv: string[], flag: string): string[] {
+  return argv.flatMap((arg, i) => (arg === flag && argv[i + 1] !== undefined ? [argv[i + 1]] : []));
+}
+
 /** The last `count` lines of a tool's output, for a report. */
 export function lastLines(text: string, count: number): string {
   return text.trimEnd().split(/\r?\n/).slice(-count).join('\n');

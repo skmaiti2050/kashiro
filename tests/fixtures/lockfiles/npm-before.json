@@ -1,0 +1,14 @@
+{
+  "name": "fixture",
+  "lockfileVersion": 3,
+  "packages": {
+    "": { "name": "fixture", "dependencies": { "a": "1.0.0", "b": "1.0.0", "e": "1.0.0" }, "devDependencies": { "old-tool": "1.0.0" } },
+    "node_modules/a": { "version": "1.0.0" },
+    "node_modules/b": { "version": "1.0.0", "dependencies": { "c": "^2.0.0" } },
+    "node_modules/b/node_modules/c": { "version": "2.0.0" },
+    "node_modules/c": { "version": "1.0.0" },
+    "node_modules/e": { "version": "1.0.0", "dependencies": { "c": "^2.0.0" } },
+    "node_modules/e/node_modules/c": { "version": "2.0.0" },
+    "node_modules/old-tool": { "version": "1.0.0", "dev": true }
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "auditReportVersion": 2,
+  "vulnerabilities": {
+    "tinypool": {
+      "name": "tinypool",
+      "severity": "critical",
+      "isDirect": false,
+      "via": [
+        { "source": 1, "name": "tinypool", "title": "Prototype pollution leading to remote code execution", "url": "https://github.com/advisories/GHSA-5gmw-xhrv-c9v3", "severity": "critical" }
+      ],
+      "fixAvailable": true
+    },
+    "vitest": {
+      "name": "vitest",
+      "severity": "critical",
+      "isDirect": true,
+      "via": ["tinypool", "@vitest/mocker"],
+      "fixAvailable": true
+    },
+    "@vitest/mocker": {
+      "name": "@vitest/mocker",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        { "source": 2, "name": "@vitest/mocker", "title": "Example mocker advisory", "url": "https://github.com/advisories/GHSA-82fw-gwwq-j7x9", "severity": "moderate" }
+      ],
+      "fixAvailable": true
+    },
+    "shipped-lib": {
+      "name": "shipped-lib",
+      "severity": "high",
+      "isDirect": true,
+      "via": [{ "source": 3, "name": "shipped-lib", "title": "Example production advisory", "url": "https://github.com/advisories/GHSA-0000-0000-0000", "severity": "high" }],
+      "fixAvailable": false
+    }
+  },
+  "metadata": { "vulnerabilities": { "info": 0, "low": 0, "moderate": 1, "high": 1, "critical": 2, "total": 4 } }
+}

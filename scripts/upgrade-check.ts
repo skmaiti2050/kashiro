@@ -10,7 +10,10 @@
  *   - licences not on the allowlist.
  * Exits 1 when anything fails. Offline except what cargo itself fetches for the build.
  *
- * Usage: npm run upgrade:check -- [--samples <sample-pack folder>] [--dakshina <google-dakshina.csv>]
+ *   - the lockfile graph changes against HEAD; with --expect, any change outside those packages fails.
+ *
+ * Usage: npm run upgrade:check -- --expect <package> [--expect <package>...] [--samples <sample-pack folder>]
+ *        [--dakshina <google-dakshina.csv>]
  */
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
@@ -22,7 +25,9 @@ import { checkPermissions, PERMISSION_BASELINE } from './deps/permissions';
 import { decisionsVerdict } from './deps/referenceValues';
 import { licenceFailures, type PackageLicence } from './deps/licences';
 import type { LicenceSnapshot } from './deps/licenceSnapshot';
-import { argumentAfter, lastLines, runTool } from './deps/run';
+import { argumentAfter, argumentsAfter, lastLines, runTool } from './deps/run';
+import { cargoLockGraph, changesOutside, diffLockGraphs, npmLockGraph, type LockGraph } from './deps/lockDiff';
+import { execFileSync } from 'node:child_process';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const REPORTS = path.join(ROOT, 'deps/reports');
@@ -123,10 +128,36 @@ function permissionLines(): string[] {
   return [`## Permissions (CSP and capabilities vs ${PERMISSION_BASELINE})`, '', ...body, ''];
 }
 
+/** The lockfiles and how to read each into a dependency graph. */
+const LOCKFILES: [string, (text: string) => LockGraph][] = [
+  ['src-tauri/Cargo.lock', cargoLockGraph],
+  ['package-lock.json', npmLockGraph],
+];
+
+/**
+ * What this change did to each lockfile, against the committed one at HEAD. With --expect, a change that
+ * belongs to none of the expected packages fails (cargo update -p can re-point other crates' edges).
+ */
+function lockfileLines(expected: string[]): string[] {
+  const scope = expected.length ? `expected: ${expected.join(', ')}` : 'no --expect given, so nothing is limited';
+  const lines = [`## Lockfile changes against HEAD (${scope})`, ''];
+  for (const [file, readGraph] of LOCKFILES) {
+    const committed = execFileSync('git', ['show', `HEAD:${file}`], { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+    const changes = diffLockGraphs(readGraph(committed), readGraph(fs.readFileSync(path.join(ROOT, file), 'utf8')));
+    const outside = expected.length ? changesOutside(changes, expected) : [];
+    failures.push(...outside.map((c) => `lockfile change outside --expect: ${c.text}`));
+    lines.push(`### ${file}: ${changes.length ? `${changes.length} changes` : 'unchanged'}`, '');
+    for (const change of changes) lines.push(`- ${outside.includes(change) ? `**unexpected:** ${change.text}` : change.text}`);
+    if (changes.length) lines.push('');
+  }
+  return lines;
+}
+
 async function main(): Promise<void> {
   fs.mkdirSync(REPORTS, { recursive: true });
   const samples = argumentAfter(process.argv, '--samples');
   const dakshina = argumentAfter(process.argv, '--dakshina');
+  const lockfiles = lockfileLines(argumentsAfter(process.argv, '--expect'));
   console.log('Regenerating snapshots...');
   const snapshots = await snapshotSection(samples);
 
@@ -159,6 +190,7 @@ async function main(): Promise<void> {
     `Generated ${new Date().toISOString().slice(0, 10)}. ${failures.length ? `**FAILED** (${failures.length})` : 'All checks passed.'}`,
     '',
     ...(failures.length ? ['Failures:', '', ...failures.map((f) => `- ${f}`), ''] : []),
+    ...lockfiles,
     ...snapshots,
     ...checks,
     ...permissions,

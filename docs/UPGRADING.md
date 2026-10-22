@@ -32,15 +32,22 @@ reads the installed packages (`scripts/deps/licences.ts`).
 
 1. **See what could change:** `npm run deps:status` (uses the network; the app never does). It writes
    `deps/reports/deps-status.md` (gitignored): outdated npm packages and crates, newer data releases, security
-   advisories (`npm audit --omit=dev`, `cargo audit`) and the licence check. It fails if a licence is not on the
-   allowlist. A tool that gave no usable answer (no output, an error, text instead of JSON) is reported as
+   advisories and the licence check. npm advisories come in two sections: production packages
+   (`npm audit --omit=dev`), where any advisory fails the run, and dev tools (the rest of a full `npm audit`),
+   whose high and critical advisories are "action needed" warnings because they run on this machine during
+   tests. Rust advisories come from `cargo audit`. It also fails if a licence is not on the allowlist. A tool that gave no usable answer (no output, an error, text instead of JSON) is reported as
    "could not check" with a warning, never as clean. If cargo-deny is missing the headline says "Licences: not
    fully checked", and a production npm package that is not installed fails the licence check (run `npm ci`).
 2. **Upgrade one thing at a time.** One npm package (`npm install name@x.y.z`), one crate (`cargo update -p name
    --precise x.y.z` in `src-tauri`), or one data file (rebuild with its `npm run build:*` script, then update its
    entry in `deps/assets.json`).
-3. **Check it:** `npm run upgrade:check -- --samples <sample-pack folder> [--dakshina <google-dakshina.csv>]`. It
-   regenerates the snapshots in place, runs the type check, the tests (timing alone), the trust suite (alone),
+3. **Check it:** `npm run upgrade:check -- --expect <the package you upgraded> --samples <sample-pack folder>
+   [--dakshina <google-dakshina.csv>]`. Always pass `--expect`, once per package that may legitimately change
+   (`--expect vitest --expect @vitest/mocker`). The report starts with the lockfile graph changes against HEAD,
+   for `src-tauri/Cargo.lock` and `package-lock.json`: packages added, removed or at another version, and
+   dependency edges re-pointed in other packages ("cssparser-macros 0.7.1: syn 3.0.9 -> 2.0.119"). Any change
+   outside the `--expect` packages fails: `cargo update -p` and `npm install` can move other packages too. It
+   then regenerates the snapshots in place, runs the type check, the tests (timing alone), the trust suite (alone),
    `cargo test` and a Tauri debug build, compares the CSP and capabilities with `deps/snapshots/permissions.json`
    and checks the licences. It writes `deps/reports/upgrade-report.md` and exits 1 if anything failed, including a
    missing decisions table. Without `--samples` the sample-pack flags are kept, not re-checked.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { argumentAfter, runTool } from '../../scripts/deps/run';
+import { argumentAfter, argumentsAfter, runTool } from '../../scripts/deps/run';
 
 describe('runTool', () => {
   it('reports a tool that is not installed as missing instead of throwing (deps:status skips it)', () => {
@@ -21,5 +21,12 @@ describe('argumentAfter', () => {
   it('reads the value after a flag', () => {
     expect(argumentAfter(['node', 'x', '--samples', 'pack'], '--samples')).toBe('pack');
     expect(argumentAfter(['node', 'x'], '--samples')).toBeUndefined();
+  });
+});
+
+describe('argumentsAfter', () => {
+  it('reads every value of a repeated flag', () => {
+    expect(argumentsAfter(['node', 'x', '--expect', 'tokio', '--samples', 'p', '--expect', 'mio'], '--expect')).toEqual(['tokio', 'mio']);
+    expect(argumentsAfter(['node', 'x'], '--expect')).toEqual([]);
   });
 });
