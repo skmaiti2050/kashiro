@@ -350,10 +350,10 @@
   "modules.betterSuggestionsCost": "Uses the word list the app always has: no extra memory.",
   "modules.wordLookup": "Word lookup",
   "modules.wordLookupDescription": "Meanings and synonyms from an offline dictionary.",
-  "modules.wordLookupCost": "About 60 MB of memory once you look up a word (3.5 MB of data).",
+  "modules.wordLookupCost": "About {memory, number} MB of memory once you look up a word ({data, number} MB of data).",
   "modules.aiRewrites": "AI rewrites",
   "modules.aiRewritesDescription": "A writing helper on this computer suggests smoother sentences. Never applied without your click.",
-  "modules.aiRewritesCost": "A 1–3 GB model, and as much memory while it runs.",
+  "modules.aiRewritesCost": "A {min, number}–{max, number} GB model, and as much memory while it runs.",
   "modules.switch": "<b>{label}</b>: {description}",
 
   "explain.oneWord": "Did you mean “{word}”, as one word?",

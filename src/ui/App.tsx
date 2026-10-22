@@ -150,12 +150,15 @@ function ShellView({ controller, state }: { controller: SessionController; state
           onHelp={() => setPanel('help')}
           onShortcuts={() => setPanel('shortcuts')}
         />
-        {/* Live regions exist before their text arrives, so screen readers announce it. */}
-        <div className="banners">
+        {/*
+          Live regions exist before their text arrives, so screen readers announce it. data-live-regions keeps
+          them out of a dialog's inert page (Dialog.tsx), so an error raised behind a dialog is still heard.
+        */}
+        <div className="banners" data-live-regions>
           <div role="alert">{state.error && <p className="banner error">{t.format(state.error)}</p>}</div>
           <div role="status">{state.notice && !state.error && <p className="banner">{t.format(state.notice)}</p>}</div>
         </div>
-        <p className="visually-hidden" role="status" aria-atomic="true">
+        <p className="visually-hidden" role="status" aria-atomic="true" data-live-regions>
           {state.announcement && <span key={state.announcement.seq}>{t.format(state.announcement.message)}</span>}
         </p>
       </header>

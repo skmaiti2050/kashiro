@@ -1,14 +1,19 @@
 import { useEffect, useState } from 'react';
 import { isSpeaking, loadLocalVoices, onVoicesChanged, speak, stopSpeaking } from './platform/speech';
-import { pickVoice } from './state/readAloud';
+import { voiceFor } from './state/readAloud';
 import type { ReadingSettings } from './state/readingSettings';
 
 /** Read aloud, when this PC has a voice that works offline. */
 export interface ReadAloud {
   /** The local voices, for Settings. */
   voices: SpeechSynthesisVoice[];
-  /** Reads `text` with the chosen voice, rate and pitch, stopping what was being read. */
-  read(text: string): void;
+  /**
+   * Reads `text` (in `language`, English by default) with the chosen rate and pitch and a local voice for
+   * that language (see voiceFor), stopping what was being read. Nothing is read without such a voice.
+   */
+  read(text: string, language?: string): void;
+  /** True when a local voice can read text in `language` ("hi"). */
+  speaks(language: string): boolean;
 }
 
 /**
@@ -45,9 +50,10 @@ export function useReadAloud(reading: ReadingSettings): ReadAloud | null {
   if (voices.length === 0) return null;
   return {
     voices,
-    read(text) {
-      const voice = pickVoice(voices, reading.voice);
+    read(text, language = 'en') {
+      const voice = voiceFor(voices, language, reading.voice);
       if (voice) speak(text, voice, reading);
     },
+    speaks: (language) => voiceFor(voices, language, reading.voice) !== null,
   };
 }

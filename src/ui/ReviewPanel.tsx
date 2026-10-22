@@ -9,6 +9,7 @@ import { NamesCard } from './NamesCard';
 import { OtherLanguageCard } from './OtherLanguageCard';
 import { TermsCard } from './TermsCard';
 import { ReadAloudBar } from './ReadAloudBar';
+import { translatorFor } from './i18n/translatorFor';
 import { useT } from './i18n/useT';
 import { cardLabel } from './state/announce';
 import { isWordCard } from './state/labels';
@@ -119,12 +120,17 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
   // The queue holds every open card, so its length is the "left" of the announcements (tracked-change rows aside).
   const slotLabel = current ? cardLabel(t, current, candidates, queue.indexOf(current) + 1, queue.length) : t.t('panel.currentCard');
   // Read aloud: the text at the cursor while the user is in the document, else the current card's.
-  const textFor = (target: ReadTarget): string => {
+  // The card is read in the UI language when this PC has a local voice for it, else in English.
+  const textFor = (target: ReadTarget): { text: string; language: string } => {
     const first = current ? firstOf(current) : null;
-    if (target === 'suggestion') return current ? suggestionSpeech(t, current, candidates) : '';
+    if (target === 'suggestion') {
+      const speaker = readAloud?.speaks(t.language) ? t : translatorFor('en');
+      return { text: current ? suggestionSpeech(speaker, current, candidates) : '', language: speaker.language };
+    }
+    // The document's own text is English.
     const at = readCaret() ?? (first ? { text: paraText.get(first.paraId) ?? '', offset: first.span.start } : null);
-    if (!at) return '';
-    return target === 'sentence' ? sentenceAt(at.text, at.offset) : paragraphAt(at.text, at.offset);
+    if (!at) return { text: '', language: 'en' };
+    return { text: target === 'sentence' ? sentenceAt(at.text, at.offset) : paragraphAt(at.text, at.offset), language: 'en' };
   };
 
   return (

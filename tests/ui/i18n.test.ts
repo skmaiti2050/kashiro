@@ -83,23 +83,33 @@ describe('plurals', () => {
     expect(count('en', 0)).toBe('0 words');
   });
 
-  it('Hindi: CLDR "one" covers 0 and 1', () => {
-    expect(count('hi', 0)).toBe(count('hi', 1).replace('1', '0'));
-    expect(count('hi', 5)).toMatch(/^5 /);
-    expect(count('hi', 1)).toMatch(/^1 /);
+  const places = (language: 'en' | 'hi' | 'bn', n: number) => createTranslator(language, ['en-IN']).t('card.places', { count: n });
+
+  it('English: "place" for 1 only', () => {
+    expect([0, 1, 2].map((n) => places('en', n))).toEqual(['(0 places)', '(1 place)', '(2 places)']);
   });
 
-  it('Bengali: one form with the "টি" counter, in Bengali digits', () => {
-    expect(count('bn', 0)).toBe('০টি শব্দ');
-    expect(count('bn', 1)).toBe('১টি শব্দ');
-    expect(count('bn', 5)).toBe('৫টি শব্দ');
-    expect(count('bn', 120000)).toBe('১,২০,০০০টি শব্দ');
+  it('Hindi: CLDR "one" covers 0 and 1 (जगह), "other" is the plural (जगहें)', () => {
+    expect([0, 1, 2].map((n) => places('hi', n))).toEqual(['(0 जगह)', '(1 जगह)', '(2 जगहें)']);
+  });
+
+  it('Bengali: one form with the "টি" counter, in Latin digits (owner decision)', () => {
+    expect([0, 1, 2].map((n) => places('bn', n))).toEqual(['(0টি জায়গা)', '(1টি জায়গা)', '(2টি জায়গা)']);
+    expect(count('bn', 0)).toBe('0টি শব্দ');
+    expect(count('bn', 120000)).toBe('1,20,000টি শব্দ');
   });
 
   it('Bengali: an exact =0 branch wins over the plural category', () => {
     const t = createTranslator('bn', ['bn-IN']);
     expect(t.t('panel.autoFixed', { count: 0 })).toBe('নিজে থেকে কোনো সংশোধন হয়নি।');
-    expect(t.t('panel.autoFixed', { count: 3 })).toBe('৩টি সংশোধন নিজে থেকে হয়েছে।');
+    expect(t.t('panel.autoFixed', { count: 3 })).toBe('3টি সংশোধন নিজে থেকে হয়েছে।');
+  });
+
+  it('Hindi: no decision made reads as words, not "0 फ़ैसला"', () => {
+    const t = createTranslator('hi', ['hi-IN']);
+    expect(t.t('progress.done', { count: 0 })).not.toMatch(/0/);
+    expect(t.t('progress.done', { count: 1 })).toBe('हो गया: 1 फ़ैसला किया गया');
+    expect(t.t('progress.done', { count: 3 })).toBe('हो गया: 3 फ़ैसले किए गए');
   });
 
   it('nested plural inside a sentence (progress done line)', () => {
@@ -125,8 +135,24 @@ describe('numbers', () => {
     expect(createTranslator('hi', ['hi-IN']).number(120000)).toBe('1,20,000');
   });
 
-  it('Bengali uses Indian grouping in Bengali digits (CLDR default for bn)', () => {
-    expect(createTranslator('bn', ['en-US']).number(120000)).toBe('১,২০,০০০');
+  it('Bengali uses Indian grouping in Latin digits: 1,20,000 (owner decision, not CLDR’s ১,২০,০০০)', () => {
+    expect(createTranslator('bn', ['en-US']).number(120000)).toBe('1,20,000');
+  });
+
+  it('no catalogue writes digits of its own script: numbers are arguments', () => {
+    for (const catalogue of TRANSLATIONS) {
+      const withDigits = catalogueKeys(catalogue).filter((key) => /[০-৯०-९]/.test(catalogue[key]));
+      expect(withDigits).toEqual([]);
+    }
+  });
+
+  it('module costs are formatted numbers in every language', () => {
+    const cost = (language: 'en' | 'hi' | 'bn') => createTranslator(language, ['en-IN']).t('modules.wordLookupCost', { memory: 60, data: 3.5 });
+    expect(cost('en')).toBe('About 60 MB of memory once you look up a word (3.5 MB of data).');
+    expect(cost('bn')).toContain('60 MB');
+    expect(cost('bn')).toContain('3.5 MB');
+    expect(createTranslator('en', ['en-IN']).t('modules.aiRewritesCost', { min: 1, max: 3 })).toBe('A 1–3 GB model, and as much memory while it runs.');
+    expect(createTranslator('bn', ['bn-IN']).t('modules.aiRewritesCost', { min: 1, max: 3 })).toMatch(/^1–3 GB/);
   });
 
   it('lists use the language’s own "or"', () => {
@@ -172,7 +198,7 @@ describe('locale', () => {
   });
 
   it('English keeps the OS region for numbers; Hindi and Bengali use India’s', () => {
-    expect(formatLocaleFor('bn', ['en-US'])).toBe('bn-IN');
+    expect(formatLocaleFor('bn', ['en-US'])).toBe('bn-IN-u-nu-latn');
     expect(formatLocaleFor('en', ['en-IN'])).toBe('en-IN');
     expect(formatLocaleFor('en', ['hi-IN'])).toBe('en-IN');
     expect(formatLocaleFor('en', ['en-GB'])).toBe('en-GB');

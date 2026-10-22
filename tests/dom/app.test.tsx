@@ -13,6 +13,31 @@ beforeAll(warmLinter);
 
 const statusTexts = () => screen.getAllByRole('status').map((s) => s.textContent ?? '');
 
+describe('live regions behind a dialog', () => {
+  it('an error raised while a dialog is open (a failed save from Unsaved changes) is announced: its alert is not inert', async () => {
+    const failing = { ...noFiles, save: async () => Promise.reject(new Error('Access is denied.')) };
+    const { controller } = makeController({}, failing);
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openSample());
+    fireEvent.keyDown(reviewPanel(), { key: 'Backspace' });
+    fireEvent.keyDown(document.body, { key: 'o', ctrlKey: true });
+    const dialog = screen.getByRole('alertdialog', { name: 'Unsaved changes' });
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+    });
+
+    const alert = await waitFor(() => {
+      const found = screen.getAllByRole('alert').find((a) => a.textContent?.includes('Access is denied.'));
+      expect(found).toBeTruthy();
+      return found!;
+    });
+    expect(alert.closest('[inert]')).toBeNull();
+    for (const status of document.querySelectorAll('[role="status"]')) expect(status.closest('[inert]')).toBeNull();
+    // The rest of the page still is inert while the dialog is open.
+    if (screen.queryByRole('alertdialog')) expect(document.querySelector('.toolbar')!.closest('[inert]')).not.toBeNull();
+  });
+});
+
 describe('keyboard: shortcuts sheet and Settings', () => {
   it('F1 opens the keyboard shortcuts; Escape closes them and focus returns', () => {
     const { controller } = makeController();

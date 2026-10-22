@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import type { Decision } from '@/engine/decisions';
 import type { Candidate } from '@/engine/types';
-import { localVoices, paragraphAt, pickVoice, sentenceAt, suggestionSpeech, type VoiceInfo } from '@/ui/state/readAloud';
+import { localVoices, paragraphAt, pickVoice, sentenceAt, suggestionSpeech, voiceFor, type VoiceInfo } from '@/ui/state/readAloud';
 import { en } from './english';
 
 const voice = (name: string, localService: boolean, extra: Partial<VoiceInfo> = {}): VoiceInfo => ({
@@ -49,6 +49,32 @@ describe('pickVoice', () => {
   it('no local voice: nothing to speak with', () => {
     expect(pickVoice([online], 'Aria Online')).toBeNull();
     expect(pickVoice([], null)).toBeNull();
+  });
+});
+
+describe('voiceFor (the voice for text in a language)', () => {
+  const david = voice('David', true);
+  const heera = voice('Heera', true, { lang: 'en-IN', default: true });
+  const kalpana = voice('Kalpana', true, { lang: 'hi-IN' });
+  const hemant = voice('Hemant', true, { lang: 'hi_IN', default: true });
+  const onlineHindi = voice('Swara Online', false, { lang: 'hi-IN' });
+  const tanishaa = voice('Tanishaa', true, { lang: 'bn-IN' });
+
+  it('English text: the chosen voice, as pickVoice', () => {
+    expect(voiceFor([david, heera, kalpana], 'en', 'David')).toBe(david);
+    expect(voiceFor([david, heera, kalpana], 'en-XA', null)).toBe(heera);
+  });
+
+  it('Hindi or Bengali text: a local voice of that language (the chosen one, else the default, else the first)', () => {
+    expect(voiceFor([david, kalpana, hemant], 'hi', 'Kalpana')).toBe(kalpana);
+    expect(voiceFor([david, kalpana, hemant], 'hi', 'David')).toBe(hemant);
+    expect(voiceFor([david, kalpana, tanishaa], 'bn', null)).toBe(tanishaa);
+  });
+
+  it('no local voice for the language: none (an English voice would garble it; a network one is never used)', () => {
+    expect(voiceFor([david, heera], 'hi', null)).toBeNull();
+    expect(voiceFor([david, onlineHindi], 'hi', 'Swara Online')).toBeNull();
+    expect(voiceFor([david, kalpana], 'bn', null)).toBeNull();
   });
 });
 

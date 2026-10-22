@@ -43,9 +43,11 @@ export function resolveUiLanguage(saved: unknown): UiLanguageSetting {
 
 /**
  * The locale for numbers, plurals and lists. English keeps the OS region, so an Indian PC shows 1,20,000
- * ("en-IN") and a British one 120,000 ("en-GB"); Hindi and Bengali are India's (bn-IN: ১,২০,০০০, Bengali digits).
+ * ("en-IN") and a British one 120,000 ("en-GB"); Hindi and Bengali are India's. Bengali keeps Latin digits
+ * (1,20,000, owner's choice), not CLDR's default Bengali ones (১,২০,০০০).
  */
 export function formatLocaleFor(language: UiLocale, languages: readonly string[]): string {
+  if (language === 'bn') return 'bn-IN-u-nu-latn';
   if (language !== 'en') return language === 'en-XA' ? 'en-XA' : `${language}-IN`;
   const region = languages.map(regionOf).find((r) => r !== undefined);
   return region ? `en-${region}` : 'en';

@@ -76,21 +76,33 @@ export function Dialog({ title, onClose, role = 'dialog', className, describedBy
   );
 }
 
+/** The app's alert and status regions: never made inert, or an error raised behind a dialog goes unheard. */
+const LIVE_REGIONS = '[data-live-regions]';
+
 /**
  * Makes the rest of the page inert (no focus, no clicks, out of the accessibility tree) while the dialog is
- * open: every sibling of the dialog and of each of its ancestors up to <body>. Returns the undo, which
- * clears only what it set.
+ * open: every sibling of the dialog and of each of its ancestors up to <body>, except the live regions.
+ * Returns the undo, which clears only what it set.
  */
 function inertOutside(dialog: HTMLElement): () => void {
   const madeInert: Element[] = [];
   for (let el: Element = dialog; el.parentElement && el !== document.body; el = el.parentElement) {
     for (const sibling of el.parentElement.children) {
-      if (sibling === el || sibling.hasAttribute('inert')) continue;
-      sibling.setAttribute('inert', '');
-      madeInert.push(sibling);
+      if (sibling !== el) makeInert(sibling, madeInert);
     }
   }
   return () => madeInert.forEach((el) => el.removeAttribute('inert'));
+}
+
+/** Makes `el` inert, or, when it holds the live regions, each of its other parts. */
+function makeInert(el: Element, madeInert: Element[]): void {
+  if (el.hasAttribute('inert') || el.matches(LIVE_REGIONS)) return;
+  if (el.querySelector(LIVE_REGIONS)) {
+    for (const child of el.children) makeInert(child, madeInert);
+    return;
+  }
+  el.setAttribute('inert', '');
+  madeInert.push(el);
 }
 
 /** The controls inside `box` in document order (matches() per element: jsdom's querySelectorAll groups a selector list). */

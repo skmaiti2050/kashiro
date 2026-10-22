@@ -351,10 +351,10 @@
   "modules.betterSuggestionsCost": "অ্যাপের নিজের শব্দতালিকা ব্যবহার করে: বাড়তি মেমরি লাগে না।",
   "modules.wordLookup": "শব্দের মানে খোঁজা",
   "modules.wordLookupDescription": "অফলাইন অভিধান থেকে মানে ও সমার্থক শব্দ।",
-  "modules.wordLookupCost": "কোনো শব্দ খুঁজলে প্রায় ৬০ MB মেমরি (৩.৫ MB ডেটা)।",
+  "modules.wordLookupCost": "কোনো শব্দ খুঁজলে প্রায় {memory, number} MB মেমরি ({data, number} MB ডেটা)।",
   "modules.aiRewrites": "AI পুনর্লিখন",
   "modules.aiRewritesDescription": "এই কম্পিউটারেই চলা একটি লেখার সহকারী আরও সাবলীল বাক্যের প্রস্তাব দেয়। আপনার ক্লিক ছাড়া কখনো বসানো হয় না।",
-  "modules.aiRewritesCost": "১–৩ GB-র একটি মডেল, আর চলার সময় ততটাই মেমরি।",
+  "modules.aiRewritesCost": "{min, number}–{max, number} GB-র একটি মডেল, আর চলার সময় ততটাই মেমরি।",
   "modules.switch": "<b>{label}</b>: {description}",
 
   "explain.oneWord": "আপনি কি এক শব্দে “{word}” বোঝাতে চেয়েছেন?",

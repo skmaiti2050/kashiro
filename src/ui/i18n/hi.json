@@ -87,7 +87,7 @@
 
   "progress.left": "{total, number} में से {left, number} बाक़ी · ~{minutes, number} मिनट",
   "progress.nothing": "हो गया: तय करने को कुछ नहीं",
-  "progress.done": "हो गया: {count, plural, one {# फ़ैसला किया गया} other {# फ़ैसले किए गए}}",
+  "progress.done": "हो गया: {count, plural, =0 {कोई फ़ैसला नहीं किया गया} one {# फ़ैसला किया गया} other {# फ़ैसले किए गए}}",
 
   "depth.label": "समीक्षा की गहराई",
   "depth.light": "हल्की",
@@ -351,10 +351,10 @@
   "modules.betterSuggestionsCost": "ऐप में पहले से मौजूद शब्द-सूची इस्तेमाल करता है: कोई अतिरिक्त मेमोरी नहीं।",
   "modules.wordLookup": "शब्द खोज",
   "modules.wordLookupDescription": "ऑफ़लाइन डिक्शनरी से अर्थ और समानार्थी शब्द।",
-  "modules.wordLookupCost": "कोई शब्द खोजने पर लगभग 60 MB मेमोरी (3.5 MB डेटा)।",
+  "modules.wordLookupCost": "कोई शब्द खोजने पर लगभग {memory, number} MB मेमोरी ({data, number} MB डेटा)।",
   "modules.aiRewrites": "AI रीराइट",
   "modules.aiRewritesDescription": "इसी कंप्यूटर पर चलने वाला लेखन सहायक ज़्यादा सहज वाक्य सुझाता है। आपके क्लिक के बिना कभी लागू नहीं होता।",
-  "modules.aiRewritesCost": "1–3 GB का मॉडल, और चलते समय उतनी ही मेमोरी।",
+  "modules.aiRewritesCost": "{min, number}–{max, number} GB का मॉडल, और चलते समय उतनी ही मेमोरी।",
   "modules.switch": "<b>{label}</b>: {description}",
 
   "explain.oneWord": "क्या आपका मतलब “{word}” था, एक शब्द में?",

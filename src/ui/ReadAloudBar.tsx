@@ -8,8 +8,8 @@ import type { ReadAloud } from './useReadAloud';
 
 interface Props {
   readAloud: ReadAloud;
-  /** The text to read for each button: the card's sentence or suggestion, or the text at the cursor. */
-  textFor(target: ReadTarget): string;
+  /** The text to read for each button (the card's sentence or suggestion, or the text at the cursor), and its language. */
+  textFor(target: ReadTarget): { text: string; language: string };
   /** False while a dialog is open. */
   keysEnabled: boolean;
 }
@@ -23,7 +23,10 @@ const BUTTONS: { target: ReadTarget; label: MessageKey; keys: string }[] = [
 /** "Read: Sentence · Suggestion · Paragraph", with Alt+S / Alt+R / Alt+P from anywhere. */
 export function ReadAloudBar({ readAloud, textFor, keysEnabled }: Props) {
   const t = useT();
-  const read = (target: ReadTarget) => readAloud.read(textFor(target));
+  const read = (target: ReadTarget) => {
+    const { text, language } = textFor(target);
+    readAloud.read(text, language);
+  };
   const latest = useRef(read);
   useEffect(() => {
     latest.current = read;

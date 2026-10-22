@@ -12,6 +12,8 @@ interface ModuleInfo {
   description: MessageKey;
   /** Approximate size or memory cost (measured for U2: the dictionary's heap after parsing). */
   cost: MessageKey;
+  /** The cost's numbers, formatted in the UI language (megabytes, gigabytes). */
+  costValues?: Record<string, number>;
 }
 
 const MODULES: ModuleInfo[] = [
@@ -19,8 +21,14 @@ const MODULES: ModuleInfo[] = [
   { name: 'termsCard', label: 'modules.termsCard', description: 'modules.termsCardDescription', cost: 'modules.termsCardCost' },
   { name: 'otherLanguageCard', label: 'modules.otherLanguageCard', description: 'modules.otherLanguageCardDescription', cost: 'modules.otherLanguageCardCost' },
   { name: 'betterSuggestions', label: 'modules.betterSuggestions', description: 'modules.betterSuggestionsDescription', cost: 'modules.betterSuggestionsCost' },
-  { name: 'wordLookup', label: 'modules.wordLookup', description: 'modules.wordLookupDescription', cost: 'modules.wordLookupCost' },
-  { name: 'aiRewrites', label: 'modules.aiRewrites', description: 'modules.aiRewritesDescription', cost: 'modules.aiRewritesCost' },
+  { name: 'wordLookup', label: 'modules.wordLookup', description: 'modules.wordLookupDescription', cost: 'modules.wordLookupCost', costValues: { memory: 60, data: 3.5 } },
+  {
+    name: 'aiRewrites',
+    label: 'modules.aiRewrites',
+    description: 'modules.aiRewritesDescription',
+    cost: 'modules.aiRewritesCost',
+    costValues: { min: 1, max: 3 },
+  },
 ];
 
 const strong = (chunks: ReactNode[]) => <strong>{chunks}</strong>;
@@ -58,7 +66,7 @@ export function ModulesSettings({ controller, settings }: Props) {
             <span>
               {t.rich('modules.switch', { label: t.t(m.label), description: t.t(m.description), b: strong })}
               <br />
-              <span className="hint">{locked ? t.t('modules.needsModel') : t.t(m.cost)}</span>
+              <span className="hint">{locked ? t.t('modules.needsModel') : t.t(m.cost, m.costValues)}</span>
             </span>
           </label>
         );

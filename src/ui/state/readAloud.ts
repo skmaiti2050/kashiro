@@ -32,6 +32,21 @@ export function pickVoice<V extends VoiceInfo>(voices: readonly V[], voiceURI: s
   return local.find((v) => v.voiceURI === voiceURI) ?? local.find((v) => v.default) ?? local[0] ?? null;
 }
 
+/** "hi-IN" or "hi_IN" (some Windows voices) → "hi". */
+const baseLanguage = (lang: string) => lang.split(/[-_]/)[0].toLowerCase();
+
+/**
+ * The local voice for text in `language`. English text (the document, or an English UI) uses the chosen
+ * voice, as pickVoice. Hindi or Bengali text needs a local voice of that language (the chosen one, else the
+ * default, else the first): an English voice garbles Devanagari and Bengali. Null when there is none.
+ */
+export function voiceFor<V extends VoiceInfo>(voices: readonly V[], language: string, voiceURI: string | null): V | null {
+  const base = baseLanguage(language);
+  if (base === 'en') return pickVoice(voices, voiceURI);
+  const speaking = localVoices(voices).filter((v) => baseLanguage(v.lang) === base);
+  return speaking.find((v) => v.voiceURI === voiceURI) ?? speaking.find((v) => v.default) ?? speaking[0] ?? null;
+}
+
 /** The line (a paragraph in the document view) around `offset`, as offsets into `text`. */
 function lineAround(text: string, offset: number): { start: number; end: number } {
   const start = text.lastIndexOf('\n', offset - 1) + 1;

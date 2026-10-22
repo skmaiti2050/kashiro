@@ -3,7 +3,7 @@ import { describe, it, expect, beforeAll, vi } from 'vitest';
 import axe from 'axe-core';
 import { act, fireEvent, screen, within } from '@testing-library/react';
 import { makeController, warmLinter } from './harness';
-import { openAndWait, renderShell } from './shell';
+import { installSpeech, LOCAL_VOICE, openAndWait, renderShell } from './shell';
 
 vi.mock('@tauri-apps/api/window', async () => (await import('./platformMocks')).tauriWindow);
 vi.mock('@/ui/platform/files', async () => (await import('./platformMocks')).platformFiles);
@@ -23,9 +23,24 @@ describe('app language', () => {
     const { controller, saved } = makeController();
     const { container } = renderShell(controller);
     await openAndWait(controller, () => controller.openSample());
+    const before = controller.getState();
+    const checked = {
+      session: before.session,
+      variant: before.session!.variant,
+      fallback: before.settings.fallbackVariant,
+      override: before.variantOverride,
+      candidates: before.session!.candidates().map((c) => c.id),
+    };
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
     fireEvent.change(within(screen.getByRole('dialog')).getByRole('combobox', { name: 'App language' }), { target: { value: 'hi' } });
 
+    // The UI language changes nothing about the check: same session, English variant and candidates.
+    const after = controller.getState();
+    expect(after.session).toBe(checked.session);
+    expect(after.session!.variant).toBe(checked.variant);
+    expect(after.settings.fallbackVariant).toBe(checked.fallback);
+    expect(after.variantOverride).toBe(checked.override);
+    expect(after.session!.candidates().map((c) => c.id)).toEqual(checked.candidates);
     expect(screen.getByRole('dialog', { name: 'सेटिंग्स' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'खोलें' })).toBeTruthy();
     expect(screen.getByRole('complementary', { name: 'समीक्षा' })).toBeTruthy();
@@ -55,6 +70,40 @@ describe('app language', () => {
     const text = container.querySelector('.cm-content')!;
     expect(text.getAttribute('lang')).toBe('en');
     expect(text.getAttribute('dir')).toBe('ltr');
+  });
+
+  describe('read aloud in Hindi', () => {
+    const HINDI_VOICE = { voiceURI: 'Kalpana', name: 'Microsoft Kalpana - Hindi (India)', lang: 'hi-IN', localService: true, default: false };
+    const ONLINE_HINDI = { voiceURI: 'Swara', name: 'Microsoft Swara Online (Natural) - Hindi (India)', lang: 'hi-IN', localService: false, default: false };
+    const DEVANAGARI = /[ऀ-ॿ]/;
+
+    async function readSuggestionAndSentence(voices: (typeof LOCAL_VOICE)[]) {
+      const speech = installSpeech(voices);
+      const { controller } = makeController({ uiLanguage: 'hi' });
+      renderShell(controller);
+      await openAndWait(controller, () => controller.openSample());
+      await screen.findByRole('group', { name: 'पढ़कर सुनाएँ' });
+      const panel = screen.getByRole('complementary', { name: 'समीक्षा' });
+      fireEvent.keyDown(panel, { key: 'r', altKey: true });
+      fireEvent.keyDown(panel, { key: 's', altKey: true });
+      speech.remove();
+      return speech.spoken;
+    }
+
+    it('with a local Hindi voice: the card is read in Hindi with it; the English sentence with the English voice', async () => {
+      const [suggestion, sentence] = await readSuggestionAndSentence([LOCAL_VOICE, HINDI_VOICE]);
+      expect(suggestion.voice).toEqual(HINDI_VOICE);
+      expect(suggestion.text).toMatch(DEVANAGARI);
+      expect(sentence.voice).toEqual(LOCAL_VOICE);
+      expect(sentence.text).not.toMatch(DEVANAGARI);
+    });
+
+    it('with only an English local voice (a Hindi one only online): the card is read in English, never by the online voice', async () => {
+      const spoken = await readSuggestionAndSentence([LOCAL_VOICE, ONLINE_HINDI]);
+      expect(spoken.map((s) => s.voice)).toEqual([LOCAL_VOICE, LOCAL_VOICE]);
+      expect(spoken[0].text).not.toMatch(DEVANAGARI);
+      expect(spoken[0].text).toMatch(/^(Correctness|Clarity|Style|Terms|Names and places)/);
+    });
   });
 
   it.each([
