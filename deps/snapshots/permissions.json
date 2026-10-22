@@ -57,6 +57,12 @@
       "fs:allow-read-file",
       "fs:allow-write-file",
       "store:default",
+      "allow-overwrite-with-backup",
+      "allow-session-save",
+      "allow-session-load",
+      "allow-session-list",
+      "allow-session-delete",
+      "allow-session-prune",
       "platforms all",
       "local true"
     ]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-overwrite-with-backup"
+description = "Enables the overwrite_with_backup command without any pre-configured scope."
+commands.allow = ["overwrite_with_backup"]
+
+[[permission]]
+identifier = "deny-overwrite-with-backup"
+description = "Denies the overwrite_with_backup command without any pre-configured scope."
+commands.deny = ["overwrite_with_backup"]

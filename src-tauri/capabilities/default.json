@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Main window: open/save dialogs, read/write only files the user chose, and the settings store. The fs permissions carry no static scope: the dialog plugin adds each picked or saved file at runtime, and the fs plugin adds dropped paths. A dropped folder (which the app never opens) is added recursively for the rest of the session; that is the fs plugin's built-in drop rule, and turning it off would also stop dropped files from opening. window:allow-destroy closes the window after the unsaved-changes prompt.",
+  "description": "Main window: open/save dialogs, read/write only files the user chose, and the settings store. The fs permissions carry no static scope: the dialog plugin adds each picked or saved file at runtime, and the fs plugin adds dropped paths. A dropped folder (which the app never opens) is added recursively for the rest of the session; that is the fs plugin's built-in drop rule, and turning it off would also stop dropped files from opening. window:allow-destroy closes the window after the unsaved-changes prompt. The allow-<command> entries grant the app's own commands (overwrite-with-backup save and the saved-review session commands); build.rs declares them in the app manifest, so no other command is callable.",
   "windows": ["main"],
   "permissions": [
     "core:default",
@@ -10,6 +10,12 @@
     "dialog:allow-save",
     "fs:allow-read-file",
     "fs:allow-write-file",
-    "store:default"
+    "store:default",
+    "allow-overwrite-with-backup",
+    "allow-session-save",
+    "allow-session-load",
+    "allow-session-list",
+    "allow-session-delete",
+    "allow-session-prune"
   ]
 }
