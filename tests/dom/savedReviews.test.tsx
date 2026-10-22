@@ -63,7 +63,8 @@ describe('resume prompt', () => {
     expect(document.activeElement).toBe(resume);
     await act(async () => fireEvent.click(resume));
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
-    expect(announced()).toBe('Review resumed: 2 decisions restored, 0 paragraphs re-checked.');
+    // The prompt closes at once; the restore (a full check) announces when it is done, later under load.
+    await waitFor(() => expect(announced()).toBe('Review resumed: 2 decisions restored, 0 paragraphs re-checked.'));
   });
 
   it('Start fresh closes it and forgets the saved review', async () => {
@@ -150,7 +151,7 @@ describe('Settings', () => {
     await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Delete all' })));
     await waitFor(() => expect(disk.stored.size).toBe(0));
     expect(screen.queryByRole('alertdialog')).toBeNull();
-    expect(announced()).toBe('Saved reviews deleted.');
+    await waitFor(() => expect(announced()).toBe('Saved reviews deleted.'));
   });
 });
 

@@ -10,15 +10,18 @@ export interface UserDecision {
   span: Span;
   /** Rejected also covers an auto-fix the user undid. */
   status: 'applied' | 'rejected';
-  /** The replacement chosen, for an applied edit. */
+  /** The replacement chosen, for an applied edit: replayed only if the new check suggests this same text. */
   replacement?: string;
-  /** Its index in the candidate's replacements: a saved review keeps this, never the text (-1: not in the list). */
-  replacementIndex?: number;
   source: Source;
 }
 
-const sameFlag = (a: { kind: string; original: string; span: Span }, b: { kind: string; original: string; span: Span }) =>
-  a.kind === b.kind && a.original === b.original && a.span.start === b.span.start && a.span.end === b.span.end;
+type Flag = Pick<UserDecision, 'kind' | 'original' | 'span'>;
+
+const sameFlag = (a: Flag, b: Flag) => a.kind === b.kind && a.original === b.original && a.span.start === b.span.start && a.span.end === b.span.end;
+
+/** The candidate of `session` in paragraph `paraId` that flags the same text, the same way, as `flag`. */
+export const findTwin = (session: CheckSession, paraId: number, flag: Flag) =>
+  session.candidates().find((c) => c.paraId === paraId && sameFlag(c, flag));
 
 /**
  * The user's own decisions in `session`: accepted, rejected, and auto-fixes undone. Left out: what is still
@@ -30,9 +33,8 @@ export function userDecisions(session: CheckSession): UserDecision[] {
   for (const o of session.outcomes()) {
     if (o.auto || o.unplaceable !== undefined || (o.status !== 'applied' && o.status !== 'rejected')) continue;
     if (o.reason?.endsWith('added to dictionary')) continue;
-    const { id, paraId, kind, original, span, source, replacements } = o.candidate;
-    const replacementIndex = o.status === 'applied' ? replacements.indexOf(o.replacement ?? '') : undefined;
-    decisions.push({ candidateId: id, paraId, kind, original, span: { ...span }, status: o.status, replacement: o.replacement, replacementIndex, source });
+    const { id, paraId, kind, original, span, source } = o.candidate;
+    decisions.push({ candidateId: id, paraId, kind, original, span: { ...span }, status: o.status, replacement: o.replacement, source });
   }
   return decisions;
 }
@@ -51,12 +53,13 @@ export function carryDecisions(decisions: UserDecision[], after: CheckSession, u
   for (const d of decisions) {
     const paraId = unchanged.get(d.paraId);
     if (paraId === undefined) continue;
-    const twin = after.candidates().find((c) => c.paraId === paraId && sameFlag(c, d));
+    const twin = findTwin(after, paraId, d);
     if (!twin) continue;
     carried.set(d.candidateId, twin.id);
     const now = statusAfter.get(twin.id);
     if (d.status === 'applied' && now === 'pending') {
-      const index = d.replacement !== undefined ? twin.replacements.indexOf(d.replacement) : (d.replacementIndex ?? -1);
+      // By text, never by position: the same index may hold another word now, one the user never chose.
+      const index = twin.replacements.indexOf(d.replacement ?? '');
       if (index >= 0) after.accept(twin.id, index);
     } else if (d.status === 'rejected' && now === 'applied') {
       after.undo(twin.id);

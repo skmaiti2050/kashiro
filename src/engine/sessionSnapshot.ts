@@ -1,4 +1,4 @@
-import { carryDecisions, userDecisions, type UserDecision } from './carryDecisions';
+import { carryDecisions, findTwin, userDecisions, type UserDecision } from './carryDecisions';
 import type { ReviewDepth } from './depth';
 import type { PresetId } from './presets';
 import { CheckSession } from './session';
@@ -7,7 +7,7 @@ import { sha256Hex } from './sha256';
 import type { Paragraph, Variant } from './types';
 
 /** Bumped when the format changes: a saved review of another version is not resumed. */
-export const SNAPSHOT_VERSION = 2;
+export const SNAPSHOT_VERSION = 3;
 
 /**
  * One user decision, by its paragraph's position and the flag's kind and offsets there: no words at all. The
@@ -20,9 +20,15 @@ export interface SavedDecision {
   start: number;
   end: number;
   status: 'applied' | 'rejected';
-  /** For an applied edit only: the index of the replacement chosen in the flag's suggestions. */
-  replacementIndex?: number;
+  /**
+   * For an applied edit only: replacementHash() of the replacement chosen. Not its index: a dictionary word or
+   * a Harper upgrade can put another word at that index, and replaying it would make an edit nobody chose.
+   */
+  replacementHash?: string;
 }
+
+/** The first 16 hex digits of the SHA-256 of a replacement: enough to tell a flag's few suggestions apart. */
+export const replacementHash = async (text: string): Promise<string> => (await sha256Hex(text)).slice(0, 16);
 
 /** What the review was looking at, beside the session itself (the controller holds these). */
 export interface SnapshotView {
@@ -34,7 +40,7 @@ export interface SnapshotView {
 
 /**
  * A review to resume later (Task S3). It never holds the document's words: paragraphs are SHA-256 hashes of
- * their text, and a decision is kind, offsets, status and a replacement index.
+ * their text, and a decision is kind, offsets, status and a short hash of the replacement chosen.
  */
 export interface SessionSnapshot extends SnapshotView {
   version: typeof SNAPSHOT_VERSION;
@@ -62,22 +68,20 @@ export async function snapshot(session: CheckSession, view: SnapshotView): Promi
     documentIgnoredRules: [...view.documentIgnoredRules],
     depth: session.depth,
     paragraphs: await Promise.all(paras.map((p) => sha256Hex(p.text))),
-    decisions: userDecisions(session).filter(isReplayable).map((d) => ({
-      paragraph: position.get(d.paraId)!,
-      kind: d.kind,
-      start: d.span.start,
-      end: d.span.end,
-      status: d.status,
-      ...(d.status === 'applied' ? { replacementIndex: d.replacementIndex } : {}),
-    })),
+    decisions: await Promise.all(
+      userDecisions(session)
+        .filter((d) => d.source !== 'llm')
+        .map(async (d) => ({
+          paragraph: position.get(d.paraId)!,
+          kind: d.kind,
+          start: d.span.start,
+          end: d.span.end,
+          status: d.status,
+          ...(d.status === 'applied' ? { replacementHash: await replacementHash(d.replacement ?? '') } : {}),
+        })),
+    ),
   };
 }
-
-/**
- * LLM rewrites are left out: the next check doesn't make them again, so there is nothing to replay them on,
- * and their text is a whole sentence. So is an applied edit whose text is not among the flag's suggestions.
- */
-const isReplayable = (d: UserDecision) => d.source !== 'llm' && (d.status !== 'applied' || (d.replacementIndex ?? -1) >= 0);
 
 /**
  * Checks `paras` afresh (with `opts`, at the snapshot's depth) and replays the saved decisions through
@@ -90,25 +94,33 @@ export async function restore(paras: Paragraph[], snap: SessionSnapshot, opts: C
   const unchanged = matchSavedParagraphs(snap.paragraphs, hashes, paras);
   const textOf = new Map(paras.map((p) => [p.id, p.text]));
   const decisions: UserDecision[] = [];
-  snap.decisions.forEach((d, i) => {
+  for (const [i, d] of snap.decisions.entries()) {
     const paraId = unchanged.get(d.paragraph);
-    if (paraId === undefined) return; // its paragraph changed: checked afresh
-    decisions.push({
-      candidateId: `saved-${i}`,
-      paraId: d.paragraph,
-      kind: d.kind,
-      original: textOf.get(paraId)!.slice(d.start, d.end),
-      span: { start: d.start, end: d.end },
-      status: d.status,
-      replacementIndex: d.replacementIndex,
-      source: 'rules',
-    });
-  });
+    if (paraId === undefined) continue; // its paragraph changed: checked afresh
+    const flag = { kind: d.kind, original: textOf.get(paraId)!.slice(d.start, d.end), span: { start: d.start, end: d.end } };
+    const replacement = d.status === 'applied' ? await chosenReplacement(session, paraId, flag, d.replacementHash) : undefined;
+    // The chosen word is no longer suggested: the flag comes back pending rather than take another word.
+    if (d.status === 'applied' && replacement === undefined) continue;
+    decisions.push({ candidateId: `saved-${i}`, paraId: d.paragraph, ...flag, status: d.status, replacement, source: 'rules' });
+  }
   const before = new Map(session.outcomes().map((o) => [o.candidate.id, o.status]));
   const carried = carryDecisions(decisions, session, unchanged);
   const after = new Map(session.outcomes().map((o) => [o.candidate.id, o.status]));
   const restored = [...carried.values()].filter((id) => before.get(id) !== after.get(id)).length;
   return { session, restored, rechecked: paras.length - unchanged.size };
+}
+
+/** The suggestion of the flag's twin in the new check whose hash is `hash`, or undefined when none is. */
+async function chosenReplacement(
+  session: CheckSession,
+  paraId: number,
+  flag: Parameters<typeof findTwin>[2],
+  hash: string | undefined,
+): Promise<string | undefined> {
+  const twin = findTwin(session, paraId, flag);
+  if (!twin || hash === undefined) return undefined;
+  for (const text of twin.replacements) if ((await replacementHash(text)) === hash) return text;
+  return undefined;
 }
 
 /**

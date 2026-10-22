@@ -10,7 +10,7 @@ const SNAP: SessionSnapshot = {
   variantOverride: null,
   documentIgnoredRules: [],
   paragraphs: ['ab'.repeat(32)],
-  decisions: [{ paragraph: 0, kind: 'Spelling', start: 8, end: 11, status: 'applied', replacementIndex: 0 }],
+  decisions: [{ paragraph: 0, kind: 'Spelling', start: 8, end: 11, status: 'applied', replacementHash: '0123456789abcdef' }],
 };
 
 const review = (over: Partial<SavedReview> = {}): SavedReview => ({
@@ -61,6 +61,9 @@ describe('SessionStore', () => {
     expect(await store.load(KEY_A)).toBeNull();
     expect(await store.load(KEY_B)).toBeNull();
     expect(await reviewsIn(store)).toEqual([]);
+    // Version 2 kept a replacement's index, which can name another word later: ignored like any older format.
+    await files.save(KEY_A, JSON.stringify(review({ snapshot: { ...SNAP, version: 2 as typeof SNAPSHOT_VERSION } })));
+    expect(await store.load(KEY_A)).toBeNull();
   });
 
   it('a review naming an unknown goal, depth or variant is not resumed: nothing unchecked reaches the settings', async () => {
@@ -86,8 +89,9 @@ describe('SessionStore', () => {
       { ...good, start: 12, end: 11 },
       { ...good, end: 2.5 },
       { ...good, status: 'superseded' },
-      { ...good, replacementIndex: undefined }, // applied, but which fix?
-      { ...good, replacementIndex: -1 },
+      { ...good, replacementHash: undefined }, // applied, but which fix?
+      { ...good, replacementHash: 'receive' }, // a word, not a hash
+      { paragraph: 0, kind: 'Spelling', start: 8, end: 11, status: 'applied', replacementIndex: 0 }, // version 2's index
       { ...good, kind: 7 },
       'teh',
       { paragraph: 0, kind: 'Typo', start: 0, end: 3, status: 'rejected' },

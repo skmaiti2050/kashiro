@@ -131,7 +131,7 @@ fn prune_using(dir: &Path, keep_days: u32, now: SystemTime, remove: impl Fn(&Pat
     let mut problems = Vec::new();
     let cutoff = now.checked_sub(DAY * keep_days).unwrap_or(SystemTime::UNIX_EPOCH);
     for (name, path) in our_files(dir, &mut problems)? {
-        let written = match fs::metadata(&path).and_then(|m| if m.is_file() { m.modified().map(Some) } else { Ok(None) }) {
+        let written = match file_written(&path) {
             Ok(Some(written)) => written,
             Ok(None) => continue, // a folder under a review's name: not ours to delete
             Err(e) => {
@@ -156,8 +156,9 @@ fn keep_newest(dir: &Path, max: usize) -> io::Result<()> {
         if key_of(&name).is_none() {
             continue;
         }
-        match fs::metadata(&path).and_then(|m| m.modified()) {
-            Ok(written) => reviews.push((written, name, path)),
+        match file_written(&path) {
+            Ok(Some(written)) => reviews.push((written, name, path)),
+            Ok(None) => {} // a folder under a review's name: not a review, not ours to delete
             Err(e) => problems.push(format!("{name}: {e}")),
         }
     }
@@ -169,6 +170,12 @@ fn keep_newest(dir: &Path, max: usize) -> io::Result<()> {
         }
     }
     all_done(problems)
+}
+
+/// When a regular file was last written; None for anything else (a folder), which prune and the cap skip.
+fn file_written(path: &Path) -> io::Result<Option<SystemTime>> {
+    let metadata = fs::metadata(path)?;
+    if metadata.is_file() { metadata.modified().map(Some) } else { Ok(None) }
 }
 
 /// Ok, or one error listing every file that failed.
@@ -324,6 +331,17 @@ mod tests {
         let mut left: Vec<String> = list_at(&dir).unwrap().sessions.into_iter().map(|s| s.key).collect();
         left.sort();
         assert_eq!(left, vec!["b2", "c3"]);
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn the_cap_counts_and_deletes_only_regular_files() {
+        let dir = scratch("cap-folder");
+        save_at(&dir, SHA, "a").unwrap();
+        fs::create_dir(dir.join(format!("{UUID}.json"))).unwrap(); // a folder under a review's name
+        keep_newest(&dir, 1).unwrap();
+        assert!(load_at(&dir, SHA).unwrap().is_some(), "the one review is within the cap");
+        assert!(dir.join(format!("{UUID}.json")).is_dir(), "the folder is left alone");
         fs::remove_dir_all(&dir).unwrap();
     }
 

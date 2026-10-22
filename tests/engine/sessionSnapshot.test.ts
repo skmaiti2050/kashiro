@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { CheckSession, type CheckOptions } from '@/engine/session';
 import { createLinter, type RulesLinter } from '@/engine/linter';
 import { restore, snapshot, SNAPSHOT_VERSION, type SessionSnapshot } from '@/engine/sessionSnapshot';
+import { sha256Hex } from '@/engine/sha256';
 import type { Paragraph } from '@/engine/types';
 import { adapterFor } from '@/formats/registry';
 import { SAMPLE_TEXT } from '@/ui/state/sample';
@@ -66,10 +67,10 @@ describe('snapshot', () => {
     expect(snap).toMatchObject({ preset: 'academic', depth: 'standard', variantOverride: 'British', documentIgnoredRules: ['Style'] });
     expect(snap.paragraphs).toHaveLength(3);
     for (const hash of snap.paragraphs) expect(hash).toMatch(/^[0-9a-f]{64}$/);
-    // No words at all: a flag is its paragraph, kind and offsets; an accepted fix is the index of its replacement.
+    // No words at all: a flag is its paragraph, kind and offsets; an accepted fix is a short hash of its replacement.
     expect(snap.decisions).toEqual([
       { paragraph: 0, kind: 'Typo', start: 8, end: 11, status: 'rejected' },
-      { paragraph: 1, kind: 'Spelling', start: 4, end: 12, status: 'applied', replacementIndex: 0 },
+      { paragraph: 1, kind: 'Spelling', start: 4, end: 12, status: 'applied', replacementHash: (await sha256Hex('received')).slice(0, 16) },
       { paragraph: 2, kind: 'Agreement', start: 3, end: 6, status: 'rejected' },
     ]);
     const json = JSON.stringify(snap);
@@ -161,6 +162,28 @@ describe('restore', () => {
     const again = (await restore(PARAS, await snapshot(once, VIEW), opts, { linter })).session;
     expect(again.acceptedEdits()).toEqual(before.acceptedEdits());
     expect(again.outputText(1)).toBe('She received the letter.');
+  });
+
+  it('replays a chosen fix only while it is still the same word: never another suggestion in its place', async () => {
+    const paras: Paragraph[] = [{ id: 0, text: 'She recieved the letter.' }];
+    const before = await start(paras);
+    const flag = byOriginal(before, 'recieved');
+    expect(flag.replacements[2]).toBe('receive');
+    before.accept(flag.id, 2);
+    const snap = await snapshot(before, VIEW);
+    expect(JSON.stringify(snap)).not.toContain('receive');
+
+    // A dictionary word changes the suggestions: "recived" now sits where "receive" was.
+    const withWord = await createLinter('American', ['recived']);
+    const { session, restored } = await restore(paras, snap, { ...opts, dictionary: ['recived'] }, { linter: withWord });
+    expect(byOriginal(session, 'recieved').replacements[2]).toBe('recived');
+    expect(session.outcomes().find((o) => o.candidate.original === 'recieved')!.status).toBe('pending');
+    expect(session.outputText(0)).toBe('She recieved the letter.');
+    expect(restored).toBe(0);
+
+    // With the same suggestions it comes back as the same word.
+    const same = (await restore(paras, snap, opts, { linter })).session;
+    expect(same.outputText(0)).toBe('She receive the letter.');
   });
 
   it('starts with the snapshot depth', async () => {

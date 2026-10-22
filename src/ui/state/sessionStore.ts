@@ -119,13 +119,16 @@ function readSnapshot(snap: Record<string, unknown>): SessionSnapshot | null {
   };
 }
 
+/** replacementHash(): 16 lowercase hex digits ("0123456789abcdef"). */
+const REPLACEMENT_HASH = /^[0-9a-f]{16}$/;
+
 const isCount = (n: unknown): n is number => Number.isInteger(n) && (n as number) >= 0;
 
 /** A well-formed decision on one of the `paragraphs` saved paragraphs; any other entry is dropped. */
 function isSavedDecision(d: unknown, paragraphs: number): boolean {
   if (!isRecord(d) || typeof d.kind !== 'string') return false;
-  const { paragraph, start, end, status, replacementIndex } = d;
+  const { paragraph, start, end, status, replacementHash } = d;
   if (!isCount(paragraph) || paragraph >= paragraphs || !isCount(start) || !isCount(end) || start > end) return false;
   if (status === 'rejected') return true;
-  return status === 'applied' && isCount(replacementIndex);
+  return status === 'applied' && typeof replacementHash === 'string' && REPLACEMENT_HASH.test(replacementHash);
 }
