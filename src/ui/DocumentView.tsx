@@ -124,12 +124,13 @@ const FLAG_AT_CURSOR_ID = 'flag-at-cursor';
 
 /**
  * The editor's own words (placeholder, name): reconfigured when the UI language changes. The text itself is
- * English (lang="en"), so screen readers and the browser read it as English in any UI language.
+ * English (lang="en"), so screen readers and the browser read it as English in any UI language, and left to
+ * right (dir="ltr") even in a right-to-left UI.
  */
 function editorLabels(t: Translator) {
   return [
     placeholder(t.t('doc.placeholder')),
-    EditorView.contentAttributes.of({ 'aria-label': t.t('doc.textLabel'), 'aria-describedby': FLAG_AT_CURSOR_ID, lang: 'en' }),
+    EditorView.contentAttributes.of({ 'aria-label': t.t('doc.textLabel'), 'aria-describedby': FLAG_AT_CURSOR_ID, lang: 'en', dir: 'ltr' }),
   ];
 }
 

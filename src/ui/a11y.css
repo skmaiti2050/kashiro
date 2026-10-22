@@ -22,13 +22,13 @@
 }
 
 .app[data-font='atkinson'] {
-  --ui-font: 'Atkinson Hyperlegible', 'Segoe UI', system-ui, sans-serif;
-  --reading-font: 'Atkinson Hyperlegible', Georgia, serif;
+  --ui-font: 'Atkinson Hyperlegible', 'Segoe UI', var(--indic-fonts), system-ui, sans-serif;
+  --reading-font: 'Atkinson Hyperlegible', Georgia, var(--indic-fonts), serif;
 }
 
 .app[data-font='opendyslexic'] {
-  --ui-font: 'OpenDyslexic', 'Segoe UI', system-ui, sans-serif;
-  --reading-font: 'OpenDyslexic', Georgia, serif;
+  --ui-font: 'OpenDyslexic', 'Segoe UI', var(--indic-fonts), system-ui, sans-serif;
+  --reading-font: 'OpenDyslexic', Georgia, var(--indic-fonts), serif;
 }
 
 /*
@@ -96,7 +96,7 @@
   }
 
   .review {
-    border-left: none;
+    border-inline-start: none;
     border-top: 1px solid var(--line);
     overflow-y: visible;
   }
@@ -159,15 +159,16 @@ button.link {
 }
 
 .shortcut-table caption {
-  text-align: left;
+  text-align: start;
   font-weight: 600;
   padding: 4px 0;
 }
 
 .shortcut-table th,
 .shortcut-table td {
-  text-align: left;
-  padding: 4px 8px 4px 0;
+  text-align: start;
+  padding-block: 4px;
+  padding-inline: 0 8px;
   border-bottom: 1px solid var(--line);
   vertical-align: top;
 }

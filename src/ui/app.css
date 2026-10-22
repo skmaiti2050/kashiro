@@ -25,8 +25,13 @@
   --cat-ai: #8a6d00;
   --cat-names: #5f6b7a;
   /* Windows 11 type ramp: chrome in Segoe UI Variable (Text optical size), Body 14/20. */
-  --ui-font: 'Segoe UI Variable Text', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
-  --reading-font: Georgia, 'Times New Roman', serif;
+  /*
+   * Hindi and Bengali (UI and document text) in the bundled Noto faces (src/ui/fonts.ts). Their
+   * unicode-range covers only their script, so Latin text keeps the fonts before them in each stack.
+   */
+  --indic-fonts: 'Noto Sans Devanagari', 'Noto Sans Bengali';
+  --ui-font: 'Segoe UI Variable Text', 'Segoe UI Variable', 'Segoe UI', var(--indic-fonts), system-ui, sans-serif;
+  --reading-font: Georgia, 'Times New Roman', var(--indic-fonts), serif;
   font-family: var(--ui-font);
   font-size: 14px;
   line-height: 20px;
@@ -211,7 +216,7 @@ summary:focus-visible,
 /* A muted key hint on a button ("Enter"), so the shortcut is learnt by seeing it. */
 .key-hint {
   display: inline-block;
-  margin-left: 6px;
+  margin-inline-start: 6px;
   padding: 0 4px;
   border: 1px solid currentColor;
   border-radius: 3px;
@@ -255,7 +260,8 @@ summary:focus-visible,
 .chip {
   border: 1px solid var(--line);
   border-radius: 999px;
-  padding: 2px 4px 2px 10px;
+  padding-block: 2px;
+  padding-inline: 10px 4px;
 }
 
 .chip.warn {
@@ -286,7 +292,7 @@ summary:focus-visible,
 .save-menu .menu,
 .menu-anchor .menu {
   position: absolute;
-  right: 0;
+  inset-inline-end: 0;
   top: 110%;
   z-index: 10;
   width: 320px;
@@ -322,8 +328,8 @@ summary:focus-visible,
 }
 
 .menu-anchor .menu {
-  left: 0;
-  right: auto;
+  inset-inline-start: 0;
+  inset-inline-end: auto;
   width: 280px;
   display: grid;
   gap: 2px;
@@ -331,7 +337,7 @@ summary:focus-visible,
 
 .menu-anchor .menu button {
   border: none;
-  text-align: left;
+  text-align: start;
   padding: 6px 8px;
 }
 
@@ -440,7 +446,7 @@ legend {
 .cm-new {
   color: var(--new);
   font-weight: 600;
-  margin-left: 2px;
+  margin-inline-start: 2px;
 }
 
 .cm-new-auto {
@@ -516,7 +522,7 @@ legend {
 
 /* Review panel */
 .review {
-  border-left: 1px solid var(--line);
+  border-inline-start: 1px solid var(--line);
   background: var(--panel);
   padding: 12px 16px;
   overflow-y: auto;
@@ -748,7 +754,7 @@ legend {
   border: none;
   background: none;
   padding: 2px 0;
-  text-align: left;
+  text-align: start;
   cursor: pointer;
 }
 
@@ -780,7 +786,7 @@ legend {
 }
 
 .diff ins {
-  margin-left: 2px;
+  margin-inline-start: 2px;
 }
 
 .card-slot:focus-visible {
@@ -795,7 +801,7 @@ legend {
 
 .kind-name {
   font-weight: 600;
-  margin-right: 4px;
+  margin-inline-end: 4px;
 }
 
 .diff mark {

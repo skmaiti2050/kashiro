@@ -1,15 +1,18 @@
-# Readable fonts attribution
+# Fonts attribution
 
-writing-check bundles two fonts for Settings › Text and reading › Font. They are packaged into the app
-from npm (`src/ui/fonts.ts`); nothing is downloaded at run time.
+writing-check bundles two readable fonts for Settings › Text and reading › Font, and two Indic fonts for
+the Hindi and Bengali interface and for Hindi or Bengali text in documents. They are packaged into the
+app from npm (`src/ui/fonts.ts`); nothing is downloaded at run time.
 
 | Font | npm package | Version | Licence | Files bundled |
 |---|---|---|---|---|
 | Atkinson Hyperlegible | `@fontsource/atkinson-hyperlegible` | 5.3.0 | SIL Open Font License 1.1 | regular and bold, Latin and Latin Extended (`.woff2`, `.woff`) |
 | OpenDyslexic | `@fontsource/opendyslexic` | 5.3.0 | SIL Open Font License 1.1 | regular and bold, Latin (`.woff2`, `.woff`) |
+| Noto Sans Devanagari | `@fontsource/noto-sans-devanagari` | 5.3.0 | SIL Open Font License 1.1 | regular and bold, Devanagari subset (`.woff2`, `.woff`) |
+| Noto Sans Bengali | `@fontsource/noto-sans-bengali` | 5.3.0 | SIL Open Font License 1.1 | regular and bold, Bengali subset (`.woff2`, `.woff`) |
 
 The fonts are not modified. The copyright notices below are copied from each package's `LICENSE` file,
-followed by the licence text, which is the same for both.
+followed by the licence text, which is the same for all four.
 
 ## Atkinson Hyperlegible
 
@@ -24,6 +27,18 @@ This Font Software is licensed under the SIL Open Font License, Version 1.1.
 Copyright (c) 2019-07-29, Abbie Gonzalez (https://abbiecod.es|support@abbiecod.es),
 with Reserved Font Name OpenDyslexic.
 Copyright (c) 12/2012 - 2019
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+
+## Noto Sans Devanagari
+
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/devanagari)
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+
+## Noto Sans Bengali
+
+Copyright 2025 The Noto Project Authors (https://github.com/notofonts/bengali)
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 

@@ -51,6 +51,10 @@ describe('app language', () => {
     expect(container.querySelector('.app')!.getAttribute('lang')).toBe('bn');
     expect(document.documentElement.lang).toBe('bn');
     expect(saved.at(-1)!.uiLanguage).toBe('bn');
+    // The document stays English, left to right, whatever the UI language and its direction.
+    const text = container.querySelector('.cm-content')!;
+    expect(text.getAttribute('lang')).toBe('en');
+    expect(text.getAttribute('dir')).toBe('ltr');
   });
 
   it.each([
