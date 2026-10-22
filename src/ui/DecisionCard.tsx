@@ -14,6 +14,7 @@ import { DecisionTitle } from './DecisionTitle';
 import { batchApplyLabel, excerpt } from './state/labels';
 import { englishOnly, explanation } from './state/plainMessages';
 import type { SessionController } from './state/sessionController';
+import { wordsToCompare } from './state/wordLookup';
 
 interface Props {
   controller: SessionController;
@@ -26,6 +27,8 @@ interface Props {
   onNext(): void;
   /** Shows a candidate in the document view (highlighted and scrolled into view). */
   onLocate(candidate: Candidate): void;
+  /** Opens the word lookup; absent while word lookup is off. */
+  onLookUp?: (words: string[]) => void;
 }
 
 /**
@@ -35,7 +38,7 @@ interface Props {
  * (not word flags, not AI rewrites) get the Dismiss ▾ scope menu. `data-key` marks the buttons the
  * review keys press (Enter: accept, Backspace: reject).
  */
-export function DecisionCard({ controller, decision, candidates, paraText, touchesLocked, onNext, onLocate }: Props) {
+export function DecisionCard({ controller, decision, candidates, paraText, touchesLocked, onNext, onLocate, onLookUp }: Props) {
   const t = useT();
   const [seeEach, setSeeEach] = useState(false);
   const [place, setPlace] = useState(0);
@@ -53,6 +56,8 @@ export function DecisionCard({ controller, decision, candidates, paraText, touch
   const canIgnoreRule = !isWordFlag && first.source !== 'llm' && first.source !== 'hygiene' && !touchesLocked;
   const accept = (i: number) => (isBatch ? setPreview(i) : controller.accept(decision.id, i));
   const rejectLabel = flagOnly ? (isBatch ? 'card.dismissAll' : 'card.dismiss') : isBatch ? 'card.rejectAll' : 'card.reject';
+  // Only for a word: a phrase or sentence to rewrite has nothing to look up.
+  const lookUpWords = onLookUp ? wordsToCompare(first.original, first.replacements[0]) : null;
 
   return (
     <div className="card" title={t.t('card.clickToShow')} onClick={() => onLocate(shown)}>
@@ -126,6 +131,7 @@ export function DecisionCard({ controller, decision, candidates, paraText, touch
             </button>
           )}
           {isBatch && <button onClick={() => setSeeEach((v) => !v)}>{seeEach ? t.t('card.hidePlaces') : t.t('card.seeEach')}</button>}
+          {lookUpWords && <button onClick={() => onLookUp?.(lookUpWords)}>{t.t('card.lookUp')}</button>}
           <button className="quiet" aria-keyshortcuts="J" onClick={onNext}>
             {t.t('card.nextCard')} <Kbd>J</Kbd>
           </button>

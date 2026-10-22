@@ -2,8 +2,11 @@
 // AXE_REPORT=1 prints every violation (any impact) per screen, for the task report.
 import { describe, it, expect, beforeAll, vi } from 'vitest';
 import axe from 'axe-core';
-import { act, fireEvent, screen } from '@testing-library/react';
+import { act, fireEvent, screen, within } from '@testing-library/react';
+import { EditorView } from '@codemirror/view';
+import type { Dictionary } from '@/engine/dictionary/lookup';
 import { buildDocx } from '../fixtures/make_docx';
+import { deferred, fakeDictionary } from './fakeDictionary';
 import { DEFAULT_READING } from '@/ui/state/readingSettings';
 import { memorySessionFiles } from '../fixtures/memorySessionFiles';
 import { makeController, warmLinter } from './harness';
@@ -165,5 +168,39 @@ describe('axe-core: no serious or critical violations', () => {
     renderShell(makeController().controller);
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
     await audit('settings dialog (no local voice)');
+  });
+
+  it('word lookup: loading, a result side by side, no definition, and the text menu', async () => {
+    const loading = deferred<Dictionary>();
+    const { controller } = makeController({}, undefined, undefined, () => loading.promise);
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openSample());
+    const card = showCard('.card', (c) => c.querySelector('.card-title')?.textContent?.includes('recieve') ?? false)!;
+    fireEvent.click(within(card).getByRole('button', { name: 'Look up' }));
+    await audit('lookup: loading');
+    await act(async () => loading.resolve(fakeDictionary));
+    expect(screen.getByText('Definitions in English.')).toBeTruthy();
+    await audit('lookup: original and suggestion');
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+
+    const view = EditorView.findFromDOM(document.querySelector<HTMLElement>('.cm-editor')!)!;
+    act(() => {
+      view.focus();
+      view.dispatch({ selection: { anchor: view.state.doc.toString().indexOf('lakh') + 1 } });
+    });
+    fireEvent.contextMenu(view.contentDOM);
+    expect(screen.getByRole('menu', { name: 'Text actions' })).toBeTruthy();
+    await audit('text menu');
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Look up “lakh”' }));
+    expect(await within(screen.getByRole('dialog', { name: 'Look up “lakh”' })).findByText('No definition found')).toBeTruthy();
+    await audit('lookup: no definition');
+  });
+
+  it('About, with every notice open', async () => {
+    renderShell(makeController().controller);
+    fireEvent.click(screen.getByRole('button', { name: 'About' }));
+    const dialog = await screen.findByRole('dialog', { name: 'About writing-check' });
+    act(() => dialog.querySelectorAll('details').forEach((details) => (details.open = true)));
+    await audit('About');
   });
 });

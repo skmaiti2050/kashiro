@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { appShortcut, reviewKeyAction, type AppShortcut, type KeyTarget, type ReviewKeyAction } from './state/reviewKeys';
+import { appShortcut, isLookUpKey, reviewKeyAction, type AppShortcut, type KeyTarget, type ReviewKeyAction } from './state/reviewKeys';
 
 /** Fields where keys type text: shortcuts never fire there (a select counts: letters pick an option). */
 const TEXT_ENTRY = 'textarea, select, [contenteditable="true"], input:not([type]), input[type="text"], input[type="search"], input[type="number"]';
@@ -33,6 +33,23 @@ export function useReviewKeys(enabled: boolean, documentEditable: boolean, onAct
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [enabled, documentEditable]);
+}
+
+/** Calls `onPress` on Ctrl+D while `enabled`; it returns true when it acted, and only then is the key's default stopped. */
+export function useLookUpKey(enabled: boolean, onPress: () => boolean): void {
+  const latest = useRef(onPress);
+  useEffect(() => {
+    latest.current = onPress;
+  });
+  useEffect(() => {
+    if (!enabled) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.isComposing || !isLookUpKey(e)) return;
+      if (latest.current()) e.preventDefault();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [enabled]);
 }
 
 /** Calls `onShortcut` for Ctrl+O, and Ctrl+V on the start screen. */

@@ -24,8 +24,9 @@ describe('app commands (src-tauri)', () => {
   });
 
   it('the default capability grants exactly those commands, with Tauri allow-<command> permissions', () => {
-    const permissions = (JSON.parse(read('src-tauri/capabilities/default.json')) as { permissions: string[] }).permissions;
-    const granted = permissions.filter((p) => p.startsWith('allow-')).sort();
+    // An entry is a permission name or a scoped permission object ({ identifier, allow }); app commands are names.
+    const permissions = (JSON.parse(read('src-tauri/capabilities/default.json')) as { permissions: unknown[] }).permissions;
+    const granted = permissions.filter((p): p is string => typeof p === 'string' && p.startsWith('allow-')).sort();
     expect(granted).toEqual(handlers.map(allowPermission).sort());
   });
 

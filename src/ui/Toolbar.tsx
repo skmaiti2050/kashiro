@@ -34,6 +34,7 @@ interface Props {
   onSettings(): void;
   onHelp(): void;
   onShortcuts(): void;
+  onAbout(): void;
 }
 
 /** Toolbar items the arrow keys move between (a select keeps its arrows: they change its value). */
@@ -56,8 +57,8 @@ function moveAlongToolbar(e: KeyboardEvent<HTMLElement>, dir: 'ltr' | 'rtl'): vo
   items[(at + (forward ? 1 : -1) + items.length) % items.length].focus();
 }
 
-/** Open · Paste · preset · variant chip · Save (with its save-mode menu) · Settings · Google Docs help. */
-export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onHelp, onShortcuts }: Props) {
+/** Open · Paste · preset · variant chip · Google Docs help · Shortcuts · Settings · About · Save (with its save-mode menu). */
+export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onHelp, onShortcuts, onAbout }: Props) {
   const t = useT();
   const { session, settings, variantOverride, document } = state;
   const saveMenu = useRef<HTMLDetailsElement>(null);
@@ -114,6 +115,9 @@ export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onHelp
       </button>
       <button className="quiet" aria-keyshortcuts="Control+Comma" title={t.t('toolbar.settingsTitle')} onClick={onSettings}>
         {t.t('toolbar.settings')}
+      </button>
+      <button className="quiet" title={t.t('toolbar.aboutTitle')} onClick={onAbout}>
+        {t.t('toolbar.about')}
       </button>
 
       <div className="save-group">

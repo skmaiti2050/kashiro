@@ -32,13 +32,22 @@ const READ_ALOUD: Shortcut[] = [
   { keys: 'Alt+P', action: 'shortcuts.readParagraph' },
 ];
 
-/** The keyboard shortcuts (F1 or ?), grouped where they work. Read aloud is listed only when it is available. */
-export function ShortcutsSheet({ readAloud, onClose }: { readAloud: boolean; onClose(): void }) {
+const LOOK_UP: Shortcut = { keys: 'Ctrl+D', action: 'shortcuts.lookUp' };
+
+interface Props {
+  readAloud: boolean;
+  /** Word lookup is on (Settings › Modules). */
+  lookUp: boolean;
+  onClose(): void;
+}
+
+/** The keyboard shortcuts (F1 or ?), grouped where they work. Read aloud and Look up are listed only when available. */
+export function ShortcutsSheet({ readAloud, lookUp, onClose }: Props) {
   const t = useT();
   return (
     <Dialog title={t.t('shortcuts.title')} className="shortcuts" onClose={onClose}>
       <ShortcutTable caption={t.t('shortcuts.anywhere')} rows={ANYWHERE} />
-      <ShortcutTable caption={t.t('shortcuts.reviewing')} rows={REVIEW} />
+      <ShortcutTable caption={t.t('shortcuts.reviewing')} rows={lookUp ? [...REVIEW, LOOK_UP] : REVIEW} />
       {readAloud && <ShortcutTable caption={t.t('shortcuts.readAloud')} rows={READ_ALOUD} />}
     </Dialog>
   );

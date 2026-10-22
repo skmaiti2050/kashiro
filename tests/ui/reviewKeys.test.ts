@@ -1,6 +1,6 @@
 // The review loop's keys (U1 item 1) and the app shortcuts (item 8), without a DOM.
 import { describe, it, expect } from 'vitest';
-import { appShortcut, readAloudKey, reviewKeyAction, type KeyPress, type KeyTarget } from '@/ui/state/reviewKeys';
+import { appShortcut, isLookUpKey, readAloudKey, reviewKeyAction, type KeyPress, type KeyTarget } from '@/ui/state/reviewKeys';
 
 const press = (key: string, mods: Partial<KeyPress> = {}): KeyPress => ({
   key,
@@ -96,5 +96,20 @@ describe('readAloudKey', () => {
     expect(readAloudKey(press('s', { altKey: true, ctrlKey: true }))).toBeNull();
     expect(readAloudKey(press('s', { altKey: true, shiftKey: true }))).toBeNull();
     expect(readAloudKey(press('s', { altKey: true, repeat: true }))).toBeNull();
+  });
+});
+
+describe('isLookUpKey', () => {
+  it('Ctrl+D, either case, once per press', () => {
+    expect(isLookUpKey(press('d', { ctrlKey: true }))).toBe(true);
+    expect(isLookUpKey(press('D', { ctrlKey: true }))).toBe(true);
+    expect(isLookUpKey(press('d', { ctrlKey: true, repeat: true }))).toBe(false);
+  });
+
+  it('not D alone, nor with Shift, Alt (AltGr) or the Windows key', () => {
+    expect(isLookUpKey(press('d'))).toBe(false);
+    expect(isLookUpKey(press('D', { ctrlKey: true, shiftKey: true }))).toBe(false);
+    expect(isLookUpKey(press('d', { ctrlKey: true, altKey: true }))).toBe(false);
+    expect(isLookUpKey(press('d', { ctrlKey: true, metaKey: true }))).toBe(false);
   });
 });

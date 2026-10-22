@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { ChangeLog } from './ChangeLog';
 import { DocumentView, type DocumentFocus } from './DocumentView';
 import { GoogleDocsHelp } from './GoogleDocsHelp';
+import { LookupPanel } from './LookupPanel';
 import { ResumeDialog } from './ResumeDialog';
 import { ReviewPanel, type CardRequest, type CaretText } from './ReviewPanel';
 import { SettingsPanel } from './SettingsPanel';
@@ -12,9 +13,11 @@ import { Toolbar } from './Toolbar';
 import { UnsavedChangesDialog } from './UnsavedChangesDialog';
 import { useAppShortcuts } from './useKeys';
 import { useReadAloud } from './useReadAloud';
+import { useWordLookup } from './useWordLookup';
 import { msg, type Message } from './i18n/message';
 import { translatorFor } from './i18n/translatorFor';
 import { TranslatorProvider, useT } from './i18n/useT';
+import { loadAppDictionary } from './platform/dictionary';
 import { files, onFileDrop, setDialogLabels } from './platform/files';
 import { createAppLinter } from './platform/linter';
 import { sessionFiles } from './platform/sessions';
@@ -22,11 +25,14 @@ import { loadSettings, saveSettings } from './platform/settings';
 import { explain } from './state/errors';
 import { readingStyle } from './state/readingSettings';
 import { SessionController, type ControllerState } from './state/sessionController';
+import { modulesFor } from './state/settings';
 import { useSession } from './state/useSession';
 import './fonts';
 import './app.css';
 import './a11y.css';
 
+// Loaded when first opened: the notice texts stay out of the main bundle.
+const AboutDialog = lazy(() => import('./AboutDialog').then((module) => ({ default: module.AboutDialog })));
 
 export default function App() {
   const [controller, setController] = useState<SessionController | null>(null);
@@ -39,7 +45,14 @@ export default function App() {
     started.current = true;
     loadSettings().then(
       (settings) => {
-        const c = new SessionController({ files, settings, saveSettings, createLinter: createAppLinter, sessions: sessionFiles });
+        const c = new SessionController({
+          files,
+          settings,
+          saveSettings,
+          createLinter: createAppLinter,
+          sessions: sessionFiles,
+          loadDictionary: loadAppDictionary,
+        });
         setController(c);
         // Deletes saved reviews past their retention, then lists the rest (failures show as an error banner).
         void c.reviews.startUp();
@@ -75,7 +88,8 @@ export function Shell({ controller }: { controller: SessionController }) {
 
 function ShellView({ controller, state }: { controller: SessionController; state: ControllerState }) {
   const t = useT();
-  const [panel, setPanel] = useState<'none' | 'settings' | 'help' | 'shortcuts'>('none');
+  const [panel, setPanel] = useState<'none' | 'settings' | 'help' | 'shortcuts' | 'about'>('none');
+  const { lookup, state: lookupState } = useWordLookup(controller);
   const readAloud = useReadAloud(state.settings.reading);
   const caretReader = useRef<() => CaretText | null>(() => null);
   const [logOpen, setLogOpen] = useState(false);
@@ -133,7 +147,8 @@ function ShellView({ controller, state }: { controller: SessionController; state
     setPanel('none');
     onOpen();
   };
-  const dialogOpen = panel !== 'none' || afterUnsaved !== null || state.resumeOffer !== null;
+  const dialogOpen = panel !== 'none' || afterUnsaved !== null || state.resumeOffer !== null || lookupState !== null;
+  const lookUpOn = modulesFor(state.settings).wordLookup;
   useAppShortcuts(state.document !== null, (shortcut) => {
     if (dialogOpen) return;
     if (shortcut === 'open') onOpen();
@@ -159,6 +174,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
           onSettings={() => setPanel('settings')}
           onHelp={() => setPanel('help')}
           onShortcuts={() => setPanel('shortcuts')}
+          onAbout={() => setPanel('about')}
         />
         {/*
           Live regions exist before their text arrives, so screen readers announce it. data-live-regions keeps
@@ -170,6 +186,9 @@ function ShellView({ controller, state }: { controller: SessionController; state
         </div>
         <p className="visually-hidden" role="status" aria-atomic="true" data-live-regions>
           {state.announcement && <span key={state.announcement.seq}>{t.format(state.announcement.message)}</span>}
+        </p>
+        <p className="visually-hidden" role="status" aria-atomic="true" data-live-regions>
+          {lookupState?.announcement && <span key={lookupState.announcement.seq}>{t.format(lookupState.announcement.message)}</span>}
         </p>
       </header>
       <main className="workspace">
@@ -185,6 +204,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
           onSample={() => unlessUnsaved(() => void controller.openSample())}
           onOpenRecent={(review) => unlessUnsaved(() => void controller.reviews.openRecent(review))}
           caretReader={caretReader}
+          onLookUp={lookUpOn && !dialogOpen ? (word) => void lookup.open([word]) : null}
         />
         <ReviewPanel
           key={state.document?.id ?? 0}
@@ -197,13 +217,20 @@ function ShellView({ controller, state }: { controller: SessionController; state
           onSave={() => void controller.save()}
           readAloud={readAloud}
           readCaret={() => caretReader.current()}
+          onLookUp={lookUpOn ? (words) => void lookup.open(words) : undefined}
         />
       </main>
       <StatusBar state={state} />
       <ChangeLog controller={controller} state={state} open={logOpen} onToggle={() => setLogOpen((v) => !v)} />
       {panel === 'settings' && <SettingsPanel controller={controller} state={state} readAloud={readAloud} onClose={() => setPanel('none')} />}
       {panel === 'help' && <GoogleDocsHelp onOpen={openFromHelp} onClose={() => setPanel('none')} />}
-      {panel === 'shortcuts' && <ShortcutsSheet readAloud={readAloud !== null} onClose={() => setPanel('none')} />}
+      {panel === 'shortcuts' && <ShortcutsSheet readAloud={readAloud !== null} lookUp={lookUpOn} onClose={() => setPanel('none')} />}
+      {panel === 'about' && (
+        <Suspense fallback={null}>
+          <AboutDialog onClose={() => setPanel('none')} />
+        </Suspense>
+      )}
+      {lookupState && <LookupPanel lookup={lookupState} onClose={() => lookup.close()} />}
       {state.resumeOffer && (
         <ResumeDialog
           offer={state.resumeOffer}

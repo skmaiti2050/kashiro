@@ -12,7 +12,7 @@ interface Props {
 }
 
 /** Up / Down move between the menu's items, wrapping at the ends (WAI-ARIA menu pattern). */
-function moveInMenu(root: HTMLElement | null, step: 1 | -1): void {
+export function moveInMenu(root: HTMLElement | null, step: 1 | -1): void {
   const items = [...(root?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])];
   if (items.length === 0) return;
   const at = items.indexOf(document.activeElement as HTMLElement);

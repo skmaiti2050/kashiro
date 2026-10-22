@@ -74,6 +74,12 @@ export function appShortcut(press: KeyPress, hasDocument: boolean, control: KeyT
   return null;
 }
 
+/** Ctrl+D: look up the selected word, or the word at the cursor. A held key opens the panel once. */
+export function isLookUpKey(press: KeyPress): boolean {
+  if (!press.ctrlKey || press.altKey || press.metaKey || press.shiftKey || press.repeat) return false;
+  return press.key.toLowerCase() === 'd';
+}
+
 const READ_KEYS: Record<string, ReadTarget> = { s: 'sentence', r: 'suggestion', p: 'paragraph' };
 
 /**

@@ -55,6 +55,7 @@
       "dialog:allow-open",
       "dialog:allow-save",
       "fs:allow-read-file",
+      "{\"identifier\":\"fs:allow-read-file\",\"allow\":[{\"path\":\"$RESOURCE/dictionary/oewn.json.gz\"}]}",
       "fs:allow-write-file",
       "store:default",
       "allow-overwrite-with-backup",

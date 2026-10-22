@@ -1,3 +1,4 @@
+import type { Dictionary } from '@/engine/dictionary/lookup';
 import { createLinter } from '@/engine/linter';
 import { ReviewPanel, type CardRequest } from '@/ui/ReviewPanel';
 import { SessionController, type Files } from '@/ui/state/sessionController';
@@ -18,13 +19,14 @@ export async function warmLinter(): Promise<void> {
 
 /**
  * A controller over the real linter (built per check, so added words are known), recording saved settings.
- * Reviews are saved only when `sessions` is given.
+ * Reviews are saved only when `sessions` is given; word lookup works only when `loadDictionary` is given.
  */
-export function makeController(settings: Partial<Settings> = {}, files: Files = noFiles, sessions?: SessionFiles) {
+export function makeController(settings: Partial<Settings> = {}, files: Files = noFiles, sessions?: SessionFiles, loadDictionary?: () => Promise<Dictionary>) {
   const saved: Settings[] = [];
   const controller = new SessionController({
     files,
     sessions,
+    loadDictionary,
     createLinter: (variant, words) => createLinter(variant, words),
     saveSettings: async (s) => {
       saved.push(s);

@@ -49,13 +49,15 @@ interface Props {
   readAloud: ReadAloud | null;
   /** The text at the cursor while the document has focus, else null (read the card's text instead). */
   readCaret(): CaretText | null;
+  /** "Look up" on a card; absent while word lookup is off. */
+  onLookUp?: (words: string[]) => void;
 }
 
 
 const reduceMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 
 /** The review queue: a progress header, one card at a time (Enter / Backspace / J / K), the rest under "More (N)". */
-export function ReviewPanel({ controller, state, onLocate, request, keysEnabled, onShowLog, onSave, readAloud, readCaret }: Props) {
+export function ReviewPanel({ controller, state, onLocate, request, keysEnabled, onShowLog, onSave, readAloud, readCaret, onLookUp }: Props) {
   const t = useT();
   const [cursor, setCursor] = useState(START);
   /**
@@ -192,6 +194,7 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
         touchesLocked={d.candidateIds.some((id) => session!.touchesLocked(id))}
         onNext={() => setCursor((c) => moveCursor(top, more, c, 1))}
         onLocate={onLocate}
+        onLookUp={onLookUp}
       />
     );
   }

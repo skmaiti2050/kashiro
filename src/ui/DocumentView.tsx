@@ -6,13 +6,18 @@ import type { CheckSession } from '@/engine/session';
 import type { Candidate } from '@/engine/types';
 import { EmptyState } from './EmptyState';
 import type { CaretText } from './ReviewPanel';
+import { TextMenu } from './TextMenu';
 import { CATEGORIES } from './state/categories';
+import { explain } from './state/errors';
 import { highlightRanges, locateCandidate, toEditorPosition } from './state/highlights';
+import { msg } from './i18n/message';
 import type { Translator } from './i18n/translator';
 import { useT } from './i18n/useT';
 import { explanation } from './state/plainMessages';
 import type { ControllerState, OpenDocument, SessionController } from './state/sessionController';
 import type { RecentReview } from './state/sessionStore';
+import { selectedText, wordAtPointer, wordAtSelection } from './editorWords';
+import { useLookUpKey } from './useKeys';
 
 /** The replacement text of an applied edit, shown right after the struck-through original. */
 class ReplacementWidget extends WidgetType {
@@ -138,6 +143,14 @@ function editorLabels(t: Translator) {
 /** Room kept around a scrolled-to underline, so it never sits flush against the pane's edges. */
 const SCROLL_MARGINS = { top: 32, bottom: 32 };
 
+/** The right-click menu: where it opened, its word, the selected text (for Copy) and where focus goes back to. */
+interface TextMenuState {
+  at: { x: number; y: number };
+  word: string;
+  selected: string;
+  returnTo: Element | null;
+}
+
 interface Props {
   controller: SessionController;
   state: ControllerState;
@@ -151,18 +164,23 @@ interface Props {
   onOpenRecent(review: RecentReview): void;
   /** Set to a reader of the text at the cursor while the text has focus (for "Read sentence"). */
   caretReader: MutableRefObject<() => CaretText | null>;
+  /** Ctrl+D and right-click → Look up; null while word lookup is off or a dialog is open (the system menu shows). */
+  onLookUp: ((word: string) => void) | null;
 }
 
 /** CodeMirror view of the document: read-only for .docx, editable (and re-checked as you type) for text. */
-export function DocumentView({ controller, state, focus, onUnderlineClick, onOpen, onPaste, onSample, onOpenRecent, caretReader }: Props) {
+export function DocumentView({ controller, state, focus, onUnderlineClick, onOpen, onPaste, onSample, onOpenRecent, caretReader, onLookUp }: Props) {
   const t = useT();
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const labels = useRef(new Compartment());
   const underlineClick = useRef(onUnderlineClick);
+  const lookUp = useRef(onLookUp);
   useEffect(() => {
     underlineClick.current = onUnderlineClick;
+    lookUp.current = onLookUp;
   });
+  const [textMenu, setTextMenu] = useState<TextMenuState | null>(null);
   /** The flag under the cursor, read out when the cursor moves onto it. */
   const [flagAtCursor, setFlagAtCursor] = useState('');
   const spokenFlag = useRef('');
@@ -203,6 +221,14 @@ export function DocumentView({ controller, state, focus, onUnderlineClick, onOpe
               const id = candidateAt(editor, event);
               if (id) underlineClick.current(id, false);
               return false;
+            },
+            contextmenu(event, editor) {
+              // Off, or no word here: the system menu (Cut, Copy, Paste) shows as before.
+              const word = lookUp.current ? wordAtPointer(editor, event) : null;
+              if (!word) return false;
+              event.preventDefault();
+              setTextMenu({ at: { x: event.clientX, y: event.clientY }, word, selected: selectedText(editor), returnTo: document.activeElement });
+              return true;
             },
           }),
         ],
@@ -247,6 +273,26 @@ export function DocumentView({ controller, state, focus, onUnderlineClick, onOpe
     // Only a new card or click moves the view; re-renders from checks don't.
   }, [focus?.seq]);
 
+  useLookUpKey(onLookUp !== null && doc !== null, () => {
+    const word = view.current ? wordAtSelection(view.current) : null;
+    if (word) lookUp.current?.(word);
+    return word !== null;
+  });
+
+  /** Closes the right-click menu; with `returnFocus`, focus goes back to where it was before it opened. */
+  const closeTextMenu = (returnFocus: boolean) => {
+    if (returnFocus && textMenu?.returnTo instanceof HTMLElement && textMenu.returnTo.isConnected) textMenu.returnTo.focus();
+    setTextMenu(null);
+  };
+
+  const copy = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (e) {
+      controller.showError(explain(msg('error.copy'), e, msg('error.copyNext')));
+    }
+  };
+
   if (!doc) return <EmptyState onOpen={onOpen} onPaste={onPaste} onSample={onSample} recent={state.recentReviews} onOpenRecent={onOpenRecent} />;
   return (
     <section className="document" aria-label={doc.name}>
@@ -255,6 +301,22 @@ export function DocumentView({ controller, state, focus, onUnderlineClick, onOpe
       <p id={FLAG_AT_CURSOR_ID} className="visually-hidden" aria-live="polite">
         {flagAtCursor}
       </p>
+      {textMenu && (
+        <TextMenu
+          at={textMenu.at}
+          word={textMenu.word}
+          canCopy={textMenu.selected !== ''}
+          onLookUp={() => {
+            closeTextMenu(true);
+            lookUp.current?.(textMenu.word);
+          }}
+          onCopy={() => {
+            closeTextMenu(true);
+            void copy(textMenu.selected);
+          }}
+          onClose={closeTextMenu}
+        />
+      )}
     </section>
   );
 
