@@ -4,7 +4,7 @@
  * Source: wordfreq 3.1.1 (Robyn Speer et al.), `wordlist=large`, top 100,000 lowercase a-z words (with apostrophes: "don't") with
  *         their Zipf frequency, one "word<TAB>zipf" line each, most frequent first
  * URL:    https://github.com/rspeer/wordfreq (data: https://pypi.org/project/wordfreq/3.1.1/)
- * sha256: 7bce41579da7ae1adc1e551dc2a1c2bbf9e6c5bce95be801f7f0fd0585d5a577 (the exported .tsv)
+ * sha256: of the exported .tsv, pinned in deps/assets.json ("wordfreq")
  * Licence: data CC BY-SA 4.0 (see resources/frequency/ATTRIBUTION.md)
  *
  * Usage: npm run build:frequency -- <en-wordfreq-100k.tsv>
@@ -14,8 +14,9 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { FrequencyData } from '../src/engine/suggestions/frequencyData';
+import { pinnedSha256 } from './deps/assets';
 
-export const PINNED_SHA256 = '7bce41579da7ae1adc1e551dc2a1c2bbf9e6c5bce95be801f7f0fd0585d5a577';
+export const PINNED_SHA256 = pinnedSha256('wordfreq');
 
 /** One data line: "garden\t4.96" or "don't\t6.20". */
 const DATA_LINE = /^([a-z]+(?:'[a-z]+)*)\t(\d+(?:\.\d+)?)$/;

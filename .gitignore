@@ -1,5 +1,9 @@
 node_modules/
+# A fake project for the licence check's tests (tests/deps/licences.test.ts).
+!tests/fixtures/licences/**/node_modules/
 dist/
+# Reports from npm run deps:status and npm run upgrade:check.
+deps/reports/
 .superpowers/
 src-tauri/target/
 src-tauri/binaries/

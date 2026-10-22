@@ -3,7 +3,7 @@
  *
  * Source: Open English WordNet 2025 edition (plain, not "plus")
  * URL:    https://github.com/globalwordnet/english-wordnet/releases/download/2025-edition/english-wordnet-2025.xml.gz
- * sha256: 9ca6d1dcb75f822fdd66617f7d9da48142ace38dd544d6ad5e2feca1674ad3fe
+ * sha256: pinned in deps/assets.json ("wordnet")
  * Licence: WordNet License + CC BY 4.0 (see resources/dictionary/ATTRIBUTION.md)
  *
  * Usage: npm run build:dictionary -- <english-wordnet-2025.xml.gz>
@@ -18,8 +18,9 @@ import { gunzipSync, gzipSync } from 'node:zlib';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { DictionaryData, PosCode } from '../src/engine/dictionary/types';
+import { pinnedSha256 } from './deps/assets';
 
-export const PINNED_SHA256 = '9ca6d1dcb75f822fdd66617f7d9da48142ace38dd544d6ad5e2feca1674ad3fe';
+export const PINNED_SHA256 = pinnedSha256('wordnet');
 export const MAX_SENSES_PER_POS = 3;
 export const MAX_SYNONYMS = 5;
 

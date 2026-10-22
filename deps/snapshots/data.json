@@ -1,0 +1,258 @@
+{
+  "files": {
+    "resources/dictionary/oewn.json.gz": "876366acc422485a3226b8bb088045675e83cf67b275b3edd2447cc982891ca9",
+    "resources/frequency/en-wordfreq.json": "bda91014d6f4343c089dcdd4792492a2abd183ffa222725472fc7e739dec13e7",
+    "resources/romanised/romanised-ngrams.json": "d1a37964fe54dba17a316b6484bb6ae7f8ce8cb50921cfc09bf40c70c958f9ea"
+  },
+  "dictionary": {
+    "lemmas": 74441,
+    "exceptions": 4396,
+    "senses": 114962,
+    "lookups": {
+      "the": "the; 0 senses; no senses",
+      "good": "good; 8 senses; adjective: having desirable or positive qualities especially those suit",
+      "run": "run; 6 senses; noun: a score in baseball made by a runner touching all four bases",
+      "bank": "bank; 6 senses; noun: sloping land (especially the slope beside a body of water)",
+      "light": "light; 10 senses; noun: a divine presence believed by Quakers to enlighten and guide",
+      "set": "set; 9 senses; adjective: (usually followed by ‘to’ or ‘for’) on the point of or stron",
+      "well": "well; 10 senses; adjective: in good health especially after having suffered illness or i",
+      "fast": "fast; 8 senses; adjective: acting or moving or capable of acting or moving quickly",
+      "book": "book; 6 senses; noun: the sacred writings of the Christian religions",
+      "play": "play; 6 senses; noun: a dramatic work intended for performance by actors on a stag",
+      "went": "go; 7 senses; adjective: functioning correctly and ready for action",
+      "geese": "goose; 6 senses; noun: web-footed long-necked typically gregarious migratory aquati",
+      "saw": "see; 8 senses; noun: a condensed but memorable saying embodying some important fa",
+      "left": "leave; 13 senses; adjective: being or located on or directed toward the side of the body ",
+      "better": "good; 19 senses; adjective: (comparative of ‘good’) superior to another (of the same cla",
+      "mice": "mouse; 5 senses; noun: any of numerous small rodents typically resembling diminutiv",
+      "children": "child; 3 senses; noun: a young person of either sex",
+      "was": "be; 4 senses; noun: a light strong brittle grey toxic bivalent metallic element",
+      "ran": "run; 6 senses; noun: a score in baseball made by a runner touching all four bases",
+      "studies": "study; 6 senses; noun: a detailed critical inspection",
+      "studied": "study; 7 senses; adjective: produced or marked by conscious design or premeditation",
+      "happier": "happy; 3 senses; adjective: enjoying or showing or marked by joy or pleasure",
+      "happiest": "happy; 3 senses; adjective: enjoying or showing or marked by joy or pleasure",
+      "boxes": "box; 6 senses; noun: a (usually rectangular) container; may have a lid",
+      "cats": "cat; 5 senses; noun: a method of examining body organs by scanning them with X ra",
+      "walked": "walk; 6 senses; noun: the act of traveling by foot",
+      "walking": "walking; 2 senses; adjective: close enough to be walked to",
+      "taller": "tall; 4 senses; adjective: great in vertical dimension; high in stature",
+      "making": "making; 3 senses; noun: the act that results in something coming to be",
+      "running": "run; 12 senses; adjective: (of fluids) moving or issuing in a stream",
+      "news": "news; 3 senses; noun: information about recent and important events",
+      "its": "its; 0 senses; no senses",
+      "is": "be; 4 senses; noun: a light strong brittle grey toxic bivalent metallic element",
+      "receive": "receive; 3 senses; verb: get something; come into possession of",
+      "separate": "separate; 8 senses; adjective: independent; not united or joint",
+      "accommodate": "accommodate; 3 senses; verb: be agreeable or acceptable to",
+      "necessary": "necessary; 3 senses; adjective: absolutely essential",
+      "monsoon": "monsoon; 3 senses; noun: a seasonal wind in southern Asia; blows from the southwest (",
+      "chai": "chai; 0 senses; no senses; Indian-English list",
+      "sarpanch": "sarpanch; 0 senses; no senses; Indian-English list",
+      "lakh": "lakh; 1 senses; noun: the cardinal number that is the fifth power of ten; Indian-English list",
+      "crore": "crore; 1 senses; noun: the number that is represented as a one followed by 7 zeros;; Indian-English list",
+      "api": "api; 0 senses; no senses",
+      "download": "download; 1 senses; verb: transfer a file or program from a central computer to a smal",
+      "email": "email; 4 senses; noun: (computer science) a system of world-wide electronic communi",
+      "heatwave": "heatwave; 0 senses; no senses",
+      "serendipity": "serendipity; 1 senses; noun: good luck in making unexpected and fortunate discoveries",
+      "xyzzyq": "xyzzyq; 0 senses; no senses",
+      "constructor": "constructor; 1 senses; noun: someone who contracts for and supervises construction (as of",
+      "toString": "tostring; 0 senses; no senses"
+    }
+  },
+  "wordlists": {
+    "en-IN": {
+      "count": 641,
+      "sha256": "756068a00e4751031d0d0b8b2b4b91dc60df9b9038cfc58cd527986000b5bddf"
+    },
+    "tech": {
+      "count": 134,
+      "sha256": "7a27331be75027425f1b739b9541434324c7fe1d48492be50f52fd51fd1e2078"
+    },
+    "common": {
+      "count": 4816,
+      "sha256": "a08893aee6b25f7ba883f01adafc399d0e33fa85c5944f04c4dd82975ebc4429"
+    },
+    "frequency": {
+      "count": 100000,
+      "sha256": "fb60df7d9cb7397a00d30360cc05675fa6c1c8feefc130a1622961a701a11c37"
+    },
+    "romanised english order 1": {
+      "count": 27,
+      "sha256": "0a07acafeb37e0c6c86dd194926450ecab670d02087eece6a990b80c013141df"
+    },
+    "romanised english order 2": {
+      "count": 722,
+      "sha256": "9692942565753e2e88c0a1c21e4ae2ecd612538aa5a480cb43f6d962342acb25"
+    },
+    "romanised english order 3": {
+      "count": 10670,
+      "sha256": "76120d20ee7a1be8b9b3345e3c9bd9d4cc9a1cab9f78e99f20adb92d1413ab0d"
+    },
+    "romanised english order 4": {
+      "count": 55968,
+      "sha256": "0527c880e874172ea3903017bfc76c133e10fa6ecfe4faf137d9d515eaaca3f6"
+    },
+    "romanised hindi order 1": {
+      "count": 27,
+      "sha256": "84cd635141dd27c7f36888a753e03285e164a3c36fb6ee0dc300a97458948037"
+    },
+    "romanised hindi order 2": {
+      "count": 645,
+      "sha256": "3634824ecb1beac53eb4322712afa56f0fb7aae94fcfe7a78bffeb4b949c51bf"
+    },
+    "romanised hindi order 3": {
+      "count": 6720,
+      "sha256": "f407f66326325a85fc5e1c459d0012f027b11dba1fed7dfc79b09fa6ad6d6514"
+    },
+    "romanised hindi order 4": {
+      "count": 27578,
+      "sha256": "be2f56f4e5007f8afa50e3cb15cb2273690929799bf3650cba67ff1bba12e4d2"
+    },
+    "romanised bengali order 1": {
+      "count": 27,
+      "sha256": "66d72d347837789350a73bfe4b9de0f78b5cb0a22ea5534793439388cfc71ffb"
+    },
+    "romanised bengali order 2": {
+      "count": 641,
+      "sha256": "6d101ec2dd35e688336d00f19f9127fb7bc9b8e7d1fc8ed129429bf66fc23674"
+    },
+    "romanised bengali order 3": {
+      "count": 6605,
+      "sha256": "ccae54850950f0970ea8fbf2324cd2582aeacf6be06996b405285111eb11fc5d"
+    },
+    "romanised bengali order 4": {
+      "count": 29474,
+      "sha256": "d23191161b90c6521b8ccef75ce48778e9156f769d884010181d4e75da132c68"
+    },
+    "romanised tamil order 1": {
+      "count": 27,
+      "sha256": "a84d85d61925f7b12ea6f16a50e29e0e7d27088f93ae31df65f45849705a8d43"
+    },
+    "romanised tamil order 2": {
+      "count": 590,
+      "sha256": "87afbd96fa58aabb4acfb4b9ba63af31242babc9a4719b226cb6587ff476f296"
+    },
+    "romanised tamil order 3": {
+      "count": 5200,
+      "sha256": "094f8458504e9b8b64d4bc5d9db93d995e3aa9e3aebfb4bc2ff5ef536b5c3f75"
+    },
+    "romanised tamil order 4": {
+      "count": 21877,
+      "sha256": "78df33542873f855b40759ac9caad4f540a5e448f871969345dd146a042a5d6c"
+    },
+    "romanised telugu order 1": {
+      "count": 27,
+      "sha256": "373322e8e6864f4f23be3dd674d805b51e44175bfb7ed5ca3829ce43c74e0552"
+    },
+    "romanised telugu order 2": {
+      "count": 600,
+      "sha256": "ed1baa1e493d1d2ff80abfc4f254ce31bd6850b63f8f7712c8899da15790ea3c"
+    },
+    "romanised telugu order 3": {
+      "count": 5473,
+      "sha256": "3f75595382df573e0b0ca22e13d10a6afeca0df4eec7fa456fc35919b77175cd"
+    },
+    "romanised telugu order 4": {
+      "count": 24539,
+      "sha256": "785f53b1720ee2690389c36831acf4259ce0e9bbf089678f476a28f6299a1fac"
+    },
+    "romanised kannada order 1": {
+      "count": 27,
+      "sha256": "ce66dc78f29f9a49e4200d1bbe205d27a8551f5e9b7817a03dd47ba5873eddb1"
+    },
+    "romanised kannada order 2": {
+      "count": 607,
+      "sha256": "82ab032d421e89494e752e1b29414283aeb7af8e0ac70080d5547cbfe80825c6"
+    },
+    "romanised kannada order 3": {
+      "count": 5698,
+      "sha256": "8dc13058f250a9c42c314a273aefb9d7b8f504d8486558e6596a06f12d2c8d5e"
+    },
+    "romanised kannada order 4": {
+      "count": 24635,
+      "sha256": "7170d0c80c650103bc4c0481598a7d677cf143d22d39f89164ee65ebb8d6b7e5"
+    },
+    "romanised malayalam order 1": {
+      "count": 27,
+      "sha256": "ec37e30d7a04a3f45ed52c060c66c556de11ecf0d687f85739c3e37ba52c4d4e"
+    },
+    "romanised malayalam order 2": {
+      "count": 597,
+      "sha256": "06cd38a32a104dac4739a27ecdba283e188ad4b3c2ba453b6b680c6608c89d8d"
+    },
+    "romanised malayalam order 3": {
+      "count": 5666,
+      "sha256": "c74c41f4ba9d8cf592bc4c151f76fa1facd6951c2e0d6948b29bba33d2859799"
+    },
+    "romanised malayalam order 4": {
+      "count": 25098,
+      "sha256": "ca416e3c9877ea378067eabf2e60d88f3dd7bff77b96b4b718d7282704971d58"
+    },
+    "romanised marathi order 1": {
+      "count": 27,
+      "sha256": "dc2509d6019367c330f3844d3b5f13beef71c188060c0020b9e4eb733eb6c9cb"
+    },
+    "romanised marathi order 2": {
+      "count": 625,
+      "sha256": "270b6fa89222a9156be305193f8ba499a53c0da249998a2861d30aa7e87117eb"
+    },
+    "romanised marathi order 3": {
+      "count": 6108,
+      "sha256": "519fd88b66e0c476752813ceec77b56f5925db9dc3b08e23374e9f4d285dc73f"
+    },
+    "romanised marathi order 4": {
+      "count": 25317,
+      "sha256": "71b272c766f61069eb652a9acbbd21dc8abc6bd403c4f371f69150bc6d6cec23"
+    },
+    "romanised gujarati order 1": {
+      "count": 27,
+      "sha256": "75cdeb946919274d0abe8e2678643c1a8222a4477ff89c8ef77714a10b37238e"
+    },
+    "romanised gujarati order 2": {
+      "count": 617,
+      "sha256": "4e0b35342f0ba8e03d56531dee5363d3d046638edd67d25abaf1ae7f11f65046"
+    },
+    "romanised gujarati order 3": {
+      "count": 6146,
+      "sha256": "112c4ef92cd72c2954a8495cdf6406bbd18bc6906d1c766fea72c32eccee6251"
+    },
+    "romanised gujarati order 4": {
+      "count": 27157,
+      "sha256": "33fd165b15750d2ba7c9395c4ea46328320c5bb8f670db82bc3b3bc59c1121ae"
+    },
+    "romanised punjabi order 1": {
+      "count": 27,
+      "sha256": "70f2f1120aa499b0a57e0639499ba4268a1afc6baa2829c09c33f350d600e401"
+    },
+    "romanised punjabi order 2": {
+      "count": 645,
+      "sha256": "63f0bf35b38fede7d6bdf33ed75b431efc0fbdac4bcf7dc584106be366e32454"
+    },
+    "romanised punjabi order 3": {
+      "count": 6637,
+      "sha256": "bfd053b3a66cec955d247dbc8cd14fd332453d206eb0cf460c02404a7e2df05b"
+    },
+    "romanised punjabi order 4": {
+      "count": 28030,
+      "sha256": "8344fc40a00e29b404afd9f2c7bf09420f3bb0385bf85c9c949e72c0daa7f6ae"
+    },
+    "romanised urdu order 1": {
+      "count": 27,
+      "sha256": "f367b5d8b9530a74ea5ca2d50eae9796c1a49de56fb98a1f2d203ed19bf88cc1"
+    },
+    "romanised urdu order 2": {
+      "count": 640,
+      "sha256": "2773c1e40c8c7931b51c27d1dda9714cb78396c511f0bdb5ddb3868ec83746fb"
+    },
+    "romanised urdu order 3": {
+      "count": 6056,
+      "sha256": "0ff885eaec7288b53803845f7652dcc6d603edbdd2fa6d378111479f98794ab9"
+    },
+    "romanised urdu order 4": {
+      "count": 23143,
+      "sha256": "44f5cc740277fd9dfe6fb9ae989fb0629e8ca22015ce9c0dee3a99df0db64d0a"
+    }
+  }
+}

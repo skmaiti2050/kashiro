@@ -7,7 +7,7 @@
  *         mirrored on Hugging Face: one CSV with columns lang_code,indic,roman
  * URL:    https://huggingface.co/datasets/suhani-sarvam/google-dakshina (original:
  *         https://github.com/google-research-datasets/dakshina)
- * sha256: 8886730d2c020f8e7cceb784ede2b22e1472c4cacaa0ae79af514ff7cf7c5cf3 (google-dakshina.csv, 38,926,707 bytes)
+ * sha256: of google-dakshina.csv (38,926,707 bytes), pinned in deps/assets.json ("dakshina")
  * Licence: CC BY-SA 4.0 (see resources/romanised/ATTRIBUTION.md)
  *
  * Only the train split of the sentences is used (splitOf); the tune and test splits are kept for choosing the
@@ -24,8 +24,9 @@ import { fileURLToPath } from 'node:url';
 import { createLinter } from '../src/engine/linter';
 import { wordsByFrequency } from '../src/engine/suggestions/frequency';
 import { INDIAN_LANGUAGES, type IndianLanguage, type RomanisedModelData } from '../src/engine/romanised/modelData';
+import { pinnedSha256 } from './deps/assets';
 
-export const PINNED_SHA256 = '8886730d2c020f8e7cceb784ede2b22e1472c4cacaa0ae79af514ff7cf7c5cf3';
+export const PINNED_SHA256 = pinnedSha256('dakshina');
 /** Longest n-gram: 4 separates the languages clearly better than 3 and still fits the 4 MB budget. */
 export const ORDER = 4;
 /** Dataset language codes of the languages on the card (Sindhi "sd" and Sinhala "si" are left out). */

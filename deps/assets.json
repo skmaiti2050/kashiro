@@ -1,0 +1,103 @@
+{
+  "about": "Pinned data files and models (Task S8). sha256 is the source file the build script verifies; outputSha256 is the committed file it builds. Entries with status \"planned\" have no hashes yet and are left out of hash checks. See docs/UPGRADING.md.",
+  "assets": [
+    {
+      "id": "wordnet",
+      "name": "Open English WordNet (plain, not \"plus\")",
+      "version": "2025 edition",
+      "status": "pinned",
+      "sourceUrl": "https://github.com/globalwordnet/english-wordnet/releases/download/2025-edition/english-wordnet-2025.xml.gz",
+      "upstream": { "kind": "github-release", "repo": "globalwordnet/english-wordnet", "current": "2025-edition" },
+      "licence": "CC-BY-4.0",
+      "licenceNote": "Derived from Princeton WordNet; its notice ships in resources/dictionary/ATTRIBUTION.md.",
+      "sha256": "9ca6d1dcb75f822fdd66617f7d9da48142ace38dd544d6ad5e2feca1674ad3fe",
+      "localPath": "resources/dictionary/oewn.json.gz",
+      "outputSha256": "876366acc422485a3226b8bb088045675e83cf67b275b3edd2447cc982891ca9",
+      "buildScript": "scripts/build-dictionary.ts"
+    },
+    {
+      "id": "wordfreq",
+      "name": "wordfreq English word frequencies (wordlist=large, top 100,000)",
+      "version": "3.1.1",
+      "status": "pinned",
+      "sourceUrl": "https://pypi.org/project/wordfreq/3.1.1/",
+      "upstream": { "kind": "pypi", "package": "wordfreq", "current": "3.1.1" },
+      "licence": "CC-BY-SA-4.0",
+      "licenceNote": "The data licence; wordfreq's code (Apache-2.0) is not included. sha256 is of the exported .tsv.",
+      "sha256": "7bce41579da7ae1adc1e551dc2a1c2bbf9e6c5bce95be801f7f0fd0585d5a577",
+      "localPath": "resources/frequency/en-wordfreq.json",
+      "outputSha256": "bda91014d6f4343c089dcdd4792492a2abd183ffa222725472fc7e739dec13e7",
+      "buildScript": "scripts/build-frequency.ts"
+    },
+    {
+      "id": "dakshina",
+      "name": "Dakshina dataset, romanised sentences (Hugging Face mirror google-dakshina.csv)",
+      "version": "mirror of 2025-01-20",
+      "status": "pinned",
+      "sourceUrl": "https://huggingface.co/datasets/suhani-sarvam/google-dakshina",
+      "upstream": { "kind": "huggingface-dataset", "dataset": "suhani-sarvam/google-dakshina", "current": "2025-01-20" },
+      "licence": "CC-BY-SA-4.0",
+      "licenceNote": "The original dataset's licence (https://github.com/google-research-datasets/dakshina); the mirror states none of its own.",
+      "sha256": "8886730d2c020f8e7cceb784ede2b22e1472c4cacaa0ae79af514ff7cf7c5cf3",
+      "localPath": "resources/romanised/romanised-ngrams.json",
+      "outputSha256": "d1a37964fe54dba17a316b6484bb6ae7f8ce8cb50921cfc09bf40c70c958f9ea",
+      "buildScript": "scripts/build-romanised.ts"
+    },
+    {
+      "id": "en-in-words",
+      "name": "Indian-English word list",
+      "version": "in repository",
+      "status": "pinned",
+      "sourceUrl": "src/engine/wordlists/en-IN.ts",
+      "upstream": { "kind": "in-repo" },
+      "licence": "Apache-2.0",
+      "licenceNote": "Written for this project.",
+      "sha256": "f146ad5913ca04226d7372facee573e2fd9b4707c2d3a4731ce6fc186893ce1b",
+      "localPath": "src/engine/wordlists/en-IN.ts",
+      "outputSha256": "f146ad5913ca04226d7372facee573e2fd9b4707c2d3a4731ce6fc186893ce1b",
+      "buildScript": null
+    },
+    {
+      "id": "tech-words",
+      "name": "Tech word list",
+      "version": "in repository",
+      "status": "pinned",
+      "sourceUrl": "src/engine/wordlists/tech.ts",
+      "upstream": { "kind": "in-repo" },
+      "licence": "Apache-2.0",
+      "licenceNote": "Written for this project.",
+      "sha256": "8038d70de9d2cfa5779f7a2e63a242ce4b17bae5918195d0aa087308758e447a",
+      "localPath": "src/engine/wordlists/tech.ts",
+      "outputSha256": "8038d70de9d2cfa5779f7a2e63a242ce4b17bae5918195d0aa087308758e447a",
+      "buildScript": null
+    },
+    {
+      "id": "local-llm",
+      "name": "Local writing-helper model (GGUF, Q4_K_M)",
+      "version": null,
+      "status": "planned",
+      "sourceUrl": null,
+      "upstream": { "kind": "none" },
+      "licence": null,
+      "licenceNote": "Chosen in Task 12: a permissively licensed (Apache-2.0 or MIT) 1-4B instruct model. Downloaded by the user, never bundled.",
+      "sha256": null,
+      "localPath": null,
+      "outputSha256": null,
+      "buildScript": null
+    },
+    {
+      "id": "llama-server",
+      "name": "llama.cpp llama-server (Windows x64 CPU build)",
+      "version": null,
+      "status": "planned",
+      "sourceUrl": "https://github.com/ggml-org/llama.cpp/releases",
+      "upstream": { "kind": "github-release", "repo": "ggml-org/llama.cpp", "current": null },
+      "licence": "MIT",
+      "licenceNote": "Pinned release and sha256 come with Task 12 (fetch-llama.ps1).",
+      "sha256": null,
+      "localPath": "src-tauri/binaries/llama-server-x86_64-pc-windows-msvc.exe",
+      "outputSha256": null,
+      "buildScript": "scripts/fetch-llama.ps1"
+    }
+  ]
+}
