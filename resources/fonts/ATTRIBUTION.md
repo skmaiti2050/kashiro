@@ -2,14 +2,14 @@
 
 writing-check bundles two readable fonts for Settings › Text and reading › Font, and two Indic fonts for
 the Hindi and Bengali interface and for Hindi or Bengali text in documents. They are packaged into the
-app from npm (`src/ui/fonts.ts`); nothing is downloaded at run time.
+app from npm (`src/ui/fonts.css`); nothing is downloaded at run time.
 
 | Font | npm package | Version | Licence | Files bundled |
 |---|---|---|---|---|
-| Atkinson Hyperlegible | `@fontsource/atkinson-hyperlegible` | 5.3.0 | SIL Open Font License 1.1 | regular and bold, Latin and Latin Extended (`.woff2`, `.woff`) |
-| OpenDyslexic | `@fontsource/opendyslexic` | 5.3.0 | SIL Open Font License 1.1 | regular and bold, Latin (`.woff2`, `.woff`) |
-| Noto Sans Devanagari | `@fontsource/noto-sans-devanagari` | 5.3.0 | SIL Open Font License 1.1 | regular and bold, Devanagari subset (`.woff2`, `.woff`) |
-| Noto Sans Bengali | `@fontsource/noto-sans-bengali` | 5.3.0 | SIL Open Font License 1.1 | regular and bold, Bengali subset (`.woff2`, `.woff`) |
+| Atkinson Hyperlegible | `@fontsource/atkinson-hyperlegible` | 5.3.0 | SIL Open Font License 1.1 | regular and bold, Latin and Latin Extended (`.woff2`) |
+| OpenDyslexic | `@fontsource/opendyslexic` | 5.3.0 | SIL Open Font License 1.1 | regular and bold, Latin (`.woff2`) |
+| Noto Sans Devanagari | `@fontsource/noto-sans-devanagari` | 5.3.0 | SIL Open Font License 1.1 | regular and bold, Devanagari subset (`.woff2`) |
+| Noto Sans Bengali | `@fontsource/noto-sans-bengali` | 5.3.0 | SIL Open Font License 1.1 | regular and bold, Bengali subset (`.woff2`) |
 
 The fonts are not modified. The copyright notices below are copied from each package's `LICENSE` file,
 followed by the licence text, which is the same for all four.

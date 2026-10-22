@@ -111,8 +111,9 @@ typographic ’ and “ ” instead. Use those, or the quotation marks of your l
 3. `src/ui/i18n/locale.ts`: add the code to `UI_LANGUAGES`, its own name to `LANGUAGE_NAMES`, and to
    `systemLanguage` so Windows in that language picks it. Check `formatLocaleFor` gives the right region
    for numbers (Indian languages use `-IN`).
-4. **Script.** If the language needs a script the bundled fonts lack, add the `@fontsource` subset for it
-   (regular and bold) in `src/ui/fonts.ts`, add the family to `--indic-fonts` in `src/ui/app.css`, and
+4. **Script.** If the language needs a script the bundled fonts lack, add `@font-face` rules for its
+   `@fontsource` subset (regular and bold, `.woff2` only, with the subset's `unicode-range` from the
+   package's full CSS) in `src/ui/fonts.css`, add the family to `--indic-fonts` in `src/ui/app.css`, and
    add the font with its licence to `resources/fonts/ATTRIBUTION.md`. A new dependency needs the owner's
    approval. Nothing may be loaded from the network.
 5. **Right to left.** Arabic, Persian, Hebrew and Urdu are already in `RTL_LANGUAGES`, so the page gets
