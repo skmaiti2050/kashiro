@@ -53,8 +53,11 @@
   letter-spacing: var(--doc-letter, 0);
 }
 
+/* Rows of text and controls wrap, so a longer translation moves down a line instead of overflowing. */
 .dialog-header {
   display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   justify-content: space-between;
   align-items: center;
 }

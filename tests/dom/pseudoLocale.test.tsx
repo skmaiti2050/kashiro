@@ -1,0 +1,205 @@
+// Pseudo-locale (Task L1): the main screens in en-XA have no raw English left, and their key containers
+// can take ~35% longer text without overflowing. jsdom has no layout, so the overflow check is at
+// component level, on the app's real CSS: key rows must wrap, no UI text may be kept on one line, and a
+// fixed-width grid column must fit the longest word placed in it.
+import { readFileSync } from 'node:fs';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
+import { act, fireEvent, screen } from '@testing-library/react';
+import { LANGUAGE_NAMES } from '@/ui/i18n/locale';
+import { createTranslator } from '@/ui/i18n/translator';
+import type { MessageKey } from '@/ui/i18n/catalogues';
+import { englishOnly, explanation } from '@/ui/state/plainMessages';
+import type { SessionController } from '@/ui/state/sessionController';
+import { makeController, warmLinter } from './harness';
+import { installSpeech, LOCAL_VOICE, openAndWait, renderShell } from './shell';
+
+vi.mock('@tauri-apps/api/window', async () => (await import('./platformMocks')).tauriWindow);
+vi.mock('@/ui/platform/files', async () => (await import('./platformMocks')).platformFiles);
+vi.mock('@/ui/platform/linter', async () => (await import('./platformMocks')).platformLinter);
+vi.mock('@/ui/platform/settings', async () => (await import('./platformMocks')).platformSettings);
+
+const pseudo = createTranslator('en-XA', []);
+const name = (key: MessageKey) => pseudo.t(key);
+
+/** A plain-ASCII word ("Save"): pseudo-localised text has accented letters, so this text skipped the catalogue. */
+const RAW_WORD = /[A-Za-z]{2,}/g;
+/** A file name ("Sample.checked.txt"): the user's data, not UI text. */
+const FILE_NAME = /[\w-]+(?:\.[\w-]+)*\.(?:docx|txt|md|bak)\b/g;
+/** Quoted document text (“could of”): the user's words, shown in English. */
+const QUOTED = /“[^”]*”/g;
+
+/** Rows of controls and labels that must wrap rather than overflow when the text grows. */
+const KEY_ROWS = '.toolbar, .statusbar, .empty-actions, .actions, .read-aloud, .changelog-bar, .dictionary li, .dialog-header';
+/** A generous average glyph width for 14px text (0.6em): pseudo text is wider than plain English. */
+const CHAR_PX = 8.4;
+
+beforeAll(async () => {
+  await warmLinter();
+  const style = document.createElement('style');
+  style.textContent = readFileSync('src/ui/app.css', 'utf8') + readFileSync('src/ui/a11y.css', 'utf8');
+  document.head.append(style);
+});
+
+/** The UI's own text is in the UI language; document words, Harper's messages and endonyms carry their own lang. */
+const isUiText = (el: Element | null): el is Element =>
+  el !== null && el.closest('[lang]')?.getAttribute('lang') === 'en-XA' && !el.closest('kbd, .cm-content');
+
+/** "button.primary": where a finding is, for the failure message. */
+const elementName = (el: Element) => `${el.tagName.toLowerCase()}${typeof el.className === 'string' && el.className ? `.${el.className.split(' ')[0]}` : ''}`;
+
+/** The UI-language text on the page: text nodes, and the attributes screen readers and tooltips read. */
+function uiTexts(): { text: string; el: Element; where: string }[] {
+  const found: { text: string; el: Element; where: string }[] = [];
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    const el = node.parentElement;
+    if (isUiText(el) && node.textContent!.trim()) found.push({ text: node.textContent!, el, where: elementName(el) });
+  }
+  for (const el of document.body.querySelectorAll('[aria-label], [title], [placeholder], [aria-placeholder]')) {
+    if (!isUiText(el)) continue;
+    for (const attribute of ['aria-label', 'title', 'placeholder', 'aria-placeholder']) {
+      const value = el.getAttribute(attribute);
+      if (value) found.push({ text: value, el, where: `${elementName(el)}@${attribute}` });
+    }
+  }
+  return found;
+}
+
+/** Intl's own words between list items (" or ", ", or "): CLDR has no en-XA, so they stay English there (hi: "या"). */
+const listWords = (['conjunction', 'disjunction'] as const).flatMap((type) =>
+  [2, 3].map((n) => pseudo.list(Array(n).fill('\u0000'), type).split('\u0000').filter(Boolean)).flat(),
+);
+
+/**
+ * Text the app shows as it is, in any language: Harper's own messages (English by design, flagged on the
+ * card), voice names, endonyms, and Intl's list words.
+ */
+function dataStrings(controller: SessionController): string[] {
+  const harper = (controller.getState().session?.candidates() ?? []).filter((c) => englishOnly(explanation(c))).map((c) => c.message);
+  return [...harper, LOCAL_VOICE.name, ...Object.values(LANGUAGE_NAMES), ...listWords].sort((a, b) => b.length - a.length);
+}
+
+/** Every ASCII word left in the UI's text once the user's data is taken out. */
+function rawEnglish(controller: SessionController): string[] {
+  const data = dataStrings(controller);
+  return uiTexts().flatMap(({ text, where }) => {
+    let rest = text.replace(FILE_NAME, '').replace(QUOTED, '');
+    for (const value of data) rest = rest.split(value).join('');
+    return (rest.match(RAW_WORD) ?? []).map((word) => `${where}: “${word}” in “${text.trim()}”`);
+  });
+}
+
+/** The column sizes of a grid ("minmax(0, 1fr) 92px" → ["minmax(0, 1fr)", "92px"]). */
+const gridTracks = (template: string) => template.match(/[\w.-]+\([^)]*\)|\S+/g) ?? [];
+
+/** Places where longer text would overflow its container instead of wrapping. */
+function overflowRisks(): string[] {
+  const risks: string[] = [];
+  for (const row of document.querySelectorAll(KEY_ROWS)) {
+    const style = getComputedStyle(row);
+    if (style.display.endsWith('flex') && style.flexWrap !== 'wrap') risks.push(`${elementName(row)}: a flex row that does not wrap`);
+  }
+  for (const { el, where } of uiTexts()) {
+    const unbreakable = ancestors(el).find((a) => getComputedStyle(a).whiteSpace === 'nowrap' && !a.matches('.visually-hidden'));
+    if (unbreakable) risks.push(`${where}: kept on one line by ${elementName(unbreakable)}`);
+  }
+  for (const grid of document.querySelectorAll('*')) {
+    const style = getComputedStyle(grid);
+    if (style.display !== 'grid' || !style.gridTemplateColumns) continue;
+    const tracks = gridTracks(style.gridTemplateColumns);
+    [...grid.children].forEach((child, i) => {
+      const fixed = /^(\d+)px$/.exec(tracks[i % tracks.length] ?? '');
+      if (!fixed || !isUiText(child)) return;
+      const longest = Math.max(0, ...(child.textContent ?? '').replace(/~/g, '').split(/\s+/).map((word) => [...word].length));
+      if (longest * CHAR_PX > Number(fixed[1])) risks.push(`${elementName(grid)} column ${(i % tracks.length) + 1} (${fixed[1]}px): “${child.textContent}”`);
+    });
+  }
+  return risks;
+}
+
+function ancestors(el: Element): Element[] {
+  const chain: Element[] = [];
+  for (let a: Element | null = el; a && a !== document.body; a = a.parentElement) chain.push(a);
+  return chain;
+}
+
+async function expectTranslatedAndFitting(controller: SessionController): Promise<void> {
+  await act(() => new Promise((resolve) => setTimeout(resolve, 30)));
+  expect(rawEnglish(controller)).toEqual([]);
+  expect(overflowRisks()).toEqual([]);
+}
+
+describe('pseudo-locale (en-XA)', () => {
+  it('start screen and Google Docs help', async () => {
+    const { controller } = makeController({ uiLanguage: 'en-XA' });
+    renderShell(controller);
+    await expectTranslatedAndFitting(controller);
+    fireEvent.click(screen.getByRole('button', { name: name('toolbar.googleDocs') }));
+    await expectTranslatedAndFitting(controller);
+  });
+
+  it('review: toolbar, document, cards, more list, read aloud and status bar', async () => {
+    const speech = installSpeech([LOCAL_VOICE]);
+    try {
+      const { controller } = makeController({ uiLanguage: 'en-XA' });
+      renderShell(controller);
+      await openAndWait(controller, () => controller.openSample());
+      await screen.findByRole('group', { name: name('read.group') });
+      await expectTranslatedAndFitting(controller);
+      for (let i = 0; i < 3; i++) {
+        fireEvent.keyDown(screen.getByRole('complementary', { name: name('panel.label') }), { key: 'j' });
+        await expectTranslatedAndFitting(controller);
+      }
+    } finally {
+      speech.remove();
+    }
+  });
+
+  it('Settings, keyboard shortcuts and unsaved changes', async () => {
+    const speech = installSpeech([LOCAL_VOICE]);
+    try {
+      const { controller } = makeController({ uiLanguage: 'en-XA' });
+      renderShell(controller);
+      await openAndWait(controller, () => controller.openSample());
+      fireEvent.click(screen.getByRole('button', { name: name('toolbar.settings') }));
+      await expectTranslatedAndFitting(controller);
+      fireEvent.click(screen.getByRole('button', { name: name('dialog.close') }));
+      fireEvent.click(screen.getByRole('button', { name: name('toolbar.shortcuts') }));
+      await expectTranslatedAndFitting(controller);
+      fireEvent.click(screen.getByRole('button', { name: name('dialog.close') }));
+      fireEvent.keyDown(screen.getByRole('complementary', { name: name('panel.label') }), { key: 'Backspace' });
+      fireEvent.keyDown(document.body, { key: 'o', ctrlKey: true });
+      expect(screen.getByRole('alertdialog', { name: name('unsaved.title') })).toBeTruthy();
+      await expectTranslatedAndFitting(controller);
+    } finally {
+      speech.remove();
+    }
+  });
+
+  it('change log, save menu and dismiss menu', async () => {
+    const { controller } = makeController({ uiLanguage: 'en-XA' });
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openSample());
+    // "▸ [Çĥàñĝé ļöĝ (3 àþþļîéð) ~~~]": the toggle names the log's label.
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(escape(name('log.label').split(' ~')[0])) }));
+    act(() => {
+      document.querySelector<HTMLDetailsElement>('.save-menu')!.open = true;
+    });
+    await expectTranslatedAndFitting(controller);
+    const panel = screen.getByRole('complementary', { name: name('panel.label') });
+    for (let i = 0; i < 10 && !screen.queryByRole('button', { name: name('dismiss.button') }); i++) fireEvent.keyDown(panel, { key: 'j' });
+    fireEvent.click(screen.getByRole('button', { name: name('dismiss.button') }));
+    expect(screen.getByRole('menu')).toBeTruthy();
+    await expectTranslatedAndFitting(controller);
+  });
+
+  it('the check catches raw English and a fixed column too narrow for its word', () => {
+    document.body.innerHTML = `<div lang="en-XA"><button>Save</button><div style="display:grid;grid-template-columns:40px 1fr"><span>[Ŧĥöŕöûĝĥ ~~]</span><span>x</span></div></div>`;
+    const controller = makeController().controller;
+    expect(rawEnglish(controller)).toEqual(['button: “Save” in “Save”']);
+    expect(overflowRisks()).toEqual(['div column 1 (40px): “[Ŧĥöŕöûĝĥ ~~]”']);
+    document.body.innerHTML = '';
+  });
+});
+
+const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

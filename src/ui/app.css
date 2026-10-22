@@ -588,6 +588,7 @@ legend {
 /* Status bar (Caption 12/16): the offline promise, word count, variant, check status. */
 .statusbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 16px;
   min-height: 24px;
@@ -637,6 +638,7 @@ legend {
 
 .empty-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -836,6 +838,8 @@ button.link {
 
 .changelog-bar {
   display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
   justify-content: space-between;
   padding: 4px 12px;
 }
@@ -883,6 +887,8 @@ button.link {
 
 .dialog header {
   display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   justify-content: space-between;
   align-items: center;
 }
