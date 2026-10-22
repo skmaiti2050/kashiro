@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import en from '@/ui/i18n/en.json';
 import hi from '@/ui/i18n/hi.json';
+import bn from '@/ui/i18n/bn.json';
 import { catalogueKeys, type MessageKey } from '@/ui/i18n/catalogues';
 import { dirOf, formatLocaleFor, resolveUiLanguage, systemLanguage, uiLocaleFor } from '@/ui/i18n/locale';
 import { msg } from '@/ui/i18n/message';
@@ -11,6 +12,7 @@ import { pseudoLocalise } from '@/ui/i18n/pseudo';
 import { createTranslator } from '@/ui/i18n/translator';
 
 const KEYS = catalogueKeys(en);
+const TRANSLATIONS = [hi, bn] as Record<string, string>[];
 const METADATA = /^@@/;
 
 /** Every source file under src/ui, as one string (keys must appear there as literals). */
@@ -23,13 +25,14 @@ function uiSource(dir = 'src/ui'): string {
 
 describe('catalogues', () => {
   it('every key exists in every catalogue, and no catalogue has a key English lacks', () => {
-    for (const catalogue of [hi] as Record<string, string>[]) {
+    for (const catalogue of TRANSLATIONS) {
       expect(catalogueKeys(catalogue).sort()).toEqual([...KEYS].sort());
     }
   });
 
-  it('Hindi is marked as needing native review', () => {
+  it('Hindi and Bengali are marked as needing native review', () => {
     expect((hi as Record<string, string>)['@@status']).toBe('needs native review');
+    expect((bn as Record<string, string>)['@@status']).toBe('needs native review');
   });
 
   it('no unused keys: every key is used in the UI code as a literal', () => {
@@ -39,7 +42,7 @@ describe('catalogues', () => {
   });
 
   it('every message parses and formats in every language, keeping its placeholders', () => {
-    for (const language of ['en', 'hi', 'en-XA'] as const) {
+    for (const language of ['en', 'hi', 'bn', 'en-XA'] as const) {
       const t = createTranslator(language, ['en-IN']);
       for (const key of KEYS) {
         const text = t.rich(key as MessageKey, sampleValuesFor(en[key as keyof typeof en]));
@@ -51,7 +54,7 @@ describe('catalogues', () => {
   it('translations keep the same placeholders as English', () => {
     // Argument names only ("{count," or "{name}"), not the words of a select branch ("{new copy}").
     const placeholders = (message: string) => [...message.matchAll(/\{\s*(\w+)\s*[,}]/g)].map((m) => m[1]).sort();
-    for (const catalogue of [hi] as Record<string, string>[]) {
+    for (const catalogue of TRANSLATIONS) {
       for (const key of KEYS) expect(placeholders(catalogue[key]), key).toEqual(placeholders((en as Record<string, string>)[key]));
     }
   });
@@ -72,7 +75,7 @@ function sampleValuesFor(message: string): Record<string, string | number | ((ch
 }
 
 describe('plurals', () => {
-  const count = (language: 'en' | 'hi', n: number) => createTranslator(language, ['en-IN']).t('status.words', { count: n });
+  const count = (language: 'en' | 'hi' | 'bn', n: number) => createTranslator(language, ['en-IN']).t('status.words', { count: n });
 
   it('English: one word, 2 words, 0 words', () => {
     expect(count('en', 1)).toBe('1 word');
@@ -84,6 +87,19 @@ describe('plurals', () => {
     expect(count('hi', 0)).toBe(count('hi', 1).replace('1', '0'));
     expect(count('hi', 5)).toMatch(/^5 /);
     expect(count('hi', 1)).toMatch(/^1 /);
+  });
+
+  it('Bengali: one form with the "টি" counter, in Bengali digits', () => {
+    expect(count('bn', 0)).toBe('০টি শব্দ');
+    expect(count('bn', 1)).toBe('১টি শব্দ');
+    expect(count('bn', 5)).toBe('৫টি শব্দ');
+    expect(count('bn', 120000)).toBe('১,২০,০০০টি শব্দ');
+  });
+
+  it('Bengali: an exact =0 branch wins over the plural category', () => {
+    const t = createTranslator('bn', ['bn-IN']);
+    expect(t.t('panel.autoFixed', { count: 0 })).toBe('নিজে থেকে কোনো সংশোধন হয়নি।');
+    expect(t.t('panel.autoFixed', { count: 3 })).toBe('৩টি সংশোধন নিজে থেকে হয়েছে।');
   });
 
   it('nested plural inside a sentence (progress done line)', () => {
@@ -109,9 +125,14 @@ describe('numbers', () => {
     expect(createTranslator('hi', ['hi-IN']).number(120000)).toBe('1,20,000');
   });
 
+  it('Bengali uses Indian grouping in Bengali digits (CLDR default for bn)', () => {
+    expect(createTranslator('bn', ['en-US']).number(120000)).toBe('১,২০,০০০');
+  });
+
   it('lists use the language’s own "or"', () => {
     expect(createTranslator('en', ['en-IN']).list(['“its”', '“it is”'], 'disjunction')).toBe('“its” or “it is”');
     expect(createTranslator('hi', ['hi-IN']).list(['a', 'b'], 'disjunction')).toBe('a या b');
+    expect(createTranslator('bn', ['bn-IN']).list(['a', 'b'], 'disjunction')).toBe('a বা b');
   });
 });
 
@@ -126,6 +147,8 @@ describe('nested messages', () => {
 describe('locale', () => {
   it('the UI language follows the first OS language the app has', () => {
     expect(systemLanguage(['hi-IN', 'en-IN'])).toBe('hi');
+    expect(systemLanguage(['bn-IN', 'en-IN'])).toBe('bn');
+    expect(systemLanguage(['bn-BD'])).toBe('bn');
     expect(systemLanguage(['ta-IN', 'en-IN'])).toBe('en');
     expect(systemLanguage(['fr-FR'])).toBe('en');
     expect(systemLanguage([])).toBe('en');
@@ -141,13 +164,15 @@ describe('locale', () => {
 
   it('a damaged or unknown saved language means "same as Windows"', () => {
     expect(resolveUiLanguage('hi')).toBe('hi');
+    expect(resolveUiLanguage('bn')).toBe('bn');
     expect(resolveUiLanguage('en-XA')).toBe('en-XA');
     expect(resolveUiLanguage('fr')).toBe('system');
     expect(resolveUiLanguage(42)).toBe('system');
     expect(resolveUiLanguage(undefined)).toBe('system');
   });
 
-  it('English keeps the OS region for numbers; Hindi uses India’s', () => {
+  it('English keeps the OS region for numbers; Hindi and Bengali use India’s', () => {
+    expect(formatLocaleFor('bn', ['en-US'])).toBe('bn-IN');
     expect(formatLocaleFor('en', ['en-IN'])).toBe('en-IN');
     expect(formatLocaleFor('en', ['hi-IN'])).toBe('en-IN');
     expect(formatLocaleFor('en', ['en-GB'])).toBe('en-GB');
@@ -157,6 +182,7 @@ describe('locale', () => {
 
   it('text direction comes from the language, ready for Urdu', () => {
     expect(dirOf('hi')).toBe('ltr');
+    expect(dirOf('bn')).toBe('ltr');
     expect(dirOf('en-XA')).toBe('ltr');
     expect(dirOf('ur')).toBe('rtl');
     expect(dirOf('ar-EG')).toBe('rtl');

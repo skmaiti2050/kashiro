@@ -4,12 +4,13 @@ import type { UiLocale } from './catalogues';
 export type UiLanguageSetting = 'system' | UiLocale;
 
 /** The languages offered in Settings (en-XA is added in development builds). */
-export const UI_LANGUAGES: UiLocale[] = ['en', 'hi'];
+export const UI_LANGUAGES: UiLocale[] = ['en', 'hi', 'bn'];
 
 /** Each language in its own script (an endonym is never translated). */
 export const LANGUAGE_NAMES: Record<UiLocale, string> = {
   en: 'English',
   hi: 'हिन्दी',
+  bn: 'বাংলা',
   'en-XA': 'Pseudo-locale (en-XA)',
 };
 
@@ -20,10 +21,10 @@ const baseOf = (locale: string) => locale.split('-')[0].toLowerCase();
 const regionOf = (locale: string) => locale.split('-')[1]?.toUpperCase();
 
 /** The UI language for the OS languages (navigator.languages): the first one the app has, else English. */
-export function systemLanguage(languages: readonly string[]): 'en' | 'hi' {
+export function systemLanguage(languages: readonly string[]): 'en' | 'hi' | 'bn' {
   for (const locale of languages) {
     const base = baseOf(locale);
-    if (base === 'en' || base === 'hi') return base;
+    if (base === 'en' || base === 'hi' || base === 'bn') return base;
   }
   return 'en';
 }
@@ -42,7 +43,7 @@ export function resolveUiLanguage(saved: unknown): UiLanguageSetting {
 
 /**
  * The locale for numbers, plurals and lists. English keeps the OS region, so an Indian PC shows 1,20,000
- * ("en-IN") and a British one 120,000 ("en-GB"); Hindi is India's.
+ * ("en-IN") and a British one 120,000 ("en-GB"); Hindi and Bengali are India's (bn-IN: ১,২০,০০০, Bengali digits).
  */
 export function formatLocaleFor(language: UiLocale, languages: readonly string[]): string {
   if (language !== 'en') return language === 'en-XA' ? 'en-XA' : `${language}-IN`;

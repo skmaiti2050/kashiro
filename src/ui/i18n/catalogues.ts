@@ -1,5 +1,6 @@
 import en from './en.json';
 import hi from './hi.json';
+import bn from './bn.json';
 import { pseudoLocalise } from './pseudo';
 
 /** Entries such as "@@locale" and "@@status" describe a catalogue; they are not messages. */
@@ -10,8 +11,8 @@ export type MessageKey = Exclude<keyof typeof en, `@@${string}`>;
 
 export type Catalogue = Record<string, string>;
 
-/** The UI languages: English (the source), Hindi, and the en-XA pseudo-locale for layout testing. */
-export type UiLocale = 'en' | 'hi' | 'en-XA';
+/** The UI languages: English (the source), Hindi, Bengali, and the en-XA pseudo-locale for layout testing. */
+export type UiLocale = 'en' | 'hi' | 'bn' | 'en-XA';
 
 /** The message keys of a catalogue, without its metadata entries. */
 export function catalogueKeys(catalogue: Catalogue): string[] {
@@ -32,6 +33,7 @@ function pseudoCatalogue(): Catalogue {
  */
 export function messagesFor(locale: UiLocale): Catalogue {
   if (locale === 'hi') return { ...en, ...hi };
+  if (locale === 'bn') return { ...en, ...bn };
   if (locale === 'en-XA') return pseudoCatalogue();
   return en;
 }

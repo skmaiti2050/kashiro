@@ -38,15 +38,33 @@ describe('app language', () => {
     expect(screen.getByRole('button', { name: 'Open' })).toBeTruthy();
   });
 
-  it('axe: no serious or critical violations in Hindi (review panel, Settings, shortcuts)', async () => {
-    const { controller } = makeController({ uiLanguage: 'hi' });
+  it('switching to Bengali at runtime updates the UI and the page language', async () => {
+    const { controller, saved } = makeController();
+    const { container } = renderShell(controller);
+    await openAndWait(controller, () => controller.openSample());
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    fireEvent.change(within(screen.getByRole('dialog')).getByRole('combobox', { name: 'App language' }), { target: { value: 'bn' } });
+
+    expect(screen.getByRole('dialog', { name: 'সেটিংস' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'খুলুন' })).toBeTruthy();
+    expect(screen.getByRole('complementary', { name: 'রিভিউ' })).toBeTruthy();
+    expect(container.querySelector('.app')!.getAttribute('lang')).toBe('bn');
+    expect(document.documentElement.lang).toBe('bn');
+    expect(saved.at(-1)!.uiLanguage).toBe('bn');
+  });
+
+  it.each([
+    { language: 'hi' as const, settings: 'सेटिंग्स', close: 'बंद करें', shortcuts: 'शॉर्टकट' },
+    { language: 'bn' as const, settings: 'সেটিংস', close: 'বন্ধ করুন', shortcuts: 'শর্টকাট' },
+  ])('axe: no serious or critical violations in $language (review panel, Settings, shortcuts)', async ({ language, settings, close, shortcuts }) => {
+    const { controller } = makeController({ uiLanguage: language });
     renderShell(controller);
     await openAndWait(controller, () => controller.openSample());
     expect(await seriousViolations()).toEqual([]);
-    fireEvent.click(screen.getByRole('button', { name: 'सेटिंग्स' }));
+    fireEvent.click(screen.getByRole('button', { name: settings }));
     expect(await seriousViolations()).toEqual([]);
-    fireEvent.click(screen.getByRole('button', { name: 'बंद करें' }));
-    fireEvent.click(screen.getByRole('button', { name: 'शॉर्टकट' }));
+    fireEvent.click(screen.getByRole('button', { name: close }));
+    fireEvent.click(screen.getByRole('button', { name: shortcuts }));
     expect(await seriousViolations()).toEqual([]);
   });
 });
