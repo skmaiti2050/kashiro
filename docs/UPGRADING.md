@@ -45,8 +45,11 @@ reads the installed packages (`scripts/deps/licences.ts`).
    [--dakshina <google-dakshina.csv>]`. Always pass `--expect`, once per package that may legitimately change
    (`--expect vitest --expect @vitest/mocker`). The report starts with the lockfile graph changes against HEAD,
    for `src-tauri/Cargo.lock` and `package-lock.json`: packages added, removed or at another version, and
-   dependency edges re-pointed in other packages ("cssparser-macros 0.7.1: syn 3.0.9 -> 2.0.119"). Any change
-   outside the `--expect` packages fails: `cargo update -p` and `npm install` can move other packages too. It
+   dependency edges re-pointed in other packages ("cssparser-macros 0.7.1: syn 3.0.9 -> 2.0.119"). A new package,
+   a removed one, or a new version of one outside the `--expect` packages fails: `cargo update -p` and
+   `npm install` can move other packages too. An edge re-pointed between versions that were already in the
+   lock is only a warning ("re-pointed between existing versions"): when a range such as windows-sys
+   `>=0.60, <0.62` allows two locked versions, cargo's pick changes with each update, and nothing new is built. It
    then regenerates the snapshots in place, runs the type check, the tests (timing alone), the trust suite (alone),
    `cargo test` and a Tauri debug build, compares the CSP and capabilities with `deps/snapshots/permissions.json`
    and checks the licences. It writes `deps/reports/upgrade-report.md` and exits 1 if anything failed, including a

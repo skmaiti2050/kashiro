@@ -136,7 +136,8 @@ const LOCKFILES: [string, (text: string) => LockGraph][] = [
 
 /**
  * What this change did to each lockfile, against the committed one at HEAD. With --expect, a change that
- * belongs to none of the expected packages fails (cargo update -p can re-point other crates' edges).
+ * belongs to none of the expected packages fails (cargo update -p can move other crates too); an edge
+ * re-pointed between versions already in the lock is only a warning.
  */
 function lockfileLines(expected: string[]): string[] {
   const scope = expected.length ? `expected: ${expected.join(', ')}` : 'no --expect given, so nothing is limited';
@@ -147,7 +148,10 @@ function lockfileLines(expected: string[]): string[] {
     const outside = expected.length ? changesOutside(changes, expected) : [];
     failures.push(...outside.map((c) => `lockfile change outside --expect: ${c.text}`));
     lines.push(`### ${file}: ${changes.length ? `${changes.length} changes` : 'unchanged'}`, '');
-    for (const change of changes) lines.push(`- ${outside.includes(change) ? `**unexpected:** ${change.text}` : change.text}`);
+    for (const change of changes) {
+      const label = outside.includes(change) ? '**unexpected:** ' : change.warning ? 'warning: ' : '';
+      lines.push(`- ${label}${change.text}`);
+    }
     if (changes.length) lines.push('');
   }
   return lines;

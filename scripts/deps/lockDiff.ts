@@ -2,6 +2,8 @@
  * What an upgrade changed in a lockfile (Task S8, first real run): packages added, removed or at another
  * version, and dependency edges re-pointed in packages that did not change themselves ("cssparser-macros
  * 0.7.1: syn 3.0.9 -> 2.0.119"). Reads Cargo.lock and package-lock.json (v2/v3) into the same graph.
+ * Cargo picks either of two locked versions a range requirement allows, and the pick can change with each
+ * `cargo update` (tokio 1.54.1, first real run), so such a re-point is a warning, not a failure.
  */
 import { compareText } from './licences';
 
@@ -19,6 +21,11 @@ export interface LockChange {
   /** The package the change belongs to, as `--expect` names it. */
   name: string;
   text: string;
+  /**
+   * An edge re-pointed to versions that were already in the base lock: no new code, just cargo picking the
+   * other of two locked versions a range allows. Reported, never a failure.
+   */
+  warning: boolean;
 }
 
 function addNode(graph: LockGraph, name: string, version: string): LockNode {
@@ -117,7 +124,7 @@ export function diffLockGraphs(before: LockGraph, after: LockGraph): LockChange[
     if (was && now && versionList(was) === versionList(now)) continue;
     changedNames.add(name);
     const text = !was ? `${name}: added ${versionList(now!)}` : !now ? `${name}: removed ${versionList(was)}` : `${name}: ${versionList(was)} -> ${versionList(now)}`;
-    changes.push({ name, text });
+    changes.push({ name, text, warning: false });
   }
   for (const [key, node] of after) {
     const old = before.get(key);
@@ -128,13 +135,22 @@ export function diffLockGraphs(before: LockGraph, after: LockGraph): LockChange[
       if (was && now && versionList(was) === versionList(now)) continue;
       const owner = `${node.name} ${node.version}`.trimEnd();
       const text = !was ? `${owner}: adds ${dep} ${versionList(now!)}` : !now ? `${owner}: drops ${dep} ${versionList(was)}` : `${owner}: ${dep} ${versionList(was)} -> ${versionList(now)}`;
-      changes.push({ name: node.name, text });
+      const existing = oldVersions.get(dep);
+      const betweenExisting = [...(now ?? [])].every((version) => existing?.has(version));
+      changes.push(
+        betweenExisting
+          ? { name: node.name, text: `${text} (re-pointed between existing versions)`, warning: true }
+          : { name: node.name, text, warning: false },
+      );
     }
   }
   return changes.sort((a, b) => compareText(a.text, b.text));
 }
 
-/** The changes that belong to none of the `expected` packages (upgrade:check --expect). */
+/**
+ * The changes that belong to none of the `expected` packages (upgrade:check --expect). Warnings never count:
+ * a new package, a removed one or a new version always does.
+ */
 export function changesOutside(changes: LockChange[], expected: string[]): LockChange[] {
-  return changes.filter((change) => !expected.includes(change.name));
+  return changes.filter((change) => !change.warning && !expected.includes(change.name));
 }
