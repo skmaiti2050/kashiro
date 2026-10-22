@@ -1,4 +1,5 @@
 import { CheckSession } from '@/engine/session';
+import { carryDecisions, userDecisions } from '@/engine/carryDecisions';
 import type { ReviewDepth } from '@/engine/depth';
 import type { Dictionary } from '@/engine/dictionary/lookup';
 import type { RulesLinter } from '@/engine/linter';
@@ -9,7 +10,6 @@ import type { Variant } from '@/engine/types';
 import { adapterFor as registryAdapterFor } from '@/formats/registry';
 import type { FormatAdapter } from '@/formats/types';
 import { afterAction } from './announce';
-import { carryDecisions } from './carryDecisions';
 import type { MessageKey } from '../i18n/catalogues';
 import { msg, type Message } from '../i18n/message';
 import { explain, plainError } from './errors';
@@ -22,6 +22,8 @@ import { RecheckQueue } from './recheckQueue';
 import { SAMPLE_NAME, SAMPLE_TEXT } from './sample';
 import type { Files, OpenedFile } from './saveFlow';
 import * as saveActions from './saveActions';
+import { SessionPersistence, type ResumeOffer } from './sessionPersistence';
+import { SessionStore, type RecentReview, type SessionFiles } from './sessionStore';
 import { OptionalModules, type ModuleLoaders } from './optionalModules';
 import { modulesFor, type Settings } from './settings';
 import * as settingsActions from './settingsActions';
@@ -42,6 +44,8 @@ export interface ControllerDeps {
   /** Loaders of the optional data and helper modules (see OptionalModules). */
   loadDictionary?: ModuleLoaders['loadDictionary'];
   startHelper?: ModuleLoaders['startHelper'];
+  /** The saved-review files in the app's data folder; without them no review is saved. */
+  sessions?: SessionFiles;
 }
 
 export interface ControllerState {
@@ -62,6 +66,10 @@ export interface ControllerState {
   documentIgnoredRules: string[];
   /** What the screen reader says after a decision ("Accepted. 4 of 9 left."); `seq` is new each time. */
   announcement: Announcement | null;
+  /** A saved review of the opened document, waiting for "Resume" or "Start fresh". */
+  resumeOffer: ResumeOffer | null;
+  /** The start screen's Recent reviews, newest first. */
+  recentReviews: RecentReview[];
   /** Bumped on every change: the session is mutable, so views re-read it when this moves. */
   revision: number;
 }
@@ -105,6 +113,7 @@ export class SessionController {
     decisionMade: (patch) => {
       this.tally.made(1);
       this.set({ ...patch, decided: this.tally.decided });
+      this.reviews.changed();
     },
     markUnsaved: () => (this.unsaved = true),
     announce: (verb) => this.set({ announcement: this.announcement(verb) }),
@@ -118,8 +127,28 @@ export class SessionController {
   };
   private readonly saveHost: saveActions.SaveHost;
   private readonly optional: OptionalModules;
+  /** Saved review sessions: autosave, the resume prompt and the Recent reviews list (see SessionPersistence). */
+  readonly reviews: SessionPersistence;
 
   constructor(private readonly deps: ControllerDeps) {
+    this.reviews = new SessionPersistence(
+      {
+        ...this.settingsHost, // state, set, storeSettings and markUnsaved, as the settings actions have them
+        loaded: () => this.loaded,
+        tally: this.tally,
+        linter: () => this.getLinter(),
+        now: () => deps.now?.() ?? new Date(),
+        showSession: (session) => {
+          ++this.checks; // a check still running would replace the resumed session
+          this.set({ phase: 'ready', session, decided: this.tally.decided, checking: this.queue.waiting });
+        },
+        announce: (message) => this.set({ announcement: { message, seq: ++this.announcements } }),
+        files: deps.files,
+        openFile: (file) => this.openFile(file),
+        openText: (text) => this.openText(text),
+      },
+      deps.sessions ? new SessionStore(deps.sessions) : null,
+    );
     this.saveHost = {
       state: () => this.state,
       set: (patch) => this.set(patch),
@@ -142,6 +171,8 @@ export class SessionController {
       decided: 0,
       documentIgnoredRules: [],
       announcement: null,
+      resumeOffer: null,
+      recentReviews: [],
       revision: 0,
     };
   }
@@ -208,6 +239,7 @@ export class SessionController {
       return;
     }
     const { loaded, document } = read;
+    await this.reviews.leave();
     this.documents = document.id;
     this.loaded = loaded;
     this.unsaved = false;
@@ -225,6 +257,7 @@ export class SessionController {
       announcement: null,
     });
     await this.queue.track(this.check(false));
+    await this.reviews.opened(document, bytes);
   }
 
   // ---- checking ------------------------------------------------------------
@@ -271,8 +304,9 @@ export class SessionController {
       if (run !== this.checks) return;
       // The depth may have moved while the check ran.
       session.setDepth(currentDepth(this.state.settings));
-      if (before) this.tally.remap(carryDecisions(before, session, matchUnchangedParagraphs(before.paragraphs(), loaded.paras)));
+      if (before) this.tally.remap(carryDecisions(userDecisions(before), session, matchUnchangedParagraphs(before.paragraphs(), loaded.paras)));
       this.set({ phase: 'ready', session, checking: this.queue.waiting });
+      if (before) this.reviews.changed();
       // After every check, so a goal switch (whose own modules may differ) releases too.
       this.releaseModules(session.modules);
     } catch (e) {
@@ -398,6 +432,7 @@ export class SessionController {
   /** See settingsActions.setModule. */
   setModule(name: keyof ModuleSwitches, on: boolean): void {
     settingsActions.setModule(this.settingsHost, name, on);
+    void this.reviews.refresh(); // the Saved reviews switch shows or hides the Recent reviews list
   }
 
   /** "Use different modules for this goal" (default: the current goal). */
@@ -435,6 +470,7 @@ export class SessionController {
     this.unsaved = true;
     count();
     this.set({ error: null, decided: this.tally.decided, announcement: this.announcement(msg(verb)) });
+    this.reviews.changed();
   }
 
   private announcement(verb: Message): Announcement | null {

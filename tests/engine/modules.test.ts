@@ -17,6 +17,7 @@ const ALL_OFF: ModuleSwitches = {
   betterSuggestions: false,
   aiRewrites: false,
   wordLookup: false,
+  savedSessions: false,
 };
 
 const start = (text: string, modules?: Partial<ModuleSwitches>, over: Partial<CheckOptions> = {}) => {
@@ -44,6 +45,7 @@ describe('resolveModules', () => {
       betterSuggestions: true,
       aiRewrites: false,
       wordLookup: true,
+      savedSessions: true,
     });
     expect(resolveModules()).toEqual(DEFAULT_MODULES);
   });

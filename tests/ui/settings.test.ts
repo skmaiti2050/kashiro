@@ -35,7 +35,18 @@ describe('defaultSettings', () => {
       modulesByPreset: {},
       reading: DEFAULT_READING,
       uiLanguage: 'system',
+      keepPastedText: false,
+      sessionRetentionDays: 30,
     });
+  });
+
+  it('saved reviews: retention is a whole number of days, 0 or more; anything else means the 30-day default', () => {
+    const defaults = defaultSettings('en-IN');
+    expect(withSavedSettings(defaults, { sessionRetentionDays: 0 }).sessionRetentionDays).toBe(0);
+    expect(withSavedSettings(defaults, { sessionRetentionDays: 90 }).sessionRetentionDays).toBe(90);
+    for (const bad of [-1, 2.5, '7', null]) {
+      expect(withSavedSettings(defaults, { sessionRetentionDays: bad as never }).sessionRetentionDays).toBe(30);
+    }
   });
 
   it('a saved app language survives; a damaged one means "same as Windows"', () => {

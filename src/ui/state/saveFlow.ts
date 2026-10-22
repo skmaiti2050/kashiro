@@ -21,8 +21,8 @@ export interface SavedFile {
 
 /** File access (platform/files.ts in the app, an in-memory fake in tests). */
 export interface Files {
-  /** Asks the user for a file; null when they cancel. */
-  open(): Promise<OpenedFile | null>;
+  /** Asks the user for a file, starting at `defaultPath` when given; null when they cancel. */
+  open(defaultPath?: string): Promise<OpenedFile | null>;
   /**
    * Writes `bytes`. With `overwrite`, backs `path` up first (`name.bak.ext`) and replaces it whole;
    * otherwise lets the user confirm or change the suggested `path`. Null when the user cancelled.

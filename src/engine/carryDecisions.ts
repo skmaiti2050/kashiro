@@ -1,35 +1,62 @@
-import type { CheckSession } from '@/engine/session';
-import type { Candidate } from '@/engine/types';
+import type { CheckSession } from './session';
+import type { Span } from './types';
 
-const sameFlag = (a: Candidate, b: Candidate) =>
+/** One decision the user made on a flag, as a re-check or a resumed review replays it. */
+export interface UserDecision {
+  candidateId: string;
+  paraId: number;
+  kind: string;
+  original: string;
+  span: Span;
+  /** Rejected also covers an auto-fix the user undid. */
+  status: 'applied' | 'rejected';
+  /** The replacement chosen, for an applied edit. */
+  replacement?: string;
+}
+
+const sameFlag = (a: { kind: string; original: string; span: Span }, b: { kind: string; original: string; span: Span }) =>
   a.kind === b.kind && a.original === b.original && a.span.start === b.span.start && a.span.end === b.span.end;
 
 /**
- * Replays the user's own decisions from `before` onto `after` (a fresh check of edited text), for
- * candidates in paragraphs whose text did not change (`unchanged`: old paragraph id → new id).
- * Accepted stays accepted with the same replacement, rejected stays rejected, and an undone auto-fix
- * stays undone. Words added to the dictionary come back through the dictionary itself, and the
- * "real typo" ticks on the names and terms cards are not carried (the card is offered again).
- * Returns old candidate id → its twin's id, for every decision carried (ids follow the paragraph when it moves).
+ * The user's own decisions in `session`: accepted, rejected, and auto-fixes undone. Left out: what is still
+ * pending, auto-fixes still applied (the next check makes them again), edits that could not be placed, and
+ * flags closed by adding their word to the dictionary (the dictionary itself brings that back).
  */
-export function carryDecisions(before: CheckSession, after: CheckSession, unchanged: Map<number, number>): Map<string, string> {
+export function userDecisions(session: CheckSession): UserDecision[] {
+  const decisions: UserDecision[] = [];
+  for (const o of session.outcomes()) {
+    if (o.auto || o.unplaceable !== undefined || (o.status !== 'applied' && o.status !== 'rejected')) continue;
+    if (o.reason?.endsWith('added to dictionary')) continue;
+    const { id, paraId, kind, original, span } = o.candidate;
+    decisions.push({ candidateId: id, paraId, kind, original, span: { ...span }, status: o.status, replacement: o.replacement });
+  }
+  return decisions;
+}
+
+/**
+ * Replays `decisions` (from userDecisions of an earlier check, or a saved review) onto `after`, a fresh
+ * check, for flags in paragraphs whose text did not change (`unchanged`: the decision's paraId → the new
+ * paragraph id). Accepted stays accepted with the same replacement, rejected stays rejected, and an undone
+ * auto-fix stays undone. The "real typo" ticks on the names and terms cards are not carried (the card is
+ * offered again). Returns old candidate id → its twin's id, for every decision carried (ids follow the
+ * paragraph when it moves).
+ */
+export function carryDecisions(decisions: UserDecision[], after: CheckSession, unchanged: Map<number, number>): Map<string, string> {
   const carried = new Map<string, string>();
   const statusAfter = new Map(after.outcomes().map((o) => [o.candidate.id, o.status]));
-  for (const o of before.outcomes()) {
-    if (o.auto || o.unplaceable !== undefined || o.status === 'pending' || o.status === 'superseded') continue;
-    if (o.reason?.endsWith('added to dictionary')) continue;
-    const paraId = unchanged.get(o.candidate.paraId);
+  for (const d of decisions) {
+    const paraId = unchanged.get(d.paraId);
     if (paraId === undefined) continue;
-    const twin = after.candidates().find((c) => c.paraId === paraId && sameFlag(c, o.candidate));
+    const twin = after.candidates().find((c) => c.paraId === paraId && sameFlag(c, d));
     if (!twin) continue;
-    carried.set(o.candidate.id, twin.id);
+    carried.set(d.candidateId, twin.id);
     const now = statusAfter.get(twin.id);
-    if (o.status === 'applied' && now === 'pending') {
-      const index = twin.replacements.indexOf(o.replacement ?? '');
+    if (d.status === 'applied' && now === 'pending') {
+      const index = twin.replacements.indexOf(d.replacement ?? '');
       if (index >= 0) after.accept(twin.id, index);
-    } else if (o.status === 'rejected' && now === 'applied') {
+    } else if (d.status === 'rejected' && now === 'applied') {
       after.undo(twin.id);
-    } else if (o.status === 'rejected' && now === 'pending') {
+    } else if (d.status === 'rejected' && now === 'pending') {
       after.reject(twin.id);
     }
   }

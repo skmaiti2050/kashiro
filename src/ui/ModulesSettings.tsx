@@ -21,6 +21,7 @@ const MODULES: ModuleInfo[] = [
   { name: 'termsCard', label: 'modules.termsCard', description: 'modules.termsCardDescription', cost: 'modules.termsCardCost' },
   { name: 'otherLanguageCard', label: 'modules.otherLanguageCard', description: 'modules.otherLanguageCardDescription', cost: 'modules.otherLanguageCardCost' },
   { name: 'betterSuggestions', label: 'modules.betterSuggestions', description: 'modules.betterSuggestionsDescription', cost: 'modules.betterSuggestionsCost' },
+  { name: 'savedSessions', label: 'modules.savedSessions', description: 'modules.savedSessionsDescription', cost: 'modules.savedSessionsCost' },
   { name: 'wordLookup', label: 'modules.wordLookup', description: 'modules.wordLookupDescription', cost: 'modules.wordLookupCost', costValues: { memory: 60, data: 3.5 } },
   {
     name: 'aiRewrites',

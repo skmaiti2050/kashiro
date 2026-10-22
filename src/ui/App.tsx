@@ -3,6 +3,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { ChangeLog } from './ChangeLog';
 import { DocumentView, type DocumentFocus } from './DocumentView';
 import { GoogleDocsHelp } from './GoogleDocsHelp';
+import { ResumeDialog } from './ResumeDialog';
 import { ReviewPanel, type CardRequest, type CaretText } from './ReviewPanel';
 import { SettingsPanel } from './SettingsPanel';
 import { ShortcutsSheet } from './ShortcutsSheet';
@@ -16,6 +17,7 @@ import { translatorFor } from './i18n/translatorFor';
 import { TranslatorProvider, useT } from './i18n/useT';
 import { files, onFileDrop, setDialogLabels } from './platform/files';
 import { createAppLinter } from './platform/linter';
+import { sessionFiles } from './platform/sessions';
 import { loadSettings, saveSettings } from './platform/settings';
 import { explain } from './state/errors';
 import { readingStyle } from './state/readingSettings';
@@ -37,8 +39,10 @@ export default function App() {
     started.current = true;
     loadSettings().then(
       (settings) => {
-        const c = new SessionController({ files, settings, saveSettings, createLinter: createAppLinter });
+        const c = new SessionController({ files, settings, saveSettings, createLinter: createAppLinter, sessions: sessionFiles });
         setController(c);
+        // Deletes saved reviews past their retention, then lists the rest (failures show as an error banner).
+        void c.reviews.startUp();
         // Pre-warm Harper so the first check is quick (its first start takes ~650 ms).
         c.warmUp().catch((e) => c.showError(explain(msg('error.checkerStart'), e, msg('error.checkerStartNext'))));
       },
@@ -104,7 +108,9 @@ function ShellView({ controller, state }: { controller: SessionController; state
   useEffect(() => {
     const appWindow = getCurrentWindow();
     return listenWhileMounted(
-      appWindow.onCloseRequested((event) => {
+      appWindow.onCloseRequested(async (event) => {
+        // The autosave waiting for its 1 s pause is written before the window goes (Tauri awaits this handler).
+        await controller.reviews.flush();
         if (!controller.hasUnsavedWork()) return;
         event.preventDefault();
         setAfterUnsaved(() => () => void appWindow.destroy());
@@ -123,7 +129,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
     setPanel('none');
     onOpen();
   };
-  const dialogOpen = panel !== 'none' || afterUnsaved !== null;
+  const dialogOpen = panel !== 'none' || afterUnsaved !== null || state.resumeOffer !== null;
   useAppShortcuts(state.document !== null, (shortcut) => {
     if (dialogOpen) return;
     if (shortcut === 'open') onOpen();
@@ -173,6 +179,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
           onOpen={onOpen}
           onPaste={onPaste}
           onSample={() => unlessUnsaved(() => void controller.openSample())}
+          onOpenRecent={(review) => unlessUnsaved(() => void controller.reviews.openRecent(review))}
           caretReader={caretReader}
         />
         <ReviewPanel
@@ -193,6 +200,14 @@ function ShellView({ controller, state }: { controller: SessionController; state
       {panel === 'settings' && <SettingsPanel controller={controller} state={state} readAloud={readAloud} onClose={() => setPanel('none')} />}
       {panel === 'help' && <GoogleDocsHelp onOpen={openFromHelp} onClose={() => setPanel('none')} />}
       {panel === 'shortcuts' && <ShortcutsSheet readAloud={readAloud !== null} onClose={() => setPanel('none')} />}
+      {state.resumeOffer && (
+        <ResumeDialog
+          offer={state.resumeOffer}
+          onResume={() => void controller.reviews.resume()}
+          onStartFresh={() => void controller.reviews.startFresh()}
+          onDismiss={() => controller.reviews.dismiss()}
+        />
+      )}
       {afterUnsaved && (
         <UnsavedChangesDialog
           name={state.document?.name ?? t.t('unsaved.thisDocument')}

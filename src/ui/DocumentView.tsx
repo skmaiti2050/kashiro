@@ -12,6 +12,7 @@ import type { Translator } from './i18n/translator';
 import { useT } from './i18n/useT';
 import { explanation } from './state/plainMessages';
 import type { ControllerState, OpenDocument, SessionController } from './state/sessionController';
+import type { RecentReview } from './state/sessionStore';
 
 /** The replacement text of an applied edit, shown right after the struck-through original. */
 class ReplacementWidget extends WidgetType {
@@ -146,12 +147,14 @@ interface Props {
   onOpen(): void;
   onPaste(): void;
   onSample(): void;
+  /** A row of the start screen's Recent reviews. */
+  onOpenRecent(review: RecentReview): void;
   /** Set to a reader of the text at the cursor while the text has focus (for "Read sentence"). */
   caretReader: MutableRefObject<() => CaretText | null>;
 }
 
 /** CodeMirror view of the document: read-only for .docx, editable (and re-checked as you type) for text. */
-export function DocumentView({ controller, state, focus, onUnderlineClick, onOpen, onPaste, onSample, caretReader }: Props) {
+export function DocumentView({ controller, state, focus, onUnderlineClick, onOpen, onPaste, onSample, onOpenRecent, caretReader }: Props) {
   const t = useT();
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
@@ -244,7 +247,7 @@ export function DocumentView({ controller, state, focus, onUnderlineClick, onOpe
     // Only a new card or click moves the view; re-renders from checks don't.
   }, [focus?.seq]);
 
-  if (!doc) return <EmptyState onOpen={onOpen} onPaste={onPaste} onSample={onSample} />;
+  if (!doc) return <EmptyState onOpen={onOpen} onPaste={onPaste} onSample={onSample} recent={state.recentReviews} onOpenRecent={onOpenRecent} />;
   return (
     <section className="document" aria-label={doc.name}>
       {doc.note && <p className="note">{t.format(doc.note)}</p>}

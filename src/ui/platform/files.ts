@@ -29,8 +29,9 @@ async function readChosen(path: string): Promise<OpenedFile> {
 }
 
 export const files: Files = {
-  async open() {
-    const path = await open({ multiple: false, directory: false, filters: [{ name: documentsLabel, extensions: OPEN_EXTENSIONS }] });
+  async open(defaultPath) {
+    // A saved review's file is reopened through the dialog too: only a file the user picks enters the fs scope.
+    const path = await open({ multiple: false, directory: false, defaultPath, filters: [{ name: documentsLabel, extensions: OPEN_EXTENSIONS }] });
     return path === null ? null : readChosen(path);
   },
 

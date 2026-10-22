@@ -5,6 +5,7 @@ import { DepthSlider } from './DepthSlider';
 import { Dialog } from './Dialog';
 import { ModulesSettings } from './ModulesSettings';
 import { ReadingSettings } from './ReadingSettings';
+import { SavedReviewsSettings } from './SavedReviewsSettings';
 import type { ReadAloud } from './useReadAloud';
 import { PRESET_KEYS, VARIANT_KEYS, VARIANTS } from './Toolbar';
 import type { UiLocale } from './i18n/catalogues';
@@ -116,6 +117,8 @@ export function SettingsPanel({ controller, state, readAloud, onClose }: Props) 
       </fieldset>
 
       <ModulesSettings controller={controller} settings={settings} />
+
+      <SavedReviewsSettings controller={controller} settings={settings} />
 
       <fieldset>
         <legend>{t.t('settings.ignored', { count: settings.ignoredRules.length })}</legend>

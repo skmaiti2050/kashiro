@@ -19,6 +19,8 @@ export interface ModuleSwitches {
   aiRewrites: boolean;
   /** The offline dictionary (Look up); off: the dictionary is never loaded. Not used by the rules check. */
   wordLookup: boolean;
+  /** Reviews saved in the app's data folder, to resume later (Task S3); off: nothing is saved or loaded. */
+  savedSessions: boolean;
 }
 
 export const DEFAULT_MODULES: Readonly<ModuleSwitches> = Object.freeze({
@@ -29,6 +31,7 @@ export const DEFAULT_MODULES: Readonly<ModuleSwitches> = Object.freeze({
   // Off until the user downloads the model.
   aiRewrites: false,
   wordLookup: true,
+  savedSessions: true,
 });
 
 const MODULE_NAMES = Object.keys(DEFAULT_MODULES) as (keyof ModuleSwitches)[];

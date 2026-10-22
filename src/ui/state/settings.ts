@@ -35,7 +35,13 @@ export interface Settings {
   reading: ReadingSettings;
   /** Settings › App language; separate from the English variant used for checking. */
   uiLanguage: UiLanguageSetting;
+  /** Saved reviews: pasted text is kept for resuming only when this is on. */
+  keepPastedText: boolean;
+  /** Saved reviews are deleted this many days after their last change; 0 keeps none. */
+  sessionRetentionDays: number;
 }
+
+export const DEFAULT_RETENTION_DAYS = 30;
 
 /** Region → variant, for English locales; India also covers hi-IN, bn-IN and other Indian locales. */
 const VARIANT_BY_REGION: Record<string, Variant> = {
@@ -68,8 +74,13 @@ export function defaultSettings(locale: string): Settings {
     modulesByPreset: {},
     reading: { ...DEFAULT_READING },
     uiLanguage: 'system',
+    keepPastedText: false,
+    sessionRetentionDays: DEFAULT_RETENTION_DAYS,
   };
 }
+
+/** A hand-edited or damaged retention (negative, a fraction, text) means the default. */
+const resolveRetention = (days: unknown): number => (Number.isInteger(days) && (days as number) >= 0 ? (days as number) : DEFAULT_RETENTION_DAYS);
 
 /**
  * The saved settings over `defaults`. Module switches go through resolveModules, so a file saved before a
@@ -90,6 +101,8 @@ export function withSavedSettings(defaults: Settings, saved: Partial<Settings> |
     modulesByPreset,
     reading: resolveReading(saved.reading ?? defaults.reading),
     uiLanguage: resolveUiLanguage(saved.uiLanguage ?? defaults.uiLanguage),
+    keepPastedText: saved.keepPastedText === true,
+    sessionRetentionDays: resolveRetention(saved.sessionRetentionDays ?? defaults.sessionRetentionDays),
   };
 }
 

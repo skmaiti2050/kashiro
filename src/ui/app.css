@@ -650,6 +650,45 @@ legend {
   color: var(--ink);
 }
 
+/* Recent reviews (saved review sessions): one full-width button per review, newest first. */
+.recent-reviews {
+  justify-self: stretch;
+  margin-top: 12px;
+  text-align: start;
+}
+
+.recent-reviews h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.recent-reviews ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.recent-review {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 12px;
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+
+.recent-review .recent-name {
+  font-weight: 600;
+}
+
+.recent-review .hint {
+  color: var(--muted);
+}
+
 .depth {
   display: grid;
   grid-template-columns: 90px 1fr 80px;

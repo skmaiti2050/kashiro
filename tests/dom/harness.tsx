@@ -1,6 +1,7 @@
 import { createLinter } from '@/engine/linter';
 import { ReviewPanel, type CardRequest } from '@/ui/ReviewPanel';
 import { SessionController, type Files } from '@/ui/state/sessionController';
+import type { SessionFiles } from '@/ui/state/sessionStore';
 import { defaultSettings, type Settings } from '@/ui/state/settings';
 import { useSession } from '@/ui/state/useSession';
 
@@ -15,11 +16,15 @@ export async function warmLinter(): Promise<void> {
   await createLinter('American');
 }
 
-/** A controller over the real linter (built per check, so added words are known), recording saved settings. */
-export function makeController(settings: Partial<Settings> = {}, files: Files = noFiles) {
+/**
+ * A controller over the real linter (built per check, so added words are known), recording saved settings.
+ * Reviews are saved only when `sessions` is given.
+ */
+export function makeController(settings: Partial<Settings> = {}, files: Files = noFiles, sessions?: SessionFiles) {
   const saved: Settings[] = [];
   const controller = new SessionController({
     files,
+    sessions,
     createLinter: (variant, words) => createLinter(variant, words),
     saveSettings: async (s) => {
       saved.push(s);

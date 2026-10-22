@@ -5,6 +5,7 @@ import axe from 'axe-core';
 import { act, fireEvent, screen } from '@testing-library/react';
 import { buildDocx } from '../fixtures/make_docx';
 import { DEFAULT_READING } from '@/ui/state/readingSettings';
+import { memorySessionFiles } from '../fixtures/memorySessionFiles';
 import { makeController, warmLinter } from './harness';
 import { installSpeech, LOCAL_VOICE, openAndWait, renderShell, reviewPanel } from './shell';
 
@@ -135,6 +136,24 @@ describe('axe-core: no serious or critical violations', () => {
     } finally {
       speech.remove();
     }
+  });
+
+  it('saved reviews: the Recent reviews list and the resume prompt', async () => {
+    const disk = memorySessionFiles();
+    const file = { name: 'note.txt', path: '/docs/note.txt', bytes: new TextEncoder().encode('She recieved the letter.\n\nWe was late.') };
+    const first = makeController({}, undefined, disk.files).controller;
+    await first.openFile(file);
+    first.reject(first.getState().session!.decisions().top[0].id);
+    await first.reviews.flush();
+
+    const { controller } = makeController({}, undefined, disk.files);
+    renderShell(controller);
+    await act(() => controller.reviews.startUp());
+    expect(screen.getByRole('region', { name: 'Recent reviews' })).toBeTruthy();
+    await audit('start screen with recent reviews');
+    await openAndWait(controller, () => controller.openFile(file));
+    await screen.findByRole('alertdialog', { name: 'Resume your review?' });
+    await audit('resume prompt');
   });
 
   it('Settings without a local voice', async () => {

@@ -10,6 +10,7 @@ import { createTranslator } from '@/ui/i18n/translator';
 import type { MessageKey } from '@/ui/i18n/catalogues';
 import { englishOnly, explanation } from '@/ui/state/plainMessages';
 import type { SessionController } from '@/ui/state/sessionController';
+import { memorySessionFiles } from '../fixtures/memorySessionFiles';
 import { makeController, warmLinter } from './harness';
 import { installSpeech, LOCAL_VOICE, openAndWait, renderShell } from './shell';
 
@@ -161,6 +162,26 @@ describe('pseudo-locale (en-XA)', () => {
     renderShell(controller);
     await expectTranslatedAndFitting(controller);
     fireEvent.click(screen.getByRole('button', { name: name('toolbar.googleDocs') }));
+    await expectTranslatedAndFitting(controller);
+  });
+
+  it('saved reviews: the Recent reviews list (a file and pasted text) and the resume prompt for a changed file', async () => {
+    const disk = memorySessionFiles();
+    const file = { name: 'note.txt', path: '/docs/note.txt', bytes: new TextEncoder().encode('She recieved the letter.\n\nWe was late.') };
+    const first = makeController({ keepPastedText: true }, undefined, disk.files).controller;
+    await first.openFile(file);
+    first.reject(first.getState().session!.decisions().top[0].id);
+    await first.openText('Pasted: she recieved it.');
+    first.reject(first.getState().session!.decisions().top[0].id);
+    await first.reviews.flush();
+
+    const { controller } = makeController({ uiLanguage: 'en-XA' }, undefined, disk.files);
+    renderShell(controller);
+    await act(() => controller.reviews.startUp());
+    expect(screen.getByRole('region', { name: name('recent.title') }).querySelectorAll('button')).toHaveLength(2);
+    await expectTranslatedAndFitting(controller);
+    await openAndWait(controller, () => controller.openFile({ ...file, bytes: new TextEncoder().encode('She recieved the letter.') }));
+    await screen.findByRole('alertdialog', { name: name('resume.changedTitle') });
     await expectTranslatedAndFitting(controller);
   });
 
