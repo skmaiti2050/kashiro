@@ -69,7 +69,13 @@ describe('snapshot scripts are deterministic', () => {
     const first = formatJson(buildLicenceSnapshot(npm, metadata));
     expect(formatJson(buildLicenceSnapshot([...npm].reverse(), reversed))).toBe(first);
     expect(JSON.parse(first)).toEqual({
-      npm: { 'fake-mit@1.0.0': 'MIT', 'fake-nc@1.0.0': 'CC-BY-NC-4.0', 'fake-nested@2.0.0': 'ISC' },
+      npm: {
+        '@fake-scope/object-licence@3.0.0': 'BSD-3-Clause',
+        'fake-dev-optional@1.0.0': 'Apache-2.0',
+        'fake-mit@1.0.0': 'MIT',
+        'fake-nc@1.0.0': 'CC-BY-NC-4.0',
+        'fake-nested@2.0.0': 'ISC',
+      },
       crates: { 'anyhow@1.0.0': 'MIT OR Apache-2.0', 'serde@1.0.0': 'MIT OR Apache-2.0' },
     });
   });

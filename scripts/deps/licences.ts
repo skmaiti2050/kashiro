@@ -65,60 +65,66 @@ export function checkLicence(expression: string | undefined, use: LicenceUse): L
   if (!expression?.trim()) return { ok: false, reason: 'no licence declared' };
   // Old crates write "MIT/Apache-2.0" for "MIT OR Apache-2.0".
   const tokens = expression.replace(/\//g, ' OR ').match(SPDX_TOKEN) ?? [];
-  const isAllowed = (id: string) => ALLOWED_EVERYWHERE.has(id) || ALLOWED_FOR[use].has(id);
-  const blocked = evaluate(tokens, isAllowed);
+  const tree = parseSpdx(tokens);
+  if (!tree) return { ok: false, reason: `not a valid licence expression: ${expression}` };
+  const blocked = firstBlocked(tree, (id) => ALLOWED_EVERYWHERE.has(id) || ALLOWED_FOR[use].has(id));
   if (blocked === null) return { ok: true };
-  if (blocked === undefined) return { ok: false, reason: `not on the allowlist: ${expression}` };
   if (NON_COMMERCIAL.test(blocked)) return { ok: false, reason: `non-commercial licence: ${blocked}` };
   return { ok: false, reason: `not on the allowlist: ${blocked}` };
 }
 
-/**
- * Evaluates the tokens of an SPDX expression. Returns null when allowed, else the first licence that
- * blocks it (undefined when the expression can't be read).
- */
-function evaluate(tokens: string[], isAllowed: (id: string) => boolean): string | null | undefined {
-  let position = 0;
-  const next = () => tokens[position];
+/** A parsed SPDX expression: one licence ("Apache-2.0 WITH LLVM-exception" counts as one) or an operator. */
+type SpdxNode = { id: string } | { operator: 'AND' | 'OR'; left: SpdxNode; right: SpdxNode };
 
-  // expression = term ("OR" term)*: allowed when any term is.
-  function expression(): string | null | undefined {
-    let blocked = term();
-    while (next() === 'OR') {
+const SPDX_SYMBOLS = new Set(['AND', 'OR', 'WITH', '(', ')']);
+
+/**
+ * Parses the tokens (AND binds tighter than OR); undefined for a malformed expression such as "MIT OR AND",
+ * so that a broken declaration never passes on its one allowed part.
+ */
+function parseSpdx(tokens: string[]): SpdxNode | undefined {
+  let position = 0;
+  let valid = true;
+  const invalid = (): SpdxNode => {
+    valid = false;
+    return { id: '' };
+  };
+  const binary = (operator: 'AND' | 'OR', operand: () => SpdxNode) => (): SpdxNode => {
+    let node = operand();
+    while (tokens[position] === operator) {
       position++;
-      const other = term();
-      blocked = blocked === null || other === null ? null : (blocked ?? other);
+      node = { operator, left: node, right: operand() };
     }
-    return blocked;
-  }
-  // term = factor ("AND" factor)*: blocked by the first blocked factor.
-  function term(): string | null | undefined {
-    let blocked = factor();
-    while (next() === 'AND') {
-      position++;
-      const other = factor();
-      if (blocked === null) blocked = other;
-    }
-    return blocked;
-  }
+    return node;
+  };
   // factor = "(" expression ")" | id ["WITH" id]
-  function factor(): string | null | undefined {
+  const factor = (): SpdxNode => {
     const token = tokens[position++];
-    if (token === undefined || token === ')' || token === 'AND' || token === 'OR') return undefined;
     if (token === '(') {
       const inner = expression();
-      return tokens[position++] === ')' ? inner : undefined;
+      return tokens[position++] === ')' ? inner : invalid();
     }
-    let id = token;
-    if (next() === 'WITH') {
-      id = `${id} WITH ${tokens[position + 1]}`;
-      position += 2;
-    }
-    return isAllowed(id) ? null : id;
-  }
+    if (token === undefined || SPDX_SYMBOLS.has(token)) return invalid();
+    if (tokens[position] !== 'WITH') return { id: token };
+    const exception = tokens[position + 1];
+    position += 2;
+    return exception === undefined || SPDX_SYMBOLS.has(exception) ? invalid() : { id: `${token} WITH ${exception}` };
+  };
+  const term = binary('AND', factor);
+  const expression: () => SpdxNode = binary('OR', term);
 
-  const blocked = expression();
-  return position === tokens.length ? blocked : undefined;
+  const tree = expression();
+  return valid && position === tokens.length ? tree : undefined;
+}
+
+/** null when the expression is allowed, else the first licence that blocks it. */
+function firstBlocked(node: SpdxNode, isAllowed: (id: string) => boolean): string | null {
+  if ('id' in node) return isAllowed(node.id) ? null : node.id;
+  const left = firstBlocked(node.left, isAllowed);
+  const right = firstBlocked(node.right, isAllowed);
+  // OR: one allowed side is enough. AND: both sides must be allowed.
+  if (node.operator === 'OR') return left === null || right === null ? null : left;
+  return left ?? right;
 }
 
 /** The packages whose licence `use` does not allow, with the reason. */
@@ -134,7 +140,6 @@ export function licenceFailures(packages: PackageLicence[], use: LicenceUse): Li
 interface LockEntry {
   version?: string;
   dev?: boolean;
-  devOptional?: boolean;
   link?: boolean;
 }
 interface PackageJson {
@@ -145,7 +150,7 @@ interface PackageJson {
 }
 
 /**
- * The production packages of the npm project at `root` (package-lock.json entries not marked dev), with
+ * The production packages of the npm project at `root` (package-lock.json entries not marked dev-only), with
  * the licence each installed package.json declares, sorted by name then version. Optional packages that
  * are not installed on this machine (other platforms' binaries) are left out.
  */
@@ -153,7 +158,8 @@ export function readNpmLicences(root: string): PackageLicence[] {
   const lock = JSON.parse(fs.readFileSync(path.join(root, 'package-lock.json'), 'utf8')) as { packages: Record<string, LockEntry> };
   const packages: PackageLicence[] = [];
   for (const [location, entry] of Object.entries(lock.packages)) {
-    if (!location.startsWith('node_modules/') || entry.dev || entry.devOptional || entry.link) continue;
+    // devOptional (a dev dependency that is also an optional production one) ships, so it is checked.
+    if (!location.startsWith('node_modules/') || entry.dev || entry.link) continue;
     const manifestPath = path.join(root, location, 'package.json');
     if (!fs.existsSync(manifestPath)) continue;
     const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as PackageJson;

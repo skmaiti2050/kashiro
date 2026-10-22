@@ -38,6 +38,9 @@ const REWRITES: [RegExp, Rewrite][] = [
   [/^You probably mean the adverb `([^`]+)` here\.$/, ([word]) => msg('explain.probablyMean', { word })],
 ];
 
+/** The rewrite patterns, for the test that each still matches a real Harper message (tests/deps/harperMessages.test.ts). */
+export const REWRITE_PATTERNS: readonly RegExp[] = REWRITES.map(([pattern]) => pattern);
+
 /** The engine's own hygiene message: "Invisible character (U+200B ZERO WIDTH SPACE)". */
 const INVISIBLE_MESSAGE = /\((U\+[0-9A-F]{4,6}) ([^)]+)\)$/;
 

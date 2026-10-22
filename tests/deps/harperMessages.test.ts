@@ -7,7 +7,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createLinter, type RulesLinter } from '@/engine/linter';
-import { explanation } from '@/ui/state/plainMessages';
+import { explanation, REWRITE_PATTERNS } from '@/ui/state/plainMessages';
 import { snapshotDocuments } from '../../scripts/deps/harperSnapshot';
 import { PROBES } from '../../scripts/deps/harperProbes';
 import type { HarperSnapshot, SnapshotFlag } from '../../scripts/deps/harperSnapshot';
@@ -70,6 +70,16 @@ const REWRITE_KEYS = [
 ];
 
 describe('plainMessages: every rewrite pattern still matches a Harper message in the snapshot', () => {
+  // Taken from the table itself, so a new pattern can't go unasserted.
+  it.each(REWRITE_PATTERNS.map((pattern) => [pattern.source, pattern] as const))('pattern %s', (_source, pattern) => {
+    const matching = ALL_FLAGS.filter((flag) => flag.message && pattern.test(flag.message));
+    expect(matching.length, `no message in deps/snapshots/harper.json matches ${pattern}: did Harper change its wording?`).toBeGreaterThan(0);
+  });
+
+  it('names one card key per pattern', () => {
+    expect(REWRITE_KEYS).toHaveLength(REWRITE_PATTERNS.length);
+  });
+
   it.each(REWRITE_KEYS)('%s', (key) => {
     const matching = ALL_FLAGS.filter(
       (flag) => flag.message && explanation({ message: flag.message, original: flag.excerpt ?? '', kind: flag.kind, source: 'rules' }).key === key,

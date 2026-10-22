@@ -5,7 +5,8 @@
  *     snapshots in deps/snapshots in place so that `git diff` shows them too;
  *   - type check, tests (unit and DOM, then timing alone), trust suite (alone), and the gates inside them;
  *   - cargo test and a Tauri debug build;
- *   - the CSP and capabilities compared with HEAD (any widening fails);
+ *   - the CSP and capabilities compared with the committed baseline deps/snapshots/permissions.json (any
+ *     widening fails; this script never rewrites the baseline, see scripts/accept-permissions.ts);
  *   - licences not on the allowlist.
  * Exits 1 when anything fails. Offline except what cargo itself fetches for the build.
  *
@@ -17,7 +18,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildSnapshots, readSnapshotFile, writeSnapshots, SNAPSHOT_DIR, type SnapshotFile } from './deps/snapshots';
 import { diffHarperSnapshots, diffJson, harperDiffMarkdown } from './deps/snapshotDiff';
-import { findWidenings, readCommittedSurface, readWorkingSurface } from './deps/permissions';
+import { checkPermissions, PERMISSION_BASELINE } from './deps/permissions';
+import { decisionsVerdict } from './deps/referenceValues';
 import { licenceFailures, type PackageLicence } from './deps/licences';
 import type { LicenceSnapshot } from './deps/licenceSnapshot';
 import { argumentAfter, lastLines, runTool } from './deps/run';
@@ -26,6 +28,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const REPORTS = path.join(ROOT, 'deps/reports');
 const DECISIONS_MD = path.join(ROOT, 'trust/out/decisions.md');
 const REFERENCE_VALUES = path.join(ROOT, SNAPSHOT_DIR, 'reference-values.json');
+const DECISIONS_KEY = 'trust/out/decisions.md md5';
 const UNIT_JSON = path.join(REPORTS, 'vitest-unit.json');
 
 /** Test files that carry a gate, by gate name (S5 was dropped). */
@@ -37,7 +40,6 @@ const GATES: [string, string[]][] = [
 ];
 
 const failures: string[] = [];
-const md5File = (file: string) => (fs.existsSync(file) ? createHash('md5').update(fs.readFileSync(file)).digest('hex') : '(missing)');
 
 async function snapshotSection(samplesDir: string | undefined): Promise<string[]> {
   const before = Object.fromEntries((['harper.json', 'data.json', 'licences.json'] as SnapshotFile[]).map((f) => [f, readSnapshotFile(ROOT, f)]));
@@ -102,20 +104,23 @@ function gateLines(): string[] {
 }
 
 function decisionsLines(): string[] {
-  const md5 = md5File(DECISIONS_MD);
+  const md5 = fs.existsSync(DECISIONS_MD) ? createHash('md5').update(fs.readFileSync(DECISIONS_MD)).digest('hex') : undefined;
   const committed = fs.existsSync(REFERENCE_VALUES) ? (JSON.parse(fs.readFileSync(REFERENCE_VALUES, 'utf8')) as Record<string, string>) : {};
-  const before = committed['trust/out/decisions.md md5'];
-  fs.writeFileSync(REFERENCE_VALUES, `${JSON.stringify({ 'trust/out/decisions.md md5': md5 }, null, 2)}\n`);
-  if (fs.existsSync(DECISIONS_MD)) fs.copyFileSync(DECISIONS_MD, path.join(REPORTS, 'decisions.md'));
-  const verdict = md5 === before ? 'unchanged' : `CHANGED (was ${before ?? 'not recorded'}); read deps/reports/decisions.md`;
-  return [`Decisions table (trust/out/decisions.md) md5 ${md5}: ${verdict}.`, ''];
+  const verdict = decisionsVerdict(md5, committed[DECISIONS_KEY]);
+  if (verdict.failed) failures.push('decisions table missing');
+  if (verdict.record) {
+    fs.writeFileSync(REFERENCE_VALUES, `${JSON.stringify({ [DECISIONS_KEY]: md5 }, null, 2)}\n`);
+    fs.copyFileSync(DECISIONS_MD, path.join(REPORTS, 'decisions.md'));
+  }
+  return [verdict.line, ''];
 }
 
+/** Compared with the committed baseline file, which only `npm run deps:accept-permissions` rewrites. */
 function permissionLines(): string[] {
-  const widenings = findWidenings(readCommittedSurface(ROOT), readWorkingSurface(ROOT));
-  failures.push(...widenings.map((w) => `permission widened: ${w}`));
-  const body = widenings.length ? widenings.map((w) => `- **${w}**`) : ['CSP and capabilities: no widening compared with HEAD.'];
-  return ['## Permissions (src-tauri/tauri.conf.json CSP and capabilities vs HEAD)', '', ...body, ''];
+  const widenings = checkPermissions(ROOT);
+  failures.push(...widenings.map((w) => `permissions: ${w}`));
+  const body = widenings.length ? widenings.map((w) => `- **${w}**`) : [`CSP and capabilities: no widening compared with ${PERMISSION_BASELINE}.`];
+  return [`## Permissions (CSP and capabilities vs ${PERMISSION_BASELINE})`, '', ...body, ''];
 }
 
 async function main(): Promise<void> {

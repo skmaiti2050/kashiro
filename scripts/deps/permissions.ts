@@ -1,32 +1,45 @@
 /**
  * What the app is allowed to reach or do, read from src-tauri/tauri.conf.json and the capability files,
  * and the check that an upgrade never widens it (Task S8). Developer tooling only.
+ *
+ * The baseline is the committed file deps/snapshots/permissions.json, not git HEAD: a widening committed
+ * to tauri.conf.json still fails until someone runs `npm run deps:accept-permissions` and commits the
+ * baseline's diff, which a reviewer then sees.
  */
-import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { parseCapabilityToml } from './capabilityToml';
 
 const CONF_PATH = 'src-tauri/tauri.conf.json';
 const CAPABILITIES_DIR = 'src-tauri/capabilities';
-
-/** The permission surface as committed at HEAD: the baseline an upgrade is compared with. */
-export function readCommittedSurface(root: string): PermissionSurface {
-  const git = (...args: string[]) => execFileSync('git', args, { cwd: root, encoding: 'utf8' });
-  const capabilityFiles: Record<string, string> = {};
-  for (const file of git('ls-tree', '--name-only', 'HEAD', `${CAPABILITIES_DIR}/`).split('\n').filter((f) => f.endsWith('.json'))) {
-    capabilityFiles[path.basename(file)] = git('show', `HEAD:${file}`);
-  }
-  return readPermissionSurface(git('show', `HEAD:${CONF_PATH}`), capabilityFiles);
-}
+export const PERMISSION_BASELINE = 'deps/snapshots/permissions.json';
+/** Capability files Tauri reads. */
+const CAPABILITY_FILE = /\.(json|toml)$/;
 
 /** The permission surface in the working tree, as the next build would ship it. */
 export function readWorkingSurface(root: string): PermissionSurface {
   const dir = path.join(root, CAPABILITIES_DIR);
   const capabilityFiles: Record<string, string> = {};
-  for (const file of fs.readdirSync(dir).filter((f) => f.endsWith('.json')).sort()) {
+  for (const file of fs.readdirSync(dir).filter((f) => CAPABILITY_FILE.test(f)).sort()) {
     capabilityFiles[file] = fs.readFileSync(path.join(dir, file), 'utf8');
   }
   return readPermissionSurface(fs.readFileSync(path.join(root, CONF_PATH), 'utf8'), capabilityFiles);
+}
+
+/** The committed baseline, or undefined when there is none. */
+export function readPermissionBaseline(root: string): PermissionSurface | undefined {
+  const file = path.join(root, PERMISSION_BASELINE);
+  return fs.existsSync(file) ? (JSON.parse(fs.readFileSync(file, 'utf8')) as PermissionSurface) : undefined;
+}
+
+/** The baseline file's text, as `npm run deps:accept-permissions` writes it. */
+export const formatPermissionBaseline = (surface: PermissionSurface): string => `${JSON.stringify(surface, null, 2)}\n`;
+
+/** Every widening of the working tree against the committed baseline; a missing baseline fails too. */
+export function checkPermissions(root: string): string[] {
+  const baseline = readPermissionBaseline(root);
+  if (!baseline) return [`no permissions baseline (${PERMISSION_BASELINE}): run npm run deps:accept-permissions`];
+  return findWidenings(baseline, readWorkingSurface(root));
 }
 
 /** A CSP as directive -> sources: { "connect-src": ["'self'", "ipc:"] }. */
@@ -35,7 +48,7 @@ type Csp = Record<string, string[]>;
 export interface PermissionSurface {
   /** The production and development CSPs; null when the config sets none. */
   csp: { csp: Csp | null; devCsp: Csp | null };
-  /** Capability identifier -> its windows, webviews, remote URLs and permissions, one string each. */
+  /** Capability identifier -> its windows, webviews, remote URLs, permissions, platforms and local access, one string each. */
   capabilities: Record<string, string[]>;
   /** Other settings that can open the app up, as JSON text: "app.security.freezePrototype" -> "true". */
   settings: Record<string, string>;
@@ -52,11 +65,15 @@ interface Capability {
   webviews?: string[];
   remote?: { urls?: string[] };
   permissions?: unknown[];
+  /** Absent: every platform. */
+  platforms?: string[];
+  /** Absent: true (the app's own pages get the permissions). */
+  local?: boolean;
 }
 
 const CSP_KEYS = ['csp', 'devCsp'] as const;
 
-/** `capabilityFiles` maps each capability file name to its JSON text. */
+/** `capabilityFiles` maps each capability file name (.json or .toml) to its text. */
 export function readPermissionSurface(confJson: string, capabilityFiles: Record<string, string>): PermissionSurface {
   const conf = JSON.parse(confJson) as TauriConf;
   const security = conf.app?.security ?? {};
@@ -69,12 +86,14 @@ export function readPermissionSurface(confJson: string, capabilityFiles: Record<
 
   const capabilities: Record<string, string[]> = {};
   for (const [fileName, text] of Object.entries(capabilityFiles)) {
-    const capability = JSON.parse(text) as Capability;
+    const capability = (fileName.endsWith('.toml') ? parseCapabilityToml(text) : JSON.parse(text)) as Capability;
     capabilities[capability.identifier ?? fileName] = [
       ...(capability.windows ?? []).map((w) => `window ${w}`),
       ...(capability.webviews ?? []).map((w) => `webview ${w}`),
       ...(capability.remote?.urls ?? []).map((url) => `remote ${url}`),
       ...(capability.permissions ?? []).map((p) => (typeof p === 'string' ? p : JSON.stringify(p))),
+      ...(capability.platforms ? capability.platforms.map((p) => `platform ${p}`) : ['platforms all']),
+      `local ${capability.local ?? true}`,
     ];
   }
   return { csp: { csp: parseCsp(security.csp), devCsp: parseCsp(security.devCsp) }, capabilities, settings };
@@ -107,7 +126,11 @@ export function findWidenings(baseline: PermissionSurface, current: PermissionSu
   for (const key of CSP_KEYS) widenings.push(...cspWidenings(key, baseline.csp[key], current.csp[key]));
   for (const [id, entries] of Object.entries(current.capabilities)) {
     const before = new Set(baseline.capabilities[id] ?? []);
-    for (const entry of entries) if (!before.has(entry)) widenings.push(`capability ${id} adds ${entry}`);
+    for (const entry of entries) {
+      // A platform list where every platform was allowed is a narrowing.
+      const coveredByAll = entry.startsWith('platform ') && before.has('platforms all');
+      if (!before.has(entry) && !coveredByAll) widenings.push(`capability ${id} adds ${entry}`);
+    }
   }
   const keys = new Set([...Object.keys(baseline.settings), ...Object.keys(current.settings)]);
   for (const key of keys) {

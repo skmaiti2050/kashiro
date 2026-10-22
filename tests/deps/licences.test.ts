@@ -28,9 +28,17 @@ describe('checkLicence (the allowlist)', () => {
   });
 
   it('rejects an unknown or missing licence', () => {
-    expect(checkLicence('SEE LICENSE IN LICENSE.txt', 'npm')).toEqual({ ok: false, reason: 'not on the allowlist: SEE LICENSE IN LICENSE.txt' });
+    expect(checkLicence('GPL-3.0', 'npm')).toEqual({ ok: false, reason: 'not on the allowlist: GPL-3.0' });
+    expect(checkLicence('SEE LICENSE IN LICENSE.txt', 'npm')).toEqual({ ok: false, reason: 'not a valid licence expression: SEE LICENSE IN LICENSE.txt' });
     expect(checkLicence(undefined, 'npm')).toEqual({ ok: false, reason: 'no licence declared' });
   });
+
+  it.each(['MIT OR AND', 'MIT OR', 'OR MIT', 'MIT AND', '(MIT', 'MIT)', 'MIT WITH', '()', 'MIT Apache-2.0'])(
+    'rejects the malformed expression %s, even when one part is allowed',
+    (expression) => {
+      expect(checkLicence(expression, 'npm')).toEqual({ ok: false, reason: `not a valid licence expression: ${expression}` });
+    },
+  );
 
   it('reads SPDX expressions: one allowed choice of an OR is enough, every part of an AND must be allowed', () => {
     expect(checkLicence('MIT OR Apache-2.0', 'crate').ok).toBe(true);
@@ -54,11 +62,13 @@ describe('src-tauri/deny.toml (cargo deny check licenses)', () => {
 describe('readNpmLicences on a fixture project', () => {
   const packages = readNpmLicences(FIXTURE);
 
-  it('lists the production packages, nested ones included, and leaves dev packages out', () => {
+  it('lists the production packages (scoped, nested and devOptional ones included) and leaves dev-only packages out', () => {
     expect(packages).toEqual([
+      { name: '@fake-scope/object-licence', version: '3.0.0', licence: 'BSD-3-Clause' }, // "license": { "type": ... }
+      { name: 'fake-dev-optional', version: '1.0.0', licence: 'Apache-2.0' }, // optional in production too
       { name: 'fake-mit', version: '1.0.0', licence: 'MIT' },
       { name: 'fake-nc', version: '1.0.0', licence: 'CC-BY-NC-4.0' },
-      { name: 'fake-nested', version: '2.0.0', licence: 'ISC' },
+      { name: 'fake-nested', version: '2.0.0', licence: 'ISC' }, // "licenses": [{ "type": ... }]
     ]);
   });
 

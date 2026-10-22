@@ -18,6 +18,7 @@
     "build:romanised": "tsx scripts/build-romanised.ts",
     "snapshots": "tsx scripts/build-snapshots.ts",
     "deps:status": "tsx scripts/deps-status.ts",
+    "deps:accept-permissions": "tsx scripts/accept-permissions.ts",
     "upgrade:check": "tsx scripts/upgrade-check.ts"
   },
   "dependencies": {

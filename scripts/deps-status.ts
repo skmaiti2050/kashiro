@@ -11,6 +11,7 @@ import { ASSETS } from './deps/assets';
 import { licenceFailures, readNpmLicences, type LicenceFailure } from './deps/licences';
 import { lastLines, runTool, type ToolResult } from './deps/run';
 import { checkUpstream } from './deps/upstream';
+import { readCargoAudit, readNpmAudit, readNpmOutdated } from './deps/toolReports';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const TAURI = path.join(ROOT, 'src-tauri');
@@ -30,9 +31,17 @@ function toolNote(name: string, result: ToolResult): string | undefined {
   return `**Skipped:** ${warning}`;
 }
 
+/** A tool that gave no usable answer: a warning and a "could not check" line, never a clean result. */
+function couldNotCheck(name: string, reason: string): string {
+  const warning = `${name} could not check (${reason}).`;
+  warnings.push(warning);
+  return `**Could not check:** ${reason}.`;
+}
+
 function npmOutdated(): string[] {
-  const result = runTool('npm outdated --json', ROOT); // exits 1 when something is outdated
-  const outdated = JSON.parse(result.stdout || '{}') as Record<string, { current?: string; wanted: string; latest: string; type?: string }>;
+  const report = readNpmOutdated(runTool('npm outdated --json', ROOT));
+  if (!report.ok) return ['## npm packages (`npm outdated`)', '', couldNotCheck('npm outdated', report.reason), ''];
+  const outdated = report.value;
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')) as { devDependencies?: Record<string, string> };
   const rows = Object.entries(outdated).map(
     ([name, o]) => `| ${name} | ${o.current ?? '(not installed)'} | ${o.wanted} | ${o.latest} | ${name in (pkg.devDependencies ?? {}) ? 'dev' : 'production'} |`,
@@ -70,30 +79,28 @@ async function assetUpdates(): Promise<string[]> {
   return [...lines, ''];
 }
 
-interface NpmAudit {
-  vulnerabilities?: Record<string, { severity: string; via: (string | { title?: string; url?: string })[]; fixAvailable?: unknown }>;
-  metadata?: { vulnerabilities?: Record<string, number> };
-}
-interface CargoAudit {
-  vulnerabilities?: { count?: number; list?: { advisory: { id: string; title: string }; package: { name: string; version: string } }[] };
-  warnings?: Record<string, { kind?: string; advisory?: { id: string; title: string } | null; package: { name: string; version: string } }[]>;
-}
-
-function advisories(): string[] {
-  const lines = ['## Security advisories', '', '### npm (`npm audit --omit=dev`)', ''];
-  const npm = JSON.parse(runTool('npm audit --omit=dev --json', ROOT).stdout || '{}') as NpmAudit;
-  const found = Object.entries(npm.vulnerabilities ?? {});
+function npmAdvisories(): string[] {
+  const lines = ['### npm (`npm audit --omit=dev`)', ''];
+  const report = readNpmAudit(runTool('npm audit --omit=dev --json', ROOT));
+  if (!report.ok) return [...lines, couldNotCheck('npm audit', report.reason), ''];
+  const found = Object.entries(report.value.vulnerabilities);
   if (!found.length) lines.push('No known vulnerabilities in production npm packages.');
   for (const [name, v] of found) {
     const titles = v.via.map((via) => (typeof via === 'string' ? `via ${via}` : `${via.title} (${via.url})`)).join('; ');
     lines.push(`- **${name}** (${v.severity}): ${titles}`);
   }
-  lines.push('', '### Rust (`cargo audit`)', '');
+  return [...lines, ''];
+}
+
+function advisories(): string[] {
+  const lines = ['## Security advisories', '', ...npmAdvisories(), '### Rust (`cargo audit`)', ''];
   const result = runTool('cargo audit --json', TAURI);
   const note = toolNote('cargo-audit', result);
   if (note) return [...lines, note, ''];
-  const audit = JSON.parse(result.stdout || '{}') as CargoAudit;
-  const list = audit.vulnerabilities?.list ?? [];
+  const report = readCargoAudit(result);
+  if (!report.ok) return [...lines, couldNotCheck('cargo audit', report.reason), ''];
+  const audit = report.value;
+  const list = audit.vulnerabilities.list;
   lines.push(list.length ? `${list.length} vulnerabilities:` : 'No known vulnerabilities in Cargo.lock.', '');
   for (const v of list) lines.push(`- **${v.package.name} ${v.package.version}**: ${v.advisory.id} ${v.advisory.title}`);
   for (const [kind, items] of Object.entries(audit.warnings ?? {})) {
