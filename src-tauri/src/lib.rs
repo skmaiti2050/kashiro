@@ -5,6 +5,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use tauri::ipc::{InvokeBody, Request};
 use tauri_plugin_fs::FsExt;
 
+mod sessions;
+
 /// Opens the first free name from `names` with `create_new`, so an existing file, or a link planted
 /// under that name, is never written through.
 fn create_first_free(names: impl Iterator<Item = PathBuf>) -> io::Result<(PathBuf, File)> {
@@ -126,7 +128,14 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_store::Builder::default().build())
-        .invoke_handler(tauri::generate_handler![overwrite_with_backup])
+        .invoke_handler(tauri::generate_handler![
+            overwrite_with_backup,
+            sessions::session_save,
+            sessions::session_load,
+            sessions::session_list,
+            sessions::session_delete,
+            sessions::session_prune
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

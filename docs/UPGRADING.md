@@ -89,6 +89,11 @@ a new platform (or a dropped platform list, which means every platform), local a
 another security setting. A TOML capability that uses more than strings and string arrays fails to read: write it
 as JSON.
 
+The app's own commands (`overwrite_with_backup` and the saved-review `session_*` commands, registered in
+`src-tauri/src/lib.rs`) need no capability entry: Tauri lets the app's windows call the app's own commands. So
+a new or changed command never shows in this diff; review `invoke_handler` in `lib.rs` and the command's own
+checks (the session commands accept only hex or uuid keys and touch only `<app data>/sessions/`).
+
 upgrade:check never rewrites the baseline, so a widening fails even after it is committed to tauri.conf.json. A
 deliberate change (Task 12 adds the `llama-server` sidecar) is its own reviewed commit, never part of an
 upgrade: make the change, run `npm run deps:accept-permissions`, and commit the baseline's diff with it so the
