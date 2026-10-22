@@ -72,7 +72,9 @@ export async function buildSnapshots(root: string, samplesDir: string | undefine
     samples,
     probes: await snapshotDocuments(linter, probeInputs()),
   };
-  const licences = buildLicenceSnapshot(readNpmLicences(root), readCargoMetadata(path.join(root, 'src-tauri')));
+  const npm = readNpmLicences(root);
+  if (npm.missing.length) throw new Error(`Not installed, so their licences can't be recorded (run npm ci): ${npm.missing.join(', ')}.`);
+  const licences = buildLicenceSnapshot(npm.packages, readCargoMetadata(path.join(root, 'src-tauri')));
   return {
     files: {
       'harper.json': formatHarperSnapshot(harper),

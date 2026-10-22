@@ -56,7 +56,7 @@ describe('snapshot scripts are deterministic', () => {
   });
 
   it('licence snapshot: the same packages in any order give the same file', () => {
-    const npm = readNpmLicences(path.join(ROOT, 'tests/fixtures/licences'));
+    const npm = readNpmLicences(path.join(ROOT, 'tests/fixtures/licences')).packages;
     const metadata: CargoMetadata = {
       workspace_members: ['path+file:///app#writing-check@0.1.0'],
       packages: [

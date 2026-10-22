@@ -107,7 +107,43 @@ describe('findWidenings (tauri.conf.json CSP and capabilities against a baseline
   });
 });
 
+describe('capability files as Tauri 2 reads them (tauri-utils acl::build::parse_capabilities)', () => {
+  const FIXTURES = path.join(ROOT, 'tests/fixtures');
+
+  it('reads src-tauri/capabilities recursively (./capabilities/**/*), lists in a file included, the schemas folder skipped', () => {
+    expect(readWorkingSurface(path.join(FIXTURES, 'permissions')).capabilities).toEqual({
+      listed: ['window main', 'fs:default', 'platforms all', 'local true'],
+      nested: ['window main', 'shell:allow-execute', 'platforms all', 'local true'],
+      main: ['window main', 'core:default', 'platforms all', 'local true'],
+    });
+  });
+
+  it('fails on a capability identifier defined twice, as Tauri does', () => {
+    const one = JSON.stringify({ identifier: 'main', windows: ['main'] });
+    expect(() => readPermissionSurface(CONF, { 'a.json': one, 'sub/b.json': `[${one}]` })).toThrow(
+      'Capability "main" is defined twice (a.json, sub/b.json); Tauri refuses to build that.',
+    );
+    expect(checkPermissions(path.join(FIXTURES, 'permissions-duplicate'))).toEqual([
+      'cannot read the permissions: Capability "main" is defined twice (a.json, sub/b.json); Tauri refuses to build that.',
+    ]);
+  });
+
+  it('refuses a .json5 capability it cannot read', () => {
+    expect(() => readPermissionSurface(CONF, { 'x.json5': '{}' })).toThrow('Cannot read capability file x.json5: write it as .json or .toml.');
+  });
+});
+
 describe('parseCapabilityToml', () => {
+  it('throws on a duplicate key and on a second [remote] table', () => {
+    expect(() => parseCapabilityToml('windows = ["main"]\nwindows = ["other"]')).toThrow('Duplicate key "windows" in capability TOML.');
+    expect(() => parseCapabilityToml('[remote]\nurls = ["https://a.example"]\n[remote]\nurls = ["https://b.example"]')).toThrow(
+      'A second [remote] table in capability TOML.',
+    );
+    expect(() => parseCapabilityToml('[remote]\nurls = ["https://a.example"]\nurls = ["https://b.example"]')).toThrow(
+      'Duplicate key "urls" in capability TOML.',
+    );
+  });
+
   it('refuses what it cannot read instead of reading less than is there', () => {
     expect(() => parseCapabilityToml('permissions = [{ identifier = "fs:scope", allow = ["*"] }]')).toThrow(
       'Cannot read capability TOML line "permissions = [{ identifier = "fs:scope", allow = ["*"] }]": only strings, booleans and arrays of strings are supported; write this capability as JSON.',

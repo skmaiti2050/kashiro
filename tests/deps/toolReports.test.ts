@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readCargoAudit, readNpmAudit, readNpmOutdated } from '../../scripts/deps/toolReports';
+import { licenceVerdict, readCargoAudit, readCargoUpdate, readNpmAudit, readNpmOutdated } from '../../scripts/deps/toolReports';
 import type { ToolResult } from '../../scripts/deps/run';
 
 const result = (stdout: string, status: ToolResult['status'] = 'ok', stderr = ''): ToolResult => ({
@@ -39,6 +39,46 @@ describe.each([
 
   it('a missing tool is reported as not installed', () => {
     expect(read(result('', 'missing'))).toEqual({ ok: false, reason: 'not installed' });
+  });
+});
+
+describe('readCargoUpdate (cargo update --dry-run --verbose)', () => {
+  it('a failed run (offline) is not "0 changes"', () => {
+    const offline = result('', 'failed', '    Updating crates.io index\nerror: failed to get `serde` as a dependency: network unreachable');
+    expect(readCargoUpdate(offline)).toEqual({ ok: false, reason: 'exit 1: error: failed to get `serde` as a dependency: network unreachable' });
+    expect(readCargoUpdate(result('', 'missing'))).toEqual({ ok: false, reason: 'not installed' });
+  });
+
+  it('reads the changes and the held-back crates', () => {
+    const stderr = [
+      '    Updating crates.io index',
+      '     Locking 2 packages to latest compatible versions',
+      '    Updating tokio v1.54.0 -> v1.54.1',
+      '    Removing png v0.17.16',
+      '   Unchanged toml v0.8.2 (available: v0.8.23)',
+      'warning: not updating lockfile due to dry run',
+    ].join('\n');
+    expect(readCargoUpdate(result('', 'ok', stderr))).toEqual({
+      ok: true,
+      value: { changes: ['Updating tokio v1.54.0 -> v1.54.1', 'Removing png v0.17.16'], heldBack: ['Unchanged toml v0.8.2 (available: v0.8.23)'] },
+    });
+  });
+});
+
+describe('licenceVerdict (the deps:status headline)', () => {
+  it('says "not fully checked" when a licence check was skipped, never "all on the allowlist"', () => {
+    expect(licenceVerdict(false, ['crates: cargo-deny is not installed'])).toBe('Licences: not fully checked (crates: cargo-deny is not installed).');
+  });
+
+  it('a failure wins over a skipped check', () => {
+    expect(licenceVerdict(true, ['crates: cargo-deny is not installed'])).toBe(
+      'FAILED: a licence is not on the allowlist or could not be read. Also not checked: crates: cargo-deny is not installed.',
+    );
+    expect(licenceVerdict(true, [])).toBe('FAILED: a licence is not on the allowlist or could not be read.');
+  });
+
+  it('says all on the allowlist only when every check ran', () => {
+    expect(licenceVerdict(false, [])).toBe('Licences: all on the allowlist.');
   });
 });
 

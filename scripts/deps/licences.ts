@@ -140,6 +140,7 @@ export function licenceFailures(packages: PackageLicence[], use: LicenceUse): Li
 interface LockEntry {
   version?: string;
   dev?: boolean;
+  optional?: boolean;
   link?: boolean;
 }
 interface PackageJson {
@@ -151,25 +152,28 @@ interface PackageJson {
 
 /**
  * The production packages of the npm project at `root` (package-lock.json entries not marked dev-only), with
- * the licence each installed package.json declares, sorted by name then version. Optional packages that
- * are not installed on this machine (other platforms' binaries) are left out.
+ * the licence each installed package.json declares, sorted by name then version. `missing` lists
+ * ("name@version") the production packages that are not installed, so their licence can't be read: a
+ * failure, never a smaller "checked" count. Only optional packages may be absent (other platforms' binaries).
  */
-export function readNpmLicences(root: string): PackageLicence[] {
+export function readNpmLicences(root: string): { packages: PackageLicence[]; missing: string[] } {
   const lock = JSON.parse(fs.readFileSync(path.join(root, 'package-lock.json'), 'utf8')) as { packages: Record<string, LockEntry> };
   const packages: PackageLicence[] = [];
+  const missing: string[] = [];
   for (const [location, entry] of Object.entries(lock.packages)) {
     // devOptional (a dev dependency that is also an optional production one) ships, so it is checked.
     if (!location.startsWith('node_modules/') || entry.dev || entry.link) continue;
+    const name = location.slice(location.lastIndexOf('node_modules/') + 'node_modules/'.length);
     const manifestPath = path.join(root, location, 'package.json');
-    if (!fs.existsSync(manifestPath)) continue;
+    if (!fs.existsSync(manifestPath)) {
+      if (!entry.optional) missing.push(`${name}@${entry.version ?? '?'}`);
+      continue;
+    }
     const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as PackageJson;
-    packages.push({
-      name: manifest.name ?? location.slice(location.lastIndexOf('node_modules/') + 'node_modules/'.length),
-      version: manifest.version ?? entry.version ?? '',
-      licence: declaredLicence(manifest),
-    });
+    packages.push({ name: manifest.name ?? name, version: manifest.version ?? entry.version ?? '', licence: declaredLicence(manifest) });
   }
-  return packages.sort((a, b) => compareText(a.name, b.name) || compareText(a.version, b.version));
+  packages.sort((a, b) => compareText(a.name, b.name) || compareText(a.version, b.version));
+  return { packages, missing: missing.sort(compareText) };
 }
 
 /** "MIT", { type: "MIT" } or the old [{ type: "MIT" }, { type: "Apache-2.0" }] (read as an OR). */

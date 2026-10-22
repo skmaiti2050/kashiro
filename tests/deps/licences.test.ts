@@ -60,7 +60,7 @@ describe('src-tauri/deny.toml (cargo deny check licenses)', () => {
 });
 
 describe('readNpmLicences on a fixture project', () => {
-  const packages = readNpmLicences(FIXTURE);
+  const { packages, missing } = readNpmLicences(FIXTURE);
 
   it('lists the production packages (scoped, nested and devOptional ones included) and leaves dev-only packages out', () => {
     expect(packages).toEqual([
@@ -76,5 +76,16 @@ describe('readNpmLicences on a fixture project', () => {
     expect(licenceFailures(packages, 'npm')).toEqual([
       { name: 'fake-nc', version: '1.0.0', licence: 'CC-BY-NC-4.0', reason: 'non-commercial licence: CC-BY-NC-4.0' },
     ]);
+  });
+
+  it('reports a production package that is not installed; an optional one (another platform) is skipped', () => {
+    expect(missing).toEqual(['fake-not-installed@1.0.0']);
+  });
+
+  it('with no node_modules at all, every package is reported missing instead of "0 checked"', () => {
+    expect(readNpmLicences(path.resolve(__dirname, '../fixtures/licences-not-installed'))).toEqual({
+      packages: [],
+      missing: ['fake-mit@1.0.0'],
+    });
   });
 });

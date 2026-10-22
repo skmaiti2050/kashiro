@@ -1,8 +1,9 @@
 /**
  * `npm run deps:status` (Task S8): what could be upgraded, known advisories and the licence check, as
  * deps/reports/deps-status.md. Developer-only: it uses the network (npm, cargo, release pages); the app
- * never does. It exits 1 when a licence is not on the allowlist (scripts/deps/licences.ts). A tool that
- * is not installed is skipped with a warning (see docs/UPGRADING.md for the pinned versions).
+ * never does. It exits 1 when a licence is not on the allowlist (scripts/deps/licences.ts) or a production
+ * package is not installed to read it from. A tool that is not installed is skipped with a warning (see
+ * docs/UPGRADING.md for the pinned versions); a skipped licence check makes the headline "not fully checked".
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -11,17 +12,16 @@ import { ASSETS } from './deps/assets';
 import { licenceFailures, readNpmLicences, type LicenceFailure } from './deps/licences';
 import { lastLines, runTool, type ToolResult } from './deps/run';
 import { checkUpstream } from './deps/upstream';
-import { readCargoAudit, readNpmAudit, readNpmOutdated } from './deps/toolReports';
+import { licenceVerdict, readCargoAudit, readCargoUpdate, readNpmAudit, readNpmOutdated } from './deps/toolReports';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const TAURI = path.join(ROOT, 'src-tauri');
 const REPORT = path.join(ROOT, 'deps/reports/deps-status.md');
 
-/** cargo update --verbose: "Unchanged tauri v2.1.0 (available: v3.0.0)" or "Updating serde v1.0.1 -> v1.0.2". */
-const CARGO_CHANGE = /^\s*(Updating|Adding|Removing|Downgrading|Unchanged)\s+\S+\s+v\S+.*$/;
-
 const warnings: string[] = [];
 let licenceFailed = false;
+/** Licence checks that were skipped: the headline must not say "all on the allowlist" then. */
+const licencesNotChecked: string[] = [];
 
 /** A missing tool becomes a warning; a failed run still shows its output. */
 function toolNote(name: string, result: ToolResult): string | undefined {
@@ -51,17 +51,13 @@ function npmOutdated(): string[] {
 }
 
 function cargoOutdated(): string[] {
-  const result = runTool('cargo update --dry-run --verbose', TAURI);
   const lines = ['## Rust crates (`cargo update --dry-run --verbose`)', ''];
-  const note = toolNote('cargo', result);
-  if (note) return [...lines, note, ''];
-  const changes = `${result.stderr}\n${result.stdout}`.split(/\r?\n/).filter((l) => CARGO_CHANGE.test(l)).map((l) => l.trim());
-  const compatible = changes.filter((l) => !l.startsWith('Unchanged'));
-  const behind = changes.filter((l) => l.startsWith('Unchanged'));
-  lines.push(`Changes \`cargo update\` would make to Cargo.lock: ${compatible.length}. Crates held back: ${behind.length}.`, '');
-  if (compatible.length) lines.push('Changes:', '', ...compatible.map((l) => `- ${l}`), '');
-  if (behind.length) lines.push('Held back (a newer version exists, but a version requirement keeps this one):', '', ...behind.map((l) => `- ${l}`), '');
-  if (result.status === 'failed') lines.push('```', lastLines(result.stderr, 15), '```', '');
+  const report = readCargoUpdate(runTool('cargo update --dry-run --verbose', TAURI));
+  if (!report.ok) return [...lines, couldNotCheck('cargo update --dry-run', report.reason), ''];
+  const { changes, heldBack } = report.value;
+  lines.push(`Changes \`cargo update\` would make to Cargo.lock: ${changes.length}. Crates held back: ${heldBack.length}.`, '');
+  if (changes.length) lines.push('Changes:', '', ...changes.map((l) => `- ${l}`), '');
+  if (heldBack.length) lines.push('Held back (a newer version exists, but a version requirement keeps this one):', '', ...heldBack.map((l) => `- ${l}`), '');
   return lines;
 }
 
@@ -116,8 +112,12 @@ function failureLines(failures: LicenceFailure[]): string[] {
 function licences(): string[] {
   const lines = ['## Licences', ''];
   const npm = readNpmLicences(ROOT);
-  const npmFailures = licenceFailures(npm, 'npm');
-  lines.push(`npm production packages: ${npm.length} checked, ${npmFailures.length} not allowed.`, ...failureLines(npmFailures), '');
+  const npmFailures = licenceFailures(npm.packages, 'npm');
+  lines.push(`npm production packages: ${npm.packages.length} checked, ${npmFailures.length} not allowed.`, ...failureLines(npmFailures), '');
+  if (npm.missing.length) {
+    licenceFailed = true;
+    lines.push(`Not installed, so their licences could not be read (run \`npm ci\`): ${npm.missing.length}.`, ...npm.missing.map((m) => `- **${m}**`), '');
+  }
   const data = ASSETS.filter((a) => a.licence).map((a) => ({ name: a.id, version: a.version ?? a.status, licence: a.licence ?? undefined }));
   const dataFailures = licenceFailures(data, 'data');
   lines.push(`Data files and models: ${data.length} checked, ${dataFailures.length} not allowed.`, ...failureLines(dataFailures), '');
@@ -127,7 +127,10 @@ function licences(): string[] {
 
   const deny = runTool('cargo deny check licenses', TAURI);
   const note = toolNote('cargo-deny', deny);
-  if (note) return [...lines, `Crates: ${note}`, ''];
+  if (note) {
+    licencesNotChecked.push('crates: cargo-deny is not installed');
+    return [...lines, `Crates: ${note}`, ''];
+  }
   if (deny.status !== 'ok') licenceFailed = true;
   lines.push(`Crates (\`cargo deny check licenses\`, src-tauri/deny.toml): ${deny.status === 'ok' ? 'ok' : 'FAILED'}.`, '');
   if (deny.status !== 'ok') lines.push('```', lastLines(deny.stderr, 40), '```', '');
@@ -136,7 +139,7 @@ function licences(): string[] {
 
 async function main(): Promise<void> {
   const sections = [...npmOutdated(), ...cargoOutdated(), ...(await assetUpdates()), ...advisories(), ...licences()];
-  const verdict = licenceFailed ? 'FAILED: a licence is not on the allowlist.' : 'Licences: all on the allowlist.';
+  const verdict = licenceVerdict(licenceFailed, licencesNotChecked);
   const report = [
     '# deps:status',
     '',

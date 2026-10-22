@@ -1,0 +1,1 @@
+{ "capabilities": [{ "identifier": "listed", "windows": ["main"], "permissions": ["fs:default"] }] }

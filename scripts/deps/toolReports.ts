@@ -49,3 +49,21 @@ export const readNpmAudit = (result: ToolResult): ToolReport<NpmAudit> => readRe
 
 export const readCargoAudit = (result: ToolResult): ToolReport<CargoAudit> =>
   readReport(result, (json) => isObject(json.vulnerabilities) && Array.isArray(json.vulnerabilities.list));
+
+/** cargo update --verbose: "Unchanged tauri v2.1.0 (available: v3.0.0)" or "Updating serde v1.0.1 -> v1.0.2". */
+const CARGO_CHANGE = /^\s*(Updating|Adding|Removing|Downgrading|Unchanged)\s+\S+\s+v\S+.*$/;
+
+/** What `cargo update --dry-run --verbose` would change; a failed run (offline, say) is not "no changes". */
+export function readCargoUpdate(result: ToolResult): ToolReport<{ changes: string[]; heldBack: string[] }> {
+  if (result.status === 'missing') return { ok: false, reason: 'not installed' };
+  if (result.status === 'failed') return { ok: false, reason: `exit ${result.exitCode}: ${lastLines(result.stderr, 1)}`.trimEnd() };
+  const lines = `${result.stderr}\n${result.stdout}`.split(/\r?\n/).filter((l) => CARGO_CHANGE.test(l)).map((l) => l.trim());
+  return { ok: true, value: { changes: lines.filter((l) => !l.startsWith('Unchanged')), heldBack: lines.filter((l) => l.startsWith('Unchanged')) } };
+}
+
+/** The licence headline: a skipped check is never reported as "all on the allowlist". */
+export function licenceVerdict(failed: boolean, notChecked: string[]): string {
+  const skipped = notChecked.join('; ');
+  if (failed) return `FAILED: a licence is not on the allowlist or could not be read.${skipped ? ` Also not checked: ${skipped}.` : ''}`;
+  return skipped ? `Licences: not fully checked (${skipped}).` : 'Licences: all on the allowlist.';
+}

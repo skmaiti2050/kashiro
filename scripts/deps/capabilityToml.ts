@@ -43,6 +43,7 @@ export function parseCapabilityToml(toml: string): Record<string, unknown> {
     const line = lines[i];
     if (SKIPPED_LINE.test(line)) continue;
     if (REMOTE_TABLE.test(line)) {
+      if ('remote' in capability) throw new Error('A second [remote] table in capability TOML.');
       table = {};
       capability.remote = table;
       continue;
@@ -56,6 +57,8 @@ export function parseCapabilityToml(toml: string): Record<string, unknown> {
       raw += ` ${lines[++i].trim()}`;
       text += ` ${lines[i].trim()}`;
     }
+    // TOML forbids a repeated key; reading only the last one would hide the first.
+    if (match[1] in table) throw new Error(`Duplicate key "${match[1]}" in capability TOML.`);
     table[match[1]] = parseValue(raw, text);
   }
   return capability;

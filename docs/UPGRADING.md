@@ -34,7 +34,8 @@ reads the installed packages (`scripts/deps/licences.ts`).
    `deps/reports/deps-status.md` (gitignored): outdated npm packages and crates, newer data releases, security
    advisories (`npm audit --omit=dev`, `cargo audit`) and the licence check. It fails if a licence is not on the
    allowlist. A tool that gave no usable answer (no output, an error, text instead of JSON) is reported as
-   "could not check" with a warning, never as clean.
+   "could not check" with a warning, never as clean. If cargo-deny is missing the headline says "Licences: not
+   fully checked", and a production npm package that is not installed fails the licence check (run `npm ci`).
 2. **Upgrade one thing at a time.** One npm package (`npm install name@x.y.z`), one crate (`cargo update -p name
    --precise x.y.z` in `src-tauri`), or one data file (rebuild with its `npm run build:*` script, then update its
    entry in `deps/assets.json`).
@@ -69,7 +70,10 @@ Decisions:
 ## Permissions
 
 The CSP and the capabilities must never widen in an upgrade. `upgrade:check` compares `src-tauri/tauri.conf.json`
-and `src-tauri/capabilities/*.json` and `*.toml` with the committed baseline `deps/snapshots/permissions.json`.
+and every capability file under `src-tauri/capabilities/` (subfolders included, as Tauri globs `capabilities/**/*`;
+`schemas/` skipped; `.json`, `.toml`, and one capability, a list or `{ "capabilities": [...] }` per file) with the
+committed baseline `deps/snapshots/permissions.json`. A capability identifier defined twice, or a `.json5` file,
+fails.
 These all fail: an added CSP source, a dropped CSP directive, a new permission, window, remote URL or capability,
 a new platform (or a dropped platform list, which means every platform), local access turned on, or any change to
 another security setting. A TOML capability that uses more than strings and string arrays fails to read: write it

@@ -1,0 +1,19 @@
+{
+  "csp": {
+    "csp": {
+      "default-src": [
+        "'self'"
+      ]
+    },
+    "devCsp": null
+  },
+  "capabilities": {
+    "main": [
+      "window main",
+      "core:default",
+      "platforms all",
+      "local true"
+    ]
+  },
+  "settings": {}
+}

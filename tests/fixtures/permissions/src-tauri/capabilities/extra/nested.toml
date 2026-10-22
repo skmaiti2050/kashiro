@@ -1,0 +1,3 @@
+identifier = "nested"
+windows = ["main"]
+permissions = ["shell:allow-execute"]
