@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { mergePatch, readTauriConfigs } from '../../scripts/tauriConfigs';
+import { folderPinned } from '../../scripts/fetch-llama';
 
 const ROOT = path.resolve(__dirname, '../..');
 
@@ -37,10 +38,26 @@ describe('the two release configs', () => {
     expect((windows(noai).nsis as Record<string, unknown>).installMode).toBe('currentUser');
   });
 
-  it('installed over the full version, the version without AI removes the helper files it does not ship', () => {
-    const hooks = ((noai.bundle as { windows: { nsis: { installerHooks: string } } }).windows.nsis.installerHooks);
+  describe('installed over the full version, the version without AI removes the helper files it does not ship (fix round 3)', () => {
+    const hooks = (noai.bundle as { windows: { nsis: { installerHooks: string } } }).windows.nsis.installerHooks;
     const text = fs.readFileSync(path.join(ROOT, 'src-tauri', hooks), 'utf8');
-    expect(text).toMatch(/!macro NSIS_HOOK_POSTINSTALL\s+RMDir \/r "\$INSTDIR\\llama"\s+!macroend/);
-    expect((full.bundle as { windows: { nsis: Record<string, unknown> } }).windows.nsis.installerHooks).toBeUndefined();
+    /** A Delete line of the hook: `Delete "$INSTDIR\llama\ggml.dll"`. */
+    const DELETE_LINE = /^\s*Delete "\$INSTDIR\\(llama\\[^"]+)"\s*$/gm;
+
+    it('only the full config has no hooks', () => {
+      expect((full.bundle as { windows: { nsis: Record<string, unknown> } }).windows.nsis.installerHooks).toBeUndefined();
+    });
+
+    it('deletes exactly the pinned files, by name: never a whole folder a user may own', () => {
+      const deleted = [...text.matchAll(DELETE_LINE)].map((m) => m[1]).sort();
+      const pinned = [...Object.keys(folderPinned('llama')).map((n) => `llama\\${n}`), ...Object.keys(folderPinned('vulkan')).map((n) => `llama\\vulkan\\${n}`)].sort();
+      expect(deleted).toEqual(pinned);
+      expect(text).not.toMatch(/RMDir \/r/i);
+      expect(text).toMatch(/RMDir "\$INSTDIR\\llama\\vulkan"\s+RMDir "\$INSTDIR\\llama"/);
+    });
+
+    it('does it only in a folder that holds writing-check.exe', () => {
+      expect(text).toMatch(/\$\{If\} \$\{FileExists\} "\$INSTDIR\\writing-check\.exe"/);
+    });
   });
 });
