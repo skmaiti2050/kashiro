@@ -1,6 +1,6 @@
 // The review loop's keys (U1 item 1) and the app shortcuts (item 8), without a DOM.
 import { describe, it, expect } from 'vitest';
-import { appShortcut, isLookUpKey, readAloudKey, reviewKeyAction, type KeyPress, type KeyTarget } from '@/ui/state/reviewKeys';
+import { appShortcut, isImproveKey, isLookUpKey, readAloudKey, reviewKeyAction, type KeyPress, type KeyTarget } from '@/ui/state/reviewKeys';
 
 const press = (key: string, mods: Partial<KeyPress> = {}): KeyPress => ({
   key,
@@ -96,6 +96,18 @@ describe('readAloudKey', () => {
     expect(readAloudKey(press('s', { altKey: true, ctrlKey: true }))).toBeNull();
     expect(readAloudKey(press('s', { altKey: true, shiftKey: true }))).toBeNull();
     expect(readAloudKey(press('s', { altKey: true, repeat: true }))).toBeNull();
+  });
+});
+
+describe('isImproveKey', () => {
+  it('Ctrl+I, either case, once per press; not with Shift, Alt (AltGr) or the Windows key', () => {
+    expect(isImproveKey(press('i', { ctrlKey: true }))).toBe(true);
+    expect(isImproveKey(press('I', { ctrlKey: true }))).toBe(true);
+    expect(isImproveKey(press('i', { ctrlKey: true, repeat: true }))).toBe(false);
+    expect(isImproveKey(press('i'))).toBe(false);
+    expect(isImproveKey(press('I', { ctrlKey: true, shiftKey: true }))).toBe(false);
+    expect(isImproveKey(press('i', { ctrlKey: true, altKey: true }))).toBe(false);
+    expect(isImproveKey(press('d', { ctrlKey: true }))).toBe(false);
   });
 });
 

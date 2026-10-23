@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { appShortcut, isLookUpKey, reviewKeyAction, type AppShortcut, type KeyTarget, type ReviewKeyAction } from './state/reviewKeys';
+import { appShortcut, isImproveKey, isLookUpKey, reviewKeyAction, type AppShortcut, type KeyTarget, type ReviewKeyAction } from './state/reviewKeys';
 
 /** Fields where keys type text: shortcuts never fire there (a select counts: letters pick an option). */
 const TEXT_ENTRY = 'textarea, select, [contenteditable="true"], input:not([type]), input[type="text"], input[type="search"], input[type="number"]';
@@ -46,6 +46,24 @@ export function useLookUpKey(enabled: boolean, onPress: () => boolean): void {
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.isComposing || !isLookUpKey(e)) return;
       if (latest.current()) e.preventDefault();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [enabled]);
+}
+
+/** Calls `onPress` on Ctrl+I while `enabled` ("Improve this sentence"), outside text fields. */
+export function useImproveKey(enabled: boolean, onPress: () => void): void {
+  const latest = useRef(onPress);
+  useEffect(() => {
+    latest.current = onPress;
+  });
+  useEffect(() => {
+    if (!enabled) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.isComposing || !isImproveKey(e) || keyTargetOf(e.target, false).control === 'text-entry') return;
+      e.preventDefault();
+      latest.current();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);

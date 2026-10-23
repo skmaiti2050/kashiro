@@ -9,6 +9,8 @@ export type HelperBackend = 'vulkan' | 'cpu';
 export interface WritingHelper {
   rewriter: Rewriter;
   backend: HelperBackend;
+  /** The CPU build runs because the GPU build was tried and did not start (the speed advice says so). */
+  gpuFallback?: boolean;
   stop(): void | Promise<void>;
 }
 

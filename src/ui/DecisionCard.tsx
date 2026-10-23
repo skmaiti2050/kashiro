@@ -29,6 +29,8 @@ interface Props {
   onLocate(candidate: Candidate): void;
   /** Opens the word lookup; absent while word lookup is off. */
   onLookUp?: (words: string[]) => void;
+  /** "Improve this sentence" for the sentence holding `candidate`; absent while AI rewrites are off. */
+  onImprove?: (candidate: Candidate) => void;
 }
 
 /**
@@ -38,7 +40,7 @@ interface Props {
  * (not word flags, not AI rewrites) get the Dismiss ▾ scope menu. `data-key` marks the buttons the
  * review keys press (Enter: accept, Backspace: reject).
  */
-export function DecisionCard({ controller, decision, candidates, paraText, touchesLocked, onNext, onLocate, onLookUp }: Props) {
+export function DecisionCard({ controller, decision, candidates, paraText, touchesLocked, onNext, onLocate, onLookUp, onImprove }: Props) {
   const t = useT();
   const [seeEach, setSeeEach] = useState(false);
   const [place, setPlace] = useState(0);
@@ -58,10 +60,12 @@ export function DecisionCard({ controller, decision, candidates, paraText, touch
   const rejectLabel = flagOnly ? (isBatch ? 'card.dismissAll' : 'card.dismiss') : isBatch ? 'card.rejectAll' : 'card.reject';
   // Only for a word: a phrase or sentence to rewrite has nothing to look up.
   const lookUpWords = onLookUp ? wordsToCompare(first.original, first.replacements[0]) : null;
+  const isAi = first.source === 'llm';
 
   return (
     <div className="card" title={t.t('card.clickToShow')} onClick={() => onLocate(shown)}>
-      <CategoryTag category={category} kind={first.kind} />
+      {/* An AI card says "AI suggestion" in words, not by its colour alone. */}
+      <CategoryTag category={category} kind={isAi ? undefined : first.kind} />
       <h3 className="card-title">
         <DecisionTitle decision={decision} candidates={candidates} />
       </h3>
@@ -132,6 +136,7 @@ export function DecisionCard({ controller, decision, candidates, paraText, touch
           )}
           {isBatch && <button onClick={() => setSeeEach((v) => !v)}>{seeEach ? t.t('card.hidePlaces') : t.t('card.seeEach')}</button>}
           {lookUpWords && <button onClick={() => onLookUp?.(lookUpWords)}>{t.t('card.lookUp')}</button>}
+          {onImprove && !isAi && <button onClick={() => onImprove(shown)}>{t.t('ai.improve')}</button>}
           <button className="quiet" aria-keyshortcuts="J" onClick={onNext}>
             {t.t('card.nextCard')} <Kbd>J</Kbd>
           </button>

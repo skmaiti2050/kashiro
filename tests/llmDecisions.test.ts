@@ -11,6 +11,7 @@ import { CheckSession } from '@/engine/session';
 import { createLinter, type RulesLinter } from '@/engine/linter';
 import { suggestRewrites, type Rewriter } from '@/engine/llm/suggest';
 import type { PresetId } from '@/engine/presets';
+import { upFrontRoom } from '@/engine/depth';
 import { adapterFor } from '@/formats/registry';
 import { countWords } from '../trust/words';
 
@@ -69,6 +70,40 @@ describe('review budget with recorded helper rewrites', () => {
 
       const perBudget = (session.rankedDecisionCount() * PER_WORDS) / countWords(paras);
       expect(perBudget).toBeLessThanOrEqual(BUDGET);
+    },
+    30_000,
+  );
+});
+
+describe('"Check how it reads" at every review depth (Task 13 UI)', () => {
+  const recordedHelper = (file: string): Rewriter & { sent: number } => {
+    const helper = {
+      sent: 0,
+      async rewrite(text: string) {
+        helper.sent++;
+        return rewrites.find((r) => r.doc === file && r.text === text)?.rewrite ?? null;
+      },
+    };
+    return helper;
+  };
+
+  it.each((['light', 'standard', 'thorough', 'everything'] as const).flatMap((depth) => files.map((file) => [depth, file] as const)))(
+    '%s: %s stays within the depth’s decision budget with the AI suggestions added',
+    async (depth, file) => {
+      const doc = docs.find((d) => d.file === file)!;
+      const adapter = adapterFor(file)!;
+      const { paras } = await adapter.read(new Uint8Array(fs.readFileSync(path.join(REF, file))));
+      const session = await CheckSession.start(
+        paras,
+        { preset: doc.preset, fallbackVariant: 'American', language: adapter.language, dictionary: [], depth },
+        { linter },
+      );
+      const before = session.rankedDecisionCount();
+      const helper = recordedHelper(file);
+      await suggestRewrites(session, helper, doc.preset, new AbortController().signal);
+      // The first run never adds past the room the depth leaves; a document already over it gets nothing sent.
+      expect(session.rankedDecisionCount()).toBeLessThanOrEqual(Math.max(before, upFrontRoom(depth, countWords(paras))));
+      if (depth === 'everything') expect(helper.sent).toBe(0);
     },
     30_000,
   );

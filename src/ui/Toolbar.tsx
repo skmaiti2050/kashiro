@@ -35,6 +35,8 @@ interface Props {
   onHelp(): void;
   onShortcuts(): void;
   onAbout(): void;
+  /** "Improve this sentence" at the cursor; null hides the button (AI rewrites off, or nothing checked yet). */
+  onImprove: (() => void) | null;
 }
 
 /** Toolbar items the arrow keys move between (a select keeps its arrows: they change its value). */
@@ -57,8 +59,8 @@ function moveAlongToolbar(e: KeyboardEvent<HTMLElement>, dir: 'ltr' | 'rtl'): vo
   items[(at + (forward ? 1 : -1) + items.length) % items.length].focus();
 }
 
-/** Open · Paste · preset · variant chip · Google Docs help · Shortcuts · Settings · About · Save (with its save-mode menu). */
-export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onHelp, onShortcuts, onAbout }: Props) {
+/** Open · Paste · preset · variant chip · Improve this sentence · Google Docs help · Shortcuts · Settings · About · Save (with its save-mode menu). */
+export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onHelp, onShortcuts, onAbout, onImprove }: Props) {
   const t = useT();
   const { session, settings, variantOverride, document } = state;
   const saveMenu = useRef<HTMLDetailsElement>(null);
@@ -104,6 +106,12 @@ export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onHelp
             ))}
           </select>
         </label>
+      )}
+
+      {onImprove && (
+        <button onClick={onImprove} aria-keyshortcuts="Control+I" title={t.t('ai.improveTitle')}>
+          {t.t('ai.improve')}
+        </button>
       )}
 
       <span className="spacer" />

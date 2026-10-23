@@ -33,21 +33,25 @@ const READ_ALOUD: Shortcut[] = [
 ];
 
 const LOOK_UP: Shortcut = { keys: 'Ctrl+D', action: 'shortcuts.lookUp' };
+const IMPROVE: Shortcut = { keys: 'Ctrl+I', action: 'shortcuts.improve' };
 
 interface Props {
   readAloud: boolean;
   /** Word lookup is on (Settings › Modules). */
   lookUp: boolean;
+  /** AI rewrites are on (Settings › Modules, with a model file). */
+  improve: boolean;
   onClose(): void;
 }
 
-/** The keyboard shortcuts (F1 or ?), grouped where they work. Read aloud and Look up are listed only when available. */
-export function ShortcutsSheet({ readAloud, lookUp, onClose }: Props) {
+/** The keyboard shortcuts (F1 or ?), grouped where they work. Read aloud, Look up and Improve are listed only when available. */
+export function ShortcutsSheet({ readAloud, lookUp, improve, onClose }: Props) {
   const t = useT();
+  const reviewing = [...REVIEW, ...(lookUp ? [LOOK_UP] : []), ...(improve ? [IMPROVE] : [])];
   return (
     <Dialog title={t.t('shortcuts.title')} className="shortcuts" onClose={onClose}>
       <ShortcutTable caption={t.t('shortcuts.anywhere')} rows={ANYWHERE} />
-      <ShortcutTable caption={t.t('shortcuts.reviewing')} rows={lookUp ? [...REVIEW, LOOK_UP] : REVIEW} />
+      <ShortcutTable caption={t.t('shortcuts.reviewing')} rows={reviewing} />
       {readAloud && <ShortcutTable caption={t.t('shortcuts.readAloud')} rows={READ_ALOUD} />}
     </Dialog>
   );

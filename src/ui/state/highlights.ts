@@ -40,6 +40,33 @@ export function toEditorPosition(text: string, lineSeparator: '\n' | '\r\n'): (o
   };
 }
 
+/** CodeMirror position → string offset in the view text: the inverse of toEditorPosition. */
+function toViewOffset(text: string, lineSeparator: '\n' | '\r\n', position: number): number {
+  if (lineSeparator === '\n') return position;
+  let offset = position;
+  // The k-th CRLF (k from 0) sits at CodeMirror position `index - k`; each one before the caret is one more character.
+  let k = 0;
+  for (let i = text.indexOf('\r\n'); i >= 0 && i - k < position; i = text.indexOf('\r\n', i + 2), k++) offset++;
+  return offset;
+}
+
+/**
+ * The paragraph at a CodeMirror position and the offset in it, for "Improve this sentence" at the caret. A
+ * caret between paragraphs means the one before, at its end. Null while the view or the session lags behind
+ * the text (typing waits for its re-check).
+ */
+export function paragraphAt(doc: OpenDocument, viewText: string, session: CheckSession, position: number): { paraId: number; offset: number } | null {
+  if (viewText !== doc.text) return null;
+  const offset = toViewOffset(doc.text, doc.lineSeparator, position);
+  let found: { paraId: number; start: number; length: number } | null = null;
+  for (const p of session.paragraphs()) {
+    const start = doc.paraStarts.get(p.id);
+    if (start === undefined || doc.text.slice(start, start + p.text.length) !== p.text) return null;
+    if (!found || start <= offset) found = { paraId: p.id, start, length: p.text.length };
+  }
+  return found && { paraId: found.paraId, offset: Math.max(0, Math.min(offset - found.start, found.length)) };
+}
+
 /**
  * Where a candidate sits in the view text, for "show me where" on a review item. Null while the view
  * shows text the session has not checked yet.

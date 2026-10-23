@@ -74,10 +74,20 @@ export function appShortcut(press: KeyPress, hasDocument: boolean, control: KeyT
   return null;
 }
 
+/** Ctrl and `letter` alone, once per press (a held key acts once). */
+function isCtrlLetter(press: KeyPress, letter: string): boolean {
+  if (!press.ctrlKey || press.altKey || press.metaKey || press.shiftKey || press.repeat) return false;
+  return press.key.toLowerCase() === letter;
+}
+
 /** Ctrl+D: look up the selected word, or the word at the cursor. A held key opens the panel once. */
 export function isLookUpKey(press: KeyPress): boolean {
-  if (!press.ctrlKey || press.altKey || press.metaKey || press.shiftKey || press.repeat) return false;
-  return press.key.toLowerCase() === 'd';
+  return isCtrlLetter(press, 'd');
+}
+
+/** Ctrl+I: "Improve this sentence" for the sentence at the cursor (AI helper). */
+export function isImproveKey(press: KeyPress): boolean {
+  return isCtrlLetter(press, 'i');
 }
 
 const READ_KEYS: Record<string, ReadTarget> = { s: 'sentence', r: 'suggestion', p: 'paragraph' };

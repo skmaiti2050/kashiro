@@ -29,6 +29,7 @@ describe('defaultSettings', () => {
       tierOverrides: {},
       modelPath: null,
       modelSha256: null,
+      helperSpeed: null,
       depthByPreset: {},
       termMinRepeats: 3,
       ignoredRules: [],
@@ -78,6 +79,14 @@ describe('withSavedSettings', () => {
     expect(resolved({ modelPath: '\\\\attacker\\share\\q.gguf', modelSha256: sha })).toEqual({ modelPath: null, modelSha256: null });
     expect(resolved({ modelPath: '//attacker/share/q.gguf', modelSha256: sha })).toEqual({ modelPath: null, modelSha256: null });
     expect(resolved({ modelPath: null, modelSha256: sha })).toEqual({ modelPath: null, modelSha256: null });
+  });
+
+  it('keeps a measured helper speed; drops a damaged one', () => {
+    const speed = { modelPath: 'C:\\models\\q.gguf', seconds: 6.6, backend: 'cpu', gpuFallback: true };
+    expect(withSavedSettings(defaults, { helperSpeed: speed } as Partial<Settings>).helperSpeed).toEqual(speed);
+    for (const bad of [{ ...speed, seconds: -1 }, { ...speed, seconds: '7' }, { ...speed, backend: 'cuda' }, { ...speed, gpuFallback: 1 }, { ...speed, modelPath: null }, 'fast', null]) {
+      expect(withSavedSettings(defaults, { helperSpeed: bad } as unknown as Partial<Settings>).helperSpeed).toBeNull();
+    }
   });
 
   it('settings saved before modules existed get the default modules', () => {

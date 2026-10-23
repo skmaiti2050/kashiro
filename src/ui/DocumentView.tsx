@@ -7,14 +7,14 @@ import type { Candidate } from '@/engine/types';
 import { EmptyState } from './EmptyState';
 import type { CaretText } from './ReviewPanel';
 import { CATEGORIES } from './state/categories';
-import { highlightRanges, locateCandidate, toEditorPosition } from './state/highlights';
+import { highlightRanges, locateCandidate, paragraphAt, toEditorPosition } from './state/highlights';
 import type { Translator } from './i18n/translator';
 import { useT } from './i18n/useT';
 import { explanation } from './state/plainMessages';
 import type { ControllerState, OpenDocument, SessionController } from './state/sessionController';
 import type { RecentReview } from './state/sessionStore';
-import { wordAtSelection } from './editorWords';
-import { useLookUpKey } from './useKeys';
+import { caretPosition, wordAtSelection } from './editorWords';
+import { useImproveKey, useLookUpKey } from './useKeys';
 import { useTextMenu } from './useTextMenu';
 
 /** The replacement text of an applied edit, shown right after the struck-through original. */
@@ -156,21 +156,29 @@ interface Props {
   caretReader: MutableRefObject<() => CaretText | null>;
   /** Ctrl+D, and right-click → Look up in read-only text; null while word lookup is off or a dialog is open. */
   onLookUp: ((word: string) => void) | null;
+  /** AI rewrites are on and no dialog is open: Ctrl+I and right-click → "Improve this sentence". */
+  aiOn: boolean;
+  /** Set to "Improve this sentence" at the cursor, for the toolbar's button. */
+  improveAtCaret: MutableRefObject<() => void>;
 }
 
 /** CodeMirror view of the document: read-only for .docx, editable (and re-checked as you type) for text. */
-export function DocumentView({ controller, state, focus, onUnderlineClick, onOpen, onPaste, onSample, onOpenRecent, caretReader, onLookUp }: Props) {
+export function DocumentView({ controller, state, focus, onUnderlineClick, onOpen, onPaste, onSample, onOpenRecent, caretReader, onLookUp, aiOn, improveAtCaret }: Props) {
   const t = useT();
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const labels = useRef(new Compartment());
   const underlineClick = useRef(onUnderlineClick);
   const lookUp = useRef(onLookUp);
+  /** "Improve this sentence" at a position in the text; null while AI rewrites are off. Read by the editor's handlers. */
+  const improve = useRef<((position: number | null) => void) | null>(null);
   useEffect(() => {
     underlineClick.current = onUnderlineClick;
     lookUp.current = onLookUp;
+    improve.current = aiOn ? improveAt : null;
+    improveAtCaret.current = () => improveAt(view.current && caretPosition(view.current));
   });
-  const { openTextMenu, textMenu } = useTextMenu(lookUp, controller);
+  const { openTextMenu, textMenu } = useTextMenu(lookUp, improve, controller);
   /** The flag under the cursor, read out when the cursor moves onto it. */
   const [flagAtCursor, setFlagAtCursor] = useState('');
   const spokenFlag = useRef('');
@@ -192,7 +200,7 @@ export function DocumentView({ controller, state, focus, onUnderlineClick, onOpe
           EditorView.editable.of(doc.editable),
           EditorState.readOnly.of(!doc.editable),
           history(),
-          keymap.of([{ key: 'Mod-.', run: showCardAtCursor }, ...defaultKeymap, ...historyKeymap]),
+          keymap.of([{ key: 'Mod-.', run: showCardAtCursor }, { key: 'Mod-i', run: improveAtCursor }, ...defaultKeymap, ...historyKeymap]),
           labels.current.of(editorLabels(t)),
           EditorView.updateListener.of((update) => {
             if (update.docChanged) controller.editText(update.state.sliceDoc());
@@ -262,6 +270,9 @@ export function DocumentView({ controller, state, focus, onUnderlineClick, onOpe
     return word !== null;
   });
 
+  // Ctrl+I outside the text (the panel, the toolbar); inside it, the editor's keymap answers first.
+  useImproveKey(aiOn && doc !== null, () => improveAtCaret.current());
+
   if (!doc) return <EmptyState onOpen={onOpen} onPaste={onPaste} onSample={onSample} recent={state.recentReviews} onOpenRecent={onOpenRecent} />;
   return (
     <section className="document" aria-label={doc.name}>
@@ -273,6 +284,23 @@ export function DocumentView({ controller, state, focus, onUnderlineClick, onOpe
       {textMenu}
     </section>
   );
+
+  /** "Improve this sentence" for the sentence at `position` (a CodeMirror position), or says why there is none. */
+  function improveAt(position: number | null): void {
+    const editor = view.current;
+    const session = state.session;
+    if (!editor || !doc || !session || position === null) return controller.ai.noSentenceAtCursor('noCaret');
+    const at = paragraphAt(doc, editor.state.sliceDoc(), session, position);
+    if (!at) return controller.ai.noSentenceAtCursor('waitForCheck');
+    controller.ai.improveSentence(at.paraId, at.offset);
+  }
+
+  /** Ctrl+I in the text, while AI rewrites are on. */
+  function improveAtCursor(editor: EditorView): boolean {
+    if (!improve.current) return false;
+    improve.current(caretPosition(editor));
+    return true;
+  }
 
   /** Ctrl+. in the text: brings up the card of the underline at the cursor and moves focus to it. */
   function showCardAtCursor(editor: EditorView): boolean {

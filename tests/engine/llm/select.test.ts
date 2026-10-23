@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { CheckSession } from '@/engine/session';
 import { createLinter, type RulesLinter } from '@/engine/linter';
-import { firstRunBudget, pickSentences, rewriteBudget } from '@/engine/llm/select';
+import { firstRunBudget, pickSentences, rewriteBudget, sentenceAt } from '@/engine/llm/select';
 import type { Candidate, Paragraph, Span } from '@/engine/types';
 
 let linter: RulesLinter;
@@ -117,5 +117,34 @@ describe('pickSentences', () => {
     ]);
     s.addCandidates([lint(0, { start: 0, end: 4 }, 'Style'), lint(1, { start: 0, end: 4 }, 'Style')]);
     expect(pickSentences(s, 10)).toEqual([]);
+  });
+});
+
+describe('sentenceAt ("Improve this sentence")', () => {
+  it('the sentence at an offset, with its accepted edits applied, whether or not it has a lint', async () => {
+    const text = 'I think teh cat is is here. It sleeps.';
+    const s = await start([{ id: 0, text }]);
+    expect(sentenceAt(s, 0, 3)).toEqual({ paraId: 0, span: { start: 0, end: 27 }, text: 'I think the cat is here.' });
+    expect(sentenceAt(s, 0, 30)).toEqual({ paraId: 0, span: { start: 28, end: 38 }, text: 'It sleeps.' });
+  });
+
+  it('a caret at the end of a sentence or in the space after it means that sentence', async () => {
+    const s = await start([{ id: 0, text: PARA0 }]);
+    expect(sentenceAt(s, 0, DOG.end)?.span).toEqual(DOG);
+    expect(sentenceAt(s, 0, 23)?.span).toEqual({ start: 0, end: 23 });
+    expect(sentenceAt(s, 0, 0)?.span).toEqual({ start: 0, end: 23 });
+  });
+
+  it('a sentence already sent is still found (the caller decides); one a rewrite could damage is not', async () => {
+    const s = await start([
+      { id: 0, text: 'This is **bold** text here.' },
+      { id: 1, text: 'This one sits in a change.', locked: [{ start: 5, end: 8 }] },
+      { id: 2, text: PARA0 },
+    ]);
+    expect(sentenceAt(s, 0, 2)).toBeNull();
+    expect(sentenceAt(s, 1, 2)).toBeNull();
+    s.addRewrite(2, DOG, null);
+    expect(sentenceAt(s, 2, DOG.start)?.span).toEqual(DOG);
+    expect(sentenceAt(s, 9, 0)).toBeNull(); // no such paragraph
   });
 });

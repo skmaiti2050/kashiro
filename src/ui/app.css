@@ -581,6 +581,51 @@ legend {
   margin: 0 0 8px;
 }
 
+/* The AI suggestions group (Task 13): its own box under the card, marked with the AI glyph in words and colour. */
+.ai-group {
+  margin: 16px 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-inline-start: 3px solid var(--cat-ai);
+  border-radius: 8px;
+}
+
+.ai-group h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+}
+
+.ai-group .glyph {
+  color: var(--cat-ai);
+}
+
+.ai-group .hint {
+  margin: 6px 0;
+}
+
+.ai-group .hint.warning {
+  padding: 2px 6px;
+  background: var(--warn-bg);
+}
+
+.ai-run {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.ai-run .progress-bar {
+  grid-column: 1 / -1;
+  margin-bottom: 0;
+}
+
+.ai-run .hint {
+  margin: 0;
+}
+
 /* The batch preview: one ticked line per place. */
 .batch-preview .members li {
   grid-template-columns: minmax(0, 1fr);

@@ -106,7 +106,7 @@ describe('suggestRewrites', () => {
     const run = await suggestRewrites(s, helper, 'business', live());
 
     expect(helper.sent).toEqual(['I think the cat is here.', 'Attendance rose by 3.2% in districts that served hot meals.']);
-    expect(run).toEqual({ sent: 2, added: 1, punctuationOnly: 0, rejected: [], cancelled: false });
+    expect(run).toEqual({ sent: 2, added: 1, punctuationOnly: 0, rejected: [], stale: 0, cancelled: false });
     const llm = s.candidates().filter((c) => c.source === 'llm');
     expect(llm).toHaveLength(1);
     expect(llm[0]).toMatchObject({

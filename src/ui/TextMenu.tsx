@@ -20,21 +20,25 @@ export function placeInViewport(at: { x: number; y: number }, size: Size, viewpo
 interface Props {
   /** Where the right-click happened (viewport pixels). */
   at: { x: number; y: number };
-  /** The word "Look up" shows. */
-  word: string;
+  /** The word "Look up" shows; null hides Look up (lookup is off, or no word is there). */
+  word: string | null;
+  /** Shows "Improve this sentence" (AI rewrites are on). */
+  canImprove: boolean;
   /** Shows Copy (the system menu this replaces offered it for a selection). */
   canCopy: boolean;
   onLookUp(): void;
+  onImprove(): void;
   onCopy(): void;
   /** `returnFocus`: put the focus back where it was (Escape, Tab); not after a click elsewhere. */
   onClose(returnFocus: boolean): void;
 }
 
 /**
- * The right-click menu on the document text: "Look up “word”", and Copy when text is selected (WAI-ARIA menu:
- * first item focused, Up / Down move, Escape closes). Nothing in it changes the text.
+ * The right-click menu on the document text: "Look up “word”", "Improve this sentence", and Copy when text is
+ * selected (WAI-ARIA menu: first item focused, Up / Down move, Escape closes). Nothing in it changes the text:
+ * an AI suggestion only joins the review.
  */
-export function TextMenu({ at, word, canCopy, onLookUp, onCopy, onClose }: Props) {
+export function TextMenu({ at, word, canImprove, canCopy, onLookUp, onImprove, onCopy, onClose }: Props) {
   const t = useT();
   const menu = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState(at);
@@ -81,9 +85,16 @@ export function TextMenu({ at, word, canCopy, onLookUp, onCopy, onClose }: Props
         onClose(true);
       }}
     >
-      <button role="menuitem" onClick={onLookUp}>
-        {t.t('doc.lookUpWord', { word })}
-      </button>
+      {word !== null && (
+        <button role="menuitem" onClick={onLookUp}>
+          {t.t('doc.lookUpWord', { word })}
+        </button>
+      )}
+      {canImprove && (
+        <button role="menuitem" onClick={onImprove}>
+          {t.t('ai.improve')}
+        </button>
+      )}
       {canCopy && (
         <button role="menuitem" onClick={onCopy}>
           {t.t('doc.copy')}

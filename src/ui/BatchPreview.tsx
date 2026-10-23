@@ -10,13 +10,15 @@ interface Props {
   paraText: Map<number, string>;
   onApply(candidateIds: string[]): void;
   onCancel(): void;
+  /** Enter applies and Backspace cancels (the card slot's review keys); false where those keys act elsewhere. Default true. */
+  reviewKeys?: boolean;
 }
 
 /**
  * The checklist shown before "Apply all" (UI/UX research §3, GitHub's batched suggestions): every place
  * as a one-line diff, all ticked. The ticked ones are applied as one change, undone together in the log.
  */
-export function BatchPreview({ members, replacementIndex, paraText, onApply, onCancel }: Props) {
+export function BatchPreview({ members, replacementIndex, paraText, onApply, onCancel, reviewKeys = true }: Props) {
   const t = useT();
   const [unticked, setUnticked] = useState<ReadonlySet<string>>(new Set());
   const chosen = members.filter((c) => !unticked.has(c.id)).map((c) => c.id);
@@ -43,11 +45,17 @@ export function BatchPreview({ members, replacementIndex, paraText, onApply, onC
         ))}
       </ol>
       <div className="actions">
-        <button className="primary" data-key="accept" aria-keyshortcuts="Enter" disabled={chosen.length === 0} onClick={() => onApply(chosen)}>
-          {label} <Kbd>Enter</Kbd>
+        <button
+          className="primary"
+          data-key={reviewKeys ? 'accept' : undefined}
+          aria-keyshortcuts={reviewKeys ? 'Enter' : undefined}
+          disabled={chosen.length === 0}
+          onClick={() => onApply(chosen)}
+        >
+          {label} {reviewKeys && <Kbd>Enter</Kbd>}
         </button>
-        <button data-key="reject" aria-keyshortcuts="Backspace" onClick={onCancel}>
-          {t.t('batch.cancel')} <Kbd>Backspace</Kbd>
+        <button data-key={reviewKeys ? 'reject' : undefined} aria-keyshortcuts={reviewKeys ? 'Backspace' : undefined} onClick={onCancel}>
+          {t.t('batch.cancel')} {reviewKeys && <Kbd>Backspace</Kbd>}
         </button>
       </div>
     </div>

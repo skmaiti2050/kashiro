@@ -87,7 +87,7 @@ describe('snapshot', () => {
     ];
     const s = await start(paras);
     const rewrite = 'Everyone who could come attended the meeting on Monday.';
-    expect(s.addRewrite(0, { start: 0, end: paras[0].text.length }, rewrite)!.ok).toBe(true);
+    expect(s.addRewrite(0, { start: 0, end: paras[0].text.length }, rewrite)).toEqual({ ok: true });
     s.accept(`llm:0:0-${paras[0].text.length}`);
     const readability = s.candidates().find((c) => c.paraId === 1 && c.span.end - c.span.start === long.length)!;
     s.reject(readability.id);

@@ -3,7 +3,7 @@ import type { PresetId } from '../presets';
 import { countWords } from '../words';
 import type { GuardReason } from './guard';
 import { rewriteCount } from '../depth';
-import { firstRunBudget, pickSentences } from './select';
+import { firstRunBudget, pickSentences, type PickedSentence } from './select';
 import type { LlmClient } from './client';
 
 /** What suggestRewrites needs from the helper: LlmClient, or recorded answers in tests. */
@@ -18,6 +18,8 @@ export interface RewriteRun {
   punctuationOnly: number;
   /** Rewrites the guard stopped, for the change log. */
   rejected: { text: string; rewrite: string; reason: GuardReason }[];
+  /** Answers dropped because their sentence changed while the helper worked (the sentence can be asked again). */
+  stale: number;
   /** True when `signal` aborted: the results that already came back are kept. */
   cancelled: boolean;
 }
@@ -54,11 +56,8 @@ export async function suggestRewrites(
   signal: AbortSignal,
   { more = false }: { more?: boolean } = {},
 ): Promise<RewriteRun> {
-  const words = session.paragraphs().reduce((n, p) => n + countWords(p.text), 0);
-  const budget = more
-    ? rewriteCount(session.depth, words, true)
-    : firstRunBudget(words, session.rankedDecisionCount(), session.depth);
-  const run: RewriteRun = { sent: 0, added: 0, punctuationOnly: 0, rejected: [], cancelled: false };
+  const budget = runBudget(session, more);
+  const run: RewriteRun = { sent: 0, added: 0, punctuationOnly: 0, rejected: [], stale: 0, cancelled: false };
   for (const s of pickSentences(session, budget)) {
     if (signal.aborted) break;
     let rewrite: string | null;
@@ -69,15 +68,39 @@ export async function suggestRewrites(
       throw e;
     }
     run.sent++;
-    if (rewrite !== null && onlyPunctuationChanged(s.text, rewrite)) {
-      run.punctuationOnly++;
-      rewrite = null; // recorded as sent, with nothing to offer
-    }
-    // The session runs the meaning-drift guard; this only records the outcome.
-    const verdict = session.addRewrite(s.paraId, s.span, rewrite);
-    if (verdict?.ok) run.added++;
-    else if (verdict) run.rejected.push({ text: s.text, rewrite: rewrite!, reason: verdict.reason! });
+    const offer = offerRewrite(session, s, rewrite);
+    if (offer === 'added') run.added++;
+    else if (offer === 'punctuationOnly') run.punctuationOnly++;
+    else if (offer === 'stale') run.stale++;
+    else if (offer !== 'unchanged') run.rejected.push({ text: s.text, rewrite: rewrite!, reason: offer.rejected });
   }
   run.cancelled = signal.aborted;
   return run;
+}
+
+/**
+ * Sentences a run may send: for "Check how it reads", the depth's rate but never more than the room left under
+ * its decision budget (firstRunBudget); for "Check more sentences" (`more`), the depth's "more" rate.
+ */
+export function runBudget(session: CheckSession, more: boolean): number {
+  const words = session.paragraphs().reduce((n, p) => n + countWords(p.text), 0);
+  return more ? rewriteCount(session.depth, words, true) : firstRunBudget(words, session.rankedDecisionCount(), session.depth);
+}
+
+/** What became of one answer: offered for review, nothing to offer, or why it was dropped. */
+export type Offer = 'added' | 'unchanged' | 'punctuationOnly' | 'stale' | { rejected: GuardReason };
+
+/**
+ * Puts the helper's answer for `sentence` into the session: a rewrite that changes a word and passes the
+ * meaning-drift guard (run by the session) becomes a pending review-tier decision. The sentence is marked as
+ * sent, unless it no longer reads as `sentence.text` (then the answer is stale and dropped). Never applies anything.
+ */
+export function offerRewrite(session: CheckSession, sentence: PickedSentence, rewrite: string | null): Offer {
+  const punctuationOnly = rewrite !== null && onlyPunctuationChanged(sentence.text, rewrite);
+  // A punctuation-only rewrite is recorded as sent, with nothing to offer.
+  const verdict = session.addRewrite(sentence.paraId, sentence.span, punctuationOnly ? null : rewrite, sentence.text);
+  if (verdict === 'stale') return 'stale';
+  if (punctuationOnly) return 'punctuationOnly';
+  if (verdict === null) return 'unchanged';
+  return verdict.ok ? 'added' : { rejected: verdict.reason! };
 }

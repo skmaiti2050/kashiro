@@ -4,11 +4,12 @@ import { LlmClient } from '@/engine/llm/client';
 import type { ModelFiles } from '../state/sessionController';
 import type { HelperBackend, WritingHelper } from '../state/optionalModules';
 
-/** What llm_start returns (src-tauri/src/llm.rs): the server's port, this launch's key, and the build that runs. */
+/** What llm_start returns (src-tauri/src/llm.rs): the server's port, this launch's key, the build that runs, and whether the GPU build failed first. */
 interface HelperInfo {
   port: number;
   apiKey: string;
   backend: HelperBackend;
+  gpuFallback: boolean;
 }
 
 /**
@@ -27,10 +28,11 @@ export const modelFiles: ModelFiles = {
  * with a fresh key) and returns its client. Stopping ends the server process.
  */
 export async function startAppHelper(modelPath: string): Promise<WritingHelper> {
-  const { port, apiKey, backend } = await invoke<HelperInfo>('llm_start', { modelPath });
+  const { port, apiKey, backend, gpuFallback } = await invoke<HelperInfo>('llm_start', { modelPath });
   return {
     rewriter: new LlmClient({ port, apiKey }),
     backend,
+    gpuFallback,
     stop: () => invoke<void>('llm_stop'),
   };
 }

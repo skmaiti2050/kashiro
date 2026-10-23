@@ -1,10 +1,10 @@
 import type { CheckSession } from '../session';
-import { overlaps } from '../sessionTypes';
+import { overlaps, type Edit } from '../sessionTypes';
 import { DEFAULT_DEPTH, rewriteCount, upFrontRoom, type ReviewDepth } from '../depth';
 import { sentenceSpans, sentenceWithEdits } from '../sentences';
 import { countWords } from '../words';
 import { isNameFlag } from '../wordFlags';
-import type { Candidate, Span } from '../types';
+import type { Candidate, Paragraph, Span } from '../types';
 
 /** A sentence to send to the helper. `text` is the sentence with its accepted rule edits applied. */
 export interface PickedSentence {
@@ -60,12 +60,10 @@ export function pickSentences(session: CheckSession, budget: number): PickedSent
     const paraEdits = edits.filter((e) => e.paraId === p.id);
     const paraLints = lints.filter((c) => c.paraId === p.id);
     for (const span of sentenceSpans(p.text)) {
-      if (session.sentToHelper(p.id, span) || p.locked?.some((l) => overlaps(l, span))) continue;
-      const original = p.text.slice(span.start, span.end);
-      if (INLINE_MARKUP.test(original)) continue;
-      const score = scoreOf(original, paraLints.filter((c) => overlaps(c.span, span)));
+      if (session.sentToHelper(p.id, span)) continue;
+      const score = scoreOf(p.text.slice(span.start, span.end), paraLints.filter((c) => overlaps(c.span, span)));
       if (score === 0) continue;
-      const text = sentenceWithEdits(p.text, span, paraEdits);
+      const text = safeToRewrite(p, span, paraEdits);
       if (text !== null) scored.push({ score, sentence: { paraId: p.id, span, text } });
     }
   }
@@ -74,4 +72,29 @@ export function pickSentences(session: CheckSession, budget: number): PickedSent
     .sort((a, b) => b.score - a.score)
     .slice(0, budget)
     .map((s) => s.sentence);
+}
+
+/**
+ * "Improve this sentence": the sentence of paragraph `paraId` at `offset` (a caret at a sentence's end, or in the
+ * space after it, means that sentence), with its accepted edits applied. Null when there is none, or when a
+ * whole-sentence replacement could damage it (as pickSentences skips). Sentences already sent are not skipped.
+ */
+export function sentenceAt(session: CheckSession, paraId: number, offset: number): PickedSentence | null {
+  const p = session.paragraphs().find((x) => x.id === paraId);
+  if (!p) return null;
+  const spans = sentenceSpans(p.text);
+  let span = spans[0];
+  if (!span) return null;
+  for (const s of spans) if (s.start <= offset) span = s;
+  const text = safeToRewrite(p, span, session.acceptedEdits().filter((e) => e.paraId === paraId));
+  return text === null ? null : { paraId, span, text };
+}
+
+/**
+ * The sentence's text to send (its edits applied), or null when a whole-sentence replacement could damage it:
+ * inline markup, an existing tracked change, or an accepted edit across the sentence edge.
+ */
+function safeToRewrite(p: Paragraph, span: Span, paraEdits: Edit[]): string | null {
+  if (p.locked?.some((l) => overlaps(l, span)) || INLINE_MARKUP.test(p.text.slice(span.start, span.end))) return null;
+  return sentenceWithEdits(p.text, span, paraEdits);
 }

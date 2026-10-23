@@ -95,6 +95,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
   const { lookup, state: lookupState } = useWordLookup(controller);
   const readAloud = useReadAloud(state.settings.reading);
   const caretReader = useRef<() => CaretText | null>(() => null);
+  const improveAtCaret = useRef<() => void>(() => {});
   const [logOpen, setLogOpen] = useState(false);
   const [focus, setFocus] = useState<DocumentFocus | null>(null);
   const [cardRequest, setCardRequest] = useState<CardRequest | null>(null);
@@ -152,6 +153,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
   };
   const dialogOpen = panel !== 'none' || afterUnsaved !== null || state.resumeOffer !== null || lookupState !== null;
   const lookUpOn = modulesFor(state.settings).wordLookup;
+  const aiOn = controller.ai.available();
   useAppShortcuts(state.document !== null, (shortcut) => {
     if (dialogOpen) return;
     if (shortcut === 'open') onOpen();
@@ -178,6 +180,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
           onHelp={() => setPanel('help')}
           onShortcuts={() => setPanel('shortcuts')}
           onAbout={() => setPanel('about')}
+          onImprove={aiOn && state.session ? () => improveAtCaret.current() : null}
         />
         {/*
           Live regions exist before their text arrives, so screen readers announce it. data-live-regions keeps
@@ -208,6 +211,8 @@ function ShellView({ controller, state }: { controller: SessionController; state
           onOpenRecent={(review) => unlessUnsaved(() => void controller.reviews.openRecent(review))}
           caretReader={caretReader}
           onLookUp={lookUpOn && !dialogOpen ? (word) => void lookup.open([word]) : null}
+          aiOn={aiOn && !dialogOpen}
+          improveAtCaret={improveAtCaret}
         />
         <ReviewPanel
           key={state.document?.id ?? 0}
@@ -227,7 +232,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
       <ChangeLog controller={controller} state={state} open={logOpen} onToggle={() => setLogOpen((v) => !v)} />
       {panel === 'settings' && <SettingsPanel controller={controller} state={state} readAloud={readAloud} onClose={() => setPanel('none')} />}
       {panel === 'help' && <GoogleDocsHelp onOpen={openFromHelp} onClose={() => setPanel('none')} />}
-      {panel === 'shortcuts' && <ShortcutsSheet readAloud={readAloud !== null} lookUp={lookUpOn} onClose={() => setPanel('none')} />}
+      {panel === 'shortcuts' && <ShortcutsSheet readAloud={readAloud !== null} lookUp={lookUpOn} improve={aiOn} onClose={() => setPanel('none')} />}
       {panel === 'about' && (
         <Suspense fallback={null}>
           <AboutDialog onClose={() => setPanel('none')} />

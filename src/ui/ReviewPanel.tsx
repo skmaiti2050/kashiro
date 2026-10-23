@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Decision } from '@/engine/decisions';
 import type { Candidate } from '@/engine/types';
+import { AiGroup } from './AiGroup';
 import { DecisionCard } from './DecisionCard';
 import { DepthSlider } from './DepthSlider';
 import { Kbd } from './Kbd';
@@ -89,6 +90,16 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
     setReveal((r) => ({ seq: r.seq + 1, focus: request.focus ?? !state.document?.editable }));
   }, [request?.seq]);
 
+  // "Improve this sentence" came back with a suggestion: bring up its card (focus as for a clicked underline).
+  const ready = state.ai.ready;
+  useEffect(() => {
+    if (!ready) return;
+    const d = decisionWith(top, more, ready.candidateId);
+    if (!d) return;
+    setCursor((c) => cursorAt(top, d.id, c));
+    setReveal((r) => ({ seq: r.seq + 1, focus: !state.document?.editable }));
+  }, [ready?.seq]);
+
   useEffect(() => {
     if (reveal.seq === 0) return;
     cardSlot.current?.scrollIntoView({ block: 'nearest', behavior: reduceMotion() ? 'auto' : 'smooth' });
@@ -113,6 +124,7 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
 
   const paraText = new Map(session.paragraphs().map((p) => [p.id, p.text]));
   const progress = progressOf(session, state.decided);
+  const aiOn = controller.ai.available();
   const autoFixed = session.outcomes().filter((o) => o.auto && o.status === 'applied').length;
   const pick = (d: Decision) => {
     setCursor((c) => cursorAt(top, d.id, c));
@@ -175,6 +187,7 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
         </div>
       )}
 
+      {aiOn && <AiGroup controller={controller} state={state} session={session} paraText={paraText} />}
       <MoreList more={more} currentId={current?.id} candidates={candidates} onPick={pick} />
     </aside>
   );
@@ -195,6 +208,7 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
         onNext={() => setCursor((c) => moveCursor(top, more, c, 1))}
         onLocate={onLocate}
         onLookUp={onLookUp}
+        onImprove={aiOn ? (c) => controller.ai.improveSentence(c.paraId, c.span.start) : undefined}
       />
     );
   }

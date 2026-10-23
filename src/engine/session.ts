@@ -28,6 +28,14 @@ import type { Candidate, Paragraph, Span, Tier, Variant } from './types';
 export { TRACKED_CHANGE_REASON, type CheckOptions, type Edit, type LogEntry, type Outcome, type SessionDeps, type Status };
 
 const sentenceKey = (paraId: number, span: Span) => `${paraId}:${span.start}-${span.end}`;
+/** A sentenceKey: "3:12-40". */
+const SENTENCE_KEY = /^(\d+):(\d+)-(\d+)$/;
+const parseSentenceKey = (key: string): [number, Span] => {
+  const [, paraId, start, end] = SENTENCE_KEY.exec(key)!.map(Number);
+  return [paraId, { start, end }];
+};
+/** Why a pending AI rewrite left the queue: an edit in its sentence was accepted or undone after it was made. */
+export const REWRITE_OUT_OF_DATE = 'the sentence changed after the AI suggestion was made';
 
 /** The cards answered by their own method, never by accept: card id → its name and method. */
 const CARD_ACCEPT_METHODS = new Map([
@@ -47,10 +55,10 @@ export class CheckSession {
   private readonly added: string[] = [];
   /** Lowercased words the user unticked on a card (names, terms, other languages): real typos, ranked as words. */
   private readonly typoWords = new Set<string>();
-  /** Sentences already sent to the LLM helper, as sentenceKey(paraId, span). */
-  private readonly sentToHelperKeys = new Set<string>();
-  /** Ids of LLM rewrites added by addRewrite, i.e. ones that passed the meaning-drift guard. */
-  private readonly guardedRewrites = new Set<string>();
+  /** Sentences already sent to the LLM helper: sentenceKey(paraId, span) → the text it was sent. */
+  private readonly sentToHelperKeys = new Map<string, string>();
+  /** LLM rewrites added by addRewrite (they passed the meaning-drift guard): id → the sentence text they rewrite. */
+  private readonly guardedRewrites = new Map<string, string>();
   /** Candidate id → the applyBatch it was applied by, while it stays applied. */
   private readonly batchOf = new Map<string, string>();
   private batchCount = 0;
@@ -274,6 +282,7 @@ export class CheckSession {
       }
       this.ledger.apply(c, c.replacements[replacementIndex], false);
     }
+    this.withdrawStaleRewrites();
   }
 
   reject(decisionId: string): void {
@@ -381,6 +390,8 @@ export class CheckSession {
     } else {
       throw new Error(`cannot undo ${candidateId} (${s ?? 'unknown'})`);
     }
+    // Either way the text, or a rewrite back in review, may no longer match what a pending rewrite was made for.
+    this.withdrawStaleRewrites();
   }
 
   /** Adds candidates as pending (never auto-applied). Ids already present are ignored. */
@@ -404,21 +415,25 @@ export class CheckSession {
    * meaning-drift guard on `rewrite` against the text sent (the sentence with its accepted edits).
    * A passing rewrite becomes a pending review-tier candidate (source 'llm', kind 'Rewrite') replacing
    * the whole original sentence. Returns the guard's verdict, or null when `rewrite` is null.
+   * `sentText` is the text the helper was sent: when the sentence no longer reads that way (an edit was
+   * accepted or undone while the helper worked), the answer is stale. It is dropped and 'stale' returned,
+   * and the sentence is not marked as sent, so it can be asked about again.
    */
-  addRewrite(paraId: number, span: Span, rewrite: string | null): GuardVerdict | null {
+  addRewrite(paraId: number, span: Span, rewrite: string | null, sentText?: string): GuardVerdict | 'stale' | null {
     const p = this.paras.get(paraId);
     if (!p) throw new Error(`unknown paragraph ${paraId}`);
     if (span.start < 0 || span.end > p.text.length || span.start >= span.end) {
       throw new Error(`span ${span.start}-${span.end} is not inside paragraph ${paraId}`);
     }
-    this.sentToHelperKeys.add(sentenceKey(paraId, span));
+    const sent = this.sentenceNow(paraId, span);
+    if (sentText !== undefined && sent !== sentText) return 'stale';
+    this.sentToHelperKeys.set(sentenceKey(paraId, span), sent ?? '');
     if (rewrite === null) return null;
-    const sent = sentenceWithEdits(p.text, span, this.acceptedEdits().filter((e) => e.paraId === paraId));
     if (sent === null) throw new Error(`an accepted edit crosses the edge of sentence ${sentenceKey(paraId, span)}; it cannot be rewritten`);
     const verdict = passesGuard(sent, rewrite, lockedTokens(sent));
     if (!verdict.ok) return verdict;
     const id = `llm:${sentenceKey(paraId, span)}`;
-    this.guardedRewrites.add(id);
+    this.guardedRewrites.set(id, sent);
     this.addCandidates([
       {
         id,
@@ -434,15 +449,81 @@ export class CheckSession {
     return verdict;
   }
 
+  /**
+   * "Accept all helper suggestions": applies each pending AI rewrite in `candidateIds` with its own text, as one
+   * batch that undoBatch takes back in one step. Each goes through the same checks as accept. Returns the batch id.
+   */
+  applyRewrites(candidateIds: string[]): string {
+    if (candidateIds.length === 0) throw new Error('choose at least one AI suggestion to apply');
+    for (const id of candidateIds) {
+      if (!this.guardedRewrites.has(id) || this.ledger.status.get(id) !== 'pending') throw new Error(`${id} is not a pending AI suggestion`);
+    }
+    const batchId = `batch-${++this.batchCount}`;
+    for (const id of candidateIds) {
+      // One at a time, so a rewrite withdrawn by an earlier one in the list is skipped, never applied stale.
+      if (this.ledger.status.get(id) !== 'pending') continue;
+      this.applyMembers(id, [this.cands.get(id)!], 0);
+      if (this.ledger.status.get(id) === 'applied') this.batchOf.set(id, batchId);
+    }
+    return batchId;
+  }
+
+  /**
+   * After a re-check (`before` is the previous check of the same document, `unchanged` maps its paragraph ids to
+   * this check's): the AI answers on unchanged paragraphs come back. Each rewrite is added again through the
+   * guard, then its accept or reject is replayed; sentences answered with nothing stay sent. Any whose sentence
+   * now reads differently (a rule fix it included is gone) is dropped. Returns old candidate id → new id.
+   */
+  carryRewritesFrom(before: CheckSession, unchanged: Map<number, number>): Map<string, string> {
+    const carried = new Map<string, string>();
+    for (const [key, sent] of before.sentToHelperKeys) {
+      const [oldPara, span] = parseSentenceKey(key);
+      const paraId = unchanged.get(oldPara);
+      if (paraId === undefined || this.sentenceNow(paraId, span) !== sent) continue;
+      const oldId = `llm:${key}`;
+      const rewritten = before.guardedRewrites.has(oldId) ? before.cands.get(oldId)!.replacements[0] : null;
+      const verdict = this.addRewrite(paraId, span, rewritten, sent);
+      if (verdict !== null && verdict !== 'stale' && verdict.ok) carried.set(oldId, `llm:${sentenceKey(paraId, span)}`);
+    }
+    for (const [oldId, newId] of carried) {
+      const status = before.ledger.status.get(oldId);
+      if (!this.cands.has(newId) || this.ledger.status.get(newId) !== 'pending') continue;
+      if (status === 'applied') this.accept(newId);
+      else if (status === 'rejected' && before.userRejected.has(oldId)) this.reject(newId);
+    }
+    return carried;
+  }
+
   /** The adapter could not write this edit into the document: it leaves the output. */
   markUnplaceable(candidateId: string, reason: string): void {
     if (!this.cands.has(candidateId)) throw new Error(`unknown candidate ${candidateId}`);
     this.unplaceable.set(candidateId, reason);
     this.ledger.record(candidateId, 'rejected', this.ledger.autoApplied.has(candidateId), `unplaceable: ${reason}`);
     this.ledger.restoreSuperseded(candidateId);
+    this.withdrawStaleRewrites();
   }
 
   // ---- internals -----------------------------------------------------------
+
+  /** The sentence at `span` as it reads now (accepted edits applied), or null when an edit crosses its edge. */
+  private sentenceNow(paraId: number, span: Span): string | null {
+    return sentenceWithEdits(this.paras.get(paraId)!.text, span, this.acceptedEdits().filter((e) => e.paraId === paraId));
+  }
+
+  /**
+   * A pending AI rewrite was made for its sentence as it read then. Once an edit inside the sentence is accepted
+   * or undone, applying it would silently drop that edit, so it is withdrawn (superseded, with the reason) and
+   * the sentence can be asked about again.
+   */
+  private withdrawStaleRewrites(): void {
+    for (const [id, sent] of this.guardedRewrites) {
+      if (this.ledger.status.get(id) !== 'pending') continue;
+      const c = this.cands.get(id)!;
+      if (this.sentenceNow(c.paraId, c.span) === sent) continue;
+      this.ledger.record(id, 'superseded', false, REWRITE_OUT_OF_DATE);
+      this.sentToHelperKeys.delete(sentenceKey(c.paraId, c.span));
+    }
+  }
 
   private autoApply(): void {
     const safe = [...this.cands.values()].filter((c) => this.tiers.get(c.id) === 'safe').sort(byPosition);

@@ -6,6 +6,7 @@ import type { Tier, Variant } from '@/engine/types';
 import type { SaveMode } from '@/formats/types';
 import { resolveUiLanguage, type UiLanguageSetting } from '../i18n/locale';
 import { DEFAULT_READING, resolveReading, type ReadingSettings } from './readingSettings';
+import { resolveHelperSpeed, type HelperSpeed } from './helperSpeed';
 
 /** Everything the app remembers between runs (stored by platform/settings.ts). */
 export interface Settings {
@@ -23,6 +24,8 @@ export interface Settings {
   modelPath: string | null;
   /** That file's SHA-256 when it was chosen: names a known model (src/engine/llm/models.ts). */
   modelSha256: string | null;
+  /** The warm-up benchmark's result, measured once when AI rewrites are first switched on with this model. */
+  helperSpeed: HelperSpeed | null;
   /** Review depth per preset (spec §5); a preset without one uses the engine's default. */
   depthByPreset: Partial<Record<PresetId, ReviewDepth>>;
   /** Uses after which an unknown lowercase word goes on the terms card (2–5). */
@@ -70,6 +73,7 @@ export function defaultSettings(locale: string): Settings {
     tierOverrides: {},
     modelPath: null,
     modelSha256: null,
+    helperSpeed: null,
     depthByPreset: {},
     termMinRepeats: DEFAULT_TERM_MIN_REPEATS,
     ignoredRules: [],
@@ -126,6 +130,7 @@ export function withSavedSettings(defaults: Settings, saved: Partial<Settings> |
     ...defaults,
     ...saved,
     ...resolveModel(saved.modelPath, saved.modelSha256),
+    helperSpeed: resolveHelperSpeed(saved.helperSpeed),
     modules: resolveModules(saved.modules ?? defaults.modules),
     modulesByPreset,
     reading: resolveReading(saved.reading ?? defaults.reading),

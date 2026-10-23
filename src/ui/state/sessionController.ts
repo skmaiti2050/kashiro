@@ -26,6 +26,7 @@ import { SessionPersistence, type PersistenceHost, type SavedReviewsState } from
 import { SessionStore, type SessionFiles } from './sessionStore';
 import { OptionalModules, type HelperBackend, type ModuleLoaders } from './optionalModules';
 import * as helperActions from './helperActions';
+import { AiSuggestions, NO_AI, type AiState } from './aiSuggestions';
 import { modulesFor, type Settings } from './settings';
 import * as settingsActions from './settingsActions';
 
@@ -80,6 +81,8 @@ export interface ControllerState extends SavedReviewsState {
   checkingModel: boolean;
   /** The build running the writing helper (Settings shows it), or null while none runs. */
   helperBackend: HelperBackend | null;
+  /** The AI suggestions group: progress, its last notice, a suggestion to bring up. */
+  ai: AiState;
   /** Bumped on every change: the session is mutable, so views re-read it when this moves. */
   revision: number;
 }
@@ -130,6 +133,7 @@ export class SessionController {
     dropLinter: () => (this.linter = null),
     recheck: () => this.recheck(),
     modulesChanged: async () => {
+      this.ai.modulesChanged(); // AI rewrites off: the run stops now, not after the re-check
       // With a document open, the check that follows releases what the switches turned off (see check).
       if (this.loaded) return this.recheck();
       this.releaseModules(modulesFor(this.state.settings));
@@ -139,6 +143,8 @@ export class SessionController {
   private readonly helperHost: helperActions.HelperHost;
   /** Saved review sessions: autosave, the resume prompt and the Recent reviews list (see SessionPersistence). */
   readonly reviews: SessionPersistence;
+  /** AI suggestions on demand: "Check how it reads", "Improve this sentence" (see AiSuggestions). */
+  readonly ai: AiSuggestions;
 
   constructor(private readonly deps: ControllerDeps) {
     this.saveHost = {
@@ -157,6 +163,7 @@ export class SessionController {
       optional: new OptionalModules({ loadDictionary: deps.loadDictionary, startHelper: deps.startHelper }),
       models: deps.models,
       updateSettings: (patch) => settingsActions.updateSettings(this.settingsHost, patch),
+      clock: deps.now && (() => deps.now!().getTime()), // also times the helper
     };
     this.state = {
       phase: 'empty',
@@ -174,8 +181,14 @@ export class SessionController {
       recentReviews: [],
       checkingModel: false,
       helperBackend: null,
+      ai: NO_AI,
       revision: 0,
     };
+    this.ai = new AiSuggestions({
+      ...this.helperHost,
+      announce: (message) => this.set({ announcement: { message, seq: ++this.announcements } }),
+      applyRewrites: (ids) => this.act((s) => s.applyRewrites(ids), () => this.tally.made(ids.length), 'verb.applied'),
+    });
   }
 
   /** What SessionPersistence sees of the controller: the settings and save actions' hosts, and the check. */
@@ -188,6 +201,7 @@ export class SessionController {
       now: this.deps.now,
       showSession: (session) => {
         ++this.checks; // a check still running would replace the resumed session
+        this.ai.reset(); // AI answers are not saved, and none are replayed
         this.set({ phase: 'ready', session, decided: this.tally.decided, checking: this.queue.waiting });
       },
       announce: (message) => this.set({ announcement: { message, seq: ++this.announcements } }),
@@ -262,6 +276,7 @@ export class SessionController {
     this.loaded = loaded;
     this.unsaved = false;
     this.tally.reset();
+    this.ai.reset();
     this.set({
       phase: 'checking',
       document,
@@ -322,7 +337,11 @@ export class SessionController {
       if (run !== this.checks) return;
       // The depth may have moved while the check ran.
       session.setDepth(currentDepth(this.state.settings));
-      if (before) this.tally.remap(carryDecisions(userDecisions(before), session, matchUnchangedParagraphs(before.paragraphs(), loaded.paras)));
+      if (before) {
+        const unchanged = matchUnchangedParagraphs(before.paragraphs(), loaded.paras);
+        // AI answers after the rule decisions: a rewrite was made for its sentence with the accepted fixes in it.
+        this.tally.remap(new Map([...carryDecisions(userDecisions(before), session, unchanged), ...this.ai.sessionReplaced(before, session, unchanged)]));
+      }
       this.set({ phase: 'ready', session, checking: this.queue.waiting });
       if (before) this.reviews.changed();
       // After every check, so a goal switch (whose own modules may differ) releases too.
@@ -475,12 +494,14 @@ export class SessionController {
     return helperActions.benchmarkHelper(this.helperHost, signal);
   }
 
-  /** See helperActions.chooseModel. */
-  chooseModel(): Promise<void> {
-    return helperActions.chooseModel(this.helperHost);
+  /** See helperActions.chooseModel. A new model file is timed on its first use. */
+  async chooseModel(): Promise<void> {
+    await helperActions.chooseModel(this.helperHost);
+    this.ai.measureSpeedIfNeeded();
   }
 
   private releaseModules(modules: ModuleSwitches): void {
+    if (!modules.aiRewrites) this.ai.stop();
     helperActions.releaseModules(this.helperHost, modules);
   }
 
