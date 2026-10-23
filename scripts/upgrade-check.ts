@@ -7,7 +7,9 @@
  *   - cargo test and a Tauri debug build;
  *   - the CSP and capabilities compared with the committed baseline deps/snapshots/permissions.json (any
  *     widening fails; this script never rewrites the baseline, see scripts/accept-permissions.ts);
- *   - licences not on the allowlist.
+ *   - licences not on the allowlist;
+ *   - the bundled files: src-tauri/binaries holds exactly the pinned llama.cpp files, and
+ *     resources/notices/THIRD-PARTY-NOTICES.txt equals what `npm run build:notices` would write now.
  * Exits 1 when anything fails. Offline except what cargo itself fetches for the build.
  *
  *   - the lockfile graph changes against HEAD; with --expect, any change outside those packages fails.
@@ -28,6 +30,8 @@ import type { LicenceSnapshot } from './deps/licenceSnapshot';
 import { argumentAfter, argumentsAfter, lastLines, runTool } from './deps/run';
 import { cargoLockGraph, changesOutside, diffLockGraphs, npmLockGraph, type LockGraph } from './deps/lockDiff';
 import { execFileSync } from 'node:child_process';
+import { pinnedBuildProblems } from './fetch-llama';
+import { staleNotices } from './build-notices';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const REPORTS = path.join(ROOT, 'deps/reports');
@@ -120,6 +124,17 @@ function decisionsLines(): string[] {
   return [verdict.line, ''];
 }
 
+/**
+ * What the build will bundle: the llama.cpp folders hold exactly the pinned files (no stale or unpinned
+ * file), and the third-party notices match the installed packages byte for byte.
+ */
+function bundledFilesLines(): string[] {
+  const problems = [...pinnedBuildProblems(), ...staleNotices(ROOT)];
+  failures.push(...problems.map((p) => `bundled files: ${p}`));
+  const body = problems.length ? problems.map((p) => `- **${p}**`) : ['llama.cpp files match deps/assets.json exactly; THIRD-PARTY-NOTICES.txt is current.'];
+  return ['## Bundled files', '', ...body, ''];
+}
+
 /** Compared with the committed baseline file, which only `npm run deps:accept-permissions` rewrites. */
 function permissionLines(): string[] {
   const widenings = checkPermissions(ROOT);
@@ -187,6 +202,7 @@ async function main(): Promise<void> {
   ];
 
   const permissions = permissionLines();
+  const bundled = bundledFilesLines();
 
   const report = [
     '# Upgrade check',
@@ -198,6 +214,7 @@ async function main(): Promise<void> {
     ...snapshots,
     ...checks,
     ...permissions,
+    ...bundled,
   ];
   fs.writeFileSync(path.join(REPORTS, 'upgrade-report.md'), report.join('\n'));
   console.log(`${failures.length ? `FAILED: ${failures.join('; ')}` : 'All checks passed.'} Report: deps/reports/upgrade-report.md`);

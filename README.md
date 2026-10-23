@@ -3,8 +3,9 @@
 A free, offline proofreader for your writing. It runs entirely on your computer.
 Status: version 1.0 (private release, Windows).
 
-To install it, see [docs/INSTALL.md](docs/INSTALL.md): a per-user installer and a portable zip, neither needing
-administrator rights or an internet connection.
+To install it, see [INSTALL.md](INSTALL.md), next to this file in the installed app (in the source code:
+[docs/INSTALL.md](docs/INSTALL.md)): a per-user installer and a portable zip, neither needing administrator
+rights or an internet connection.
 
 ## Building it
 

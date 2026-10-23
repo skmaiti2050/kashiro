@@ -132,8 +132,22 @@ function crateNotices(manifestDir: string): PackageNotice[] {
     .map((p) => ({ name: p.name, version: p.version, licence: p.license ?? undefined, texts: licenceTextsIn(path.dirname(p.manifest_path)) }));
 }
 
+/** Every package the notices cover, read from the project at `root`. */
+const shippedPackages = (root: string): PackageNotice[] => [...npmNotices(root), ...crateNotices(path.join(root, 'src-tauri'))];
+
+/**
+ * Lines saying the committed notices file differs from what the installed packages give now; empty when it is
+ * current. upgrade:check runs this after every upgrade.
+ */
+export function staleNotices(root: string): string[] {
+  const file = path.join(root, NOTICES_FILE);
+  const committed = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
+  if (committed === formatThirdPartyNotices(shippedPackages(root))) return [];
+  return [`${NOTICES_FILE} is out of date: run npm run build:notices and commit it`];
+}
+
 function main(): void {
-  const packages = [...npmNotices(ROOT), ...crateNotices(path.join(ROOT, 'src-tauri'))];
+  const packages = shippedPackages(ROOT);
   const file = path.join(ROOT, NOTICES_FILE);
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, formatThirdPartyNotices(packages));

@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { formatThirdPartyNotices, licenceTextsIn, shippedCrates, type CrateGraph } from '../../scripts/build-notices';
+import { formatThirdPartyNotices, licenceTextsIn, shippedCrates, staleNotices, type CrateGraph } from '../../scripts/build-notices';
 
 const ROOT = path.resolve(__dirname, '../..');
 const NOTICES = path.join(ROOT, 'resources/notices/THIRD-PARTY-NOTICES.txt');
@@ -67,6 +67,10 @@ describe('the committed THIRD-PARTY-NOTICES.txt', () => {
   it.each(['tauri', 'tauri-runtime-wry', 'wry', 'serde', 'sha2'])('lists the crate %s at its locked version', (crate) => {
     expect(notices).toContain(`${crate} ${locked(crate)} (`);
   });
+
+  it('is byte-for-byte what the installed packages give now (cargo metadata, offline)', () => {
+    expect(staleNotices(ROOT)).toEqual([]);
+  }, 60_000);
 
   it('leaves out dev-only npm tools and build-only crates', () => {
     expect(notices).not.toContain('vitest ');

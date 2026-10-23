@@ -58,10 +58,11 @@ describe('axe-core: no serious or critical violations', () => {
     await openAndWait(controller, () => controller.openSample());
     const kinds = new Set<string>();
     const total = controller.getState().session!.decisionCount();
+    // One audit per kind of card: cards of a kind share their markup, and an audit per card took 20 s under load.
     for (let i = 0; i < total; i++) {
       const card = reviewPanel().querySelector<HTMLElement>('.card')!;
+      if (!kinds.has(card.className)) await audit(`card ${card.className} (${i + 1})`);
       kinds.add(card.className);
-      await audit(`card ${card.className} (${i + 1})`);
       fireEvent.keyDown(reviewPanel(), { key: 'j' });
     }
     expect([...kinds].sort()).toEqual(['card', 'card names', 'card terms']);
@@ -79,7 +80,7 @@ describe('axe-core: no serious or critical violations', () => {
     fireEvent.click(buttonNamed(batch, /^Apply /)!);
     expect(screen.getByText(/Untick any place/)).toBeTruthy();
     await audit('batch preview');
-  });
+  }, 60_000);
 
   it('Indian-language words card', async () => {
     const { controller } = makeController();
