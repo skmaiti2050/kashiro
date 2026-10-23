@@ -1,0 +1,13 @@
+{
+  "bundle": {
+    "resources": {
+      "binaries/llama/*": null,
+      "binaries/vulkan/*": null
+    },
+    "windows": {
+      "nsis": {
+        "installerHooks": "nsis/noai-hooks.nsh"
+      }
+    }
+  }
+}

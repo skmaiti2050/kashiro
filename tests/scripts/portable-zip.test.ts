@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { PORTABLE_ZIPS, exeProblems, fileVersionOf, portableEntries, type TauriBundleConf } from '../../scripts/portable-zip';
+import { readTauriConfigs } from '../../scripts/tauriConfigs';
 
 const ROOT = path.resolve(__dirname, '../..');
 const conf = JSON.parse(fs.readFileSync(path.join(ROOT, 'src-tauri/tauri.conf.json'), 'utf8'));
@@ -22,10 +23,12 @@ describe('the per-user installer (tauri.conf.json)', () => {
   it('keeps build output and the portable zips out of git', () => {
     const ignored = fs.readFileSync(path.join(ROOT, '.gitignore'), 'utf8').split(/\r?\n/);
     expect(ignored).toContain('dist-portable/');
-    expect(PORTABLE_ZIPS).toEqual([
-      { file: 'dist-portable/writing-check-1.0.0-win-x64.zip', withAi: true },
-      { file: 'dist-portable/writing-check-1.0.0-win-x64-noai.zip', withAi: false },
-    ]);
+  });
+
+  it('makes one zip per release config: the full app, and the one without AI (tauri.noai.conf.json)', () => {
+    const configs = readTauriConfigs(path.join(ROOT, 'src-tauri'));
+    expect(PORTABLE_ZIPS.map((z) => z.file)).toEqual(['dist-portable/writing-check-1.0.0-win-x64.zip', 'dist-portable/writing-check-1.0.0-win-x64-noai.zip']);
+    expect(PORTABLE_ZIPS.map((z) => z.conf)).toEqual([configs.full, configs.noai]);
   });
 });
 
@@ -52,7 +55,7 @@ describe('portableEntries', () => {
 
   it('lays out the exe and every resource as the installer does, under one folder', () => {
     const { root, srcTauri } = makeProject();
-    const entries = portableEntries(bundle, srcTauri, path.join(root, 'app.exe'), true);
+    const entries = portableEntries(bundle, srcTauri, path.join(root, 'app.exe'));
     expect(entries.map((e) => e.zipPath)).toEqual([
       'writing-check/writing-check.exe',
       'writing-check/llama/ggml.dll',
@@ -63,18 +66,11 @@ describe('portableEntries', () => {
     fs.rmSync(root, { recursive: true });
   });
 
-  it('the version without AI leaves out everything under llama/', () => {
-    const { root, srcTauri } = makeProject();
-    const entries = portableEntries(bundle, srcTauri, path.join(root, 'app.exe'), false);
-    expect(entries.map((e) => e.zipPath)).toEqual(['writing-check/writing-check.exe', 'writing-check/notices/data.md']);
-    fs.rmSync(root, { recursive: true });
-  });
-
   it('refuses to build a zip with something missing (run the release build and fetch:llama first)', () => {
     const { root, srcTauri } = makeProject();
-    expect(() => portableEntries(bundle, srcTauri, path.join(root, 'missing.exe'), true)).toThrow(/missing\.exe is missing: run npx tauri build first/);
+    expect(() => portableEntries(bundle, srcTauri, path.join(root, 'missing.exe'))).toThrow(/missing\.exe is missing: run npx tauri build first/);
     const noBuild = { ...bundle, bundle: { resources: { 'binaries/vulkan/*': 'llama/vulkan/' } } };
-    expect(() => portableEntries(noBuild, srcTauri, path.join(root, 'app.exe'), true)).toThrow(/binaries[\\/]vulkan is missing: run npm run fetch:llama first/);
+    expect(() => portableEntries(noBuild, srcTauri, path.join(root, 'app.exe'))).toThrow(/binaries[\\/]vulkan is missing: run npm run fetch:llama first/);
     fs.rmSync(root, { recursive: true });
   });
 

@@ -20,6 +20,7 @@
     "fetch:llama": "tsx scripts/fetch-llama.ts",
     "check:llama": "tsx scripts/fetch-llama.ts --check",
     "portable:zip": "tsx scripts/portable-zip.ts",
+    "release": "tsx scripts/release.ts",
     "measure:llm": "tsx scripts/measure-llm.ts",
     "snapshots": "tsx scripts/build-snapshots.ts",
     "deps:status": "tsx scripts/deps-status.ts",

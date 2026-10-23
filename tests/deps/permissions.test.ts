@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
@@ -160,6 +161,25 @@ describe('parseCapabilityToml', () => {
   });
 });
 
+describe('the release config without AI (tauri.noai.conf.json, Task 14 fix round 2)', () => {
+  const FIXTURE = path.join(ROOT, 'tests/fixtures/permissions-noai');
+  const hooksSha = createHash('sha256').update(fs.readFileSync(path.join(FIXTURE, 'src-tauri/hooks.nsh'))).digest('hex');
+
+  it('records what it changes, merged as Tauri merges it, and the installer hooks file by its sha256', () => {
+    const { settings } = readWorkingSurface(FIXTURE);
+    expect(settings['bundle.resources']).toBe('{"binaries/llama/*":"llama/","../LICENSE":"LICENSE.txt"}');
+    expect(settings['noai bundle.resources']).toBe('{"../LICENSE":"LICENSE.txt"}');
+    expect(settings['noai bundle.windows.nsis.installerHooks']).toBe(`hooks.nsh sha256 ${hooksSha}`);
+    expect(settings).not.toHaveProperty('noai csp');
+  });
+
+  it('a CSP or hooks change in it widens the surface like one in tauri.conf.json', () => {
+    const before = readWorkingSurface(FIXTURE);
+    const after = { ...before, settings: { ...before.settings, 'noai csp': '{"csp":{"default-src":["*"]},"devCsp":null}' } };
+    expect(findWidenings(before, after)).toEqual(['noai csp changed: (none) -> {"csp":{"default-src":["*"]},"devCsp":null}']);
+  });
+});
+
 describe('the committed baseline (deps/snapshots/permissions.json)', () => {
   const committed = readPermissionBaseline(ROOT)!;
 
@@ -176,7 +196,9 @@ describe('the committed baseline (deps/snapshots/permissions.json)', () => {
     const widened = editedConf((c) => {
       c.app.security.csp = String(c.app.security.csp).replace('connect-src', 'connect-src https://example.com');
     });
-    expect(findWidenings(committed, readPermissionSurface(widened, { 'default.json': CAPABILITY }))).toEqual([
+    // Only tauri.conf.json is edited here, so the baseline's entries for the config without AI are left out.
+    const confPart = { ...committed, settings: Object.fromEntries(Object.entries(committed.settings).filter(([key]) => !key.startsWith('noai '))) };
+    expect(findWidenings(confPart, readPermissionSurface(widened, { 'default.json': CAPABILITY }))).toEqual([
       'csp connect-src adds https://example.com',
     ]);
   });

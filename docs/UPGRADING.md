@@ -14,15 +14,35 @@ Nothing changes until we choose to upgrade, and every upgrade produces a report 
   `binaries/llama/`, and only `ggml-vulkan.dll` from the Vulkan zip into `binaries/vulkan/` (the rest of that zip
   is the same). Files that are not pinned are removed from those two folders. Run it before `cargo test` or a
   Tauri build; CI needs this step too. Offline, pass local copies instead:
-  `npm run fetch:llama -- <CPU build zip or folder> <Vulkan build zip or folder>`. `npm run check:llama` (run by
-  every Tauri build, by `npm run portable:zip` and by upgrade:check) fails when the folders hold anything but
-  exactly the pinned files.
+  `npm run fetch:llama -- --vc-runtime <folder> <CPU build zip or folder> <Vulkan build zip or folder>`.
+  `npm run check:llama` (run by every Tauri build, by `npm run portable:zip` and by upgrade:check) fails when the
+  folders hold anything but exactly the pinned files.
+- **The Visual C++ runtime** (`vc-runtime` in assets.json): `msvcp140.dll`, `vcruntime140.dll` and
+  `vcruntime140_1.dll` from Microsoft's redistributable, copied into `binaries/llama/` beside `llama-server.exe`
+  so the helper runs without a runtime install (it needs admin rights). `--vc-runtime <folder>` is required: a
+  folder holding the three DLLs, extracted from the pinned `vc_redist.x64.exe` (Microsoft's WiX Burn bundle). It
+  is never run; take it apart with 7-Zip:
+  1. Download `https://aka.ms/vc14/vc_redist.x64.exe` into a new folder and check its sha256 against
+     `archiveSha256`, and that `Get-AuthenticodeSignature` says Valid, signed by Microsoft Corporation.
+  2. 7-Zip lists only the bundle's UI container. The payload is a cabinet appended to the exe: copy the bytes
+     from its `MSCF` header, as long as the header's size field (offset 8) says, into a `.cab` file and open
+     that with 7-Zip. It holds `a0`–`a5`; the cabinet holding `*_amd64` files has the x64 DLLs
+     (`msvcp140.dll_amd64` and so on).
+  3. Extract the three `_amd64` files, drop the `_amd64` suffix, and check each DLL's file version and
+     Authenticode signature (Microsoft).
+  The version must be at least the newest MSVC toolset any bundled llama.cpp file was linked with
+  (`dumpbin /headers`, "linker version": 14.51 for b11727's `ggml-vulkan.dll`). On a llama.cpp upgrade, check that
+  again and that every `MSVCP140`/`VCRUNTIME140*` import of the new files is exported by the runtime.
 - **Third-party notices:** `resources/notices/THIRD-PARTY-NOTICES.txt` holds the licence texts of the npm
   production packages and of the crates compiled into the exe. After any upgrade, run `npm run build:notices`
   (offline: installed packages and `cargo metadata --offline`) and commit the result with the upgrade;
-  `tests/scripts/build-notices.test.ts` fails if key packages are listed at other versions. A new data file or
-  bundled program needs its own `ATTRIBUTION.md` under `resources/`, a line in `src/ui/notices.ts` and a
-  `notices/` entry in `bundle.resources`.
+  `tests/scripts/build-notices.test.ts` and upgrade:check fail when the file differs from what the installed
+  packages give. A new data file or bundled program needs its own `ATTRIBUTION.md` under `resources/`, a line in
+  `src/ui/notices.ts` and a `notices/` entry in `bundle.resources`.
+- **Release configs:** `src-tauri/tauri.conf.json` builds the full app; `src-tauri/tauri.noai.conf.json` is
+  merged over it (`tauri build --config`, a JSON Merge Patch) for the version without the AI helper: it removes
+  the llama resources and adds `src-tauri/nsis/noai-hooks.nsh`, which removes `llama\` when it is installed
+  over the full app. `npm run release` builds both installers and both zips (`scripts/release.ts`).
 - **Behaviour:** `deps/snapshots/` holds what the dependencies do today: every Harper flag on the 22 reference
   documents, the sample pack and short probe texts (`harper.json`), dictionary counts and 50 lookups, word-list
   counts and hashes (`data.json`), every production licence (`licences.json`) and the decisions-table hash
@@ -78,7 +98,8 @@ reads the installed packages (`scripts/deps/licences.ts`).
 
 MIT, MIT-0, Apache-2.0 (also WITH LLVM-exception), BSD-2-Clause, BSD-3-Clause, 0BSD, ISC, Zlib, Unicode-3.0,
 Unicode-DFS-2016, CC0-1.0, CC-BY-3.0, CC-BY-4.0 and OFL-1.1 everywhere; CC-BY-SA for data files only; MPL-2.0
-for crates only. Anything non-commercial or unknown fails. SPDX expressions are read properly: one allowed
+for crates only; the Microsoft Visual C++ Redistributable (`LicenseRef-Microsoft-VC-Redistributable`) for bundled
+binaries only (the assets.json entries with `files`). Anything non-commercial or unknown fails. SPDX expressions are read properly: one allowed
 choice of an OR is enough, every part of an AND must be allowed, and a malformed expression ("MIT OR AND")
 fails.
 
@@ -89,6 +110,9 @@ Decisions:
 - **MPL-2.0** is not allowed for npm. `axe-core` (MPL-2.0) is a dev-only test tool, and the npm check reads
   production packages only, as `license-checker --production` would. Packages marked `devOptional` in the
   lockfile are optional production dependencies too, so they are checked.
+- **The Visual C++ Redistributable** is allowed for bundled binaries only (owner decision, Task 14 fix round 2):
+  `llama-server` needs its three runtime DLLs beside it, and installing the runtime needs admin rights. They
+  are Microsoft's Distributable Code (https://aka.ms/VCRedistLicense), not open source; the llama notice says so.
 - The crate list lives twice, in `scripts/deps/licences.ts` and `src-tauri/deny.toml`; a test keeps them equal.
 
 ## Permissions
@@ -97,7 +121,9 @@ The CSP and the capabilities must never widen in an upgrade. `upgrade:check` com
 and every capability file under `src-tauri/capabilities/` (subfolders included, as Tauri globs `capabilities/**/*`;
 `schemas/` skipped; `.json`, `.toml`, and one capability, a list or `{ "capabilities": [...] }` per file) with the
 committed baseline `deps/snapshots/permissions.json`. A capability identifier defined twice, or a `.json5` file,
-fails.
+fails. The release config without AI (`tauri.noai.conf.json` merged over `tauri.conf.json`) counts too: whatever
+it changes is recorded under `noai` keys (its `bundle.resources`, a CSP of its own), and an NSIS hooks file of
+either config by its sha256, since it runs at install time.
 These all fail: an added CSP source, a dropped CSP directive, a new permission, window, remote URL or capability,
 a new platform (or a dropped platform list, which means every platform), local access turned on, or any change to
 another security setting, including `bundle.externalBin` and `bundle.resources` (where the `llama-server` the app

@@ -6,8 +6,10 @@
  * to tauri.conf.json still fails until someone runs `npm run deps:accept-permissions` and commits the
  * baseline's diff, which a reviewer then sees.
  */
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { readTauriConfigs } from '../tauriConfigs';
 import { parseCapabilityToml } from './capabilityToml';
 
 const CONF_PATH = 'src-tauri/tauri.conf.json';
@@ -35,10 +37,31 @@ function readCapabilityFiles(dir: string, prefix = ''): Record<string, string> {
   return files;
 }
 
-/** The permission surface in the working tree, as the next build would ship it. */
+/**
+ * The permission surface in the working tree, as the next builds would ship it: tauri.conf.json, plus what the
+ * release config without AI (tauri.noai.conf.json, merged as Tauri merges it) changes, under "noai" keys. Both
+ * configs share the capability files. An NSIS hooks file runs at install time, so its sha256 counts too.
+ */
 export function readWorkingSurface(root: string): PermissionSurface {
+  const srcTauri = path.join(root, path.dirname(CONF_PATH));
   const capabilityFiles = readCapabilityFiles(path.join(root, CAPABILITIES_DIR));
-  return readPermissionSurface(fs.readFileSync(path.join(root, CONF_PATH), 'utf8'), capabilityFiles);
+  const { full, noai } = readTauriConfigs(srcTauri);
+  const surface = readPermissionSurface(JSON.stringify(full), capabilityFiles);
+  const noaiSurface = readPermissionSurface(JSON.stringify(noai), capabilityFiles);
+  const settings = { ...surface.settings, ...installerHooksSetting(srcTauri, full, '') };
+  for (const [key, value] of Object.entries({ ...noaiSurface.settings, ...installerHooksSetting(srcTauri, noai, 'noai ') })) {
+    if (settings[key.replace(/^noai /, '')] !== value) settings[key.startsWith('noai ') ? key : `noai ${key}`] = value;
+  }
+  if (JSON.stringify(noaiSurface.csp) !== JSON.stringify(surface.csp)) settings['noai csp'] = JSON.stringify(noaiSurface.csp);
+  return { ...surface, settings };
+}
+
+/** "bundle.windows.nsis.installerHooks" -> "<path> sha256 <hash>", when the config names a hooks file. */
+function installerHooksSetting(srcTauri: string, conf: Record<string, unknown>, prefix: string): Record<string, string> {
+  const hooks = (conf.bundle as { windows?: { nsis?: { installerHooks?: string } } } | undefined)?.windows?.nsis?.installerHooks;
+  if (!hooks) return {};
+  const sha256 = createHash('sha256').update(fs.readFileSync(path.join(srcTauri, hooks))).digest('hex');
+  return { [`${prefix}bundle.windows.nsis.installerHooks`]: `${hooks} sha256 ${sha256}` };
 }
 
 /** The committed baseline, or undefined when there is none. */

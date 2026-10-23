@@ -244,7 +244,8 @@ describe('About', () => {
     const about = screen.getByRole('button', { name: 'About' });
     about.focus();
     fireEvent.click(about);
-    const dialog = await screen.findByRole('dialog', { name: 'About writing-check' });
+    // About loads its notices (about 1 MB of text) on demand; under the full suite's load that takes over 1 s.
+    const dialog = await screen.findByRole('dialog', { name: 'About writing-check' }, { timeout: 10_000 });
     expect(within(dialog).getByText('Version 1.0.0')).toBeTruthy();
     expect(within(dialog).getByText(/Your writing stays on this PC\./)).toBeTruthy();
     const notices = dialog.querySelector('.notices')!;

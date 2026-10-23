@@ -1,0 +1,6 @@
+{
+  "bundle": {
+    "resources": { "binaries/llama/*": null },
+    "windows": { "nsis": { "installerHooks": "hooks.nsh" } }
+  }
+}

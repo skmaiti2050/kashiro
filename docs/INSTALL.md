@@ -3,19 +3,26 @@
 writing-check runs entirely on your computer. It needs Windows 10 or 11 (64-bit) and no administrator rights.
 Neither the installer nor the app connects to the internet.
 
-There are three files to choose from. All contain the same app; only the last leaves out the optional AI helper.
+There are four files to choose from. All contain the same app; the "without AI" ones leave out the optional AI
+helper (about 45 MB of its files), so AI rewrites aren't available in them.
 
-| | File | Use it when |
-|---|---|---|
-| Installer | `writing-check_1.0.0_x64-setup.exe` | You want a Start menu entry and an uninstaller. |
-| Portable | `writing-check-1.0.0-win-x64.zip` | You can't run installers, or want to keep it in one folder. |
-| Portable, without AI | `writing-check-1.0.0-win-x64-noai.zip` | You won't use AI rewrites and want a smaller download. |
+| | With the AI helper | Without AI | Use it when |
+|---|---|---|---|
+| Installer | `writing-check_1.0.0_x64-setup.exe` | `writing-check-noai_1.0.0_x64-setup.exe` | You want a Start menu entry and an uninstaller. |
+| Portable | `writing-check-1.0.0-win-x64.zip` | `writing-check-1.0.0-win-x64-noai.zip` | You can't run installers, or want to keep it in one folder. |
+
+**Which one?** Take the one with the AI helper unless you are sure you won't use AI rewrites or need the smaller
+download. Spelling, grammar and style checks are the same in all four.
 
 ## The installer
 
-1. Run `writing-check_1.0.0_x64-setup.exe`. It installs for your Windows account only, into
-   `%LOCALAPPDATA%\writing-check`, so it doesn't ask for an administrator password.
+1. Run the installer. It installs for your Windows account only, into `%LOCALAPPDATA%\writing-check`, so it
+   doesn't ask for an administrator password.
 2. Open **writing-check** from the Start menu.
+
+Both installers install the same app in the same place, so you can switch at any time by running the other one:
+it replaces the first (the version without AI also removes the AI helper's files). Your settings, dictionary and
+saved reviews stay.
 
 ## The portable zip
 
@@ -64,13 +71,15 @@ off until you give it a model file. **The app never downloads a model**; you dow
 The helper runs on your graphics card when it can, otherwise on the processor. It needs about as much free
 memory as the model's size.
 
-**If Settings says "AI helper not installed":** you have the version without AI (the `-noai` zip). Use the
-installer or `writing-check-1.0.0-win-x64.zip` instead; your settings and saved reviews carry over.
+**If Settings says "AI helper not installed":** you have a version without AI. Run
+`writing-check_1.0.0_x64-setup.exe` or use `writing-check-1.0.0-win-x64.zip` instead; your settings and saved
+reviews carry over.
 
-**If the helper reports "The writing helper's Visual C++ runtime is missing":** it needs the Microsoft Visual C++
-2015–2022 runtime (x64), which most Windows PCs already have. If yours doesn't, ask your IT team to install
-Microsoft's "Visual C++ Redistributable for Visual Studio 2015–2022 (x64)" (it needs administrator rights).
-Everything else in writing-check works without it.
+The helper's Microsoft Visual C++ runtime ships with it (in the `llama` folder), so there is nothing else to
+install. **If the helper still reports "The writing helper's Visual C++ runtime is missing":** a file in the
+`llama` folder is missing or damaged, for example removed by security software. Reinstall writing-check, or unzip
+the portable copy again. If that doesn't help, ask your IT team to install Microsoft's "Visual C++
+Redistributable" (x64). Everything else in writing-check works without the helper.
 
 ## Where your data lives
 

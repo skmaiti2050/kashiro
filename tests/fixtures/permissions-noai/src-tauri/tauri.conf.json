@@ -1,0 +1,13 @@
+{
+  "app": {
+    "security": {
+      "csp": "default-src 'self'"
+    }
+  },
+  "bundle": {
+    "resources": {
+      "binaries/llama/*": "llama/",
+      "../LICENSE": "LICENSE.txt"
+    }
+  }
+}
