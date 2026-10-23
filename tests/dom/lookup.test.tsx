@@ -245,11 +245,11 @@ describe('About', () => {
     about.focus();
     fireEvent.click(about);
     const dialog = await screen.findByRole('dialog', { name: 'About writing-check' });
-    expect(within(dialog).getByText('Version 0.1.0')).toBeTruthy();
+    expect(within(dialog).getByText('Version 1.0.0')).toBeTruthy();
     expect(within(dialog).getByText(/Your writing stays on this PC\./)).toBeTruthy();
     const notices = dialog.querySelector('.notices')!;
     expect(notices.getAttribute('lang')).toBe('en');
-    expect([...notices.querySelectorAll('summary')].map((s) => s.textContent)).toHaveLength(6);
+    expect([...notices.querySelectorAll('summary')].map((s) => s.textContent)).toHaveLength(8);
     expect(notices.textContent).toContain('Creative Commons Attribution 4.0 International License');
     expect(notices.textContent).toContain('SIL OPEN FONT LICENSE Version 1.1');
     fireEvent.keyDown(dialog, { key: 'Escape' });

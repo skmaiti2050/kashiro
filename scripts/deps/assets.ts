@@ -14,6 +14,8 @@ export interface Asset {
   licenceNote: string;
   /** The source file the build script verifies. */
   sha256: string | null;
+  /** For an asset taken out of a release zip (llama-server): the zip's own sha256; sourceUrl is the zip. */
+  archiveSha256?: string;
   /** The committed file, relative to the repository root. */
   localPath: string | null;
   outputSha256: string | null;

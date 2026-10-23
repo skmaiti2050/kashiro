@@ -9,8 +9,16 @@ Nothing changes until we choose to upgrade, and every upgrade produces a report 
 - **Data files and models:** `deps/assets.json`, one entry each with version, source URL, licence, the source
   sha256 its build script verifies, and the sha256 of the committed file. The default model and the two
   `llama-server` builds (CPU and Vulkan, b11727) are pinned but not committed: the user picks the model file, and
-  `npm run fetch:llama -- <CPU build folder> <Vulkan build folder>` copies the builds into the gitignored
-  `src-tauri/binaries/` after checking every file's sha256 (run it before `cargo test` or a Tauri build).
+  `npm run fetch:llama` downloads the two official release zips from the pinned URLs, checks each zip's sha256
+  and then every file's, and copies only the pinned files into the gitignored `src-tauri/binaries/` (run it
+  before `cargo test` or a Tauri build; CI needs this step too). Offline, pass local copies instead:
+  `npm run fetch:llama -- <CPU build zip or folder> <Vulkan build zip or folder>`.
+- **Third-party notices:** `resources/notices/THIRD-PARTY-NOTICES.txt` holds the licence texts of the npm
+  production packages and of the crates compiled into the exe. After any upgrade, run `npm run build:notices`
+  (offline: installed packages and `cargo metadata --offline`) and commit the result with the upgrade;
+  `tests/scripts/build-notices.test.ts` fails if key packages are listed at other versions. A new data file or
+  bundled program needs its own `ATTRIBUTION.md` under `resources/`, a line in `src/ui/notices.ts` and a
+  `notices/` entry in `bundle.resources`.
 - **Behaviour:** `deps/snapshots/` holds what the dependencies do today: every Harper flag on the 22 reference
   documents, the sample pack and short probe texts (`harper.json`), dictionary counts and 50 lookups, word-list
   counts and hashes (`data.json`), every production licence (`licences.json`) and the decisions-table hash
@@ -89,7 +97,7 @@ fails.
 These all fail: an added CSP source, a dropped CSP directive, a new permission, window, remote URL or capability,
 a new platform (or a dropped platform list, which means every platform), local access turned on, or any change to
 another security setting, including `bundle.externalBin` and `bundle.resources` (where the two `llama-server`
-builds the app runs are bundled). A TOML capability that uses more than strings and string arrays fails to read: write it
+builds the app runs are bundled, beside the dictionary and the notice files). A TOML capability that uses more than strings and string arrays fails to read: write it
 as JSON.
 
 The app's own commands (`overwrite_with_backup` and the saved-review `session_*` commands) are locked down by

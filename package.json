@@ -1,7 +1,7 @@
 {
   "name": "writing-check",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.0",
   "type": "module",
   "license": "Apache-2.0",
   "scripts": {
@@ -16,7 +16,9 @@
     "build:dictionary": "tsx scripts/build-dictionary.ts",
     "build:frequency": "tsx scripts/build-frequency.ts",
     "build:romanised": "tsx scripts/build-romanised.ts",
+    "build:notices": "tsx scripts/build-notices.ts",
     "fetch:llama": "tsx scripts/fetch-llama.ts",
+    "portable:zip": "tsx scripts/portable-zip.ts",
     "measure:llm": "tsx scripts/measure-llm.ts",
     "snapshots": "tsx scripts/build-snapshots.ts",
     "deps:status": "tsx scripts/deps-status.ts",

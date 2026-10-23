@@ -74,6 +74,6 @@
     ]
   },
   "settings": {
-    "bundle.resources": "{\"../resources/dictionary/oewn.json.gz\":\"dictionary/oewn.json.gz\",\"binaries/cpu/*\":\"llama/cpu/\",\"binaries/vulkan/*\":\"llama/vulkan/\"}"
+    "bundle.resources": "{\"../resources/dictionary/oewn.json.gz\":\"dictionary/oewn.json.gz\",\"binaries/cpu/*\":\"llama/cpu/\",\"binaries/vulkan/*\":\"llama/vulkan/\",\"../LICENSE\":\"LICENSE.txt\",\"../README.md\":\"README.md\",\"../docs/INSTALL.md\":\"INSTALL.md\",\"../resources/dictionary/ATTRIBUTION.md\":\"notices/dictionary.md\",\"../resources/frequency/ATTRIBUTION.md\":\"notices/word-frequencies.md\",\"../resources/romanised/ATTRIBUTION.md\":\"notices/indian-languages.md\",\"../resources/fonts/ATTRIBUTION.md\":\"notices/fonts.md\",\"../resources/i18n/ATTRIBUTION.md\":\"notices/interface-text.md\",\"../resources/harper/ATTRIBUTION.md\":\"notices/harper.md\",\"../resources/llama/ATTRIBUTION.md\":\"notices/llama-cpp.md\",\"../resources/notices/THIRD-PARTY-NOTICES.txt\":\"notices/THIRD-PARTY-NOTICES.txt\"}"
   }
 }

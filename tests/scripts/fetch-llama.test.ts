@@ -3,7 +3,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
-import { BUILDS, copyLlamaServer, hashMismatches, pinnedFiles } from '../../scripts/fetch-llama';
+import JSZip from 'jszip';
+import { BUILDS, copyLlamaServer, filesInZip, hashMismatches, installLlamaServer, pinnedFiles, releaseZip } from '../../scripts/fetch-llama';
 
 const sha = (text: string) => createHash('sha256').update(text).digest('hex');
 
@@ -50,5 +51,41 @@ describe('fetch-llama', () => {
     expect(fs.readFileSync(path.join(target, 'llama-server.exe'), 'utf8')).toBe('exe');
     expect(fs.readFileSync(path.join(target, 'ggml.dll'), 'utf8')).toBe('dll');
     fs.rmSync(root, { recursive: true });
+  });
+
+  it('pins the official release zips by URL and sha256 (Task 14)', () => {
+    expect(BUILDS.map((b) => releaseZip(b.assetId))).toEqual([
+      {
+        url: 'https://github.com/ggml-org/llama.cpp/releases/download/b11727/llama-b11727-bin-win-cpu-x64.zip',
+        sha256: 'd71a767fd77b2509cc4698d1017d9820b49b0bfaabf5aef7d1ea7e0696d80a71',
+      },
+      {
+        url: 'https://github.com/ggml-org/llama.cpp/releases/download/b11727/llama-b11727-bin-win-vulkan-x64.zip',
+        sha256: 'c373936fb9578ac85d2e5c3d220821eddae4288283237b01d9618419175f127b',
+      },
+    ]);
+  });
+
+  it('takes only the pinned files out of a release zip, after checking the zip itself', async () => {
+    const zip = new JSZip();
+    zip.file('llama-server.exe', 'exe');
+    zip.file('llama-cli.exe', 'not shipped');
+    const bytes = await zip.generateAsync({ type: 'nodebuffer' });
+    const pinned = { 'llama-server.exe': sha('exe'), 'ggml.dll': sha('dll') };
+
+    const files = await filesInZip(bytes, createHash('sha256').update(bytes).digest('hex'), pinned);
+    expect(Object.keys(files)).toEqual(['llama-server.exe']);
+    expect(files['llama-server.exe'].toString()).toBe('exe');
+    await expect(filesInZip(bytes, sha('another zip'), pinned)).rejects.toThrow(/zip's sha256 is [0-9a-f]{64}, expected/);
+  });
+
+  it('installs from a zip only when every pinned file is there and matches', () => {
+    const target = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'fetch-llama-')), 'cpu');
+    const pinned = { 'llama-server.exe': sha('exe'), 'ggml.dll': sha('dll') };
+    expect(() => installLlamaServer({ 'llama-server.exe': Buffer.from('exe') }, 'the zip', target, pinned)).toThrow('ggml.dll: missing');
+    expect(fs.existsSync(target)).toBe(false);
+    installLlamaServer({ 'llama-server.exe': Buffer.from('exe'), 'ggml.dll': Buffer.from('dll') }, 'the zip', target, pinned);
+    expect(fs.readdirSync(target).sort()).toEqual(['ggml.dll', 'llama-server.exe']);
+    fs.rmSync(path.dirname(target), { recursive: true });
   });
 });
