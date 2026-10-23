@@ -13,6 +13,8 @@ const FILE_PROBLEM_MESSAGES: Record<FileProblem, MessageKey> = {
   binary: 'error.file.binary',
   empty: 'error.file.empty',
   tooLong: 'error.file.tooLong',
+  tooLarge: 'error.file.tooLarge',
+  paragraphTooLong: 'error.file.paragraphTooLong',
 };
 
 /** Why `name` could not be opened: a specific message for a known file problem, else the system's reason. */

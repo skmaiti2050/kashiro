@@ -4,6 +4,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { CheckSession, type CheckOptions } from '@/engine/session';
 import { createLinter, type RulesLinter } from '@/engine/linter';
 import type { Paragraph } from '@/engine/types';
+import { markdownAdapter } from '@/formats/text';
 
 let linter: RulesLinter;
 beforeAll(async () => {
@@ -59,4 +60,18 @@ describe('performance', () => {
     expect([...top, ...more].some((d) => d.kind === 'otherLanguage')).toBe(true);
     expect({ rulesMs: rulesMs < 300, decisionsMs: decisionsMs < 150 }).toEqual({ rulesMs: true, decisionsMs: true });
   });
+
+  // Task U3 fix 1: as one paragraph this table took 30-43 s (the linter's time grows with the square of the flags
+  // in a paragraph). Each cell is now its own paragraph and a repeated cell is linted once: ~10 s alone on the dev
+  // PC. It still runs on the window's thread; moving the check to a Worker is deferred.
+  it('a 2,000-row, flag-heavy Markdown table is checked in under 20 s', async () => {
+    const row = (i: number) => `| ${i} | Kumarsamy Venkataraghavan | INV-${i}x | teh recieved ammount |`;
+    const table = ['| No | Name | Invoice | Note |', '|---|---|---|---|', ...Array.from({ length: 2000 }, (_, i) => row(i))].join('\n');
+    const { paras } = await markdownAdapter.read(new TextEncoder().encode(table));
+    const t0 = performance.now();
+    const session = await CheckSession.start(paras, { ...OPTIONS, language: 'markdown' }, { linter });
+    const ms = performance.now() - t0;
+    expect(session.candidates().length).toBeGreaterThan(10_000);
+    expect(ms).toBeLessThan(20_000);
+  }, 120_000);
 });

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { adapterFor } from '@/formats/registry';
+import { textParagraphStarts } from '@/formats/text';
 
 const enc = (s: string) => new TextEncoder().encode(s);
 const dec = (b: Uint8Array) => new TextDecoder('utf-8', { ignoreBOM: true }).decode(b);
@@ -92,6 +93,39 @@ describe('text adapter', () => {
     const md = adapterFor('a.md')!;
     expect((await md.read(enc('```\na\n\nb'))).paras.map((p) => p.text)).toEqual(['```\na\n\nb']);
     expect((await txt.read(enc('```\na\n\nb\n```'))).paras.map((p) => p.text)).toEqual(['```\na', 'b\n```']);
+  });
+
+  // Task U3 fix 1: a 2,000-row table as one paragraph took ~40 s to check. Cells are what the linter's own
+  // Markdown parser checks one by one, so each is its own paragraph; the delimiter row holds no text.
+  it('markdown: each table cell is its own paragraph, the delimiter row none, with exact offsets', async () => {
+    const md = adapterFor('a.md')!;
+    const src = 'Intro.\n\n| Name | Notes |\r\n|---|:--:|\r\n| alpha one | teh value |\r\n|  | a \\| b |\n\nAfter.';
+    const { paras, handle } = await md.read(enc(src));
+    expect(paras.map((p) => p.text)).toEqual(['Intro.', 'Name', 'Notes', 'alpha one', 'teh value', 'a \\| b', 'After.']);
+    const starts = textParagraphStarts(handle);
+    for (const p of paras) expect(src.slice(starts.get(p.id)!, starts.get(p.id)! + p.text.length)).toBe(p.text);
+    const teh = paras.find((p) => p.text === 'teh value')!;
+    const { bytes } = await md.write(handle, [{ paraId: teh.id, span: { start: 0, end: 3 }, replacement: 'the' }], 'clean');
+    expect(dec(bytes)).toBe(src.replace('teh', 'the'));
+  });
+
+  it('markdown: a table needs its delimiter row and ends at a blank line or a line without a pipe', async () => {
+    const md = adapterFor('a.md')!;
+    const read = async (src: string) => (await md.read(enc(src))).paras.map((p) => p.text);
+    expect(await read('a | b\n--|--\nc | d\nplain line')).toEqual(['a', 'b', 'c', 'd', 'plain line']);
+    expect(await read('x | y\nmore text')).toEqual(['x | y\nmore text']);
+    expect(await read('```\n| a | b |\n|---|---|\n```')).toEqual(['```\n| a | b |\n|---|---|\n```']);
+    expect((await txt.read(enc('| a | b |\n|---|---|\n| c | d |'))).paras.map((p) => p.text)).toEqual(['| a | b |\n|---|---|\n| c | d |']);
+  });
+
+  it('paragraph starts come from the read itself (indents, CRLF, blank lines with spaces, BOM)', async () => {
+    const text = '  Hello there.\r\n  \r\n\r\n  Hello there.\r\nsecond line\n\n\tLast';
+    const { handle } = await txt.read(enc(text));
+    expect([...textParagraphStarts(handle).values()]).toEqual([0, 22, 51]);
+    const bom = await txt.read(new Uint8Array([0xef, 0xbb, 0xbf, ...enc('A.\n\nB.')]));
+    expect([...textParagraphStarts(bom.handle).values()]).toEqual([0, 4]);
+    const fence = await adapterFor('a.md')!.read(enc('# Title\n\n```\na\n\nb\n```\n\nEnd.'));
+    expect([...textParagraphStarts(fence.handle).values()]).toEqual([0, 9, 23]);
   });
 
   it('registry: language and extensions', () => {

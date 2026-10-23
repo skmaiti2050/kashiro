@@ -171,7 +171,13 @@ describe('SessionController: broken or unexpected files (Task U3 item 10)', () =
     ['picture.txt', () => new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0x0d]), /^Can’t open picture\.txt: it isn’t a text file/],
     ['unicode.txt', () => utf16le('Hello there.'), /^Can’t open unicode\.txt: the text is saved as UTF-16/],
     ['ansi.txt', () => new Uint8Array([...encode('The caf'), 0xe9, ...encode(' was open.')]), /^Can’t open ansi\.txt: the text isn’t saved as UTF-8\./],
-    ['huge.txt', () => encode('word '.repeat(1_000_000)), /^huge\.txt is too long to check in one go \(1,000,000 words; the limit is 50,000 words\)\./],
+    ['huge.txt', () => encode('word '.repeat(60_000)), /^huge\.txt is too long to check in one go \(60,000 words; the limit is 50,000 words\)\./],
+    // Task U3 fix 1: one paragraph's check time grows with the square of its flags.
+    [
+      'one-paragraph.txt',
+      () => encode('Plain words here. '.repeat(1500)),
+      /^one-paragraph\.txt has a paragraph too long to check \(27,000 characters; the limit is 20,000\)\. Break it into shorter paragraphs/,
+    ],
   ];
 
   it.each(CASES)('%s: a plain message, nothing opened, nothing written', async (name, bytes, message) => {
@@ -205,13 +211,13 @@ describe('SessionController: broken or unexpected files (Task U3 item 10)', () =
     expect(controller.getState().phase).toBe('ready');
   });
 
-  it('a 5 MB text file is refused quickly', async () => {
+  it('a 5 MB text file is refused by its size, before it is decoded', async () => {
     const { controller } = makeController();
     const bytes = encode('Plain words here. '.repeat(300_000)); // ~5.4 MB
     const t0 = performance.now();
     await controller.openFile({ name: 'big.txt', path: '/docs/big.txt', bytes });
     expect(performance.now() - t0).toBeLessThan(2000);
-    expect(english(controller.getState().error)).toMatch(/^big\.txt is too long to check in one go/);
+    expect(english(controller.getState().error)).toMatch(/^big\.txt is too large to check \(5\.4 MB; text files can be up to 2 MB\)\./);
   });
 });
 
@@ -663,6 +669,32 @@ describe('SessionController: typing re-checks', () => {
     await vi.advanceTimersByTimeAsync(300);
     await controller.settled();
     expect(controller.getState().session!.outputText(0)).toBe('I think teh cat is here.');
+  });
+
+  it('typing or pasting past the word limit is refused at once, unchecked, and nothing is saved until it is shorter (Task U3 fix 1)', async () => {
+    const { files, saves } = fakeFiles();
+    const { controller } = makeController({ files });
+    await controller.openFile({ name: 'note.txt', path: '/docs/note.txt', bytes: encode(CANT) });
+    const lintsBefore = lintCalls;
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const t0 = performance.now();
+    controller.editText(`${CANT}\n\n${'word '.repeat(60_000)}`);
+    await vi.advanceTimersByTimeAsync(300);
+    await controller.settled();
+    expect(performance.now() - t0).toBeLessThan(2000);
+    expect(lintCalls).toBe(lintsBefore);
+    expect(english(controller.getState().error)).toMatch(/^note\.txt is too long to check in one go \(60,006 words; the limit is 50,000 words\)\./);
+    // Saving now would write the file without the typed text: it is refused, with the same message.
+    controller.dismissError();
+    expect(await controller.save()).toBe(false);
+    expect(saves).toEqual([]);
+    expect(english(controller.getState().error)).toMatch(/^note\.txt is too long to check in one go/);
+    // Back under the limit: checked again, and saved as typed.
+    controller.editText(`${CANT} More.`);
+    await vi.advanceTimersByTimeAsync(300);
+    await controller.settled();
+    expect(await controller.save()).toBe(true);
+    expect(decode(saves[0].bytes)).toBe(`${CANT} More.`);
   });
 
   it('save waits for a pending re-check', async () => {

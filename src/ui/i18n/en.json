@@ -459,6 +459,8 @@
   "error.file.binary": "Can’t open {name}: it isn’t a text file, although its name ends in .txt or .md. Choose the document itself instead.",
   "error.file.empty": "{name} is empty: there’s no text to check. Choose another file, or paste some text.",
   "error.file.tooLong": "{name} is too long to check in one go ({words, number} words; the limit is {limit, number} words). Split it into smaller files and check each one.",
+  "error.file.tooLarge": "{name} is too large to check ({megabytes, number} MB; text files can be up to {limit, number} MB). Split it into smaller files and check each one.",
+  "error.file.paragraphTooLong": "{name} has a paragraph too long to check ({characters, number} characters; the limit is {limit, number}). Break it into shorter paragraphs; in a text file, put a blank line between them.",
   "error.typed": "The typed text could not be checked",
   "error.typedNext": "Keep typing to try again, or save and reopen the file.",
   "error.check": "The check failed",

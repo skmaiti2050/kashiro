@@ -1,24 +1,5 @@
 import type { Paragraph } from '@/engine/types';
 
-/**
- * Where each paragraph starts in `text`, for paragraphs that are slices of it in order (the text
- * adapters' blank-line split). Each one starts at the first line start at or after the previous
- * paragraph's end that matches it: the lines in between are blank, and a blank line can't match a
- * paragraph's first line (which has a non-space character before its line break).
- */
-export function paragraphStarts(text: string, paras: Paragraph[]): Map<number, number> {
-  const starts = new Map<number, number>();
-  let from = 0;
-  for (const p of paras) {
-    let at = text.indexOf(p.text, from);
-    while (at > 0 && text[at - 1] !== '\n') at = text.indexOf(p.text, at + 1);
-    if (at < 0) throw new Error(`paragraph ${p.id} is not in the document text`);
-    starts.set(p.id, at);
-    from = at + p.text.length;
-  }
-  return starts;
-}
-
 /** The view text of a document without its own plain text (.docx): paragraphs separated by a blank line. */
 export function joinParagraphs(paras: Paragraph[]): { text: string; starts: Map<number, number> } {
   const starts = new Map<number, number>();

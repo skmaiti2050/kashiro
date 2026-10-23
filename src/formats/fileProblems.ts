@@ -1,12 +1,23 @@
 /** Why a file can't be opened, for a plain message that says what to do (spec §3: never crash, never write). */
-export type FileProblem = 'damaged' | 'notWord' | 'encrypted' | 'oldWord' | 'notUtf8' | 'utf16' | 'binary' | 'empty' | 'tooLong';
+export type FileProblem =
+  | 'damaged'
+  | 'notWord'
+  | 'encrypted'
+  | 'oldWord'
+  | 'notUtf8'
+  | 'utf16'
+  | 'binary'
+  | 'empty'
+  | 'tooLong'
+  | 'tooLarge'
+  | 'paragraphTooLong';
 
 /** Thrown by an adapter's read (or the open path) for a file it can't open. The message is English, for the CLI. */
 export class UnreadableFileError extends Error {
   constructor(
     readonly problem: FileProblem,
     message: string,
-    /** Numbers the message shows ("tooLong": words and limit). */
+    /** Numbers the message shows ("tooLong": words and limit; "tooLarge": megabytes and limit; "paragraphTooLong": characters and limit). */
     readonly values: Record<string, number> = {},
   ) {
     super(message);

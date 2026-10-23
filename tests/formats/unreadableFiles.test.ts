@@ -114,7 +114,7 @@ describe('malformed Markdown still opens and checks, unchanged', () => {
     linter = await createLinter('American');
   });
 
-  // 500 rows check in ~1.5 s; 2,000 take ~11 s (one 100 KB paragraph, see the Task U3 report), too slow for the suite.
+  // 500 rows keep the suite quick; the 2,000-row check time is a timing test (tests/timing, Task U3 fix 1).
   const table = ['| a | b | c |', '|---|---|---|', ...Array.from({ length: 500 }, (_, i) => `| row ${i} | teh value | ${i * 3} |`)].join('\n');
   it.each([
     ['an unclosed code fence', 'Intro text here.\n\n```js\nconst x = 1;\n\nMore text that teh fence swallowed.\n'],

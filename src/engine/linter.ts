@@ -16,45 +16,61 @@ export interface RulesLinter {
   readonly variant: Variant;
 }
 
+/** One of Harper's lints, copied out of WASM: a candidate without its paragraph. */
+type LintCopy = Omit<Candidate, 'id' | 'paraId' | 'source'>;
+
+async function lintText(linter: LocalLinter, text: string, language: 'plaintext' | 'markdown'): Promise<LintCopy[]> {
+  const out: LintCopy[] = [];
+  for (const lint of await linter.lint(text, { language })) {
+    try {
+      const sp = lint.span();
+      const { start, end } = sp;
+      sp.free();
+      const original = text.slice(start, end);
+      const replacements: string[] = [];
+      for (const s of lint.suggestions()) {
+        try {
+          const k = s.kind();
+          if (k === SuggestionKind.Remove) replacements.push('');
+          else if (k === SuggestionKind.InsertAfter) replacements.push(original + s.get_replacement_text());
+          else replacements.push(s.get_replacement_text());
+        } finally {
+          s.free();
+        }
+      }
+      out.push({ span: { start, end }, original, replacements, kind: lint.lint_kind(), message: lint.message() });
+    } finally {
+      lint.free();
+    }
+  }
+  return out;
+}
+
 async function toCandidates(
   linter: LocalLinter,
   paras: Paragraph[],
   language: 'plaintext' | 'markdown',
 ): Promise<Candidate[]> {
+  // A lint depends only on the text, so a repeated paragraph (a table's "Yes" or "N/A" cells) is linted once.
+  const lintsByText = new Map<string, LintCopy[]>();
   const out: Candidate[] = [];
   for (const p of paras) {
-    const lints = await linter.lint(p.text, { language });
-    for (const lint of lints) {
-      try {
-        const sp = lint.span();
-        const { start, end } = sp;
-        sp.free();
-        const original = p.text.slice(start, end);
-        const kind = lint.lint_kind();
-        const replacements: string[] = [];
-        for (const s of lint.suggestions()) {
-          try {
-            const k = s.kind();
-            if (k === SuggestionKind.Remove) replacements.push('');
-            else if (k === SuggestionKind.InsertAfter) replacements.push(original + s.get_replacement_text());
-            else replacements.push(s.get_replacement_text());
-          } finally {
-            s.free();
-          }
-        }
-        out.push({
-          id: `${p.id}:${start}:${end}:${kind}`,
-          paraId: p.id,
-          span: { start, end },
-          original,
-          replacements,
-          kind,
-          message: lint.message(),
-          source: 'rules',
-        });
-      } finally {
-        lint.free();
-      }
+    let lints = lintsByText.get(p.text);
+    if (!lints) {
+      lints = await lintText(linter, p.text, language);
+      lintsByText.set(p.text, lints);
+    }
+    for (const { span, original, replacements, kind, message } of lints) {
+      out.push({
+        id: `${p.id}:${span.start}:${span.end}:${kind}`,
+        paraId: p.id,
+        span: { ...span },
+        original,
+        replacements: [...replacements], // each candidate owns its copies: the engine may change them
+        kind,
+        message,
+        source: 'rules',
+      });
     }
   }
   return out;

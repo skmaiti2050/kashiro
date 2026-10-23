@@ -1,22 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { plaintextAdapter, markdownAdapter } from '@/formats/text';
-import { joinParagraphs, matchUnchangedParagraphs, paragraphStarts, siblingPath } from '@/ui/state/documentText';
-
-describe('paragraphStarts', () => {
-  it('finds where each adapter paragraph starts in the file text (indents, CRLF, blank lines with spaces)', async () => {
-    const text = '  Hello there.\r\n  \r\n\r\n  Hello there.\r\nsecond line\n\n\tLast';
-    const { paras } = await plaintextAdapter.read(new TextEncoder().encode(text));
-    const starts = paragraphStarts(text, paras);
-    for (const p of paras) expect(text.slice(starts.get(p.id)!, starts.get(p.id)! + p.text.length)).toBe(p.text);
-    expect([...starts.values()]).toEqual([0, 22, 51]);
-  });
-
-  it('works for Markdown code fences that hold blank lines', async () => {
-    const text = '# Title\n\n```\na\n\nb\n```\n\nEnd.';
-    const { paras } = await markdownAdapter.read(new TextEncoder().encode(text));
-    expect([...paragraphStarts(text, paras).values()]).toEqual([0, 9, 23]);
-  });
-});
+import { joinParagraphs, matchUnchangedParagraphs, siblingPath } from '@/ui/state/documentText';
 
 describe('joinParagraphs', () => {
   it('joins paragraphs with a blank line and records their starts', () => {

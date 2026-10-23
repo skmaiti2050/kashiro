@@ -27,6 +27,16 @@ describe('createLinter', () => {
     expect(t!.source).toBe('rules');
   });
 
+  it('a repeated paragraph gets the same flags under its own id, with its own copies', async () => {
+    const l = await createLinter('American');
+    const c = await l.lintParagraphs([para('teh value', 0), para('Fine.', 1), para('teh value', 2)], 'plaintext');
+    const [first, second] = c.filter((x) => x.original === 'teh');
+    expect([first.id, second.id]).toEqual(['0:0:3:Typo', '2:0:3:Typo']);
+    expect(second.replacements).toEqual(first.replacements);
+    expect(second.replacements).not.toBe(first.replacements);
+    expect(second.span).not.toBe(first.span);
+  });
+
   it('addWords removes the spelling candidate', async () => {
     const l = await createLinter('American');
     const text = 'Sujit went home.';

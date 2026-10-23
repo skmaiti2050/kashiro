@@ -12,6 +12,7 @@ import type { FormatAdapter } from '@/formats/types';
 import { afterAction } from './announce';
 import type { MessageKey } from '../i18n/catalogues';
 import { msg, type Message } from '../i18n/message';
+import { UnreadableFileError } from '@/formats/fileProblems';
 import { explain, openError, plainError } from './errors';
 import { checkOptions, currentDepth } from './checkOptions';
 import { DecisionTally } from './decisionTally';
@@ -121,6 +122,8 @@ export class SessionController {
   private checks = 0;
   /** Edits applied, decisions made or text typed since the document was opened or last saved. */
   private unsaved = false;
+  /** Why the latest typed text was not read (too long to check, say); saving waits until it can be. */
+  private typingRefused: Message | null = null;
   private readonly tally = new DecisionTally();
   private announcements = 0;
   private readonly settingsHost: settingsActions.SettingsHost = {
@@ -164,6 +167,7 @@ export class SessionController {
       set: (patch) => this.set(patch),
       flush: () => this.queue.flush(),
       loaded: () => this.loaded,
+      saveRefused: () => this.typingRefused,
       files: deps.files,
       markSaved: () => (this.unsaved = false),
     };
@@ -291,6 +295,7 @@ export class SessionController {
     await this.reviews.leave();
     this.documents = document.id;
     this.loaded = loaded;
+    this.typingRefused = null;
     this.unsaved = false;
     this.tally.reset();
     this.ai.reset();
@@ -328,9 +333,12 @@ export class SessionController {
     try {
       read = await readTypedText(this.loaded, document, text);
     } catch (e) {
-      this.set({ error: explain(msg('error.typed'), e, msg('error.typedNext')), checking: this.queue.waiting });
+      // Too long to check, say: a save now would write the file without the typed text, so saves wait for a shorter one.
+      if (e instanceof UnreadableFileError) this.typingRefused = openError(document.name, e);
+      this.set({ error: this.typingRefused ?? explain(msg('error.typed'), e, msg('error.typedNext')), checking: this.queue.waiting });
       return;
     }
+    this.typingRefused = null;
     this.loaded = read.loaded;
     this.set({ document: read.document });
     await this.check(true);
@@ -591,6 +599,7 @@ export class SessionController {
     this.queue.cancel();
     await this.reviews.leave();
     this.loaded = null;
+    this.typingRefused = null;
     this.unsaved = false;
     this.tally.reset();
     this.ai.reset();

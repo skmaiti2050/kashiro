@@ -3,7 +3,8 @@ import type { FormatAdapter } from '@/formats/types';
 import { msg, type Message } from '../i18n/message';
 import { countWords } from '@/engine/words';
 import { UnreadableFileError } from '@/formats/fileProblems';
-import { joinParagraphs, paragraphStarts } from './documentText';
+import { textParagraphStarts } from '@/formats/text';
+import { joinParagraphs } from './documentText';
 
 export interface OpenDocument {
   /** New for every opened file or paste, so the editor knows when to replace its content. */
@@ -47,13 +48,38 @@ const lineSeparatorOf = (text: string): '\n' | '\r\n' => (text.includes('\r\n') 
  * so this keeps the longest check near 4 seconds; a 5 MB text file is refused at once instead of freezing the app.
  */
 export const MAX_CHECK_WORDS = 50_000;
+/**
+ * The longest paragraph checked, in characters. The linter's time grows with the square of the flags in one
+ * paragraph: a 140,000-character paragraph of names and typos took ~45 s (Task U3 fix 1).
+ */
+export const MAX_PARAGRAPH_CHARS = 20_000;
+/**
+ * The largest text file read. 50,000 words take about 1 MB even in Devanagari (3 bytes a letter), so a larger
+ * file is refused by its size before it is decoded and split.
+ */
+export const MAX_TEXT_MEGABYTES = 2;
+const BYTES_PER_MEGABYTE = 1_000_000;
 
-/** A file with no text, or too long to check, can't be opened (a paste or the sample may be empty). */
+/** A text file larger than MAX_TEXT_MEGABYTES can't be opened. */
+function refuseLargeText(bytes: Uint8Array): void {
+  if (bytes.length <= MAX_TEXT_MEGABYTES * BYTES_PER_MEGABYTE) return;
+  const megabytes = Math.round(bytes.length / (BYTES_PER_MEGABYTE / 10)) / 10;
+  throw new UnreadableFileError('tooLarge', `too large to check (${megabytes} MB)`, { megabytes, limit: MAX_TEXT_MEGABYTES });
+}
+
+/** A file with no text, too long to check, or with a paragraph too long, can't be opened (a paste or the sample may be empty). */
 function refuseUncheckable(paras: Paragraph[], isFile: boolean): void {
   const words = paras.reduce((n, p) => n + countWords(p.text), 0);
   if (isFile && !paras.some((p) => /\S/.test(p.text))) throw new UnreadableFileError('empty', 'the file has no text');
   if (words > MAX_CHECK_WORDS) {
     throw new UnreadableFileError('tooLong', `too long to check (${words} words)`, { words, limit: MAX_CHECK_WORDS });
+  }
+  const characters = paras.reduce((n, p) => Math.max(n, p.text.length), 0);
+  if (characters > MAX_PARAGRAPH_CHARS) {
+    throw new UnreadableFileError('paragraphTooLong', `a paragraph is too long to check (${characters} characters)`, {
+      characters,
+      limit: MAX_PARAGRAPH_CHARS,
+    });
   }
 }
 
@@ -69,11 +95,12 @@ export async function readDocument(
   bytes: Uint8Array,
   isFile: boolean,
 ): Promise<{ loaded: LoadedFile; document: OpenDocument }> {
+  const isDocx = name.toLowerCase().endsWith('.docx');
+  if (!isDocx) refuseLargeText(bytes);
   const read = await adapter.read(bytes);
   refuseUncheckable(read.paras, isFile);
-  const isDocx = name.toLowerCase().endsWith('.docx');
   const text = isDocx ? null : new TextDecoder().decode(bytes); // the decoder drops a byte-order mark
-  const view = text === null ? joinParagraphs(read.paras) : { text, starts: paragraphStarts(text, read.paras) };
+  const view = text === null ? joinParagraphs(read.paras) : { text, starts: textParagraphStarts(read.handle) };
   return {
     loaded: { adapter, ...read, bom: startsWithBom(bytes) },
     document: {
@@ -89,7 +116,10 @@ export async function readDocument(
   };
 }
 
-/** Re-reads text typed into an editable document (with its byte-order mark, if it had one). Throws as readDocument. */
+/**
+ * Re-reads text typed into an editable document (with its byte-order mark, if it had one). Throws as readDocument,
+ * so typing or pasting past a limit is refused before it is checked.
+ */
 export async function readTypedText(
   loaded: LoadedFile,
   document: OpenDocument,
@@ -98,8 +128,9 @@ export async function readTypedText(
   const { adapter, bom } = loaded;
   const encoded = new TextEncoder().encode(text);
   const read = await adapter.read(bom ? new Uint8Array([...UTF8_BOM, ...encoded]) : encoded);
+  refuseUncheckable(read.paras, false);
   return {
     loaded: { adapter, ...read, bom },
-    document: { ...document, text, paraStarts: paragraphStarts(text, read.paras) },
+    document: { ...document, text, paraStarts: textParagraphStarts(read.handle) },
   };
 }

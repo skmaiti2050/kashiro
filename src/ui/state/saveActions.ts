@@ -1,4 +1,4 @@
-import { msg } from '../i18n/message';
+import { msg, type Message } from '../i18n/message';
 import { explain } from './errors';
 import type { LoadedFile } from './openDocument';
 import { saveDocument, saveReport, type Files } from './saveFlow';
@@ -12,6 +12,8 @@ export interface SaveHost {
   flush(): Promise<void>;
   /** The open file's adapter and handle; null with nothing open. */
   loaded(): LoadedFile | null;
+  /** Why saving would lose typed text (it was too long to read for a check), or null when a save is safe. */
+  saveRefused(): Message | null;
   files: Files;
   /** The document on disk now matches the review: nothing is unsaved. */
   markSaved(): void;
@@ -28,6 +30,11 @@ export async function save(host: SaveHost): Promise<boolean> {
   const { session, document, settings } = host.state();
   const loaded = host.loaded();
   if (!session || !document || !loaded) return false;
+  const refused = host.saveRefused();
+  if (refused) {
+    host.set({ error: refused });
+    return false;
+  }
   const { adapter, handle } = loaded;
   try {
     const notice = await saveDocument({ session, adapter, handle, name: document.name, path: document.path, settings, files: host.files });
