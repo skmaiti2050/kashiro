@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import JSZip from 'jszip';
-import { BUILDS, copyLlamaServer, filesInZip, hashMismatches, installedBuildProblems, installLlamaServer, pinnedFiles, releaseZip } from '../../scripts/fetch-llama';
+import { BUILDS, copyLlamaServer, filesInZip, folderPinned, hashMismatches, installedBuildProblems, installLlamaServer, pinnedFiles, releaseZip } from '../../scripts/fetch-llama';
 
 const sha = (text: string) => createHash('sha256').update(text).digest('hex');
 
@@ -15,6 +15,13 @@ describe('fetch-llama', () => {
     expect(llama['llama-server.exe']).toMatch(/^[0-9a-f]{64}$/);
     expect(llama).not.toHaveProperty('ggml-vulkan.dll');
     expect(Object.keys(pinnedFiles('llama-server-vulkan'))).toEqual(['ggml-vulkan.dll']);
+  });
+
+  it('puts the Visual C++ runtime beside llama-server.exe, where Windows looks first (fix round 2)', () => {
+    const llama = folderPinned('llama');
+    expect(llama).toEqual({ ...pinnedFiles('llama-server'), ...pinnedFiles('vc-runtime') });
+    expect(Object.keys(llama)).toEqual(expect.arrayContaining(['llama-server.exe', 'msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll']));
+    expect(folderPinned('vulkan')).toEqual(pinnedFiles('llama-server-vulkan'));
   });
 
   it('tauri.conf.json bundles the server in llama/ and the Vulkan backend alone in llama/vulkan/, and no sidecar', () => {

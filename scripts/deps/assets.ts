@@ -1,5 +1,6 @@
 // deps/assets.json: the pinned data files and models (Task S8), read by the build scripts and deps:status.
 import manifest from '../../deps/assets.json';
+import type { LicenceUse } from './licences';
 
 export interface Asset {
   id: string;
@@ -25,6 +26,12 @@ export interface Asset {
 }
 
 export const ASSETS = manifest.assets as Asset[];
+
+/**
+ * Which allowlist an asset's licence is checked against: a binary bundled with the app (an asset of several
+ * files that fetch-llama checks: llama-server and the Visual C++ runtime) or a data file and model.
+ */
+export const licenceUseOf = (asset: Asset): LicenceUse => (asset.files ? 'binary' : 'data');
 
 /** The source sha256 a build script must verify; throws for an unknown or not-yet-pinned asset. */
 export function pinnedSha256(id: string): string {

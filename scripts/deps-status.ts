@@ -9,7 +9,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ASSETS } from './deps/assets';
+import { ASSETS, licenceUseOf } from './deps/assets';
 import { licenceFailures, readNpmLicences, type LicenceFailure } from './deps/licences';
 import { lastLines, runTool, type ToolResult } from './deps/run';
 import { checkUpstream } from './deps/upstream';
@@ -133,9 +133,10 @@ function licences(): string[] {
     licenceFailed = true;
     lines.push(`Not installed, so their licences could not be read (run \`npm ci\`): ${npm.missing.length}.`, ...npm.missing.map((m) => `- **${m}**`), '');
   }
-  const data = ASSETS.filter((a) => a.licence).map((a) => ({ name: a.id, version: a.version ?? a.status, licence: a.licence ?? undefined }));
-  const dataFailures = licenceFailures(data, 'data');
-  lines.push(`Data files and models: ${data.length} checked, ${dataFailures.length} not allowed.`, ...failureLines(dataFailures), '');
+  const licensed = ASSETS.filter((a) => a.licence);
+  const asPackage = (a: (typeof ASSETS)[number]) => ({ name: a.id, version: a.version ?? a.status, licence: a.licence ?? undefined });
+  const dataFailures = (['data', 'binary'] as const).flatMap((use) => licenceFailures(licensed.filter((a) => licenceUseOf(a) === use).map(asPackage), use));
+  lines.push(`Data files, models and bundled binaries: ${licensed.length} checked, ${dataFailures.length} not allowed.`, ...failureLines(dataFailures), '');
   const unlicensed = ASSETS.filter((a) => !a.licence).map((a) => `${a.id} (${a.status})`);
   if (unlicensed.length) lines.push(`Not checked yet (no licence recorded): ${unlicensed.join(', ')}.`, '');
   if (npmFailures.length || dataFailures.length) licenceFailed = true;

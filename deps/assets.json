@@ -142,6 +142,26 @@
       "files": {
         "ggml-vulkan.dll": "0670bd624806ff578f2b89f5786d5961b6f365f331051eb1270f34873d12f8c3"
       }
+    },
+    {
+      "id": "vc-runtime",
+      "name": "Microsoft Visual C++ Redistributable (x64) runtime DLLs",
+      "version": "14.51.36247",
+      "status": "pinned",
+      "sourceUrl": "https://aka.ms/vc14/vc_redist.x64.exe",
+      "upstream": { "kind": "none" },
+      "licence": "LicenseRef-Microsoft-VC-Redistributable",
+      "licenceNote": "Microsoft Visual C++ Redistributable 14.51.36247, Distributable Code under Microsoft's redistributable licence terms (https://aka.ms/VCRedistLicense); allowed for bundled binaries only (owner decision, Task 14 fix round 2). archiveSha256 is the downloaded vc_redist.x64.exe (Authenticode: Microsoft Corporation). Its three x64 DLLs (file version 14.51.36247.0, each Authenticode-signed by Microsoft) are taken out with 7-Zip (docs/UPGRADING.md) and copied by scripts/fetch-llama.ts into the gitignored src-tauri/binaries/llama/, beside llama-server.exe (bundled as llama/), so a user without admin rights needs no runtime install. 14.51 is the newest MSVC toolset any bundled llama.cpp file was linked with (ggml-vulkan.dll). Never committed, so there is no localPath. sha256 is msvcp140.dll's.",
+      "archiveSha256": "843068991daaa1f73ad9f6239bce4d0f6a07a51f18c37ea2a867e9beca71295c",
+      "sha256": "7c26614e1d733892c2deac7e245ce115504b1d80592dd0a01b08e3e5a55f89ca",
+      "localPath": null,
+      "outputSha256": null,
+      "buildScript": "scripts/fetch-llama.ts",
+      "files": {
+        "msvcp140.dll": "7c26614e1d733892c2deac7e245ce115504b1d80592dd0a01b08e3e5a55f89ca",
+        "vcruntime140.dll": "d1f4225df2cd877dbf130d5668a021dce3f94118455ff5ec952061c30afc9ce7",
+        "vcruntime140_1.dll": "a7146c08f89fe5b04541ab507cdb59ff7b44534d4ba3c668a426c6450a03434e"
+      }
     }
   ]
 }

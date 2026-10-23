@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
-import { allowedLicences, checkLicence, licenceFailures, readNpmLicences } from '../../scripts/deps/licences';
+import { allowedLicences, checkLicence, licenceFailures, readNpmLicences, VC_REDIST_LICENCE } from '../../scripts/deps/licences';
 
 const FIXTURE = path.resolve(__dirname, '../fixtures/licences');
 
@@ -25,6 +25,12 @@ describe('checkLicence (the allowlist)', () => {
   it('rejects a non-commercial licence with a reason that says so', () => {
     expect(checkLicence('CC-BY-NC-4.0', 'data')).toEqual({ ok: false, reason: 'non-commercial licence: CC-BY-NC-4.0' });
     expect(checkLicence('CC-BY-NC-SA-4.0', 'npm').ok).toBe(false);
+  });
+
+  it('allows the Microsoft VC++ Redistributable for bundled binaries only (owner decision, Task 14)', () => {
+    expect(checkLicence(VC_REDIST_LICENCE, 'binary')).toEqual({ ok: true });
+    for (const use of ['npm', 'crate', 'data'] as const) expect(checkLicence(VC_REDIST_LICENCE, use).ok).toBe(false);
+    expect(checkLicence('MIT', 'binary')).toEqual({ ok: true });
   });
 
   it('rejects an unknown or missing licence', () => {

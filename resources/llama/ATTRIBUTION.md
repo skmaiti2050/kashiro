@@ -17,14 +17,21 @@ The licence texts below are the ones this llama.cpp release carries for itself a
 | cpp-httplib | the local server on 127.0.0.1 | MIT |
 | BoringSSL | cryptography code built into the server | Apache-2.0 |
 | LLVM OpenMP (`libomp.dll`) | running on several processor cores | Apache-2.0 WITH LLVM-exception |
+| Microsoft Visual C++ runtime | the C++ library `llama-server` is built against | Microsoft's redistributable terms (below) |
 
-**Not bundled:**
+**Not bundled: the language model.** writing-check never downloads or ships a model: you choose a `.gguf` file in
+Settings. The suggested model, Qwen3.5-4B by the Qwen team (Alibaba Cloud), is licensed under Apache-2.0; its
+licence comes with the download.
 
-- **The Microsoft Visual C++ runtime** (`msvcp140.dll`, `vcruntime140.dll`, `vcruntime140_1.dll`), which
-  `llama-server` needs. It is part of Windows on most PCs; see `INSTALL.md` if the helper does not start.
-- **The language model.** writing-check never downloads or ships a model: you choose a `.gguf` file in
-  Settings. The suggested model, Qwen3.5-4B by the Qwen team (Alibaba Cloud), is licensed under Apache-2.0;
-  its licence comes with the download.
+## Microsoft Visual C++ runtime
+
+`msvcp140.dll`, `vcruntime140.dll` and `vcruntime140_1.dll` in `llama/` are copied unmodified from the
+"Microsoft Visual C++ v14 Redistributable (x64) - 14.51.36247", so that the writing helper runs without
+installing the runtime (which needs administrator rights). © Microsoft Corporation. All rights reserved.
+
+They are Microsoft's redistributable code, distributed with writing-check under Microsoft's licence terms for the
+Visual C++ Redistributable (https://aka.ms/VCRedistLicense). They are not open source and not covered by
+writing-check's Apache-2.0 licence, and they are provided only for use with writing-check.
 
 ## llama.cpp (MIT)
 

@@ -3,21 +3,25 @@
  * bundles as resources: binaries/llama/ (the server and its libraries, from the CPU build) and binaries/vulkan/
  * (only ggml-vulkan.dll, from the Vulkan build; the rest of that zip equals the CPU build). The app loads the
  * Vulkan backend by path only for the GPU probe and the GPU launch (src-tauri/src/llm.rs), so the CPU launch
- * never loads it (a broken GPU driver could crash it).
+ * never loads it (a broken GPU driver could crash it). The Microsoft Visual C++ runtime DLLs go in
+ * binaries/llama/ too, beside llama-server.exe, where Windows looks for its DLLs first.
  *
- * Source:  the official llama.cpp b11727 release zips (commit 8f97d82da), URL and zip sha256 in deps/assets.json
- * sha256:  the zip, then every file, pinned in deps/assets.json ("llama-server", "llama-server-vulkan" → files);
- *          checked before and after the copy. Only the pinned files are taken out of a zip, and files that are
- *          not pinned are removed from the target folder.
- * Licence: MIT (libomp.dll: Apache-2.0 WITH LLVM-exception); texts in resources/llama/ATTRIBUTION.md
+ * Source:  the official llama.cpp b11727 release zips (commit 8f97d82da), URL and zip sha256 in deps/assets.json;
+ *          the runtime DLLs from a folder they were extracted to from the pinned vc_redist.x64.exe (7-Zip, see
+ *          docs/UPGRADING.md), as that installer can't be opened here
+ * sha256:  the zip, then every file, pinned in deps/assets.json ("llama-server", "llama-server-vulkan",
+ *          "vc-runtime" → files); checked before and after the copy. Only the pinned files are taken out of a
+ *          zip, and files that are not pinned are removed from the target folder.
+ * Licence: MIT (libomp.dll: Apache-2.0 WITH LLVM-exception); the runtime: Microsoft's redistributable terms.
+ *          Texts and terms in resources/llama/ATTRIBUTION.md
  *
  * Usage:
- *   npm run fetch:llama                                   downloads both zips from the pinned URLs (developer
- *                                                         and CI step; the app itself never does this)
- *   npm run fetch:llama -- <CPU build> <Vulkan build>     the same from local copies: each a release zip or
- *                                                         an unzipped release folder
- *   npm run check:llama                                   checks that binaries/ holds exactly the pinned files
- *                                                         (run before packaging, and by upgrade:check)
+ *   npm run fetch:llama -- --vc-runtime <folder>                 downloads both zips from the pinned URLs
+ *                                                                (developer and CI step; the app never does)
+ *   npm run fetch:llama -- --vc-runtime <folder> <CPU> <Vulkan>  the same from local copies: each a release
+ *                                                                zip or an unzipped release folder
+ *   npm run check:llama                                          checks that binaries/ holds exactly the
+ *                                                                pinned files (before packaging, upgrade:check)
  * src-tauri/binaries/ is gitignored: binaries are never committed.
  */
 import { createHash } from 'node:crypto';
@@ -34,6 +38,16 @@ export const BUILDS = [
 ] as const;
 
 export const BINARIES = resolve(dirname(fileURLToPath(import.meta.url)), '../src-tauri/binaries');
+
+/** The Visual C++ runtime's entry in deps/assets.json; its DLLs go in the server's folder. */
+const RUNTIME = { folder: 'llama', assetId: 'vc-runtime' };
+
+/** Every file pinned for a folder under binaries/: its build's, plus the runtime's in the server's folder. */
+export function folderPinned(folder: string): Record<string, string> {
+  const build = BUILDS.find((b) => b.folder === folder);
+  if (!build) throw new Error(`No llama.cpp folder "${folder}".`);
+  return { ...pinnedFiles(build.assetId), ...(folder === RUNTIME.folder ? pinnedFiles(RUNTIME.assetId) : {}) };
+}
 
 /** File name -> contents. */
 type BuildFiles = Record<string, Buffer>;
@@ -110,7 +124,7 @@ export function installedBuildProblems(binaries: string, builds: { folder: strin
 
 /** installedBuildProblems for the real binaries folder and deps/assets.json. */
 export const pinnedBuildProblems = (): string[] =>
-  installedBuildProblems(BINARIES, BUILDS.map((b) => ({ folder: b.folder, pinned: pinnedFiles(b.assetId) })));
+  installedBuildProblems(BINARIES, BUILDS.map((b) => ({ folder: b.folder, pinned: folderPinned(b.folder) })));
 
 /** installLlamaServer from an unzipped release folder. */
 export function copyLlamaServer(source: string, target: string, pinned: Record<string, string>): void {
@@ -145,21 +159,26 @@ async function buildFiles(assetId: string, source: string | undefined): Promise<
   return filesInZip(source ? readFileSync(source) : await download(zip.url), zip.sha256, pinned);
 }
 
+const USAGE = 'Usage: npm run fetch:llama -- --vc-runtime <folder with the runtime DLLs> [<CPU build zip or folder> <Vulkan build zip or folder>]';
+
 async function main(): Promise<void> {
-  const sources = process.argv.slice(2);
-  if (sources[0] === '--check') {
+  const args = process.argv.slice(2);
+  if (args[0] === '--check') {
     const problems = pinnedBuildProblems();
     if (problems.length > 0) throw new Error(`src-tauri/binaries does not hold exactly the pinned llama.cpp files:\n${problems.join('\n')}`);
     console.log('src-tauri/binaries holds exactly the pinned llama.cpp files.');
     return;
   }
-  if (sources.length !== 0 && sources.length !== BUILDS.length) {
-    throw new Error('Usage: npm run fetch:llama [-- <CPU build zip or folder> <Vulkan build zip or folder>]');
-  }
+  if (args[0] !== '--vc-runtime' || !args[1]) throw new Error(USAGE);
+  const runtime = args[1];
+  const sources = args.slice(2);
+  if (sources.length !== 0 && sources.length !== BUILDS.length) throw new Error(USAGE);
   for (const [i, build] of BUILDS.entries()) {
     const from = sources[i] ?? releaseZip(build.assetId).url;
-    const pinned = pinnedFiles(build.assetId);
-    installLlamaServer(await buildFiles(build.assetId, sources[i]), from, join(BINARIES, build.folder), pinned);
+    const files = await buildFiles(build.assetId, sources[i]);
+    if (build.folder === RUNTIME.folder) Object.assign(files, filesInFolder(runtime, pinnedFiles(RUNTIME.assetId)));
+    const pinned = folderPinned(build.folder);
+    installLlamaServer(files, build.folder === RUNTIME.folder ? `${from} and ${runtime}` : from, join(BINARIES, build.folder), pinned);
     console.log(`${build.folder}: ${Object.keys(pinned).length} files verified and copied to ${join(BINARIES, build.folder)}`);
   }
 }

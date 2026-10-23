@@ -38,7 +38,15 @@ describe('third-party notices (About)', () => {
 
   it('the llama.cpp notice carries the release’s own licence texts; its LLVM OpenMP text is the pinned file', () => {
     const llama = THIRD_PARTY_NOTICES[6].text;
-    for (const line of ['Copyright (c) 2023-2026 The ggml authors', 'Copyright (c) 2013-2025 Niels Lohmann', 'Copyright (c) 2017 yhirose', 'Licenses for support code']) {
+    for (const line of [
+      'Copyright (c) 2023-2026 The ggml authors',
+      'Copyright (c) 2013-2025 Niels Lohmann',
+      'Copyright (c) 2017 yhirose',
+      'Licenses for support code',
+      // The bundled Visual C++ runtime (fix round 2): its version and Microsoft's terms.
+      'Microsoft Visual C++ v14 Redistributable (x64) - 14.51.36247',
+      'https://aka.ms/VCRedistLicense',
+    ]) {
       expect(llama).toContain(line);
     }
     const llvm = llama.slice(llama.indexOf('```\n', llama.indexOf('## LLVM OpenMP')) + 4, llama.lastIndexOf('```'));

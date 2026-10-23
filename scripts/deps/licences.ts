@@ -8,12 +8,18 @@
  * - MPL-2.0 is allowed for crates only. axe-core (MPL-2.0) is a dev-only npm package, and the npm check
  *   reads production packages only, as `license-checker --production` would.
  * - CC BY-SA is allowed for data only (the frequency list and the Dakshina table).
+ * - The Microsoft Visual C++ Redistributable is allowed for bundled binaries only: llama-server needs its three
+ *   runtime DLLs beside it, so a user without admin rights doesn't have to install the runtime (owner decision,
+ *   Task 14 fix round 2). They are Distributable Code under Microsoft's terms, not open source.
  */
 import fs from 'node:fs';
 import path from 'node:path';
 
-/** What the licensed thing is: an npm package, a Rust crate or a data file. */
-export type LicenceUse = 'npm' | 'crate' | 'data';
+/** What the licensed thing is: an npm package, a Rust crate, a data file, or a bundled binary (deps/assets.json). */
+export type LicenceUse = 'npm' | 'crate' | 'data' | 'binary';
+
+/** The id deps/assets.json gives the Visual C++ runtime's licence (no SPDX id exists for it). */
+export const VC_REDIST_LICENCE = 'LicenseRef-Microsoft-VC-Redistributable';
 
 export type LicenceVerdict = { ok: true } | { ok: false; reason: string };
 
@@ -47,6 +53,7 @@ const ALLOWED_FOR: Record<LicenceUse, Set<string>> = {
   npm: new Set(),
   crate: new Set(['MPL-2.0']),
   data: new Set(['CC-BY-SA-3.0', 'CC-BY-SA-4.0']),
+  binary: new Set([VC_REDIST_LICENCE]),
 };
 
 /** Every licence id allowed for `use` (src-tauri/deny.toml repeats the crate list). */
