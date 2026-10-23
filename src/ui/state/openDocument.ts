@@ -1,6 +1,8 @@
 import type { Paragraph } from '@/engine/types';
 import type { FormatAdapter } from '@/formats/types';
 import { msg, type Message } from '../i18n/message';
+import { countWords } from '@/engine/words';
+import { UnreadableFileError } from '@/formats/fileProblems';
 import { joinParagraphs, paragraphStarts } from './documentText';
 
 export interface OpenDocument {
@@ -40,15 +42,35 @@ const BARE_LF = /(?:^|[^\r])\n/;
 const startsWithBom = (bytes: Uint8Array) => UTF8_BOM.every((b, i) => bytes[i] === b);
 const lineSeparatorOf = (text: string): '\n' | '\r\n' => (text.includes('\r\n') && !BARE_LF.test(text) ? '\r\n' : '\n');
 
-/** Reads a file's bytes into the document view and what the check needs. Throws when the adapter can't read it. */
+/**
+ * The most words one check takes. The rules pass runs on the window's thread at about 75 ms per 1,000 words,
+ * so this keeps the longest check near 4 seconds; a 5 MB text file is refused at once instead of freezing the app.
+ */
+export const MAX_CHECK_WORDS = 50_000;
+
+/** A file with no text, or too long to check, can't be opened (a paste or the sample may be empty). */
+function refuseUncheckable(paras: Paragraph[], isFile: boolean): void {
+  const words = paras.reduce((n, p) => n + countWords(p.text), 0);
+  if (isFile && !paras.some((p) => /\S/.test(p.text))) throw new UnreadableFileError('empty', 'the file has no text');
+  if (words > MAX_CHECK_WORDS) {
+    throw new UnreadableFileError('tooLong', `too long to check (${words} words)`, { words, limit: MAX_CHECK_WORDS });
+  }
+}
+
+/**
+ * Reads a file's bytes into the document view and what the check needs. Throws when the adapter can't read it,
+ * or (UnreadableFileError) when there is nothing to check in a file (`isFile`) or too much.
+ */
 export async function readDocument(
   id: number,
   name: string,
   path: string | null,
   adapter: FormatAdapter,
   bytes: Uint8Array,
+  isFile: boolean,
 ): Promise<{ loaded: LoadedFile; document: OpenDocument }> {
   const read = await adapter.read(bytes);
+  refuseUncheckable(read.paras, isFile);
   const isDocx = name.toLowerCase().endsWith('.docx');
   const text = isDocx ? null : new TextDecoder().decode(bytes); // the decoder drops a byte-order mark
   const view = text === null ? joinParagraphs(read.paras) : { text, starts: paragraphStarts(text, read.paras) };

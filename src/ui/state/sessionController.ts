@@ -12,7 +12,7 @@ import type { FormatAdapter } from '@/formats/types';
 import { afterAction } from './announce';
 import type { MessageKey } from '../i18n/catalogues';
 import { msg, type Message } from '../i18n/message';
-import { explain, plainError } from './errors';
+import { explain, openError, plainError } from './errors';
 import { checkOptions, currentDepth } from './checkOptions';
 import { DecisionTally } from './decisionTally';
 import { matchUnchangedParagraphs } from './documentText';
@@ -259,7 +259,7 @@ export class SessionController {
       this.set({ error: msg('error.unsupported', { name: file.name }) });
       return;
     }
-    await this.load(file.name, file.path, adapter, file.bytes);
+    await this.load(file.name, file.path, adapter, file.bytes, true);
   }
 
   /** Starts an untitled plain-text document (paste or type). */
@@ -272,15 +272,17 @@ export class SessionController {
     await this.load(SAMPLE_NAME, null, this.adapterFor(SAMPLE_NAME)!, new TextEncoder().encode(SAMPLE_TEXT));
   }
 
-  private async load(name: string, path: string | null, adapter: FormatAdapter, bytes: Uint8Array): Promise<void> {
-    this.queue.cancel();
+  /** `isFile`: an opened file (one with no text is refused), not a paste or the sample. */
+  private async load(name: string, path: string | null, adapter: FormatAdapter, bytes: Uint8Array, isFile = false): Promise<void> {
     let read: { loaded: LoadedFile; document: OpenDocument };
     try {
-      read = await readDocument(this.documents + 1, name, path, adapter, bytes);
+      read = await readDocument(this.documents + 1, name, path, adapter, bytes, isFile);
     } catch (e) {
-      this.set({ error: explain(msg('error.open', { name }), e, msg('error.openNext')) });
+      // The open document (if any) stays as it was, typing included; nothing is written.
+      this.set({ error: openError(name, e) });
       return;
     }
+    this.queue.cancel();
     const { loaded, document } = read;
     await this.reviews.leave();
     this.documents = document.id;

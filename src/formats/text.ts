@@ -1,6 +1,7 @@
 import type { Paragraph } from '../engine/types';
 import type { Edit } from '../engine/session';
 import type { FormatAdapter } from './types';
+import { textProblem, UnreadableFileError } from './fileProblems';
 
 interface TextHandle {
   /** Decoded file text without the BOM. */
@@ -65,11 +66,13 @@ function make(exts: string[], language: 'plaintext' | 'markdown'): FormatAdapter
     exts,
     language,
     async read(bytes) {
+      const problem = textProblem(bytes);
+      if (problem) throw problem;
       let text: string;
       try {
         text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes);
       } catch {
-        throw new Error('not UTF-8 text');
+        throw new UnreadableFileError('notUtf8', 'not UTF-8 text (it may be saved as Windows-1252 or another code page)');
       }
       const bom = text.charCodeAt(0) === 0xfeff;
       if (bom) text = text.slice(1);

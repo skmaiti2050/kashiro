@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest';
 import JSZip from 'jszip';
+import fs from 'node:fs';
+import path from 'node:path';
 import { createLinter, type RulesLinter } from '@/engine/linter';
 import { adapterFor } from '@/formats/registry';
 import type { FormatAdapter } from '@/formats/types';
@@ -147,10 +149,56 @@ describe('SessionController: open and check', () => {
   it('an unreadable file is reported, not thrown', async () => {
     const { controller } = makeController();
     await controller.openFile({ name: 'bad.docx', path: '/docs/bad.docx', bytes: encode('not a zip') });
-    expect(english(controller.getState().error)).toMatch(/not a Word document/);
+    expect(english(controller.getState().error)).toMatch(/^Can’t open bad\.docx: it isn’t a Word document/);
     // What to do next, too (plain language).
-    expect(english(controller.getState().error)).toMatch(/\. Check that the file opens in Word or a text editor, then try again\.$/);
+    expect(english(controller.getState().error)).toMatch(/Open it in the program that made it and save it as \.docx, \.txt or \.md\.$/);
     expect(controller.getState().phase).toBe('empty');
+  });
+});
+
+describe('SessionController: broken or unexpected files (Task U3 item 10)', () => {
+  const FIXTURES = path.resolve(__dirname, '../fixtures/files');
+  const fixture = (name: string) => new Uint8Array(fs.readFileSync(path.join(FIXTURES, name)));
+  const utf16le = (s: string) => new Uint8Array([0xff, 0xfe, ...[...s].flatMap((ch) => [ch.charCodeAt(0), 0])]);
+
+  const CASES: [string, () => Promise<Uint8Array> | Uint8Array, RegExp][] = [
+    ['cut.docx', async () => (await buildDocx('<w:p><w:r><w:t>Hi.</w:t></w:r></w:p>')).slice(0, 120), /^Can’t open cut\.docx: the file is damaged or incomplete\./],
+    ['locked.docx', () => fixture('encrypted.docx'), /^Can’t open locked\.docx: it is protected with a password\./],
+    ['old.docx', () => fixture('old-word-renamed.docx'), /^Can’t open old\.docx: it is an older Word file \(\.doc\)/],
+    ['empty.txt', () => new Uint8Array(), /^empty\.txt is empty: there’s no text to check\./],
+    ['blank.docx', () => buildDocx('<w:p/><w:p><w:r><w:t xml:space="preserve">   </w:t></w:r></w:p>'), /^blank\.docx is empty: there’s no text to check\./],
+    ['picture.txt', () => new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0x0d]), /^Can’t open picture\.txt: it isn’t a text file/],
+    ['unicode.txt', () => utf16le('Hello there.'), /^Can’t open unicode\.txt: the text is saved as UTF-16/],
+    ['ansi.txt', () => new Uint8Array([...encode('The caf'), 0xe9, ...encode(' was open.')]), /^Can’t open ansi\.txt: the text isn’t saved as UTF-8\./],
+    ['huge.txt', () => encode('word '.repeat(1_000_000)), /^huge\.txt is too long to check in one go \(1,000,000 words; the limit is 50,000 words\)\./],
+  ];
+
+  it.each(CASES)('%s: a plain message, nothing opened, nothing written', async (name, bytes, message) => {
+    const { files, saves } = fakeFiles();
+    const { controller } = makeController({ files });
+    await controller.openFile({ name, path: `/docs/${name}`, bytes: await bytes() });
+    const state = controller.getState();
+    expect(english(state.error)).toMatch(message);
+    expect(state.phase).toBe('empty');
+    expect(state.document).toBeNull();
+    expect(saves).toEqual([]);
+  });
+
+  it('a broken file leaves the open document as it was', async () => {
+    const { controller } = makeController();
+    await controller.openFile({ name: 'note.txt', path: '/docs/note.txt', bytes: encode(CANT) });
+    await controller.openFile({ name: 'locked.docx', path: '/docs/locked.docx', bytes: fixture('encrypted.docx') });
+    expect(controller.getState().document!.name).toBe('note.txt');
+    expect(controller.getState().phase).toBe('ready');
+  });
+
+  it('a 5 MB text file is refused quickly', async () => {
+    const { controller } = makeController();
+    const bytes = encode('Plain words here. '.repeat(300_000)); // ~5.4 MB
+    const t0 = performance.now();
+    await controller.openFile({ name: 'big.txt', path: '/docs/big.txt', bytes });
+    expect(performance.now() - t0).toBeLessThan(2000);
+    expect(english(controller.getState().error)).toMatch(/^big\.txt is too long to check in one go/);
   });
 });
 

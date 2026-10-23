@@ -6,6 +6,7 @@ import JSZip from 'jszip';
 import type { FormatAdapter } from '../types';
 import { extractDocx, type DocxPara } from './extract';
 import { writeDocumentXml } from './write';
+import { compoundFileProblem, startsWith, UnreadableFileError, ZIP_MAGIC } from '../fileProblems';
 
 const DOCUMENT = 'word/document.xml';
 
@@ -17,15 +18,29 @@ interface DocxHandle {
 }
 
 async function load(bytes: Uint8Array): Promise<{ zip: JSZip; doc: JSZip.JSZipObject }> {
+  if (bytes.length === 0) throw new UnreadableFileError('empty', 'the file is empty');
+  const compound = compoundFileProblem(bytes);
+  if (compound) throw compound;
   let zip: JSZip;
   try {
     zip = await JSZip.loadAsync(bytes);
   } catch {
-    throw new Error('not a Word document (not a zip package)');
+    if (startsWith(bytes, ZIP_MAGIC)) throw new UnreadableFileError('damaged', 'the Word document is damaged or incomplete');
+    throw new UnreadableFileError('notWord', 'not a Word document (not a zip package)');
   }
   const doc = zip.file(DOCUMENT);
-  if (!doc) throw new Error(`not a Word document (${DOCUMENT} missing)`);
+  if (!doc) throw new UnreadableFileError('notWord', `not a Word document (${DOCUMENT} missing)`);
   return { zip, doc };
+}
+
+/** The paragraphs of word/document.xml; a part that can't be unpacked or parsed is a damaged file. */
+async function readParagraphs(doc: JSZip.JSZipObject): Promise<{ xml: string; paras: DocxPara[] }> {
+  try {
+    const xml = await doc.async('string');
+    return { xml, paras: extractDocx(xml, 0) };
+  } catch (e) {
+    throw new UnreadableFileError('damaged', `the Word document is damaged: ${(e as Error).message}`);
+  }
 }
 
 export function createDocxAdapter(opts: { now?: () => Date } = {}): FormatAdapter {
@@ -35,8 +50,7 @@ export function createDocxAdapter(opts: { now?: () => Date } = {}): FormatAdapte
     language: 'plaintext',
     async read(bytes) {
       const { doc } = await load(bytes);
-      const xml = await doc.async('string');
-      const paras = extractDocx(xml, 0);
+      const { xml, paras } = await readParagraphs(doc);
       const handle: DocxHandle = { bytes, xml, paras };
       return { paras: paras.map((d) => d.para), handle };
     },

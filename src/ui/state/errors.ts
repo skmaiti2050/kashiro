@@ -1,4 +1,25 @@
+import { UnreadableFileError, type FileProblem } from '@/formats/fileProblems';
+import type { MessageKey } from '../i18n/catalogues';
 import { msg, type Message } from '../i18n/message';
+
+/** What to tell the user for each kind of file that can't be opened (Task U3 item 10). */
+const FILE_PROBLEM_MESSAGES: Record<FileProblem, MessageKey> = {
+  damaged: 'error.file.damaged',
+  notWord: 'error.file.notWord',
+  encrypted: 'error.file.encrypted',
+  oldWord: 'error.file.oldWord',
+  notUtf8: 'error.file.notUtf8',
+  utf16: 'error.file.utf16',
+  binary: 'error.file.binary',
+  empty: 'error.file.empty',
+  tooLong: 'error.file.tooLong',
+};
+
+/** Why `name` could not be opened: a specific message for a known file problem, else the system's reason. */
+export function openError(name: string, cause: unknown): Message {
+  if (cause instanceof UnreadableFileError) return msg(FILE_PROBLEM_MESSAGES[cause.problem], { name, ...cause.values });
+  return explain(msg('error.open', { name }), cause, msg('error.openNext'));
+}
 
 /** A sentence end the cause may already have ("This is not a Word document."). */
 const ENDS_SENTENCE = /[.!?]$/;
