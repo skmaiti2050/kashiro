@@ -31,6 +31,15 @@ describe('detectVariant', () => {
     }
   });
 
+  // Task U3 fix 1: the status bar says "(default)", not "(detected)", when nothing in the text chose the variant.
+  it('says when the fallback was used rather than detected', async () => {
+    expect((await detectVariant([para('The cat sat on the mat.')], 'Indian')).fromFallback).toBe(true);
+    expect((await detectVariant([para('The color of the organized behavior')], 'British')).fromFallback).toBe(false);
+    // "colour" rules out American, so Indian (tied with British and others) still counts as detected.
+    expect((await detectVariant([para('The colour of the organised behaviour')], 'Indian')).fromFallback).toBe(false);
+    expect((await detectVariant([para('The cat sat on the mat.')], 'Indian', { variant: 'British' })).fromFallback).toBe(false);
+  });
+
   it('never treats a typo as a variant word', async () => {
     const r = await detectVariant([para('The colour of teh thing, and the color too')], 'American');
     expect(r.variantWords.has('teh')).toBe(false);

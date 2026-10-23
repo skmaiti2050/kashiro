@@ -59,6 +59,8 @@ export class CheckSession {
     paras: Paragraph[],
     readonly variant: Variant,
     readonly mixedVariant: boolean,
+    /** True when the text's spelling did not choose the variant: it is the fallback ("default", not "detected"). */
+    readonly variantFromFallback: boolean,
     private readonly ctx: TierContext,
     now: () => Date,
     private readonly linter: RulesLinter,
@@ -96,9 +98,10 @@ export class CheckSession {
   static async start(paras: Paragraph[], opts: CheckOptions, deps: SessionDeps = {}): Promise<CheckSession> {
     const termMinRepeats = opts.termMinRepeats ?? DEFAULT_TERM_MIN_REPEATS;
     checkTermMinRepeats(termMinRepeats);
-    const { linter, variant, mixedVariant, ctx, found } = await prepareCheck(paras, opts, deps);
+    const { linter, variant, mixedVariant, variantFromFallback, ctx, found } = await prepareCheck(paras, opts, deps);
     const now = deps.now ?? (() => new Date());
-    const session = new CheckSession(paras, variant, mixedVariant, ctx, now, linter, opts.depth ?? DEFAULT_DEPTH, termMinRepeats);
+    const depth = opts.depth ?? DEFAULT_DEPTH;
+    const session = new CheckSession(paras, variant, mixedVariant, variantFromFallback, ctx, now, linter, depth, termMinRepeats);
     session.addCandidates(found);
     session.autoApply();
     return session;

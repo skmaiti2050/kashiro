@@ -103,3 +103,21 @@ describe('done state', () => {
     expect(within(reviewPanel()).queryByRole('slider')).toBeNull();
   });
 });
+
+// Task U3 fix 1: "detected" only when the text chose the variant; the fallback is the default.
+describe('the English variant in the status bar and the toolbar', () => {
+  const statusBar = () => document.querySelector('.statusbar')!.textContent;
+  /** The variant menu's first choice: the variant the check chose itself. */
+  const automatic = () => [...toolbar().querySelectorAll('option')].find((o) => / \((default|detected)\)$/.test(o.textContent ?? ''))?.textContent;
+
+  it('says "(default)" when nothing in the text chose it, and "(detected)" when the spelling did', async () => {
+    const { controller } = makeController({ fallbackVariant: 'Indian' });
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText('The cat sat on the mat.'));
+    expect(statusBar()).toContain('Indian English (default)');
+    expect(automatic()).toBe('Indian (default)');
+    await openAndWait(controller, () => controller.openText('The colour of the organised behaviour was odd.'));
+    expect(statusBar()).toContain('English (detected)');
+    expect(automatic()).toMatch(/ \(detected\)$/);
+  });
+});

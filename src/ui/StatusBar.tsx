@@ -1,8 +1,15 @@
 import { useMemo } from 'react';
 import { countWords } from '@/engine/words';
+import type { MessageKey } from './i18n/catalogues';
 import { useT } from './i18n/useT';
 import type { ControllerState } from './state/sessionController';
 import { VARIANT_KEYS } from './Toolbar';
+
+/** "Indian English", "… (default)" when the text's spelling did not choose it, or "… (detected)". */
+function variantKey(picked: boolean, fromFallback: boolean): MessageKey {
+  if (picked) return 'status.variant';
+  return fromFallback ? 'status.variantDefault' : 'status.variantDetected';
+}
 
 /**
  * The bottom status bar: the permanent offline promise, then word count, English variant and whether
@@ -22,9 +29,7 @@ export function StatusBar({ state }: { state: ControllerState }) {
       {document && (
         <>
           <span>{t.t('status.words', { count: words })}</span>
-          {session && (
-            <span>{t.t(variantOverride ? 'status.variant' : 'status.variantDetected', { variant: t.t(VARIANT_KEYS[session.variant]) })}</span>
-          )}
+          {session && <span>{t.t(variantKey(variantOverride !== null, session.variantFromFallback), { variant: t.t(VARIANT_KEYS[session.variant]) })}</span>}
           {/* Not a live region: it would speak after every typing pause (the panel heading announces progress). */}
           <span className={busy ? 'checking' : undefined}>{busy ? t.t('status.checking') : t.t('status.upToDate')}</span>
         </>

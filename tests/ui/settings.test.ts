@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { DEFAULT_MODULES } from '@/engine/modules';
 import { DEFAULT_READING } from '@/ui/state/readingSettings';
-import { defaultSettings, modulesFor, variantForLocale, withSavedSettings, type Settings } from '@/ui/state/settings';
+import { defaultSettings, markDeliberateFallback, modulesFor, variantForLocale, withSavedSettings, type Settings } from '@/ui/state/settings';
 
 describe('variantForLocale', () => {
   it.each([
@@ -64,6 +64,16 @@ describe('defaultSettings', () => {
 describe('the fallback variant follows Windows until the user picks one (Task U3 item 6)', () => {
   it('a fallback saved only because other settings were saved gives way to the Windows region', () => {
     expect(withSavedSettings(defaultSettings('en-IN'), { fallbackVariant: 'American' }).fallbackVariant).toBe('Indian');
+  });
+
+  // Task U3 fix 1: before U3 the app saved the display language's variant unasked, so a different one was picked.
+  it('a settings file from before U3 keeps a fallback that differs from the display language’s', () => {
+    const load = (saved: Partial<Settings>) => withSavedSettings(defaultSettings('en-IN'), markDeliberateFallback(saved, 'en-US')).fallbackVariant;
+    expect(load({ fallbackVariant: 'British' })).toBe('British');
+    expect(load({ fallbackVariant: 'American' })).toBe('Indian'); // en-US's own: saved unasked
+    // Saved after U3 and not picked: the Windows region still wins.
+    expect(load({ fallbackVariant: 'British', fallbackVariantChosen: false })).toBe('Indian');
+    expect(markDeliberateFallback(undefined, 'en-US')).toBeUndefined();
   });
 
   it('a fallback the user picked in Settings is kept', () => {

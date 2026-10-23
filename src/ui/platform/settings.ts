@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { load, type Store } from '@tauri-apps/plugin-store';
-import { defaultSettings, withSavedSettings, type Settings } from '../state/settings';
+import { defaultSettings, markDeliberateFallback, withSavedSettings, type Settings } from '../state/settings';
 
 const STORE_FILE = 'settings.json';
 const KEY = 'settings';
@@ -25,7 +25,7 @@ async function osLocale(): Promise<string> {
 /** The saved settings over the defaults (the fallback variant comes from the Windows region). */
 export async function loadSettings(): Promise<Settings> {
   const [saved, locale] = await Promise.all([(async () => (await getStore()).get<Partial<Settings>>(KEY))(), osLocale()]);
-  return withSavedSettings(defaultSettings(locale), saved);
+  return withSavedSettings(defaultSettings(locale), markDeliberateFallback(saved, navigator.language));
 }
 
 export async function saveSettings(settings: Settings): Promise<void> {

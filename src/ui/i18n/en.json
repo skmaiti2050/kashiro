@@ -20,6 +20,7 @@
   "toolbar.mixedSpelling": "Mixed spelling",
   "toolbar.mixedTitle": "Some words follow another English variant; they are offered for review.",
   "toolbar.detected": "{variant} (detected)",
+  "toolbar.default": "{variant} (default)",
   "toolbar.googleDocs": "Google Docs",
   "toolbar.shortcuts": "Keyboard shortcuts",
   "toolbar.settings": "Settings",
@@ -269,6 +270,7 @@
   "status.words": "{count, plural, one {# word} other {# words}}",
   "status.variant": "{variant} English",
   "status.variantDetected": "{variant} English (detected)",
+  "status.variantDefault": "{variant} English (default)",
   "status.checking": "Checking…",
   "status.upToDate": "Up to date",
 

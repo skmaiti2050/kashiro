@@ -9,6 +9,8 @@ interface VariantResult {
   mixed: boolean;
   /** Lowercased words flagged as Spelling under the chosen variant but accepted by another. */
   variantWords: Set<string>;
+  /** True when the spelling told no variant apart (all tied) and the fallback was taken: "default", not "detected". */
+  fromFallback: boolean;
 }
 
 /**
@@ -40,5 +42,6 @@ export async function detectVariant(
   for (const w of flagged.get(variant)!) {
     if (ORDER.some((v) => v !== variant && !flagged.get(v)!.has(w))) variantWords.add(w);
   }
-  return { variant, mixed: variantWords.size > 0, variantWords };
+  const fromFallback = !opts.variant && tied.length === ORDER.length;
+  return { variant, mixed: variantWords.size > 0, variantWords, fromFallback };
 }

@@ -29,12 +29,12 @@ export async function prepareCheck(
   paras: Paragraph[],
   opts: CheckOptions,
   deps: SessionDeps,
-): Promise<{ linter: RulesLinter; variant: Variant; mixedVariant: boolean; ctx: TierContext; found: Candidate[] }> {
+): Promise<{ linter: RulesLinter; variant: Variant; mixedVariant: boolean; variantFromFallback: boolean; ctx: TierContext; found: Candidate[] }> {
   const linter = deps.linter ?? (await createLinter(opts.variant ?? opts.fallbackVariant, opts.dictionary));
   if (deps.linter && opts.dictionary.length) await syncDictionary(linter, opts.dictionary);
 
   // With an explicit variant, detection still runs to compute its variantWords (never auto-converted).
-  const { variant, mixed, variantWords } = await detectVariant(paras, opts.fallbackVariant, {
+  const { variant, mixed, variantWords, fromFallback } = await detectVariant(paras, opts.fallbackVariant, {
     linter,
     variant: opts.variant,
   });
@@ -75,5 +75,5 @@ export async function prepareCheck(
     romanisedSentences,
     listParagraphs: new Set(paras.filter((p) => p.listItem).map((p) => p.id)),
   };
-  return { linter, variant, mixedVariant: mixed, ctx, found };
+  return { linter, variant, mixedVariant: mixed, variantFromFallback: fromFallback, ctx, found };
 }

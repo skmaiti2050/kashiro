@@ -108,6 +108,16 @@ function resolveRetention(days: unknown): number {
 }
 
 /**
+ * A settings file from before Task U3 has no fallbackVariantChosen, and the app then saved the variant of the
+ * display language (`displayLanguage`, navigator.language) unasked. A saved fallback that differs from that one
+ * was picked on purpose, so it counts as chosen.
+ */
+export function markDeliberateFallback(saved: Partial<Settings> | undefined, displayLanguage: string): Partial<Settings> | undefined {
+  if (!saved?.fallbackVariant || saved.fallbackVariantChosen !== undefined) return saved;
+  return saved.fallbackVariant === variantForLocale(displayLanguage) ? saved : { ...saved, fallbackVariantChosen: true };
+}
+
+/**
  * The saved settings over `defaults`. Module switches go through resolveModules, so a file saved before a
  * module existed gets its default, and an unknown key (a hand-edited "factLock": false) is dropped.
  * Reading settings go through resolveReading, which clamps sizes and spacing to their ranges.

@@ -21,6 +21,7 @@
   "toolbar.mixedSpelling": "মিশ্র বানান",
   "toolbar.mixedTitle": "কিছু শব্দ ইংরেজির অন্য ধরনের বানানে লেখা; সেগুলো দেখে নেওয়ার জন্য দেখানো হয়েছে।",
   "toolbar.detected": "{variant} (নিজে থেকে শনাক্ত)",
+  "toolbar.default": "{variant} (ডিফল্ট)",
   "toolbar.googleDocs": "Google Docs",
   "toolbar.shortcuts": "কিবোর্ড শর্টকাট",
   "toolbar.settings": "সেটিংস",
@@ -270,6 +271,7 @@
   "status.words": "{count, plural, other {#টি শব্দ}}",
   "status.variant": "{variant} ইংরেজি",
   "status.variantDetected": "{variant} ইংরেজি (নিজে থেকে শনাক্ত)",
+  "status.variantDefault": "{variant} ইংরেজি (ডিফল্ট)",
   "status.checking": "পরীক্ষা চলছে…",
   "status.upToDate": "পরীক্ষা সম্পূর্ণ",
 

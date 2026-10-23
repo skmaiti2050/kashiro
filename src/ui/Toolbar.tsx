@@ -114,7 +114,9 @@ export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onHelp
             value={variantOverride ?? ''}
             onChange={(e) => controller.setVariant(e.target.value === '' ? null : (e.target.value as Variant))}
           >
-            <option value="">{t.t('toolbar.detected', { variant: t.t(VARIANT_KEYS[session.variant]) })}</option>
+            <option value="">
+              {t.t(session.variantFromFallback ? 'toolbar.default' : 'toolbar.detected', { variant: t.t(VARIANT_KEYS[session.variant]) })}
+            </option>
             {VARIANTS.map((v) => (
               <option key={v} value={v}>
                 {t.t(VARIANT_KEYS[v])}
