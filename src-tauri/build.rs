@@ -10,6 +10,9 @@ fn main() {
             "session_list",
             "session_delete",
             "session_prune",
+            "sha256_file",
+            "llm_start",
+            "llm_stop",
         ]),
     ))
     .expect("failed to run the Tauri build script");

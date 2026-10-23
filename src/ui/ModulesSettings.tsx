@@ -2,6 +2,8 @@ import type { ReactNode } from 'react';
 import type { ModuleSwitches } from '@/engine/modules';
 import type { MessageKey } from './i18n/catalogues';
 import { useT } from './i18n/useT';
+import { ModelFile } from './ModelFile';
+import type { HelperBackend } from './state/optionalModules';
 import type { Settings } from './state/settings';
 import type { SessionController } from './state/sessionController';
 import { PRESET_KEYS } from './Toolbar';
@@ -37,10 +39,17 @@ const strong = (chunks: ReactNode[]) => <strong>{chunks}</strong>;
 interface Props {
   controller: SessionController;
   settings: Settings;
+  /** The chosen model file is being hashed. */
+  checkingModel: boolean;
+  /** The build running the writing helper, or null. */
+  helperBackend: HelperBackend | null;
 }
 
-/** Settings › Modules: a switch per optional helper, for every goal or, when chosen, for the current goal only. */
-export function ModulesSettings({ controller, settings }: Props) {
+/**
+ * Settings › Modules: a switch per optional helper, for every goal or, when chosen, for the current goal only,
+ * and the writing helper's model file.
+ */
+export function ModulesSettings({ controller, settings, checkingModel, helperBackend }: Props) {
   const t = useT();
   const own = settings.modulesByPreset[settings.preset];
   const shown = own ?? settings.modules;
@@ -72,6 +81,7 @@ export function ModulesSettings({ controller, settings }: Props) {
           </label>
         );
       })}
+      <ModelFile controller={controller} settings={settings} checking={checkingModel} backend={helperBackend} />
       <p className="hint">{t.t('modules.alwaysOn')}</p>
     </fieldset>
   );

@@ -19,8 +19,10 @@ export interface Settings {
   dictionary: string[];
   /** "Auto-apply these too": kinds moved to the safe tier. */
   tierOverrides: Partial<Record<string, Tier>>;
-  /** The local model for the "reads naturally" pass; unused until that pass ships. */
+  /** The writing helper's model file (.gguf), chosen in Settings › Modules; AI rewrites stay off without one. */
   modelPath: string | null;
+  /** That file's SHA-256 when it was chosen: names a known model (src/engine/llm/models.ts). */
+  modelSha256: string | null;
   /** Review depth per preset (spec §5); a preset without one uses the engine's default. */
   depthByPreset: Partial<Record<PresetId, ReviewDepth>>;
   /** Uses after which an unknown lowercase word goes on the terms card (2–5). */
@@ -67,6 +69,7 @@ export function defaultSettings(locale: string): Settings {
     dictionary: [],
     tierOverrides: {},
     modelPath: null,
+    modelSha256: null,
     depthByPreset: {},
     termMinRepeats: DEFAULT_TERM_MIN_REPEATS,
     ignoredRules: [],
@@ -114,7 +117,7 @@ export function withSavedSettings(defaults: Settings, saved: Partial<Settings> |
 
 /**
  * The module switches for `preset` (default: the current goal): its own when it has them, else the shared
- * ones. AI rewrites stay off until a model is downloaded, whatever the switch says.
+ * ones. AI rewrites stay off until a model file is chosen, whatever the switch says.
  */
 export function modulesFor(settings: Settings, preset: PresetId = settings.preset): ModuleSwitches {
   const modules = settings.modulesByPreset[preset] ?? settings.modules;

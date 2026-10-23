@@ -786,7 +786,7 @@ describe('SessionController: modules (U2)', () => {
   it('word lookup loads the dictionary only while it is on; AI rewrites start no helper while off', async () => {
     const dictionary = { lookup: vi.fn() };
     const loadDictionary = vi.fn(async () => dictionary);
-    const startHelper = vi.fn(async () => ({ rewriter: { rewrite: async () => null }, stop: vi.fn() }));
+    const startHelper = vi.fn(async () => ({ rewriter: { rewrite: async () => null }, stop: vi.fn(), backend: 'cpu' as const }));
     const { controller } = makeController({ loadDictionary, startHelper });
     expect(await controller.dictionary()).toBe(dictionary);
     expect(controller.helper()).toBeNull(); // off by default
@@ -800,7 +800,7 @@ describe('SessionController: modules (U2)', () => {
 
   it('a running helper is stopped when the goal switched to has AI rewrites off', async () => {
     const stop = vi.fn();
-    const startHelper = vi.fn(async () => ({ rewriter: { rewrite: async () => null }, stop }));
+    const startHelper = vi.fn(async () => ({ rewriter: { rewrite: async () => null }, stop, backend: 'cpu' as const }));
     const { controller } = makeController({
       startHelper,
       settings: {
@@ -815,5 +815,103 @@ describe('SessionController: modules (U2)', () => {
     await controller.settled();
     expect(stop).toHaveBeenCalledTimes(1);
     expect(controller.helper()).toBeNull();
+  });
+
+  it('a re-check that fails still stops the helper when AI rewrites were switched off', async () => {
+    const stop = vi.fn();
+    const startHelper = vi.fn(async () => ({ rewriter: { rewrite: async () => null }, stop, backend: 'cpu' as const }));
+    let failing = false;
+    const flaky: RulesLinter = {
+      get variant() {
+        return shared.variant;
+      },
+      lintParagraphs: (paras, language) => (failing ? Promise.reject(new Error('linter crashed')) : shared.lintParagraphs(paras, language)),
+      lintSpelling: (paras, variant) => shared.lintSpelling(paras, variant),
+      addWords: (words) => shared.addWords(words),
+      setVariant: (variant) => shared.setVariant(variant),
+    };
+    const { controller } = makeController({
+      startHelper,
+      createLinter: async () => flaky,
+      settings: { modelPath: 'C:/models/helper.gguf', modules: { ...DEFAULT_MODULES, aiRewrites: true } },
+    });
+    await controller.openText(CANT);
+    await controller.helper();
+    failing = true;
+    controller.setModule('aiRewrites', false);
+    await controller.settled();
+    expect(controller.getState().error).not.toBeNull();
+    expect(stop).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('SessionController: the writing helper model', () => {
+  const QWEN = 'ff5c3e9740a5aa53f04fdf3b0b8cc75da556bf8948cdb19d61c512d3a43465d9';
+
+  function modelFiles(path: string | null, sha256 = QWEN) {
+    return { choose: vi.fn(async () => path), hash: vi.fn(async () => sha256) };
+  }
+
+  it('choosing a model file hashes it and stores its path and hash; AI rewrites stay off until switched on', async () => {
+    const models = modelFiles('C:/models/Qwen3.5-4B-IQ4_NL.gguf');
+    const { controller, saved } = makeController({ models });
+    await controller.chooseModel();
+    expect(models.hash).toHaveBeenCalledWith('C:/models/Qwen3.5-4B-IQ4_NL.gguf');
+    expect(saved.at(-1)).toMatchObject({ modelPath: 'C:/models/Qwen3.5-4B-IQ4_NL.gguf', modelSha256: QWEN });
+    expect(controller.getState().checkingModel).toBe(false);
+    expect(controller.helper()).toBeNull();
+  });
+
+  it('a cancelled choice changes nothing; a file that cannot be read is reported and not stored', async () => {
+    const { controller, saved } = makeController({ models: modelFiles(null) });
+    await controller.chooseModel();
+    expect(saved).toEqual([]);
+    const failing = { choose: async () => 'C:/models/x.gguf', hash: async () => Promise.reject(new Error('locked')) };
+    const second = makeController({ models: failing });
+    await second.controller.chooseModel();
+    expect(second.saved).toEqual([]);
+    expect(second.controller.getState().error).not.toBeNull();
+    expect(second.controller.getState().checkingModel).toBe(false);
+  });
+
+  it('choosing another model stops the running helper; the next one starts with the new file', async () => {
+    const events: string[] = [];
+    const startHelper = vi.fn(async (model: string) => {
+      events.push(`start ${model}`);
+      return { rewriter: { rewrite: async () => null }, stop: () => void events.push(`stop ${model}`), backend: 'cpu' as const };
+    });
+    const { controller } = makeController({
+      startHelper,
+      models: modelFiles('C:/models/b.gguf', '0'.repeat(64)),
+      settings: { modelPath: 'C:/models/a.gguf', modules: { ...DEFAULT_MODULES, aiRewrites: true } },
+    });
+    await controller.helper();
+    await controller.chooseModel();
+    await controller.settled();
+    await controller.helper();
+    expect(events).toEqual(['start C:/models/a.gguf', 'stop C:/models/a.gguf', 'start C:/models/b.gguf']);
+  });
+
+  it('shows which build runs the helper once it has started, and nothing after AI rewrites go off', async () => {
+    const startHelper = vi.fn(async () => ({ rewriter: { rewrite: async () => null }, stop: vi.fn(), backend: 'vulkan' as const }));
+    const { controller } = makeController({ startHelper, settings: { modelPath: 'C:/models/a.gguf', modules: { ...DEFAULT_MODULES, aiRewrites: true } } });
+    expect(controller.getState().helperBackend).toBeNull();
+    await controller.helper();
+    expect(controller.getState().helperBackend).toBe('vulkan');
+    controller.setModule('aiRewrites', false);
+    await controller.settled();
+    await Promise.resolve();
+    expect(controller.getState().helperBackend).toBeNull();
+  });
+
+  it('the warm-up benchmark times one sentence on the started helper; null while AI rewrites are off', async () => {
+    const rewrite = vi.fn(async () => null);
+    const startHelper = vi.fn(async () => ({ rewriter: { rewrite }, stop: vi.fn(), backend: 'cpu' as const }));
+    const off = makeController({ startHelper });
+    expect(await off.controller.benchmarkHelper(new AbortController().signal)).toBeNull();
+    const { controller } = makeController({ startHelper, settings: { modelPath: 'C:/models/a.gguf', modules: { ...DEFAULT_MODULES, aiRewrites: true } } });
+    const result = await controller.benchmarkHelper(new AbortController().signal);
+    expect(result).toEqual({ seconds: expect.any(Number), slow: false });
+    expect(rewrite).toHaveBeenCalledTimes(1);
   });
 });

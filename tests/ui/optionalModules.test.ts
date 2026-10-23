@@ -2,23 +2,32 @@ import { describe, it, expect, vi } from 'vitest';
 import { DEFAULT_MODULES } from '@/engine/modules';
 import type { Dictionary } from '@/engine/dictionary/lookup';
 import type { Rewriter } from '@/engine/llm/suggest';
-import { OptionalModules } from '@/ui/state/optionalModules';
+import { OptionalModules, type WritingHelper } from '@/ui/state/optionalModules';
 
 const fakeDictionary: Dictionary = {
   lookup: (word) => ({ word, lemma: word, senses: [], inPersonalDictionary: false, inIndianEnglishList: false }),
 };
 const fakeRewriter: Rewriter = { rewrite: async () => null };
+const MODEL = 'C:/models/helper.gguf';
 
 function loaders() {
   const stop = vi.fn();
   return {
     stop,
     loadDictionary: vi.fn(async () => fakeDictionary),
-    startHelper: vi.fn(async () => ({ rewriter: fakeRewriter, stop })),
+    startHelper: vi.fn(async (_model: string): Promise<WritingHelper> => ({ rewriter: fakeRewriter, stop, backend: 'cpu' })),
   };
 }
 
+/** A promise with its resolve function, to hold a start or stop open. */
+function deferred<T = void>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((r) => (resolve = r));
+  return { promise, resolve };
+}
+
 const AI_ON = { ...DEFAULT_MODULES, aiRewrites: true };
+const AI_OFF = DEFAULT_MODULES;
 
 describe('OptionalModules', () => {
   it('word lookup off: the dictionary is never loaded', () => {
@@ -36,57 +45,113 @@ describe('OptionalModules', () => {
     expect(l.loadDictionary).toHaveBeenCalledTimes(1);
   });
 
-  it('AI rewrites off (the default): no helper is started', () => {
+  it('AI rewrites off (the default), or no model chosen: no helper is started', () => {
     const l = loaders();
     const modules = new OptionalModules(l);
-    expect(modules.helper(DEFAULT_MODULES)).toBeNull();
+    expect(modules.helper(AI_OFF, MODEL)).toBeNull();
+    expect(modules.helper(AI_ON, null)).toBeNull();
     expect(l.startHelper).not.toHaveBeenCalled();
   });
 
-  it('AI rewrites on: the helper starts on first use, once', async () => {
+  it('AI rewrites on: the helper starts with the chosen model on first use, once', async () => {
     const l = loaders();
     const modules = new OptionalModules(l);
-    expect(await modules.helper(AI_ON)).toBe(fakeRewriter);
-    await modules.helper(AI_ON);
+    const started = await modules.helper(AI_ON, MODEL);
+    expect(started!.rewriter).toBe(fakeRewriter);
+    expect(started!.backend).toBe('cpu');
+    await modules.helper(AI_ON, MODEL);
     expect(l.startHelper).toHaveBeenCalledTimes(1);
+    expect(l.startHelper).toHaveBeenCalledWith(MODEL);
   });
 
   it('switching modules off drops the dictionary and stops the helper; on again loads and starts them again', async () => {
     const l = loaders();
     const modules = new OptionalModules(l);
     await modules.dictionary(AI_ON);
-    await modules.helper(AI_ON);
+    await modules.helper(AI_ON, MODEL);
     await modules.release(AI_ON);
     expect(l.stop).not.toHaveBeenCalled();
     await modules.release({ ...AI_ON, wordLookup: false, aiRewrites: false });
     expect(l.stop).toHaveBeenCalledTimes(1);
     expect(modules.dictionary({ ...AI_ON, wordLookup: false })).toBeNull();
     await modules.dictionary(AI_ON);
-    await modules.helper(AI_ON);
+    await modules.helper(AI_ON, MODEL);
     expect(l.loadDictionary).toHaveBeenCalledTimes(2);
     expect(l.startHelper).toHaveBeenCalledTimes(2);
-    await modules.release(DEFAULT_MODULES);
+    await modules.release(AI_OFF);
     expect(l.stop).toHaveBeenCalledTimes(2);
+  });
+
+  it('on again while the first helper is still starting: the second starts only after the first has stopped (U2)', async () => {
+    const events: string[] = [];
+    const firstStart = deferred<WritingHelper>();
+    const firstStop = deferred();
+    const startHelper = vi
+      .fn<(model: string) => Promise<WritingHelper>>()
+      .mockImplementationOnce(() => {
+        events.push('start 1');
+        return firstStart.promise;
+      })
+      .mockImplementationOnce(async () => {
+        events.push('start 2');
+        return { rewriter: fakeRewriter, stop: () => {}, backend: 'cpu' };
+      });
+    const modules = new OptionalModules({ startHelper });
+
+    const first = modules.helper(AI_ON, MODEL)!;
+    const released = modules.release(AI_OFF); // off while the first is still starting
+    const second = modules.helper(AI_ON, MODEL)!; // on again before that stop is done
+    firstStart.resolve({
+      rewriter: fakeRewriter,
+      backend: 'vulkan',
+      stop: () => {
+        events.push('stop 1');
+        return firstStop.promise.then(() => void events.push('stopped 1'));
+      },
+    });
+    await first;
+    await Promise.resolve();
+    expect(events).toEqual(['start 1', 'stop 1']);
+    firstStop.resolve();
+    await released;
+    expect((await second).rewriter).toBe(fakeRewriter);
+    expect(events).toEqual(['start 1', 'stop 1', 'stopped 1', 'start 2']);
+  });
+
+  it('after a release, the next helper starts with the model file it is given', async () => {
+    const events: string[] = [];
+    const startHelper = vi.fn(async (model: string) => {
+      events.push(`start ${model}`);
+      return { rewriter: fakeRewriter, stop: async () => void events.push(`stop ${model}`), backend: 'cpu' as const };
+    });
+    const modules = new OptionalModules({ startHelper });
+    await modules.helper(AI_ON, 'a.gguf');
+    await modules.release(AI_OFF);
+    await modules.helper(AI_ON, 'b.gguf');
+    expect(events).toEqual(['start a.gguf', 'stop a.gguf', 'start b.gguf']);
   });
 
   it('a helper that failed to start has nothing to stop', async () => {
     const startHelper = vi.fn().mockRejectedValue(new Error('no model'));
     const modules = new OptionalModules({ startHelper });
-    await expect(modules.helper(AI_ON)).rejects.toThrow('no model');
-    await expect(modules.release(DEFAULT_MODULES)).resolves.toBeUndefined();
+    await expect(modules.helper(AI_ON, MODEL)).rejects.toThrow('no model');
+    await expect(modules.release(AI_OFF)).resolves.toBeUndefined();
   });
 
-  it('a helper that fails to stop reports it', async () => {
+  it('a helper that fails to stop reports it, and the next start still goes ahead', async () => {
     const stop = vi.fn().mockRejectedValue(new Error('still running'));
-    const modules = new OptionalModules({ startHelper: async () => ({ rewriter: fakeRewriter, stop }) });
-    await modules.helper(AI_ON);
-    await expect(modules.release(DEFAULT_MODULES)).rejects.toThrow('still running');
+    const startHelper = vi.fn(async () => ({ rewriter: fakeRewriter, stop, backend: 'cpu' as const }));
+    const modules = new OptionalModules({ startHelper });
+    await modules.helper(AI_ON, MODEL);
+    await expect(modules.release(AI_OFF)).rejects.toThrow('still running');
+    expect((await modules.helper(AI_ON, MODEL))!.rewriter).toBe(fakeRewriter);
+    expect(startHelper).toHaveBeenCalledTimes(2);
   });
 
   it('no loader given (not wired yet on this platform): null, never an error', () => {
     const modules = new OptionalModules({});
     expect(modules.dictionary(DEFAULT_MODULES)).toBeNull();
-    expect(modules.helper(AI_ON)).toBeNull();
+    expect(modules.helper(AI_ON, MODEL)).toBeNull();
   });
 
   it('a failed load is not kept: the next use tries again', async () => {

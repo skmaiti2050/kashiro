@@ -19,6 +19,7 @@ import { translatorFor } from './i18n/translatorFor';
 import { TranslatorProvider, useT } from './i18n/useT';
 import { loadAppDictionary } from './platform/dictionary';
 import { files, onFileDrop, setDialogLabels } from './platform/files';
+import { modelFiles, startAppHelper } from './platform/helper';
 import { createAppLinter } from './platform/linter';
 import { sessionFiles } from './platform/sessions';
 import { loadSettings, saveSettings } from './platform/settings';
@@ -52,6 +53,8 @@ export default function App() {
           createLinter: createAppLinter,
           sessions: sessionFiles,
           loadDictionary: loadAppDictionary,
+          startHelper: startAppHelper,
+          models: modelFiles,
         });
         setController(c);
         // Deletes saved reviews past their retention, then lists the rest (failures show as an error banner).

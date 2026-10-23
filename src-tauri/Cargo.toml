@@ -25,6 +25,12 @@ tauri-plugin-fs = "2"
 tauri-plugin-store = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# Hashes model files (Task 12); already in Cargo.lock through Tauri.
+sha2 = "=0.10.9"
+
+# Hashing a 2.5 GB model in a debug build would take about a minute unoptimised.
+[profile.dev.package.sha2]
+opt-level = 3
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

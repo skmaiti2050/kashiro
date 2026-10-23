@@ -7,8 +7,10 @@ Nothing changes until we choose to upgrade, and every upgrade produces a report 
 - **npm:** exact versions in `package.json` (`.npmrc` has `save-exact=true`), `package-lock.json` committed.
 - **Rust:** `src-tauri/Cargo.lock` committed.
 - **Data files and models:** `deps/assets.json`, one entry each with version, source URL, licence, the source
-  sha256 its build script verifies, and the sha256 of the committed file. The local model and `llama-server` are
-  `planned` until Task 12 and have no hashes yet.
+  sha256 its build script verifies, and the sha256 of the committed file. The default model and the two
+  `llama-server` builds (CPU and Vulkan, b11727) are pinned but not committed: the user picks the model file, and
+  `npm run fetch:llama -- <CPU build folder> <Vulkan build folder>` copies the builds into the gitignored
+  `src-tauri/binaries/` after checking every file's sha256 (run it before `cargo test` or a Tauri build).
 - **Behaviour:** `deps/snapshots/` holds what the dependencies do today: every Harper flag on the 22 reference
   documents, the sample pack and short probe texts (`harper.json`), dictionary counts and 50 lookups, word-list
   counts and hashes (`data.json`), every production licence (`licences.json`) and the decisions-table hash
@@ -105,6 +107,8 @@ grants a different set, or if the frontend invokes a command that is not registe
 checks too (the session commands accept only hex or uuid keys and touch only `<app data>/sessions/`).
 
 upgrade:check never rewrites the baseline, so a widening fails even after it is committed to tauri.conf.json. A
-deliberate change (Task 12 adds the `llama-server` sidecar) is its own reviewed commit, never part of an
-upgrade: make the change, run `npm run deps:accept-permissions`, and commit the baseline's diff with it so the
-reviewer sees exactly what was widened.
+deliberate change is its own reviewed commit, never part of an upgrade: make the change, run
+`npm run deps:accept-permissions`, and commit the baseline's diff with it so the reviewer sees exactly what was
+widened. Task 12 did this for the writing helper: `connect-src http://127.0.0.1:*` (the local llama-server on a
+port chosen at each start) and the `llm_start`, `llm_stop` and `sha256_file` commands. The webview has no shell
+or process permission: Rust starts only the two bundled `llama-server` builds, with a fixed argument list.

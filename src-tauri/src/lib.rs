@@ -5,6 +5,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use tauri::ipc::{InvokeBody, Request};
 use tauri_plugin_fs::FsExt;
 
+#[cfg(windows)]
+mod job;
+mod llm;
 mod sessions;
 
 /// Opens the first free name from `names` with `create_new`, so an existing file, or a link planted
@@ -128,16 +131,25 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_store::Builder::default().build())
+        .manage(llm::LlmState::default())
         .invoke_handler(tauri::generate_handler![
             overwrite_with_backup,
             sessions::session_save,
             sessions::session_load,
             sessions::session_list,
             sessions::session_delete,
-            sessions::session_prune
+            sessions::session_prune,
+            llm::sha256_file,
+            llm::llm_start,
+            llm::llm_stop
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            if let tauri::RunEvent::Exit = event {
+                llm::stop_on_exit(app);
+            }
+        });
 }
 
 #[cfg(test)]

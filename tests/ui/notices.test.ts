@@ -66,6 +66,11 @@ describe('app version and bundled dictionary', () => {
   });
 
   it('the dictionary is a Tauri resource at dictionary/oewn.json.gz', () => {
-    expect(tauriConf().bundle.resources).toEqual({ '../resources/dictionary/oewn.json.gz': 'dictionary/oewn.json.gz' });
+    // The other resources are the two llama-server builds (tests/scripts/fetch-llama.test.ts).
+    expect(tauriConf().bundle.resources).toEqual({
+      '../resources/dictionary/oewn.json.gz': 'dictionary/oewn.json.gz',
+      'binaries/cpu/*': 'llama/cpu/',
+      'binaries/vulkan/*': 'llama/vulkan/',
+    });
   });
 });

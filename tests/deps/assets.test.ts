@@ -10,23 +10,32 @@ import { PINNED_SHA256 as ROMANISED_SHA } from '../../scripts/build-romanised';
 
 const ROOT = path.resolve(__dirname, '../..');
 const sha256File = (file: string) => createHash('sha256').update(fs.readFileSync(path.join(ROOT, file))).digest('hex');
+const LLAMA_BUILDS = ['llama-server', 'llama-server-vulkan'];
 
 describe('deps/assets.json', () => {
   const pinned = ASSETS.filter((a) => a.status === 'pinned');
 
-  it('lists the data files and the planned model and llama-server, without the dropped context model', () => {
+  it('lists the data files, the default model and both llama-server builds, without the dropped context model', () => {
     expect(ASSETS.map((a) => `${a.id}:${a.status}`)).toEqual([
       'wordnet:pinned',
       'wordfreq:pinned',
       'dakshina:pinned',
       'en-in-words:pinned',
       'tech-words:pinned',
-      'local-llm:planned',
-      'llama-server:planned',
+      'local-llm:pinned',
+      'llama-server:pinned',
+      'llama-server-vulkan:pinned',
     ]);
   });
 
-  it.each(pinned.map((a) => [a.id, a] as const))('%s: the committed file matches its outputSha256', (_id, asset) => {
+  // The model and llama-server are not committed: the user picks the model, and fetch-llama checks its own files.
+  const committed = pinned.filter((a) => a.localPath !== null);
+
+  it('commits every pinned asset except the model and the llama-server builds', () => {
+    expect(pinned.filter((a) => a.localPath === null).map((a) => a.id)).toEqual(['local-llm', ...LLAMA_BUILDS]);
+  });
+
+  it.each(committed.map((a) => [a.id, a] as const))('%s: the committed file matches its outputSha256', (_id, asset) => {
     expect(sha256File(asset.localPath!)).toBe(asset.outputSha256);
   });
 
@@ -51,8 +60,14 @@ describe('deps/assets.json', () => {
     expect(DICTIONARY_SHA).toBe(pinnedSha256('wordnet'));
   });
 
-  it('refuses a planned or unknown asset', () => {
-    expect(() => pinnedSha256('local-llm')).toThrow('local-llm is not pinned yet (status "planned") in deps/assets.json.');
+  it.each(LLAMA_BUILDS)('%s: pins b11727 file by file, its exe hash under sha256', (id) => {
+    const llama = ASSETS.find((a) => a.id === id)!;
+    expect(llama.version).toBe('b11727');
+    expect(llama.files!['llama-server.exe']).toBe(llama.sha256);
+    for (const hash of Object.values(llama.files!)) expect(hash).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('refuses an unknown asset', () => {
     expect(() => pinnedSha256('context-model')).toThrow('No asset "context-model" in deps/assets.json.');
   });
 });

@@ -16,7 +16,17 @@ const manifest = manifestCommands(read('src-tauri/build.rs'));
 
 describe('app commands (src-tauri)', () => {
   it('lists the registered commands', () => {
-    expect(handlers).toEqual(['overwrite_with_backup', 'session_delete', 'session_list', 'session_load', 'session_prune', 'session_save']);
+    expect(handlers).toEqual([
+      'llm_start',
+      'llm_stop',
+      'overwrite_with_backup',
+      'session_delete',
+      'session_list',
+      'session_load',
+      'session_prune',
+      'session_save',
+      'sha256_file',
+    ]);
   });
 
   it('the app manifest in build.rs lists exactly the commands in generate_handler!', () => {
@@ -35,9 +45,32 @@ describe('app commands (src-tauri)', () => {
     expect(scopedAppCommands).toEqual([]);
   });
 
-  it('every command the frontend invokes is registered', () => {
-    const sources = ['src/ui/platform/files.ts', 'src/ui/platform/sessions.ts'].map(read);
+  it('every command the frontend invokes, anywhere in src/, is registered, and every registered one is used', () => {
+    const sources = fs
+      .readdirSync(path.join(ROOT, 'src'), { recursive: true, encoding: 'utf8' })
+      .filter((file) => /\.tsx?$/.test(file))
+      .map((file) => read(path.join('src', file)));
+    expect(sources.length).toBeGreaterThan(100);
     expect(invokedCommands(sources)).toEqual(handlers);
+  });
+});
+
+describe('invokedCommands', () => {
+  it('reads command names in every quote style, with or without a type argument', () => {
+    const source = [
+      "invoke('session_load', { key })",
+      'invoke<string>("overwrite_with_backup", bytes)',
+      'await invoke<{ port: number }>(`llm_start`, { modelPath })',
+      'core.invoke(\n  "llm_stop"\n)',
+      'invoke<Array<string>>("session_list")',
+    ].join('\n');
+    expect(invokedCommands([source])).toEqual(['llm_start', 'llm_stop', 'overwrite_with_backup', 'session_list', 'session_load']);
+  });
+
+  it('fails on a command name that is not a literal, so no call escapes the check', () => {
+    expect(() => invokedCommands(['invoke(command, args)'])).toThrow('A Tauri command name must be a string literal: invoke(command');
+    expect(() => invokedCommands(['invoke(`llm_${verb}`)'])).toThrow('must be a string literal');
+    expect(() => invokedCommands(["invoke<void>('session_' + kind)"])).toThrow('must be a string literal');
   });
 });
 

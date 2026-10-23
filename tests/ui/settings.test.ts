@@ -28,6 +28,7 @@ describe('defaultSettings', () => {
       dictionary: [],
       tierOverrides: {},
       modelPath: null,
+      modelSha256: null,
       depthByPreset: {},
       termMinRepeats: 3,
       ignoredRules: [],

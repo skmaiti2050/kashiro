@@ -116,7 +116,7 @@ export function SettingsPanel({ controller, state, readAloud, onClose }: Props) 
         <p className="hint">{t.t('settings.autoApplyHint')}</p>
       </fieldset>
 
-      <ModulesSettings controller={controller} settings={settings} />
+      <ModulesSettings controller={controller} settings={settings} checkingModel={state.checkingModel} helperBackend={state.helperBackend} />
 
       <SavedReviewsSettings controller={controller} settings={settings} />
 

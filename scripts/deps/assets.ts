@@ -18,6 +18,8 @@ export interface Asset {
   localPath: string | null;
   outputSha256: string | null;
   buildScript: string | null;
+  /** An asset of several files that are not committed (llama-server): file name → sha256, checked by its build script. */
+  files?: Record<string, string>;
 }
 
 export const ASSETS = manifest.assets as Asset[];

@@ -32,10 +32,26 @@ export function manifestCommands(buildRs: string): string[] {
 /** The permission tauri-build generates for an app command: "session_save" -> "allow-session-save". */
 export const allowPermission = (command: string): string => `allow-${command.replace(/_/g, '-')}`;
 
-/** One frontend call: `invoke<string>('session_load', ...)` or `invoke('session_save', ...)`. */
-const INVOKE_CALL = /\binvoke(?:<[^>(]*>)?\(\s*'([^']+)'/g;
+/**
+ * One frontend call and its first argument, up to a comma or `)`: `invoke<string>('session_load', …)`,
+ * `invoke("llm_stop")`, `invoke<Array<string>>(name)`. The type argument holds no parentheses.
+ */
+const INVOKE_CALL = /\binvoke\s*(?:<[^()]*?>)?\(\s*([^,)]*)/g;
+/** A plain string literal command name in any quote style: 'llm_start', "llm_start", `llm_start` (no `${`). */
+const LITERAL_NAME = /^(['"`])([A-Za-z0-9_]+)\1$/;
 
-/** The distinct command names the frontend sources invoke, sorted. */
+/**
+ * The distinct command names the frontend sources invoke, sorted. Throws on a name that is not a literal
+ * (`invoke(command)`, `` invoke(`llm_${verb}`) ``): such a call could reach a command this check never sees.
+ */
 export function invokedCommands(sources: string[]): string[] {
-  return sorted([...new Set(sources.flatMap((source) => [...source.matchAll(INVOKE_CALL)].map((m) => m[1])))]);
+  const names = sources.flatMap((source) =>
+    [...source.matchAll(INVOKE_CALL)].map((m) => {
+      const argument = m[1].trim();
+      const literal = LITERAL_NAME.exec(argument);
+      if (!literal) throw new Error(`A Tauri command name must be a string literal: invoke(${argument}`);
+      return literal[2];
+    }),
+  );
+  return sorted([...new Set(names)]);
 }

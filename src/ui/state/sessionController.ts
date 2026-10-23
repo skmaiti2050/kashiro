@@ -24,7 +24,8 @@ import type { Files, OpenedFile } from './saveFlow';
 import * as saveActions from './saveActions';
 import { SessionPersistence, type PersistenceHost, type SavedReviewsState } from './sessionPersistence';
 import { SessionStore, type SessionFiles } from './sessionStore';
-import { OptionalModules, type ModuleLoaders } from './optionalModules';
+import { OptionalModules, type HelperBackend, type ModuleLoaders } from './optionalModules';
+import { timeOneSentence } from '@/engine/llm/benchmark';
 import { modulesFor, type Settings } from './settings';
 import * as settingsActions from './settingsActions';
 
@@ -44,8 +45,17 @@ export interface ControllerDeps {
   /** Loaders of the optional data and helper modules (see OptionalModules). */
   loadDictionary?: ModuleLoaders['loadDictionary'];
   startHelper?: ModuleLoaders['startHelper'];
+  /** The writing helper's model file (Settings › Modules); without it no model can be chosen. */
+  models?: ModelFiles;
   /** The saved-review files in the app's data folder; without them no review is saved. */
   sessions?: SessionFiles;
+}
+
+/** Choosing the writing helper's model: the open dialog, and the chosen file's SHA-256. */
+export interface ModelFiles {
+  /** The .gguf file the user picked, or null when cancelled. */
+  choose(): Promise<string | null>;
+  hash(path: string): Promise<string>;
 }
 
 export interface ControllerState extends SavedReviewsState {
@@ -66,6 +76,10 @@ export interface ControllerState extends SavedReviewsState {
   documentIgnoredRules: string[];
   /** What the screen reader says after a decision ("Accepted. 4 of 9 left."); `seq` is new each time. */
   announcement: Announcement | null;
+  /** A chosen model file is being hashed (a few seconds for gigabytes). */
+  checkingModel: boolean;
+  /** The build running the writing helper (Settings shows it), or null while none runs. */
+  helperBackend: HelperBackend | null;
   /** Bumped on every change: the session is mutable, so views re-read it when this moves. */
   revision: number;
 }
@@ -152,6 +166,8 @@ export class SessionController {
       announcement: null,
       resumeOffer: null,
       recentReviews: [],
+      checkingModel: false,
+      helperBackend: null,
       revision: 0,
     };
   }
@@ -309,6 +325,8 @@ export class SessionController {
       if (run !== this.checks) return;
       const error = explain(msg('error.check'), e, msg('error.checkNext'));
       this.set({ phase: this.state.session ? 'ready' : 'empty', error, checking: this.queue.waiting });
+      // A switch turned off before this re-check must still stop its module.
+      this.releaseModules(modulesFor(this.state.settings));
     }
   }
 
@@ -441,12 +459,52 @@ export class SessionController {
     return this.optional.dictionary(modulesFor(this.state.settings));
   }
 
-  /** The local writing helper, started on first use; null while AI rewrites are off. */
+  /** The local writing helper, started on first use; null while AI rewrites are off or no model is chosen. */
   helper(): Promise<Rewriter> | null {
-    return this.optional.helper(modulesFor(this.state.settings));
+    const { settings } = this.state;
+    const started = this.optional.helper(modulesFor(settings), settings.modelPath);
+    return (
+      started?.then((h) => {
+        if (this.state.helperBackend !== h.backend) this.set({ helperBackend: h.backend });
+        return h.rewriter;
+      }) ?? null
+    );
+  }
+
+  /**
+   * The warm-up benchmark: seconds for one sample sentence on the started helper (starting it if needed), and
+   * whether that is too slow to be useful. Null while AI rewrites are off. For Task 13's first-run advice.
+   */
+  async benchmarkHelper(signal: AbortSignal): Promise<{ seconds: number; slow: boolean } | null> {
+    const rewriter = this.helper();
+    return rewriter && timeOneSentence(await rewriter, signal);
+  }
+
+  /**
+   * Settings › Modules › "Choose model file…": hashes the picked file (to name a known model) and stores its
+   * path. A helper running the previous model is stopped; the next use starts the new one.
+   */
+  async chooseModel(): Promise<void> {
+    const models = this.deps.models;
+    if (!models) return;
+    let path: string | null;
+    let sha256: string;
+    try {
+      path = await models.choose();
+      if (path === null) return;
+      this.set({ checkingModel: true });
+      sha256 = await models.hash(path);
+    } catch (e) {
+      this.set({ checkingModel: false, error: explain(msg('error.model'), e, msg('error.modelNext')) });
+      return;
+    }
+    this.releaseModules({ ...modulesFor(this.state.settings), aiRewrites: false });
+    this.set({ checkingModel: false });
+    settingsActions.updateSettings(this.settingsHost, { modelPath: path, modelSha256: sha256 });
   }
 
   private releaseModules(modules: ModuleSwitches): void {
+    if (!modules.aiRewrites && this.state.helperBackend !== null) this.set({ helperBackend: null });
     this.optional.release(modules).catch((e) => this.set({ error: explain(msg('error.helperStop'), e, msg('error.helperStopNext')) }));
   }
 

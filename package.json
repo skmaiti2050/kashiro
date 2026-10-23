@@ -16,6 +16,8 @@
     "build:dictionary": "tsx scripts/build-dictionary.ts",
     "build:frequency": "tsx scripts/build-frequency.ts",
     "build:romanised": "tsx scripts/build-romanised.ts",
+    "fetch:llama": "tsx scripts/fetch-llama.ts",
+    "measure:llm": "tsx scripts/measure-llm.ts",
     "snapshots": "tsx scripts/build-snapshots.ts",
     "deps:status": "tsx scripts/deps-status.ts",
     "deps:accept-permissions": "tsx scripts/accept-permissions.ts",

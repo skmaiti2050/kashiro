@@ -7,7 +7,8 @@
       "connect-src": [
         "'self'",
         "ipc:",
-        "http://ipc.localhost"
+        "http://ipc.localhost",
+        "http://127.0.0.1:*"
       ],
       "img-src": [
         "'self'",
@@ -30,7 +31,8 @@
         "'self'",
         "ipc:",
         "http://ipc.localhost",
-        "ws://localhost:1420"
+        "ws://localhost:1420",
+        "http://127.0.0.1:*"
       ],
       "img-src": [
         "'self'",
@@ -64,6 +66,9 @@
       "allow-session-list",
       "allow-session-delete",
       "allow-session-prune",
+      "allow-sha256-file",
+      "allow-llm-start",
+      "allow-llm-stop",
       "platforms all",
       "local true"
     ]

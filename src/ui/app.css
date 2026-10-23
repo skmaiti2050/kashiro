@@ -368,6 +368,16 @@ legend {
   align-items: start;
 }
 
+/* Settings › Modules › AI rewrites: the model file, under the switches */
+.model-file {
+  margin-top: 8px;
+}
+
+.model-file .hint.warning {
+  padding: 2px 6px;
+  background: var(--warn-bg);
+}
+
 /* Banner */
 .banner {
   margin: 0;
