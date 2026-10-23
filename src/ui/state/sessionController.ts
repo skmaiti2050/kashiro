@@ -25,8 +25,8 @@ import * as saveActions from './saveActions';
 import { SessionPersistence, type PersistenceHost, type SavedReviewsState } from './sessionPersistence';
 import { SessionStore, type SessionFiles } from './sessionStore';
 import { OptionalModules, type HelperBackend, type ModuleLoaders } from './optionalModules';
-import { timeOneSentence } from '@/engine/llm/benchmark';
-import { isLocalPath, modulesFor, type Settings } from './settings';
+import * as helperActions from './helperActions';
+import { modulesFor, type Settings } from './settings';
 import * as settingsActions from './settingsActions';
 
 export type { Files, OpenedFile, SavedFile } from './saveFlow';
@@ -136,7 +136,7 @@ export class SessionController {
     },
   };
   private readonly saveHost: saveActions.SaveHost;
-  private readonly optional: OptionalModules;
+  private readonly helperHost: helperActions.HelperHost;
   /** Saved review sessions: autosave, the resume prompt and the Recent reviews list (see SessionPersistence). */
   readonly reviews: SessionPersistence;
 
@@ -151,7 +151,13 @@ export class SessionController {
     };
     this.reviews = new SessionPersistence(this.reviewsHost(), deps.sessions ? new SessionStore(deps.sessions) : null);
     this.adapterFor = deps.adapterFor ?? registryAdapterFor;
-    this.optional = new OptionalModules({ loadDictionary: deps.loadDictionary, startHelper: deps.startHelper });
+    this.helperHost = {
+      state: () => this.state,
+      set: (patch) => this.set(patch),
+      optional: new OptionalModules({ loadDictionary: deps.loadDictionary, startHelper: deps.startHelper }),
+      models: deps.models,
+      updateSettings: (patch) => settingsActions.updateSettings(this.settingsHost, patch),
+    };
     this.state = {
       phase: 'empty',
       document: null,
@@ -456,59 +462,26 @@ export class SessionController {
 
   /** The offline dictionary, loaded on first use; null while word lookup is off. */
   dictionary(): Promise<Dictionary> | null {
-    return this.optional.dictionary(modulesFor(this.state.settings));
+    return this.helperHost.optional.dictionary(modulesFor(this.state.settings));
   }
 
-  /** The local writing helper, started on first use; null while AI rewrites are off or no model is chosen. */
+  /** See helperActions.helper. */
   helper(): Promise<Rewriter> | null {
-    const { settings } = this.state;
-    const started = this.optional.helper(modulesFor(settings), settings.modelPath);
-    return (
-      started?.then((h) => {
-        if (this.state.helperBackend !== h.backend) this.set({ helperBackend: h.backend });
-        return h.rewriter;
-      }) ?? null
-    );
+    return helperActions.helper(this.helperHost);
   }
 
-  /**
-   * The warm-up benchmark: seconds for one sample sentence on the started helper (starting it if needed), and
-   * whether that is too slow to be useful. Null while AI rewrites are off. For Task 13's first-run advice.
-   */
-  async benchmarkHelper(signal: AbortSignal): Promise<{ seconds: number; slow: boolean } | null> {
-    const rewriter = this.helper();
-    // The user's fallback English: no document is needed for the first-run benchmark.
-    return rewriter && timeOneSentence(await rewriter, this.state.settings.fallbackVariant, signal);
+  /** See helperActions.benchmarkHelper. */
+  benchmarkHelper(signal: AbortSignal): Promise<{ seconds: number; slow: boolean } | null> {
+    return helperActions.benchmarkHelper(this.helperHost, signal);
   }
 
-  /**
-   * Settings › Modules › "Choose model file…": hashes the picked file (to name a known model) and stores its
-   * path. A helper running the previous model is stopped; the next use starts the new one.
-   */
-  async chooseModel(): Promise<void> {
-    const models = this.deps.models;
-    if (!models) return;
-    let path: string | null;
-    let sha256: string;
-    try {
-      path = await models.choose();
-      if (path === null) return;
-      // Reading a file on a network share would contact that host (llm.rs refuses such paths too).
-      if (!isLocalPath(path)) throw new Error('The model file is on a network share. Copy it to this computer first.');
-      this.set({ checkingModel: true });
-      sha256 = await models.hash(path);
-    } catch (e) {
-      this.set({ checkingModel: false, error: explain(msg('error.model'), e, msg('error.modelNext')) });
-      return;
-    }
-    this.releaseModules({ ...modulesFor(this.state.settings), aiRewrites: false });
-    this.set({ checkingModel: false });
-    settingsActions.updateSettings(this.settingsHost, { modelPath: path, modelSha256: sha256 });
+  /** See helperActions.chooseModel. */
+  chooseModel(): Promise<void> {
+    return helperActions.chooseModel(this.helperHost);
   }
 
   private releaseModules(modules: ModuleSwitches): void {
-    if (!modules.aiRewrites && this.state.helperBackend !== null) this.set({ helperBackend: null });
-    this.optional.release(modules).catch((e) => this.set({ error: explain(msg('error.helperStop'), e, msg('error.helperStopNext')) }));
+    helperActions.releaseModules(this.helperHost, modules);
   }
 
   /**
