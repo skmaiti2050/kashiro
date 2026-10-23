@@ -950,10 +950,10 @@
       {"kind":"Spelling","para":12,"start":30,"end":37,"excerpt":"becuase","message":"Did you mean to spell `becuase` this way?","suggestions":["because","became","bemuse"]},
       {"kind":"Typo","para":19,"start":7,"end":10,"excerpt":"teh","message":"Did you mean the definite article?","suggestions":["the"]},
       {"kind":"Miscellaneous","para":19,"start":277,"end":278,"excerpt":"a","message":"Incorrect indefinite article.","suggestions":["an"]},
-      {"kind":"Spelling","para":21,"start":356,"end":359,"excerpt":"SRE","message":"Did you mean to spell `SRE` this way?","suggestions":["See","She","Sire"]},
-      {"kind":"Spelling","para":21,"start":671,"end":676,"excerpt":"comms","message":"Did you mean to spell `comms` this way?","suggestions":["comas","combs","comes"]},
-      {"kind":"WordChoice","para":23,"start":43,"end":50,"excerpt":"affects","message":"`affect` is usually a verb; use `effect` here for the result or outcome.","suggestions":["effects"]},
-      {"kind":"Repetition","para":25,"start":208,"end":217,"excerpt":"that that","message":"Consider whether the second `that` adds meaning in this context.","suggestions":["that"]}
+      {"kind":"Spelling","para":31,"start":0,"end":3,"excerpt":"SRE","message":"Did you mean to spell `SRE` this way?","suggestions":["See","She","Sire"]},
+      {"kind":"Spelling","para":40,"start":12,"end":17,"excerpt":"comms","message":"Did you mean to spell `comms` this way?","suggestions":["comas","combs","comes"]},
+      {"kind":"WordChoice","para":43,"start":43,"end":50,"excerpt":"affects","message":"`affect` is usually a verb; use `effect` here for the result or outcome.","suggestions":["effects"]},
+      {"kind":"Repetition","para":45,"start":208,"end":217,"excerpt":"that that","message":"Consider whether the second `that` adds meaning in this context.","suggestions":["that"]}
     ]},
     {"id":"reference/business/q3-sales-review.docx","source":"trust/reference (written for this project)","licence":"Apache-2.0","sha256":"80452a598c1c52e8ab0efc844a3619242b998d150ccafc21afadc6f8135c4d06","variant":"British","flags":[
       {"kind":"Spelling","para":0,"start":3,"end":9,"excerpt":"FY2025","message":"Did you mean to spell `FY2025` this way?","suggestions":["FAT32","FYI","FY"]},
