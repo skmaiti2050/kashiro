@@ -5,20 +5,15 @@ import { exportReport } from '../src/engine/report';
 import { DEFAULT_MODULES } from '../src/engine/modules';
 import { PRESETS, type PresetId } from '../src/engine/presets';
 import type { Variant } from '../src/engine/types';
+import { variantForLocale } from '../src/engine/localeVariant';
 import { adapterFor } from '../src/formats/registry';
 import type { SaveMode } from '../src/formats/types';
 
 const VARIANTS: Variant[] = ['American', 'British', 'Australian', 'Canadian', 'Indian'];
-const LOCALES: Record<string, Variant> = {
-  'en-US': 'American',
-  'en-GB': 'British',
-  'en-AU': 'Australian',
-  'en-CA': 'Canadian',
-  'en-IN': 'Indian',
-};
 
+/** Node's locale is the Windows regional format ("en-IN"); the app asks Windows for the same (os_locale). */
 function localeVariant(): Variant {
-  return LOCALES[Intl.DateTimeFormat().resolvedOptions().locale] ?? 'American';
+  return variantForLocale(Intl.DateTimeFormat().resolvedOptions().locale);
 }
 
 interface Args {

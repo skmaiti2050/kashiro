@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Main window: open/save dialogs, read/write only files the user chose, and the settings store. The fs permissions carry no static scope: the dialog plugin adds each picked or saved file at runtime, and the fs plugin adds dropped paths. A dropped folder (which the app never opens) is added recursively for the rest of the session; that is the fs plugin's built-in drop rule, and turning it off would also stop dropped files from opening. window:allow-destroy closes the window after the unsaved-changes prompt. The allow-<command> entries grant the app's own commands (overwrite-with-backup save, the saved-review session commands, and the writing helper's sha256-file, llm-start, llm-stop and llm-installed (whether the helper's files are there; it reads nothing else): Rust starts the bundled llama-server with a fixed argument list, so there is no shell permission); build.rs declares them in the app manifest, so no other command is callable. The scoped fs:allow-read-file entry lets the app read one bundled file, the word-lookup dictionary ($RESOURCE/dictionary/oewn.json.gz, read-only: no write permission is scoped to it).",
+  "description": "Main window: open/save dialogs, read/write only files the user chose, and the settings store. The fs permissions carry no static scope: the dialog plugin adds each picked or saved file at runtime, and the fs plugin adds dropped paths. A dropped folder (which the app never opens) is added recursively for the rest of the session; that is the fs plugin's built-in drop rule, and turning it off would also stop dropped files from opening. window:allow-destroy closes the window after the unsaved-changes prompt. The allow-<command> entries grant the app's own commands (overwrite-with-backup save, the saved-review session commands, and the writing helper's sha256-file, llm-start, llm-stop and llm-installed (whether the helper's files are there; it reads nothing else): Rust starts the bundled llama-server with a fixed argument list, so there is no shell permission; and os-locale, the Windows regional format that picks the fallback English variant, as the CLI's Node does); build.rs declares them in the app manifest, so no other command is callable. The scoped fs:allow-read-file entry lets the app read one bundled file, the word-lookup dictionary ($RESOURCE/dictionary/oewn.json.gz, read-only: no write permission is scoped to it).",
   "windows": ["main"],
   "permissions": [
     "core:default",
@@ -21,6 +21,7 @@
     "allow-sha256-file",
     "allow-llm-start",
     "allow-llm-stop",
-    "allow-llm-installed"
+    "allow-llm-installed",
+    "allow-os-locale"
   ]
 }

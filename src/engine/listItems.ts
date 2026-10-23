@@ -25,7 +25,8 @@ export function isListLabelFlag(c: Candidate, text: string, listItem: boolean): 
   const label = LIST_LABEL.exec(text.slice(lineStart));
   if (!label) return false;
   const labelEnd = lineStart + label[0].length;
-  if (c.span.start < labelEnd) return true;
+  // Inside the label ("a." → "A.", "a" → "an"); a long-sentence flag that merely starts there stays.
+  if (c.span.start < labelEnd) return c.span.end <= labelEnd;
   return c.kind === 'Capitalization' && ONLY_SPACE.test(text.slice(labelEnd, c.span.start));
 }
 

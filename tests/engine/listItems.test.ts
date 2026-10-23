@@ -64,6 +64,22 @@ describe('list labels are never capitalised (4b)', () => {
     expect(s.candidates().filter((c) => s.tier(c.id) !== 'hidden')).toEqual([]);
   });
 
+  it('a flag that only starts at the label (a long-sentence warning) is still shown', () => {
+    const text = 'viii) a statement of the boards, councils, committees and other bodies consisting of two or more persons;';
+    const c: Candidate = {
+      id: 'long',
+      paraId: 0,
+      span: { start: 0, end: text.length },
+      original: text,
+      replacements: [],
+      kind: 'Readability',
+      message: 'This sentence is 42 words long.',
+      source: 'rules',
+    };
+    const ctx: TierContext = { locked: new Map(), variantWords: new Set(), preset: PRESETS.business, paraText: new Map([[0, text]]) };
+    expect(tierOf(c, ctx)).toBe('review');
+  });
+
   it('a real sentence start is still capitalised', async () => {
     const s = await start([{ id: 0, text: 'We left early. the bus was late.' }]);
     const the = s.candidates().find((c) => c.original === 'the')!;

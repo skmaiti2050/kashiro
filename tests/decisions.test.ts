@@ -47,7 +47,6 @@ const PER_WORDS = 1500;
  */
 const KNOWN_OVER_BUDGET = new Set<string>([
   'academic/heat-stress-construction.md',
-  'academic/midday-meal-attendance.docx',
   'academic/water-user-associations-vidarbha.md',
   'blog/sourdough-bengaluru.docx',
   'blog/village-ganeshotsav-homecoming.docx',

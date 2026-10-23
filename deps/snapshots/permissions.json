@@ -70,6 +70,7 @@
       "allow-llm-start",
       "allow-llm-stop",
       "allow-llm-installed",
+      "allow-os-locale",
       "platforms all",
       "local true"
     ]

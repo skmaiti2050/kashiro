@@ -14,6 +14,7 @@ fn main() {
             "llm_start",
             "llm_stop",
             "llm_installed",
+            "os_locale",
         ]),
     ))
     .expect("failed to run the Tauri build script");

@@ -6,6 +6,7 @@ import { overlaps } from './sessionTypes';
 import { isRomanisedIndic } from './romanised/classifier';
 import type { ModuleSwitches } from './modules';
 import { isListLabelFlag, lowersAcronym } from './listItems';
+import { isConfusableFlag } from './confusables';
 
 // Public paths stay `engine/tiers`; the implementations live next to their own helpers.
 export { buildDecisions, foldsUnderMore, type Decision } from './decisions';
@@ -79,6 +80,25 @@ function isUnwantedOxfordComma(c: Candidate, variant: Variant | undefined): bool
   );
 }
 
+/**
+ * Harper splits closed compounds ("roadmap" → "road map", WordChoice) and joins hyphenated prefixes
+ * ("non-public" → "nonpublic", "co-operative" → "cooperative", Spelling). British and Indian English write
+ * both forms, so neither is a fix there. Real boundary errors ("atleast" → "at least") are BoundaryError.
+ */
+function isUnwantedCompoundChange(c: Candidate, variant: Variant | undefined): boolean {
+  if ((variant !== 'British' && variant !== 'Indian') || c.replacements.length !== 1) return false;
+  const [r] = c.replacements;
+  // Only Harper's bare "Did you mean `road map`?": "You probably mean the adverb `every day`" is grammar.
+  const split =
+    c.kind === 'WordChoice' &&
+    c.message === `Did you mean \`${r}\`?` &&
+    !c.original.includes(' ') &&
+    r.includes(' ') &&
+    r.replaceAll(' ', '') === c.original;
+  const joined = c.kind === 'Spelling' && c.original.includes('-') && !r.includes('-') && c.original.replaceAll('-', '') === r;
+  return split || joined;
+}
+
 /** Harper's title-case advice for headings is a house-style choice (spec §2: don't nag bloggers about it). */
 const HEADING_TITLE_CASE = 'Try to use title case in headings.';
 
@@ -124,6 +144,7 @@ function baseTier(c: Candidate, ctx: TierContext): Tier {
   if (isStyleChoice(c)) return 'review';
   if (c.kind === 'Capitalization' && c.message === HEADING_TITLE_CASE) return 'hidden';
   if (isUnwantedOxfordComma(c, ctx.variant)) return 'hidden';
+  if (isUnwantedCompoundChange(c, ctx.variant)) return 'hidden';
   if (preset.hiddenKinds.includes(c.kind)) return 'hidden';
   if (preset.reviewKinds.includes(c.kind)) return 'review';
 
@@ -154,7 +175,7 @@ export function tierOf(c: Candidate, ctx: TierContext): Tier {
   if (tier !== 'safe') return tier;
   // "y0u" → "you" is likely right, but a token with a digit may be a code nobody recognised: ask first.
   if (WORD_REWRITE_KINDS.has(c.kind) && HAS_DIGIT.test(c.original)) return 'review';
-  if (c.source === 'llm') return 'review';
+  if (c.source === 'llm' || isConfusableFlag(c)) return 'review';
   // Safety rests on the linter's own list: one it offered alone, not one the engine filtered or added to.
   if (c.replacements.length !== 1 || c.linterReplacements) return 'review';
   if (WORD_REWRITE_KINDS.has(c.kind) && (UPPER_START.test(c.original) || !isSlipFix(c))) return 'review';

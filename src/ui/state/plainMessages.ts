@@ -1,4 +1,6 @@
 import type { Candidate } from '@/engine/types';
+import { CONFUSABLE_MESSAGES } from '@/engine/confusables';
+import type { MessageKey } from '../i18n/catalogues';
 import { msg, type Message } from '../i18n/message';
 
 /** What a rewrite needs: the pattern's captured words and the flagged text. */
@@ -41,6 +43,14 @@ const REWRITES: [RegExp, Rewrite][] = [
 /** The rewrite patterns, for the test that each still matches a real Harper message (tests/deps/harperMessages.test.ts). */
 export const REWRITE_PATTERNS: readonly RegExp[] = REWRITES.map(([pattern]) => pattern);
 
+/** The confusables rule's lines (engine/confusables), by their English text. */
+const CONFUSABLE_EXPLANATIONS = new Map<string, MessageKey>([
+  [CONFUSABLE_MESSAGES.caste, 'explain.caste'],
+  [CONFUSABLE_MESSAGES.lose, 'explain.lose'],
+  [CONFUSABLE_MESSAGES.onCall, 'explain.onCall'],
+  [CONFUSABLE_MESSAGES.copeWith, 'explain.copeWith'],
+]);
+
 /** The engine's own hygiene message: "Invisible character (U+200B ZERO WIDTH SPACE)". */
 const INVISIBLE_MESSAGE = /\((U\+[0-9A-F]{4,6}) ([^)]+)\)$/;
 
@@ -50,6 +60,8 @@ const INVISIBLE_MESSAGE = /\((U\+[0-9A-F]{4,6}) ([^)]+)\)$/;
  */
 export function explanation({ message, original, kind, source }: Pick<Candidate, 'message' | 'original' | 'kind' | 'source'>): Message {
   if (kind === 'Contraction' && source === 'preset') return msg('explain.contraction');
+  const confusable = source === 'preset' ? CONFUSABLE_EXPLANATIONS.get(message) : undefined;
+  if (confusable) return msg(confusable);
   if (kind === 'Rewrite' && source === 'llm') return msg('explain.rewrite');
   const invisible = kind === 'Invisible' ? INVISIBLE_MESSAGE.exec(message) : null;
   // The character's Unicode name stays English: it is a standard name, not a sentence.

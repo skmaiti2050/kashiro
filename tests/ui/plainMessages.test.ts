@@ -3,6 +3,7 @@
 // any other Harper message kept in English.
 import { describe, it, expect } from 'vitest';
 import { sentenceSpans } from '@/engine/sentences';
+import { CONFUSABLE_MESSAGES } from '@/engine/confusables';
 import type { Candidate } from '@/engine/types';
 import { englishOnly, explanation } from '@/ui/state/plainMessages';
 import { createTranslator } from '@/ui/i18n/translator';
@@ -67,6 +68,13 @@ describe('explanation', () => {
     const invisible = explanation(flag('Invisible character (U+200B ZERO WIDTH SPACE)', '​', 'Invisible', 'hygiene'));
     expect(en.format(invisible)).toBe('Invisible character (U+200B ZERO WIDTH SPACE)');
     expect(hi.format(invisible)).toBe('अदृश्य अक्षर (U+200B ZERO WIDTH SPACE)');
+  });
+
+  it.each(Object.entries(CONFUSABLE_MESSAGES))('the confusables rule’s "%s" line is translated', (_, message) => {
+    const explained = explanation(flag(message, 'cast', 'WordChoice', 'preset'));
+    expect(englishOnly(explained)).toBe(false);
+    expect(en.format(explained)).toBe(message);
+    expect(createTranslator('bn', ['bn-IN']).format(explained)).not.toBe(message);
   });
 
   it('other Harper messages are shown as they are, in English, and say so', () => {

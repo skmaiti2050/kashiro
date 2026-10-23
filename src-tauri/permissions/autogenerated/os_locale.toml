@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-os-locale"
+description = "Enables the os_locale command without any pre-configured scope."
+commands.allow = ["os_locale"]
+
+[[permission]]
+identifier = "deny-os-locale"
+description = "Denies the os_locale command without any pre-configured scope."
+commands.deny = ["os_locale"]

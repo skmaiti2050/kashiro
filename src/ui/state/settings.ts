@@ -3,6 +3,7 @@ import { DEFAULT_MODULES, isRecord, resolveModules, type ModuleSwitches } from '
 import { PRESETS, type PresetId } from '@/engine/presets';
 import { DEFAULT_TERM_MIN_REPEATS } from '@/engine/terms';
 import type { Tier, Variant } from '@/engine/types';
+import { variantForLocale } from '@/engine/localeVariant';
 import type { SaveMode } from '@/formats/types';
 import { resolveUiLanguage, type UiLanguageSetting } from '../i18n/locale';
 import { DEFAULT_READING, resolveReading, type ReadingSettings } from './readingSettings';
@@ -13,6 +14,8 @@ export interface Settings {
   preset: PresetId;
   /** Used when the document gives no clear spelling variant. */
   fallbackVariant: Variant;
+  /** True once the user picked fallbackVariant in Settings; until then it follows the Windows region on every start. */
+  fallbackVariantChosen: boolean;
   saveMode: SaveMode;
   /** Save over the opened file (after a backup) instead of writing `name.checked.ext`. */
   overwrite: boolean;
@@ -48,25 +51,15 @@ export interface Settings {
 
 export const DEFAULT_RETENTION_DAYS = 30;
 
-/** Region → variant, for English locales; India also covers hi-IN, bn-IN and other Indian locales. */
-const VARIANT_BY_REGION: Record<string, Variant> = {
-  US: 'American',
-  GB: 'British',
-  AU: 'Australian',
-  CA: 'Canadian',
-  IN: 'Indian',
-};
+// One mapping for the app and the CLI (Task U3 item 6).
+export { variantForLocale };
 
-/** The OS locale's English variant ("en-GB" → British); American when the region is unknown. */
-export function variantForLocale(locale: string): Variant {
-  const region = locale.split('-')[1]?.toUpperCase();
-  return (region && VARIANT_BY_REGION[region]) || 'American';
-}
-
+/** `locale`: the Windows regional format ("en-IN"), as the CLI gets it from Node; see platform/settings.ts. */
 export function defaultSettings(locale: string): Settings {
   return {
     preset: 'business',
     fallbackVariant: variantForLocale(locale),
+    fallbackVariantChosen: false,
     saveMode: 'tracked',
     overwrite: false,
     dictionary: [],
@@ -126,9 +119,13 @@ export function withSavedSettings(defaults: Settings, saved: Partial<Settings> |
   for (const [preset, modules] of Object.entries(isRecord(savedByPreset) ? savedByPreset : {})) {
     if (Object.hasOwn(PRESETS, preset)) modulesByPreset[preset as PresetId] = resolveModules(modules as Partial<ModuleSwitches>);
   }
+  // Before Task U3 every save stored the fallback variant, chosen or not: only a chosen one outlives the Windows region.
+  const chosen = saved.fallbackVariantChosen === true;
   return {
     ...defaults,
     ...saved,
+    fallbackVariant: chosen && saved.fallbackVariant ? saved.fallbackVariant : defaults.fallbackVariant,
+    fallbackVariantChosen: chosen,
     ...resolveModel(saved.modelPath, saved.modelSha256),
     helperSpeed: resolveHelperSpeed(saved.helperSpeed),
     modules: resolveModules(saved.modules ?? defaults.modules),

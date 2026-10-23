@@ -8,6 +8,7 @@ use tauri_plugin_fs::FsExt;
 #[cfg(windows)]
 mod job;
 mod llm;
+mod locale;
 mod sessions;
 
 /// Opens the first free name from `names` with `create_new`, so an existing file, or a link planted
@@ -142,7 +143,8 @@ pub fn run() {
             llm::sha256_file,
             llm::llm_start,
             llm::llm_stop,
-            llm::llm_installed
+            llm::llm_installed,
+            locale::os_locale
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

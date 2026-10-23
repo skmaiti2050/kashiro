@@ -85,7 +85,8 @@ export function setVariant(host: SettingsHost, variant: Variant | null): void {
  * kinds, default variant, terms repeat count).
  */
 export function changeSettings(host: SettingsHost, patch: SettingsPatch): void {
-  updateSettings(host, patch);
+  // A picked fallback variant is kept from now on; until then it follows the Windows region.
+  updateSettings(host, patch.fallbackVariant ? { ...patch, fallbackVariantChosen: true } : patch);
   if (patch.tierOverrides || patch.fallbackVariant || patch.termMinRepeats) void host.recheck();
 }
 

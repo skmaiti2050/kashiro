@@ -276,6 +276,14 @@ describe('SessionController: review', () => {
     expect(saved.at(-1)!.termMinRepeats).toBe(4);
   });
 
+  it('picking a fallback variant in Settings marks it as chosen, so it outlives a change of Windows region', () => {
+    const { controller, saved } = makeController();
+    controller.changeSettings({ termMinRepeats: 4 });
+    expect(saved.at(-1)!.fallbackVariantChosen).toBe(false);
+    controller.changeSettings({ fallbackVariant: 'British' });
+    expect(saved.at(-1)).toMatchObject({ fallbackVariant: 'British', fallbackVariantChosen: true });
+  });
+
   it('removing a dictionary word rebuilds the linter and checks again', async () => {
     const created: string[][] = [];
     const { controller, saved } = makeController({

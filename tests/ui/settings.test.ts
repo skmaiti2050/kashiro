@@ -23,6 +23,7 @@ describe('defaultSettings', () => {
     expect(defaultSettings('en-GB')).toEqual({
       preset: 'business',
       fallbackVariant: 'British',
+      fallbackVariantChosen: false,
       saveMode: 'tracked',
       overwrite: false,
       dictionary: [],
@@ -57,6 +58,25 @@ describe('defaultSettings', () => {
     const defaults = defaultSettings('en-IN');
     expect(withSavedSettings(defaults, { uiLanguage: 'hi' }).uiLanguage).toBe('hi');
     expect(withSavedSettings(defaults, { uiLanguage: 'xx' as never }).uiLanguage).toBe('system');
+  });
+});
+
+describe('the fallback variant follows Windows until the user picks one (Task U3 item 6)', () => {
+  it('a fallback saved only because other settings were saved gives way to the Windows region', () => {
+    expect(withSavedSettings(defaultSettings('en-IN'), { fallbackVariant: 'American' }).fallbackVariant).toBe('Indian');
+  });
+
+  it('a fallback the user picked in Settings is kept', () => {
+    const settings = withSavedSettings(defaultSettings('en-IN'), { fallbackVariant: 'British', fallbackVariantChosen: true });
+    expect(settings.fallbackVariant).toBe('British');
+  });
+
+  it('the app and the CLI map a locale to a variant with the same function', async () => {
+    const engine = await import('@/engine/localeVariant');
+    for (const locale of ['en-IN', 'hi-IN', 'bn-IN', 'en-GB', 'en-US', 'en']) {
+      expect(engine.variantForLocale(locale)).toBe(variantForLocale(locale));
+    }
+    expect(engine.variantForLocale).toBe(variantForLocale);
   });
 });
 
