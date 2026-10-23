@@ -5,7 +5,7 @@ import { DEFAULT_MODULES } from '@/engine/modules';
 import type { Files, OpenedFile, SessionController } from '@/ui/state/sessionController';
 import { memorySessionFiles } from '../fixtures/memorySessionFiles';
 import { makeController, noFiles, warmLinter } from './harness';
-import { openAndWait, renderShell } from './shell';
+import { chooseFromMore, openAndWait, renderShell } from './shell';
 
 /** The window's close-requested handler, as App registers it. */
 const closeWindow = vi.hoisted(() => ({ handler: null as ((event: { preventDefault(): void }) => Promise<void>) | null }));
@@ -134,7 +134,7 @@ describe('Settings', () => {
     await reviewedOn(disk);
     const { controller, saved } = makeController({}, noFiles, disk.files);
     renderShell(controller);
-    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    chooseFromMore('Settings');
     expect(screen.getByRole('switch', { name: /Saved reviews/ })).toBeTruthy();
     fireEvent.click(screen.getByRole('checkbox', { name: 'Keep pasted text for resuming' }));
     await waitFor(() => expect(saved.at(-1)!.keepPastedText).toBe(true));

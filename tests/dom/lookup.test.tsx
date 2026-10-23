@@ -7,7 +7,7 @@ import { DEFAULT_MODULES } from '@/engine/modules';
 import { buildDocx } from '../fixtures/make_docx';
 import { deferred, fakeDictionary } from './fakeDictionary';
 import { makeController, warmLinter } from './harness';
-import { openAndWait, renderShell, reviewPanel } from './shell';
+import { chooseFromMore, openAndWait, renderShell, reviewPanel } from './shell';
 
 vi.mock('@tauri-apps/api/window', async () => (await import('./platformMocks')).tauriWindow);
 vi.mock('@/ui/platform/files', async () => (await import('./platformMocks')).platformFiles);
@@ -225,14 +225,14 @@ describe('the word lookup switch', () => {
 
   it('the shortcuts sheet lists Ctrl+D only while word lookup is on', async () => {
     await openSampleWith(loaded);
-    fireEvent.click(screen.getByRole('button', { name: 'Shortcuts' }));
+    chooseFromMore('Keyboard shortcuts');
     expect(screen.getByRole('rowheader', { name: 'Ctrl+D' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
   });
 
   it('off: the shortcuts sheet has no Ctrl+D', async () => {
     await openSampleWith(loaded, false);
-    fireEvent.click(screen.getByRole('button', { name: 'Shortcuts' }));
+    chooseFromMore('Keyboard shortcuts');
     expect(screen.queryByRole('rowheader', { name: 'Ctrl+D' })).toBeNull();
   });
 });
@@ -241,9 +241,9 @@ describe('About', () => {
   it('shows the version, the privacy line and every third-party notice in English', async () => {
     const { controller } = makeController();
     renderShell(controller);
-    const about = screen.getByRole('button', { name: 'About' });
-    about.focus();
-    fireEvent.click(about);
+    const more = screen.getByRole('button', { name: 'More' });
+    more.focus();
+    chooseFromMore('About');
     // About loads its notices (about 1 MB of text) on demand; under the full suite's load that takes over 1 s.
     const dialog = await screen.findByRole('dialog', { name: 'About writing-check' }, { timeout: 10_000 });
     expect(within(dialog).getByText('Version 1.0.0')).toBeTruthy();
@@ -255,6 +255,7 @@ describe('About', () => {
     expect(notices.textContent).toContain('SIL OPEN FONT LICENSE Version 1.1');
     fireEvent.keyDown(dialog, { key: 'Escape' });
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    expect(document.activeElement).toBe(about);
+    // Focus returns to ⋯, where About was chosen.
+    expect(document.activeElement).toBe(more);
   });
 });

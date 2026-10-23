@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { english } from '../ui/english';
 import { makeController, noFiles, warmLinter } from './harness';
-import { installSpeech, LOCAL_VOICE, ONLINE_VOICE, openAndWait, renderShell, reviewPanel } from './shell';
+import { chooseFromMore, installSpeech, LOCAL_VOICE, ONLINE_VOICE, openAndWait, renderShell, reviewPanel } from './shell';
 
 vi.mock('@tauri-apps/api/window', async () => (await import('./platformMocks')).tauriWindow);
 vi.mock('@/ui/platform/files', async () => (await import('./platformMocks')).platformFiles);
@@ -83,7 +83,7 @@ describe('keyboard: shortcuts sheet and Settings', () => {
   it('module switches are switches', () => {
     const { controller } = makeController();
     renderShell(controller);
-    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    chooseFromMore('Settings');
     expect(screen.getByRole('switch', { name: /Names card/ })).toBeTruthy();
     expect(screen.getByRole('switch', { name: /your spelling of such words is never auto-changed/ })).toBeTruthy();
   });
@@ -130,7 +130,7 @@ describe('read aloud', () => {
       expect(screen.queryByRole('group', { name: 'Read aloud' })).toBeNull();
       fireEvent.keyDown(reviewPanel(), { key: 's', altKey: true });
       expect(speech.spoken).toEqual([]);
-      fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+      chooseFromMore('Settings');
       expect(screen.getByText(/No voice that works offline is installed/)).toBeTruthy();
     } finally {
       speech.remove();

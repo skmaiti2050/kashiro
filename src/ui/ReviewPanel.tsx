@@ -125,7 +125,10 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
   const paraText = new Map(session.paragraphs().map((p) => [p.id, p.text]));
   const progress = progressOf(session, state.decided);
   const aiOn = controller.ai.available();
-  const autoFixed = session.outcomes().filter((o) => o.auto && o.status === 'applied').length;
+  /** Every fix in the text now, automatic or accepted. */
+  const fixesApplied = session.outcomes().filter((o) => o.status === 'applied').length;
+  /** Nothing left to decide: the panel says so in one line. */
+  const allClear = !current && progress.left === 0;
   const pick = (d: Decision) => {
     setCursor((c) => cursorAt(top, d.id, c));
     setReveal((r) => ({ seq: r.seq + 1, focus: true }));
@@ -152,11 +155,18 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
     <aside className="review" aria-label={t.t('panel.label')} tabIndex={-1}>
       <header>
         {/* Not a live region: the app's announcer says "Accepted. 4 of 9 left." once per decision. */}
-        <h2>{progressLabel(t, progress)}</h2>
-        <div className="progress-bar" aria-hidden="true">
-          <span style={{ width: `${progress.total ? ((progress.total - progress.left) / progress.total) * 100 : 100}%` }} />
-        </div>
-        <DepthSlider value={session.depth} onChange={(d) => controller.setDepth(d)} />
+        {allClear ? (
+          // Done: one calm line, and no depth controls, since there is nothing left to show more or less of.
+          <h2>{t.t('panel.allClear', { count: fixesApplied })}</h2>
+        ) : (
+          <>
+            <h2>{progressLabel(t, progress)}</h2>
+            <div className="progress-bar" aria-hidden="true">
+              <span style={{ width: `${progress.total ? ((progress.total - progress.left) / progress.total) * 100 : 100}%` }} />
+            </div>
+            <DepthSlider value={session.depth} onChange={(d) => controller.setDepth(d)} />
+          </>
+        )}
       </header>
 
       <div ref={cardSlot} className="card-slot" role="group" tabIndex={-1} aria-label={slotLabel}>
@@ -175,9 +185,6 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
         </p>
       ) : (
         <div className="done-state">
-          <p>
-            <strong>{t.t('panel.allReviewed')}</strong> {t.t('panel.autoFixed', { count: autoFixed })}
-          </p>
           <div className="actions">
             <button onClick={onShowLog}>{t.t('panel.seeLog')}</button>
             <button className="primary" onClick={onSave}>

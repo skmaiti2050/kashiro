@@ -1,5 +1,5 @@
 import { expect } from 'vitest';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Shell } from '@/ui/App';
 import type { SessionController } from '@/ui/state/sessionController';
 
@@ -15,6 +15,12 @@ export async function openAndWait(controller: SessionController, open: () => Pro
 }
 
 export const reviewPanel = () => screen.getByRole('complementary', { name: 'Review' });
+
+/** Opens the toolbar's ⋯ menu (`moreLabel`: its name in the UI language) and chooses the item named `item`. */
+export function chooseFromMore(item: string | RegExp, moreLabel = 'More'): void {
+  fireEvent.click(screen.getByRole('button', { name: moreLabel }));
+  fireEvent.click(screen.getByRole('menuitem', { name: item }));
+}
 
 interface FakeVoice {
   voiceURI: string;

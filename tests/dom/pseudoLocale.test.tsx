@@ -12,7 +12,7 @@ import { englishOnly, explanation } from '@/ui/state/plainMessages';
 import type { SessionController } from '@/ui/state/sessionController';
 import { memorySessionFiles } from '../fixtures/memorySessionFiles';
 import { makeController, warmLinter } from './harness';
-import { installSpeech, LOCAL_VOICE, openAndWait, renderShell } from './shell';
+import { chooseFromMore, installSpeech, LOCAL_VOICE, openAndWait, renderShell } from './shell';
 
 vi.mock('@tauri-apps/api/window', async () => (await import('./platformMocks')).tauriWindow);
 vi.mock('@/ui/platform/files', async () => (await import('./platformMocks')).platformFiles);
@@ -168,7 +168,7 @@ describe('pseudo-locale (en-XA)', () => {
     const { controller } = makeController({ uiLanguage: 'en-XA' });
     renderShell(controller);
     await expectTranslatedAndFitting(controller);
-    fireEvent.click(screen.getByRole('button', { name: name('toolbar.googleDocs') }));
+    chooseFromMore(name('toolbar.googleDocs'), name('toolbar.more'));
     await expectTranslatedAndFitting(controller);
   });
 
@@ -225,10 +225,10 @@ describe('pseudo-locale (en-XA)', () => {
       const { controller } = makeController({ uiLanguage: 'en-XA', dictionary: ['sarpanch'] });
       renderShell(controller);
       await openAndWait(controller, () => controller.openSample());
-      fireEvent.click(screen.getByRole('button', { name: name('toolbar.settings') }));
+      chooseFromMore(name('toolbar.settings'), name('toolbar.more'));
       await expectTranslatedAndFitting(controller);
       fireEvent.click(screen.getByRole('button', { name: name('dialog.close') }));
-      fireEvent.click(screen.getByRole('button', { name: name('toolbar.shortcuts') }));
+      chooseFromMore(name('toolbar.shortcuts'), name('toolbar.more'));
       await expectTranslatedAndFitting(controller);
       fireEvent.click(screen.getByRole('button', { name: name('dialog.close') }));
       fireEvent.keyDown(screen.getByRole('complementary', { name: name('panel.label') }), { key: 'Backspace' });

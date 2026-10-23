@@ -28,6 +28,8 @@ export interface Dictionary {
 const POS_NAMES: Record<PosCode, Sense['pos']> = { n: 'noun', v: 'verb', a: 'adjective', r: 'adverb' };
 const MIN_STEM_LENGTH = 3; // keeps "its" from becoming "it" and "is" from becoming "i"
 const INDIAN_ENGLISH_WORDS = new Set(EN_IN_WORDS);
+/** A word of an example sentence: "won", "Chattanooga", "don't". */
+const EXAMPLE_WORD = /[\p{L}'’-]+/gu;
 
 // slice() copies into a plain ArrayBuffer, which is what Blob accepts under strict typings.
 async function gunzip(bytes: Uint8Array): Promise<string> {
@@ -53,13 +55,31 @@ export async function loadDictionary(bytes: Uint8Array): Promise<Dictionary> {
     return stemCandidates(word).find((candidate) => entryFor(candidate));
   }
 
+  /** True when a word of `example` is `headword` or an inflection of it ("ran" for run, "engagements"). */
+  function usesWord(example: string, headword: string): boolean {
+    const parts = headword.split(/[\s_]+/);
+    const tokens = example.toLowerCase().match(EXAMPLE_WORD) ?? [];
+    const formsOf = (token: string) => [token, exceptionFor(token), ...stemCandidates(token)];
+    return parts.every((part) => tokens.some((token) => formsOf(token).includes(part)));
+  }
+
+  /**
+   * WordNet gives each sense its synset's examples, which may use another word of the synset ("engagement":
+   * "Grant won a decisive victory in the battle of Chattanooga"). An example that doesn't use the word is dropped.
+   */
+  const senseOf = (row: SenseRow, headword: string, formOf?: string): Sense => {
+    const sense = toSense(row, formOf);
+    if (sense.example && !usesWord(sense.example, headword)) delete sense.example;
+    return sense;
+  };
+
   return {
     lookup(word, { personal }) {
       const lower = word.toLowerCase();
       // The word's own senses come first so "saw" and "left" still show the tool and the direction.
       const baseForm = findBaseForm(lower);
-      const ownSenses = (entryFor(lower) ?? []).map((row) => toSense(row));
-      const baseSenses = baseForm ? (entryFor(baseForm) ?? []).map((row) => toSense(row, baseForm)) : [];
+      const ownSenses = (entryFor(lower) ?? []).map((row) => senseOf(row, lower));
+      const baseSenses = baseForm ? (entryFor(baseForm) ?? []).map((row) => senseOf(row, baseForm, baseForm)) : [];
       return {
         word,
         lemma: baseForm ?? lower,

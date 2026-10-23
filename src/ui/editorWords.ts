@@ -22,9 +22,12 @@ export function selectedText(editor: EditorView): string {
   return range && range.from < range.to ? editor.state.sliceDoc(range.from, range.to) : '';
 }
 
-/** What Ctrl+D looks up: the selection, or the word at the cursor. */
+/**
+ * What Ctrl+D and the ⋯ menu's Look up word look up: the selection, or the word at the cursor. In editable text
+ * that is the editor's own cursor, kept while the toolbar has focus (as caretPosition).
+ */
 export function wordAtSelection(editor: EditorView): string | null {
-  const range = textSelection(editor);
+  const range = editor.state.readOnly ? textSelection(editor) : editor.state.selection.main;
   return range ? wordToLookUp(editor.state.doc.toString(), range.from, range.to) : null;
 }
 

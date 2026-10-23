@@ -111,6 +111,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
   const readAloud = useReadAloud(state.settings.reading, state.document?.id ?? null);
   const caretReader = useRef<() => CaretText | null>(() => null);
   const improveAtCaret = useRef<() => void>(() => {});
+  const lookUpAtCaret = useRef<() => boolean>(() => false);
   const [logOpen, setLogOpen] = useState(false);
   const [focus, setFocus] = useState<DocumentFocus | null>(null);
   const [cardRequest, setCardRequest] = useState<CardRequest | null>(null);
@@ -204,6 +205,8 @@ function ShellView({ controller, state }: { controller: SessionController; state
           onHelp={() => setPanel('help')}
           onShortcuts={() => setPanel('shortcuts')}
           onAbout={() => setPanel('about')}
+          onClose={onClose}
+          onLookUp={lookUpOn ? () => lookUpAtCaret.current() || controller.showNotice(msg('lookup.noWord')) : null}
           onImprove={aiOn && state.session ? () => improveAtCaret.current() : null}
         />
         {/*
@@ -242,6 +245,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
           onLookUp={lookUpOn && !dialogOpen ? (word) => void lookup.open([word]) : null}
           aiOn={aiOn && !dialogOpen}
           improveAtCaret={improveAtCaret}
+          lookUpAtCaret={lookUpAtCaret}
         />
         <ReviewPanel
           key={state.document?.id ?? 0}

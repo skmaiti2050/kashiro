@@ -10,10 +10,12 @@ interface Props {
   /** Saved reviews to pick up again (empty while Saved reviews is off). */
   recent: RecentReview[];
   onOpenRecent(review: RecentReview): void;
+  /** Word lookup is on: the start screen says how to use it (Ctrl+D). */
+  lookUp: boolean;
 }
 
 /** The document pane before anything is open: the two ways in, the privacy promise, a sample to try, and recent reviews. */
-export function EmptyState({ onOpen, onPaste, onSample, recent, onOpenRecent }: Props) {
+export function EmptyState({ onOpen, onPaste, onSample, recent, onOpenRecent, lookUp }: Props) {
   const t = useT();
   return (
     <section className="document empty" aria-label={t.t('empty.region')}>
@@ -29,6 +31,7 @@ export function EmptyState({ onOpen, onPaste, onSample, recent, onOpenRecent }: 
           </button>
         </div>
         <p className="privacy">{t.t('empty.privacy')}</p>
+        {lookUp && <p className="hint">{t.t('empty.lookUpHint')}</p>}
         <button className="link" onClick={onSample}>
           {t.t('empty.sample')}
         </button>

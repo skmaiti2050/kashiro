@@ -10,7 +10,7 @@ import { deferred, fakeDictionary } from './fakeDictionary';
 import { DEFAULT_READING } from '@/ui/state/readingSettings';
 import { memorySessionFiles } from '../fixtures/memorySessionFiles';
 import { makeController, warmLinter } from './harness';
-import { installSpeech, LOCAL_VOICE, openAndWait, renderShell, reviewPanel } from './shell';
+import { chooseFromMore, installSpeech, LOCAL_VOICE, openAndWait, renderShell, reviewPanel } from './shell';
 
 vi.mock('@tauri-apps/api/window', async () => (await import('./platformMocks')).tauriWindow);
 vi.mock('@/ui/platform/files', async () => (await import('./platformMocks')).platformFiles);
@@ -95,7 +95,7 @@ describe('axe-core: no serious or critical violations', () => {
     renderShell(controller);
     const bytes = await buildDocx('<w:p><w:r><w:t>The cat sat on the mat.</w:t></w:r></w:p>');
     await openAndWait(controller, () => controller.openFile({ name: 'essay.docx', path: '/docs/essay.docx', bytes }));
-    expect(screen.getByText(/Done: nothing to decide/)).toBeTruthy();
+    expect(screen.getByText('All clear: nothing to fix, nothing left to decide.')).toBeTruthy();
     await audit('read-only docx, done state');
   });
 
@@ -121,15 +121,15 @@ describe('axe-core: no serious or critical violations', () => {
       await screen.findByRole('group', { name: 'Read aloud' });
       await audit('review panel with read aloud');
 
-      fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+      chooseFromMore('Settings');
       await audit('settings dialog (read aloud available)');
       fireEvent.click(screen.getByRole('button', { name: 'Close' }));
 
-      fireEvent.click(screen.getByRole('button', { name: 'Google Docs' }));
+      chooseFromMore('Google Docs');
       await audit('Google Docs help dialog');
       fireEvent.click(screen.getByRole('button', { name: 'Close' }));
 
-      fireEvent.click(screen.getByRole('button', { name: 'Shortcuts' }));
+      chooseFromMore('Keyboard shortcuts');
       await audit('keyboard shortcuts dialog');
       fireEvent.click(screen.getByRole('button', { name: 'Close' }));
 
@@ -159,7 +159,7 @@ describe('axe-core: no serious or critical violations', () => {
     await screen.findByRole('alertdialog', { name: 'Resume your review?' });
     await audit('resume prompt');
     fireEvent.click(screen.getByRole('button', { name: 'Start fresh' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    chooseFromMore('Settings');
     fireEvent.click(screen.getByRole('button', { name: 'Delete all saved reviews' }));
     expect(screen.getByRole('alertdialog', { name: 'Delete all saved reviews?' })).toBeTruthy();
     await audit('delete all saved reviews: confirmation');
@@ -167,7 +167,7 @@ describe('axe-core: no serious or critical violations', () => {
 
   it('Settings without a local voice', async () => {
     renderShell(makeController().controller);
-    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    chooseFromMore('Settings');
     await audit('settings dialog (no local voice)');
   });
 
@@ -214,7 +214,7 @@ describe('axe-core: no serious or critical violations', () => {
 
   it('About, with every notice open', async () => {
     renderShell(makeController().controller);
-    fireEvent.click(screen.getByRole('button', { name: 'About' }));
+    chooseFromMore('About');
     const dialog = await screen.findByRole('dialog', { name: 'About writing-check' });
     act(() => dialog.querySelectorAll('details').forEach((details) => (details.open = true)));
     await audit('About');

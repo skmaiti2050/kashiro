@@ -160,10 +160,26 @@ interface Props {
   aiOn: boolean;
   /** Set to "Improve this sentence" at the cursor, for the toolbar's button. */
   improveAtCaret: MutableRefObject<() => void>;
+  /** Set to "Look up" of the selected word or the word at the cursor (the ⋯ menu); false when there is none. */
+  lookUpAtCaret: MutableRefObject<() => boolean>;
 }
 
 /** CodeMirror view of the document: read-only for .docx, editable (and re-checked as you type) for text. */
-export function DocumentView({ controller, state, focus, onUnderlineClick, onOpen, onPaste, onSample, onOpenRecent, caretReader, onLookUp, aiOn, improveAtCaret }: Props) {
+export function DocumentView({
+  controller,
+  state,
+  focus,
+  onUnderlineClick,
+  onOpen,
+  onPaste,
+  onSample,
+  onOpenRecent,
+  caretReader,
+  onLookUp,
+  aiOn,
+  improveAtCaret,
+  lookUpAtCaret,
+}: Props) {
   const t = useT();
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
@@ -264,11 +280,16 @@ export function DocumentView({ controller, state, focus, onUnderlineClick, onOpe
     // Only a new card or click moves the view; re-renders from checks don't.
   }, [focus?.seq]);
 
-  useLookUpKey(onLookUp !== null && doc !== null, () => {
+  /** Looks up the selected word or the word at the cursor; false when there is none (Ctrl+D then does nothing). */
+  const lookUpAtCursor = () => {
     const word = view.current ? wordAtSelection(view.current) : null;
     if (word) lookUp.current?.(word);
     return word !== null;
+  };
+  useEffect(() => {
+    lookUpAtCaret.current = lookUpAtCursor;
   });
+  useLookUpKey(onLookUp !== null && doc !== null, lookUpAtCursor);
 
   // Ctrl+I outside the text (the panel, the toolbar); inside it, the editor's keymap answers first.
   useImproveKey(aiOn && doc !== null, () => improveAtCaret.current());
@@ -281,7 +302,11 @@ export function DocumentView({ controller, state, focus, onUnderlineClick, onOpe
     </p>
   );
   if (!doc && busyLine) return <section className="document empty">{busyLine}</section>;
-  if (!doc) return <EmptyState onOpen={onOpen} onPaste={onPaste} onSample={onSample} recent={state.recentReviews} onOpenRecent={onOpenRecent} />;
+  if (!doc) {
+    return (
+      <EmptyState onOpen={onOpen} onPaste={onPaste} onSample={onSample} recent={state.recentReviews} onOpenRecent={onOpenRecent} lookUp={onLookUp !== null} />
+    );
+  }
   return (
     <section className="document" aria-label={doc.name}>
       {busyLine}

@@ -3,6 +3,7 @@ import { PRESETS, type PresetId } from '@/engine/presets';
 import type { Variant } from '@/engine/types';
 import type { MessageKey } from './i18n/catalogues';
 import { useT } from './i18n/useT';
+import { MoreMenu, type MoreMenuItem } from './MoreMenu';
 import { siblingPath } from './state/documentText';
 import type { ControllerState, SessionController } from './state/sessionController';
 
@@ -35,6 +36,10 @@ interface Props {
   onHelp(): void;
   onShortcuts(): void;
   onAbout(): void;
+  /** Close document (Ctrl+W), through the app's unsaved-changes guard. */
+  onClose(): void;
+  /** Look up the word at the cursor (Ctrl+D); null while word lookup is off. */
+  onLookUp: (() => void) | null;
   /** "Improve this sentence" at the cursor; null hides the button (AI rewrites off, or nothing checked yet). */
   onImprove: (() => void) | null;
 }
@@ -59,10 +64,21 @@ function moveAlongToolbar(e: KeyboardEvent<HTMLElement>, dir: 'ltr' | 'rtl'): vo
   items[(at + (forward ? 1 : -1) + items.length) % items.length].focus();
 }
 
-/** Open · Paste · preset · variant chip · Improve this sentence · Google Docs help · Shortcuts · Settings · About · Save (with its save-mode menu). */
-export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onHelp, onShortcuts, onAbout, onImprove }: Props) {
+/**
+ * Open · Paste · goal · English variant · Improve this sentence · ⋯ (Look up word, Close document, Google Docs,
+ * Keyboard shortcuts, Settings, About) · Save (with its save-mode menu).
+ */
+export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onHelp, onShortcuts, onAbout, onClose, onLookUp, onImprove }: Props) {
   const t = useT();
   const { session, settings, variantOverride, document } = state;
+  const moreItems: MoreMenuItem[] = [
+    ...(document && onLookUp ? [{ label: t.t('toolbar.lookUp'), keys: 'Ctrl+D', onChoose: onLookUp }] : []),
+    ...(document ? [{ label: t.t('toolbar.close'), keys: 'Ctrl+W', onChoose: onClose }] : []),
+    { label: t.t('toolbar.googleDocs'), onChoose: onHelp },
+    { label: t.t('toolbar.shortcuts'), keys: 'F1', onChoose: onShortcuts },
+    { label: t.t('toolbar.settings'), keys: 'Ctrl+,', onChoose: onSettings },
+    { label: t.t('toolbar.about'), onChoose: onAbout },
+  ];
   const saveMenu = useRef<HTMLDetailsElement>(null);
   const closeSaveMenu = (e: KeyboardEvent<HTMLDetailsElement>) => {
     if (e.key !== 'Escape' || !saveMenu.current?.open) return;
@@ -115,18 +131,7 @@ export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onHelp
       )}
 
       <span className="spacer" />
-      <button className="quiet" onClick={onHelp}>
-        {t.t('toolbar.googleDocs')}
-      </button>
-      <button className="quiet" aria-keyshortcuts="F1" title={t.t('toolbar.shortcutsTitle')} onClick={onShortcuts}>
-        {t.t('toolbar.shortcuts')}
-      </button>
-      <button className="quiet" aria-keyshortcuts="Control+Comma" title={t.t('toolbar.settingsTitle')} onClick={onSettings}>
-        {t.t('toolbar.settings')}
-      </button>
-      <button className="quiet" title={t.t('toolbar.aboutTitle')} onClick={onAbout}>
-        {t.t('toolbar.about')}
-      </button>
+      <MoreMenu items={moreItems} />
 
       <div className="save-group">
         <button

@@ -4,7 +4,7 @@ import axe from 'axe-core';
 import { act, fireEvent, screen, within } from '@testing-library/react';
 import { makeController, warmLinter } from './harness';
 import { createTranslator } from '@/ui/i18n/translator';
-import { installSpeech, LOCAL_VOICE, openAndWait, renderShell } from './shell';
+import { chooseFromMore, installSpeech, LOCAL_VOICE, openAndWait, renderShell } from './shell';
 
 vi.mock('@tauri-apps/api/window', async () => (await import('./platformMocks')).tauriWindow);
 vi.mock('@/ui/platform/files', async () => (await import('./platformMocks')).platformFiles);
@@ -32,7 +32,7 @@ describe('app language', () => {
       override: before.variantOverride,
       candidates: before.session!.candidates().map((c) => c.id),
     };
-    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    chooseFromMore('Settings');
     fireEvent.change(within(screen.getByRole('dialog')).getByRole('combobox', { name: 'App language' }), { target: { value: 'hi' } });
 
     // The UI language changes nothing about the check: same session, English variant and candidates.
@@ -58,7 +58,7 @@ describe('app language', () => {
     const { controller, saved } = makeController();
     const { container } = renderShell(controller);
     await openAndWait(controller, () => controller.openSample());
-    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    chooseFromMore('Settings');
     fireEvent.change(within(screen.getByRole('dialog')).getByRole('combobox', { name: 'App language' }), { target: { value: 'bn' } });
 
     expect(screen.getByRole('dialog', { name: 'সেটিংস' })).toBeTruthy();
@@ -143,7 +143,7 @@ describe('app language', () => {
         renderShell(controller);
         await openAndWait(controller, () => controller.openSample());
         await screen.findByRole('group', { name: 'Read aloud' });
-        fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+        chooseFromMore('Settings');
         expect(screen.getByRole('dialog').textContent).toContain(createTranslator('en', []).t('reading.voiceLanguageHint'));
       } finally {
         speech.remove();
@@ -159,17 +159,19 @@ describe('app language', () => {
   });
 
   it.each([
-    { language: 'hi' as const, settings: 'सेटिंग्स', close: 'बंद करें', shortcuts: 'शॉर्टकट' },
-    { language: 'bn' as const, settings: 'সেটিংস', close: 'বন্ধ করুন', shortcuts: 'শর্টকাট' },
-  ])('axe: no serious or critical violations in $language (review panel, Settings, shortcuts)', async ({ language, settings, close, shortcuts }) => {
+    { language: 'hi' as const, more: 'और', settings: 'सेटिंग्स', close: 'बंद करें', shortcuts: 'कीबोर्ड शॉर्टकट' },
+    { language: 'bn' as const, more: 'আরও', settings: 'সেটিংস', close: 'বন্ধ করুন', shortcuts: 'কিবোর্ড শর্টকাট' },
+  ])('axe: no serious or critical violations in $language (review panel, ⋯ menu, Settings, shortcuts)', async ({ language, more, settings, close, shortcuts }) => {
     const { controller } = makeController({ uiLanguage: language });
     renderShell(controller);
     await openAndWait(controller, () => controller.openSample());
     expect(await seriousViolations()).toEqual([]);
-    fireEvent.click(screen.getByRole('button', { name: settings }));
+    fireEvent.click(screen.getByRole('button', { name: more }));
+    expect(await seriousViolations()).toEqual([]);
+    fireEvent.click(screen.getByRole('menuitem', { name: settings }));
     expect(await seriousViolations()).toEqual([]);
     fireEvent.click(screen.getByRole('button', { name: close }));
-    fireEvent.click(screen.getByRole('button', { name: shortcuts }));
+    chooseFromMore(shortcuts, more);
     expect(await seriousViolations()).toEqual([]);
   });
 });

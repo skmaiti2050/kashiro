@@ -19,6 +19,20 @@ describe('dictionary lookup (real file)', () => {
     expect(partsOfSpeech('effect')).toEqual(expect.arrayContaining(['verb', 'noun']));
   });
 
+  it('shows an example only when it uses the word itself or an inflection (Task U3: synset examples for other words)', () => {
+    const engagement = dictionary.lookup('engagement', noPersonal).senses;
+    const examples = engagement.flatMap((s) => (s.example ? [s.example] : []));
+    expect(engagement.length).toBeGreaterThan(examples.length); // "Grant won … battle of Chattanooga" is dropped
+    for (const example of examples) expect(example).toMatch(/\bengagements?\b/i);
+    // Inflections count: "ran" for run, "studies" for study.
+    const run = dictionary.lookup('run', noPersonal).senses.flatMap((s) => (s.example ? [s.example] : []));
+    expect(run.length).toBeGreaterThan(0);
+    for (const example of run) expect(example).toMatch(/\b(run|runs|ran|running)\b/i);
+    // A base form's senses are judged by the base form: "saw" shows "see" examples.
+    const saw = dictionary.lookup('saw', noPersonal).senses.filter((s) => s.formOf === 'see' && s.example);
+    for (const sense of saw) expect(sense.example).toMatch(/\b(see|sees|saw|seen|seeing)\b/i);
+  });
+
   it('gives each sense a definition and string synonyms', () => {
     const sense = dictionary.lookup('effect', noPersonal).senses[0];
     expect(sense.definition.length).toBeGreaterThan(5);

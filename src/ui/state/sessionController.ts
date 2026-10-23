@@ -567,6 +567,11 @@ export class SessionController {
     this.set({ error });
   }
 
+  /** A notice from outside the controller ("Put the cursor on a word…" from the ⋯ menu's Look up word). */
+  showNotice(notice: Message): void {
+    this.set({ notice });
+  }
+
   /** The error banner's ×. */
   dismissError(): void {
     this.set({ error: null });

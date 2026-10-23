@@ -124,8 +124,8 @@ describe('plurals', () => {
 
   it('Bengali: an exact =0 branch wins over the plural category', () => {
     const t = createTranslator('bn', ['bn-IN']);
-    expect(t.t('panel.autoFixed', { count: 0 })).toBe('নিজে থেকে কোনো সংশোধন হয়নি।');
-    expect(t.t('panel.autoFixed', { count: 3 })).toBe('3টি সংশোধন নিজে থেকে হয়েছে।');
+    expect(t.t('panel.allClear', { count: 0 })).toBe('সব ঠিক আছে: ঠিক করার বা সিদ্ধান্ত নেওয়ার কিছু নেই।');
+    expect(t.t('panel.allClear', { count: 3 })).toBe('সব ঠিক আছে: 3টি সংশোধন করা হয়েছে, সিদ্ধান্ত নেওয়ার কিছু বাকি নেই।');
   });
 
   it('Bengali: no decision made reads as words, not "0টি সিদ্ধান্ত"', () => {
