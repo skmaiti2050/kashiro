@@ -11,6 +11,8 @@ export interface Paragraph {
   text: string;
   /** Adapter-supplied ranges that must not be touched (e.g. existing tracked changes). */
   locked?: Span[];
+  /** Adapter-supplied: an item of a list whose label ("a.", "1.") the format draws itself, so its first word is not a sentence start. */
+  listItem?: boolean;
 }
 
 export type Source = 'rules' | 'hygiene' | 'llm' | 'preset';

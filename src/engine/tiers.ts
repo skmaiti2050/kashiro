@@ -5,6 +5,7 @@ import { HAS_DIGIT, isCodeNoiseFlag, isSlipFix, UPPER_START, WORD_REWRITE_KINDS 
 import { overlaps } from './sessionTypes';
 import { isRomanisedIndic } from './romanised/classifier';
 import type { ModuleSwitches } from './modules';
+import { isListLabelFlag, lowersAcronym } from './listItems';
 
 // Public paths stay `engine/tiers`; the implementations live next to their own helpers.
 export { buildDecisions, foldsUnderMore, type Decision } from './decisions';
@@ -30,6 +31,8 @@ export interface TierContext {
   romanisedSentences?: Map<number, Span[]>;
   /** The optional modules this check runs with (default DEFAULT_MODULES). */
   modules?: ModuleSwitches;
+  /** Ids of list-item paragraphs (Paragraph.listItem): their first word is not a sentence start. */
+  listParagraphs?: ReadonlySet<number>;
 }
 
 const SAFE_RULE_KINDS = new Set(['Spelling', 'Typo', 'Repetition', 'Punctuation', 'Capitalization', 'Formatting']);
@@ -141,7 +144,10 @@ function baseTier(c: Candidate, ctx: TierContext): Tier {
  * kinds the user dismissed as a rule (isIgnoredRule).
  */
 export function tierOf(c: Candidate, ctx: TierContext): Tier {
-  if (isCodeNoiseFlag(c, ctx.paraText?.get(c.paraId))) return 'hidden';
+  const paraText = ctx.paraText?.get(c.paraId);
+  if (isCodeNoiseFlag(c, paraText)) return 'hidden';
+  if (lowersAcronym(c)) return 'hidden';
+  if (paraText !== undefined && isListLabelFlag(c, paraText, ctx.listParagraphs?.has(c.paraId) ?? false)) return 'hidden';
   if (isIgnoredRule(c, ctx)) return 'hidden';
   const override = ctx.userTierOverrides?.[c.kind];
   const tier = override ?? baseTier(c, ctx);

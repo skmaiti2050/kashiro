@@ -68,6 +68,7 @@ export async function prepareCheck(
     variant,
     foreignSentences,
     romanisedSentences,
+    listParagraphs: new Set(paras.filter((p) => p.listItem).map((p) => p.id)),
   };
   return { linter, variant, mixedVariant: mixed, ctx, found };
 }

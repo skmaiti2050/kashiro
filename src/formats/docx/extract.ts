@@ -92,6 +92,7 @@ interface ParaState {
   dp: DocxPara;
   text: string;
   locked: Span[];
+  listItem: boolean;
 }
 
 interface Frame {
@@ -216,11 +217,17 @@ export function extractDocx(documentXml: string, firstId: number): DocxPara[] {
       if (run && val !== '0' && val !== 'false' && val !== 'off') run.hidden = true;
       return undefined;
     }
+    if (name === 'w:numId' && parent === 'w:numPr' && grandparent === 'w:pPr' && stack[stack.length - 3]?.name === 'w:p') {
+      // Word draws this paragraph's label ("a.", "1."); numId 0 switches numbering off.
+      const para = curPara();
+      if (para && attr(xml, tok, 'w:val') !== '0') para.listItem = true;
+      return undefined;
+    }
     switch (name) {
       case 'w:p': {
         const dp: DocxPara = { para: { id: firstId + out.length, text: '' }, pieces: [] };
         out.push(dp);
-        paras.push({ dp, text: '', locked: [] });
+        paras.push({ dp, text: '', locked: [], listItem: false });
         return 'para';
       }
       case 'w:r':
@@ -265,6 +272,7 @@ export function extractDocx(documentXml: string, firstId: number): DocxPara[] {
         const p = paras.pop()!;
         p.dp.para.text = p.text;
         if (p.locked.length) p.dp.para.locked = p.locked;
+        if (p.listItem) p.dp.para.listItem = true;
         break;
       }
       case 'run': {
