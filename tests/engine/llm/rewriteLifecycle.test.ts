@@ -96,6 +96,19 @@ describe('a pending rewrite whose sentence then changes', () => {
     expect(s.outputText(0)).toBe(TEXT);
   });
 
+  it('asked again after the withdrawal: a pending suggestion with the new text, which can be accepted', async () => {
+    const s = await session();
+    s.addRewrite(0, FIRST, FIRST_REWRITE, FIRST_TEXT);
+    s.accept(turnout.id); // withdraws it
+    const now = 'Turnout rose by 3.2% in districts that served hot meals.';
+    const again = 'Turnout rose by 3.2% in districts serving hot meals.';
+    expect(s.addRewrite(0, FIRST, again, now)).toEqual({ ok: true });
+    const pending = s.outcomes().filter((o) => o.candidate.source === 'llm' && o.status === 'pending');
+    expect(pending.map((o) => o.candidate.replacements[0])).toEqual([again]);
+    s.accept(pending[0].candidate.id);
+    expect(s.outputText(0)).toBe(`${again} ${SECOND_TEXT}`);
+  });
+
   it('rejecting another flag in the sentence changes nothing', async () => {
     const s = await session();
     s.addRewrite(0, FIRST, FIRST_REWRITE, FIRST_TEXT);

@@ -87,8 +87,9 @@ export function runBudget(session: CheckSession, more: boolean): number {
   if (more) return rewriteCount(session.depth, words, true);
   const ranked = session.rankedDecisionCount();
   const budget = firstRunBudget(words, ranked, session.depth);
-  // A click on a short document (under ~150 words the room rounds down to 0) or one with nothing to review still
-  // gets one sentence; a review that is really full gets none. `everything` sends nothing automatically (spec §5).
+  // The click gets one sentence when the depth's room rounds down to 0 (a document under ~150 words, even one whose
+  // review is full) or nothing is open for review. A longer document whose review is full gets none. `everything`
+  // sends nothing (spec §5).
   const roomRoundsToNothing = upFrontRoom(session.depth, words) === 0 || ranked === 0;
   return budget === 0 && roomRoundsToNothing && rewriteCount(session.depth, words, false) > 0 ? 1 : budget;
 }

@@ -321,6 +321,26 @@ describe('never a stale rewrite', () => {
     expect(english(controller.getState().ai.notice)).toBe('The sentence changed while the AI helper worked, so its suggestion was dropped. Ask again if you like.');
   });
 
+  it('after a suggestion is withdrawn (a fix accepted in its sentence), asking again brings up a new card that can be accepted', async () => {
+    const helper = mockHelper((text) => (text === WAS ? 'We was late once again.' : 'We were very late again.'));
+    const { controller } = makeController({ startHelper: helper.startHelper });
+    await controller.openText(`${LONG}\n\n${WAS}`);
+    improve(controller, WAS);
+    await controller.ai.settled();
+    const was = session(controller).candidates().find((c) => c.source === 'rules' && c.original.includes('was') && c.replacements.length > 0)!;
+    controller.accept(was.id);
+    improve(controller, 'We');
+    await controller.ai.settled();
+    expect(helper.sent).toHaveLength(2);
+    const ready = controller.getState().ai.ready!;
+    const card = session(controller).outcomes().find((o) => o.candidate.id === ready.candidateId)!;
+    expect(card.status).toBe('pending');
+    expect(card.candidate.replacements).toEqual(['We were very late again.']);
+    controller.accept(card.candidate.id);
+    expect(controller.getState().error).toBeNull();
+    expect(session(controller).outputText(session(controller).paragraphs()[1].id)).toBe('We were very late again.');
+  });
+
   it('a sentence retyped while its request was out never receives the rewrite', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     const answer = deferred<string | null>();

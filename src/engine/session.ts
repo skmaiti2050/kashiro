@@ -78,6 +78,10 @@ export class CheckSession {
       status: (id) => this.ledger.status.get(id),
       rejectedByUser: (id) => this.userRejected.has(id),
       addCandidate: (c) => this.addCandidates([c]),
+      replaceWithdrawn: (c) => {
+        this.cands.set(c.id, c);
+        this.ledger.record(c.id, 'pending', false);
+      },
       withdraw: (id, reason) => this.ledger.record(id, 'superseded', false, reason),
       applyOne: (id) => this.applyMembers(id, [this.cands.get(id)!], 0),
       newBatch: () => `batch-${++this.batchCount}`,

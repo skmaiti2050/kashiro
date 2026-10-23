@@ -91,7 +91,10 @@ export class OptionalModules {
       (helper) => helper.stop(),
       () => {}, // it never started, so there is nothing to stop (the caller of helper() saw the error)
     );
-    const stopping = Promise.all([now, afterLoad]).then(() => {});
+    // Both must settle before the next start: a failed immediate stop must not let the late one hit a new server.
+    const stopping = Promise.allSettled([now, afterLoad]).then((results) => {
+      for (const r of results) if (r.status === 'rejected') throw r.reason;
+    });
     this.stopping = stopping;
     const settled = () => {
       if (this.stopping === stopping) this.stopping = null;

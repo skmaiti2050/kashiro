@@ -157,6 +157,37 @@ describe('OptionalModules', () => {
     expect(l.stop).toHaveBeenCalledTimes(1);
   });
 
+  it('the immediate stop fails: the next start still waits until the late helper has been stopped', async () => {
+    const events: string[] = [];
+    const load = deferred<WritingHelper>();
+    const startHelper = vi
+      .fn<(model: string) => Promise<WritingHelper>>()
+      .mockImplementationOnce(() => {
+        events.push('start 1');
+        return load.promise;
+      })
+      .mockImplementationOnce(async () => {
+        events.push('start 2');
+        return { rewriter: fakeRewriter, stop: () => {}, backend: 'cpu' };
+      });
+    const stopLoading = vi.fn(async () => {
+      events.push('stop now (fails)');
+      throw new Error('could not stop the writing helper');
+    });
+    const modules = new OptionalModules({ startHelper, stopHelper: stopLoading });
+    const first = modules.helper(AI_ON, MODEL)!;
+    await vi.waitFor(() => expect(events).toEqual(['start 1']));
+    const released = modules.release(AI_OFF);
+    const second = modules.helper(AI_ON, MODEL)!;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(events).toEqual(['start 1', 'stop now (fails)']); // start 2 waits for the late helper
+    load.resolve({ rewriter: fakeRewriter, backend: 'cpu', stop: () => void events.push('stop 1') });
+    await first;
+    await expect(released).rejects.toThrow('could not stop');
+    await second;
+    expect(events).toEqual(['start 1', 'stop now (fails)', 'stop 1', 'start 2']);
+  });
+
   it('a helper that finished starting is stopped through itself, not the shell (once)', async () => {
     const l = loaders();
     const stopLoading = vi.fn(async () => {});

@@ -27,6 +27,8 @@ export interface RewriteHost {
   rejectedByUser(id: string): boolean;
   /** Adds a pending review candidate. */
   addCandidate(c: Candidate): void;
+  /** Puts `c` in place of the withdrawn candidate with its id, pending again. */
+  replaceWithdrawn(c: Candidate): void;
   /** Takes a pending candidate out of the review, as superseded with `reason`. */
   withdraw(id: string, reason: string): void;
   /** Applies one candidate through accept's checks (card guard, tracked changes). */
@@ -48,6 +50,8 @@ export class HelperRewrites {
   private readonly sent = new Map<string, string>();
   /** LLM rewrites added by add (they passed the meaning-drift guard): id → the sentence text they rewrite. */
   private readonly guarded = new Map<string, string>();
+  /** Rewrites withdrawStale took out of the review (their sentence may be asked about again). */
+  private readonly withdrawn = new Set<string>();
 
   constructor(private readonly host: RewriteHost) {}
 
@@ -83,8 +87,7 @@ export class HelperRewrites {
     const verdict = passesGuard(now, rewrite, lockedTokens(now));
     if (!verdict.ok) return verdict;
     const id = rewriteId(paraId, span);
-    this.guarded.set(id, now);
-    this.host.addCandidate({
+    const candidate: Candidate = {
       id,
       paraId,
       span: { ...span },
@@ -93,7 +96,15 @@ export class HelperRewrites {
       kind: 'Rewrite',
       message: 'Suggested rewrite of the sentence. Check the meaning before accepting.',
       source: 'llm',
-    });
+    };
+    // Asked again after its suggestion was withdrawn: the new suggestion takes that id, pending again. Any other
+    // state means the sentence is still sent, so it is never asked again (CheckSession keeps one rewrite per sentence).
+    if (this.host.candidate(id) === undefined) this.host.addCandidate(candidate);
+    else if (this.isWithdrawn(id)) {
+      this.withdrawn.delete(id);
+      this.host.replaceWithdrawn(candidate);
+    } else throw new Error(`the sentence ${sentenceKey(paraId, span)} already has an AI suggestion`);
+    this.guarded.set(id, now);
     return verdict;
   }
 
@@ -142,6 +153,11 @@ export class HelperRewrites {
     return carried;
   }
 
+  /** Withdrawn by withdrawStale: its sentence changed while it waited for review. */
+  private isWithdrawn(id: string): boolean {
+    return this.withdrawn.has(id) && this.host.status(id) === 'superseded';
+  }
+
   /**
    * A pending AI rewrite was made for its sentence as it read then. Once an edit inside the sentence is accepted
    * or undone, applying it would silently drop that edit, so it is withdrawn (superseded, with the reason) and
@@ -153,6 +169,7 @@ export class HelperRewrites {
       const c = this.host.candidate(id)!;
       if (this.host.sentenceNow(c.paraId, c.span) === sent) continue;
       this.host.withdraw(id, REWRITE_OUT_OF_DATE);
+      this.withdrawn.add(id);
       this.sent.delete(sentenceKey(c.paraId, c.span));
     }
   }
