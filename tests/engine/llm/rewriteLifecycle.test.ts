@@ -109,6 +109,31 @@ describe('a pending rewrite whose sentence then changes', () => {
     expect(s.outputText(0)).toBe(`${again} ${SECOND_TEXT}`);
   });
 
+  it('a re-asked suggestion whose id was applied before shows its new text in the outcome and the log', async () => {
+    const s = await session();
+    s.accept(turnout.id);
+    const withFix = 'Turnout rose by 3.2% in districts that served hot meals.';
+    const oldRewrite = 'Turnout rose by 3.2% in districts serving hot meals.';
+    s.addRewrite(0, FIRST, oldRewrite, withFix);
+    const id = llmIds(s)[0];
+    s.accept(id); // apply
+    s.undo(id); // applied → rejected
+    s.undo(turnout.id); // the rule fix undone: the sentence reads FIRST_TEXT again
+    s.undo(id); // rejected → pending, and withdrawn at once (its sentence changed)
+    expect(statusOf(s, id)).toBe('superseded');
+    expect(s.addRewrite(0, FIRST, FIRST_REWRITE, FIRST_TEXT)).toEqual({ ok: true });
+    expect(s.outcomes().find((o) => o.candidate.id === id)!.replacement).toBe(FIRST_REWRITE);
+    s.reject(id);
+    // The change log row (Outcome) shows the new text; the log entry carries no old one (a rejection records none).
+    expect(s.outcomes().find((o) => o.candidate.id === id)!.replacement).toBe(FIRST_REWRITE);
+    const entry = s.log().filter((e) => e.candidateId === id).at(-1)!;
+    expect(entry.status).toBe('rejected');
+    expect(entry.replacement).not.toBe(oldRewrite);
+    s.undo(id);
+    s.accept(id);
+    expect(s.log().filter((e) => e.candidateId === id).at(-1)).toMatchObject({ status: 'applied', replacement: FIRST_REWRITE });
+  });
+
   it('rejecting another flag in the sentence changes nothing', async () => {
     const s = await session();
     s.addRewrite(0, FIRST, FIRST_REWRITE, FIRST_TEXT);

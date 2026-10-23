@@ -80,6 +80,8 @@ export class CheckSession {
       addCandidate: (c) => this.addCandidates([c]),
       replaceWithdrawn: (c) => {
         this.cands.set(c.id, c);
+        // The id's earlier life may have been applied: its old text must not show in the outcome or the log.
+        this.ledger.replacement.delete(c.id);
         this.ledger.record(c.id, 'pending', false);
       },
       withdraw: (id, reason) => this.ledger.record(id, 'superseded', false, reason),
