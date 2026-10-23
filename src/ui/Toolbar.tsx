@@ -152,6 +152,7 @@ export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onHelp
                 onChoose={() => controller.changeSettings({ saveMode: 'tracked' })}
                 title={t.t('save.tracked')}
                 detail={t.t('save.trackedDetail')}
+                tip={t.t('save.trackedWordTip')}
               />
               <SaveChoice
                 checked={settings.saveMode === 'clean'}
@@ -185,13 +186,14 @@ export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onHelp
 /** "essay.docx" → "essay.checked.docx" (saveFlow's default name for a new copy). */
 const checkedName = (name: string | undefined) => (name ? siblingPath(name, '.checked') : 'name.checked.docx');
 
-function SaveChoice({ checked, onChoose, title, detail }: { checked: boolean; onChoose(): void; title: string; detail: string }) {
+function SaveChoice({ checked, onChoose, title, detail, tip }: { checked: boolean; onChoose(): void; title: string; detail: string; tip?: string }) {
   return (
     <label className="save-choice">
       <input type="radio" checked={checked} onChange={onChoose} />
       <span>
         <strong>{title}</strong>
         <span className="hint">{detail}</span>
+        {tip && <span className="hint">{tip}</span>}
       </span>
     </label>
   );

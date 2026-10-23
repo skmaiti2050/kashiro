@@ -81,6 +81,12 @@ install. **If the helper still reports "The writing helper's Visual C++ runtime 
 the portable copy again. If that doesn't help, ask your IT team to install Microsoft's "Visual C++
 Redistributable" (x64). Everything else in writing-check works without the helper.
 
+## Tracked changes in Word
+
+A `.docx` saved with **Tracked changes** shows each correction as a tracked change your reviewer can accept or
+reject. Word records a replaced word as two changes, a deletion and an insertion, so accepting one with the cursor
+leaves the other. In Word, use Review › Accept All, or select a change and then click Accept.
+
 ## Where your data lives
 
 | What | Where |

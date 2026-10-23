@@ -45,6 +45,18 @@ describe('menus and the toolbar', () => {
     expect(menu.open).toBe(false);
     expect(document.activeElement).toBe(screen.getByText('▾'));
   });
+
+  // Task U3 4a (owner's decision): Word records a replacement as two revisions, so say how to take both at once.
+  it('the tracked-changes choice says how to accept a change in Word', async () => {
+    const { controller } = makeController();
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openSample());
+    act(() => {
+      document.querySelector<HTMLDetailsElement>('.save-menu')!.open = true;
+    });
+    const tracked = screen.getByRole('radio', { name: /^Tracked changes/ });
+    expect(tracked.closest('label')!.textContent).toContain('In Word, use Review › Accept All, or select a change and then click Accept.');
+  });
 });
 
 describe('the document text', () => {

@@ -35,6 +35,7 @@
   "save.howLegend": "बदलाव कैसे सेव हों",
   "save.tracked": "ट्रैक किए गए बदलाव",
   "save.trackedDetail": "आपके समीक्षक Word में हर बदलाव को स्वीकार या अस्वीकार कर सकते हैं। (सिर्फ़ .docx: टेक्स्ट फ़ाइलें हमेशा साफ़ सेव होती हैं।)",
+  "save.trackedWordTip": "Word में Review › Accept All इस्तेमाल करें, या कोई बदलाव चुनें और फिर Accept पर क्लिक करें।",
   "save.clean": "साफ़ कॉपी",
   "save.cleanDetail": "स्वीकार किए गए सभी बदलाव लागू, कोई निशान नहीं।",
   "save.whereLegend": "कहाँ सेव हो",

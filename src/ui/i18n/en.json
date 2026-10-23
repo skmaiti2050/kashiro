@@ -34,6 +34,7 @@
   "save.howLegend": "How changes are saved",
   "save.tracked": "Tracked changes",
   "save.trackedDetail": "Your reviewer can accept or reject each change in Word. (.docx only: text files are always saved clean.)",
+  "save.trackedWordTip": "In Word, use Review › Accept All, or select a change and then click Accept.",
   "save.clean": "Clean copy",
   "save.cleanDetail": "All accepted changes applied, no marks.",
   "save.whereLegend": "Where it goes",
