@@ -59,6 +59,9 @@ describe('onlyPunctuationChanged', () => {
     ['Furniture, curtains, lights and small things added up.', 'Furniture, curtains, lights, and small things added up.'],
     ['In my first year I missed a deadline.', 'In my first year, I missed a deadline.'],
     ['It rose  by 3%.', 'It rose by 3% !'],
+    // A typographic apostrophe is the same word as a straight one.
+    ['The dog’s bowl was empty.', "The dog's bowl was empty."],
+    ["It's late.", 'It’s late.'],
   ])('%j → %j: only punctuation or spaces', (original, rewrite) => {
     expect(onlyPunctuationChanged(original, rewrite)).toBe(true);
   });
@@ -68,6 +71,9 @@ describe('onlyPunctuationChanged', () => {
     ['The dog wagged its tail.', "The dog wagged it's tail."],
     ['We study 48 tanks.', 'The study examines 48 tanks.'],
     ['the plan was approved.', 'The plan was approved.'],
+    // A Devanagari vowel sign (a combining mark) is part of the word: कि → का changes it.
+    ['Maine kitab padhi: किताब कि.', 'Maine kitab padhi: किताब का.'],
+    ['नमस्ते दोस्त.', 'नमस्ते दोस्ती.'],
   ])('%j → %j: a word changed', (original, rewrite) => {
     expect(onlyPunctuationChanged(original, rewrite)).toBe(false);
   });

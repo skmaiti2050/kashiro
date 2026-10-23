@@ -22,15 +22,20 @@ export interface RewriteRun {
   cancelled: boolean;
 }
 
-/** One word, with apostrophes and hyphens inside it ("it's", "well-known", "3.2"): changing one is a real edit. */
-const WORD = /[\p{L}\p{N}]+(?:['’.\-][\p{L}\p{N}]+)*/gu;
+/**
+ * One word, with apostrophes, hyphens or dots inside it ("it's", "well-known", "3.2") and combining marks
+ * (the vowel sign in Devanagari "कि"): changing one is a real edit.
+ */
+const WORD = /[\p{L}\p{M}\p{N}]+(?:['.\-][\p{L}\p{M}\p{N}]+)*/gu;
+/** A typographic apostrophe: "dog’s" is the same word as "dog's". */
+const CURLY_APOSTROPHE = /’/g;
 
 /**
  * True when `rewrite` has exactly the words of `original`, in order and case: only punctuation or spaces
  * changed ("lights and" → "lights, and"). Such a rewrite is noise, so it is never offered.
  */
 export function onlyPunctuationChanged(original: string, rewrite: string): boolean {
-  const words = (text: string) => (text.match(WORD) ?? []).join(' ');
+  const words = (text: string) => (text.replace(CURLY_APOSTROPHE, "'").match(WORD) ?? []).join(' ');
   return words(original) === words(rewrite);
 }
 

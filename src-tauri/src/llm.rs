@@ -43,6 +43,8 @@ pub struct HelperInfo {
     port: u16,
     api_key: String,
     backend: Backend,
+    /// The CPU build runs because the GPU build was tried and did not come up (the speed advice says so).
+    gpu_fallback: bool,
 }
 
 struct Running {
@@ -64,6 +66,9 @@ pub struct LlmState {
 #[derive(Default)]
 struct Helper {
     running: Option<Running>,
+    /// Stops asked for so far. A start remembers the count when it begins; if it has moved by the time the
+    /// start would spawn (a stop came during the GPU probe), the start is cancelled.
+    stop_requests: u64,
     /// Created with the first server and kept for the app's life: closing it would kill the server.
     #[cfg(windows)]
     job: Option<crate::job::KillOnClose>,
@@ -204,7 +209,12 @@ fn stop_running(helper: &mut Helper) -> io::Result<()> {
     }
 }
 
-const DAMAGED: &str = "the writing helper's state is damaged; restart the app";
+/// True when the CPU build runs because a GPU (Vulkan) build was tried and did not come up.
+fn gpu_fallback(running: Backend, failed: &[Backend]) -> bool {
+    running == Backend::Cpu && failed.contains(&Backend::Vulkan)
+}
+
+const DAMAGED: &str ="the writing helper's state is damaged; restart the app";
 const STOPPED_WHILE_LOADING: &str = "The writing helper was stopped while it was loading the model.";
 
 impl LlmState {
@@ -218,6 +228,8 @@ impl LlmState {
     /// Fails only when every build failed, naming each failure.
     pub fn start(&self, builds: impl FnOnce() -> Result<Vec<(Backend, PathBuf)>, String>, model: &Path) -> Result<HelperInfo, String> {
         check_model_path(model)?;
+        // Read before waiting for another start: any stop asked for after this point cancels this start.
+        let stops_at_start = self.helper()?.stop_requests;
         // One start at a time; stop never takes this lock, so it can end a server that is still loading.
         let _one_start = self.starting.lock().map_err(|_| String::from(DAMAGED))?;
         {
@@ -231,37 +243,46 @@ impl LlmState {
             stop_running(&mut helper).map_err(|e| format!("could not stop the previous writing helper: {e}"))?;
         }
         let mut failures = Vec::new();
+        let mut failed = Vec::new();
         for (backend, exe) in builds()? {
-            match self.launch(backend, &exe, model) {
+            match self.launch(backend, &exe, model, stops_at_start, gpu_fallback(backend, &failed)) {
                 Ok(info) => return Ok(info),
                 Err(e) if e == STOPPED_WHILE_LOADING => return Err(e),
-                Err(e) => failures.push(e),
+                Err(e) => {
+                    failures.push(e);
+                    failed.push(backend);
+                }
             }
         }
         Err(failures.join(" "))
     }
 
     /// One build: spawn, tie to the job object, keep it where stop() can kill it, and wait for /health without
-    /// holding the lock. Kills the process on any failure.
-    fn launch(&self, backend: Backend, exe: &Path, model: &Path) -> Result<HelperInfo, String> {
+    /// holding the lock. Kills the process on any failure. Spawns nothing when a stop was asked for since the
+    /// start began (`stops_at_start`): the spawn happens under the same lock that stop() counts under.
+    fn launch(&self, backend: Backend, exe: &Path, model: &Path, stops_at_start: u64, gpu_fallback: bool) -> Result<HelperInfo, String> {
         let port = free_port().map_err(|e| format!("no free local port for the writing helper: {e}"))?;
         let api_key = new_api_key();
-        let mut child = server_command(exe, model, port, &api_key, std::env::vars_os())
-            .spawn()
-            .map_err(|e| format!("could not start the writing helper ({}): {e}. Reinstall the app.", exe.display()))?;
-        let info = HelperInfo { port, api_key, backend };
         {
             let mut helper = self.helper()?;
+            if helper.stop_requests != stops_at_start {
+                return Err(String::from(STOPPED_WHILE_LOADING));
+            }
+            let mut child = server_command(exe, model, port, &api_key, std::env::vars_os())
+                .spawn()
+                .map_err(|e| format!("could not start the writing helper ({}): {e}. Reinstall the app.", exe.display()))?;
+            let info = HelperInfo { port, api_key: api_key.clone(), backend, gpu_fallback };
+            // Spawning under the lock is short (no wait for the model), and keeps the spawn and the stop count in step.
             #[cfg(windows)]
             if let Err(e) = Self::assign_to_job(&mut helper, &child) {
                 let _ = child.kill();
                 let _ = child.wait();
                 return Err(format!("could not tie the writing helper to the app: {e}"));
             }
-            helper.running = Some(Running { child, model: model.to_owned(), info: info.clone(), ready: false });
+            helper.running = Some(Running { child, model: model.to_owned(), info, ready: false });
         }
         self.wait_until_ready(port)?;
-        Ok(info)
+        Ok(HelperInfo { port, api_key, backend, gpu_fallback })
     }
 
     /// Polls /health until 200. Fails when the process exits, when stop() took it, or after START_TIMEOUT
@@ -308,7 +329,9 @@ impl LlmState {
     /// Stops the server, if one runs or is still loading, and waits until its process has ended. Never waits
     /// for a start to finish, so app exit can't hang on a model load.
     pub fn stop(&self) -> Result<(), String> {
-        stop_running(&mut *self.helper()?).map_err(|e| format!("could not stop the writing helper: {e}"))
+        let mut helper = self.helper()?;
+        helper.stop_requests += 1;
+        stop_running(&mut helper).map_err(|e| format!("could not stop the writing helper: {e}"))
     }
 }
 
@@ -478,6 +501,32 @@ mod tests {
         fs::remove_dir_all(&dir).unwrap();
     }
 
+    #[test]
+    fn a_stop_during_the_device_probe_cancels_the_start() {
+        let dir = std::env::temp_dir().join(format!("writing-check-probe-stop-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let model = dir.join("m.gguf");
+        fs::write(&model, b"GGUF").unwrap();
+        let state = LlmState::default();
+        // The stop arrives while builds() probes the GPU: nothing may be spawned after it.
+        let builds = || {
+            state.stop().unwrap();
+            Ok(vec![(Backend::Cpu, dir.join("cpu/llama-server.exe"))])
+        };
+        assert_eq!(state.start(builds, &model).unwrap_err(), STOPPED_WHILE_LOADING);
+        // A stop that came before the start does not cancel it: this start runs (and fails on the missing build).
+        let e = state.start(|| Ok(vec![(Backend::Cpu, dir.join("cpu/llama-server.exe"))]), &model).unwrap_err();
+        assert!(e.contains("could not start the writing helper"), "{e}");
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn reports_a_gpu_fallback_only_when_the_cpu_build_runs_after_a_gpu_build_failed() {
+        assert!(gpu_fallback(Backend::Cpu, &[Backend::Vulkan]));
+        assert!(!gpu_fallback(Backend::Cpu, &[]), "no GPU was listed: nothing fell back");
+        assert!(!gpu_fallback(Backend::Vulkan, &[]));
+    }
+
     /// POSTs a one-token chat request, as the client does, with an optional bearer key; returns the HTTP status.
     fn chat_status(port: u16, key: Option<&str>) -> u16 {
         let body = r#"{"messages":[{"role":"user","content":"Hi"}],"max_tokens":1}"#;
@@ -545,11 +594,13 @@ mod tests {
         let state = LlmState::default();
         let info = state.start(|| Ok(vec![(Backend::Vulkan, bundled("vulkan")), (Backend::Cpu, bundled("cpu"))]), &model).unwrap();
         assert_eq!(info.backend, Backend::Vulkan);
+        assert!(!info.gpu_fallback);
         state.stop().unwrap();
         // A Vulkan build that can't start (here: missing) falls back to the CPU build.
         let broken = Path::new(env!("CARGO_MANIFEST_DIR")).join("binaries/missing/llama-server.exe");
         let info = state.start(|| Ok(vec![(Backend::Vulkan, broken), (Backend::Cpu, bundled("cpu"))]), &model).unwrap();
         assert_eq!(info.backend, Backend::Cpu);
+        assert!(info.gpu_fallback, "the CPU build runs because the GPU build failed");
         state.stop().unwrap();
     }
 }

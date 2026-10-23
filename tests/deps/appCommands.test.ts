@@ -80,6 +80,25 @@ describe('invokedCommands', () => {
     expect(() => invokedCommands(["import { convertFileSrc, invoke as tauriInvoke } from '@tauri-apps/api/core';"])).toThrow('invoke as tauriInvoke');
     expect(invokedCommands(["import { invoke } from '@tauri-apps/api/core';\ninvoke('llm_stop');"])).toEqual(['llm_stop']);
   });
+
+  it('fails on invoke kept under another name by assignment or destructuring', () => {
+    expect(() => invokedCommands(["const call = invoke;\ncall('llm_start');"])).toThrow('= invoke');
+    expect(() => invokedCommands(['let send = invoke'])).toThrow('= invoke');
+    expect(() => invokedCommands(["const { invoke: call } = await import('@tauri-apps/api/core');"])).toThrow('invoke: call');
+    // Comparing or calling it is not a rename.
+    expect(invokedCommands(["if (fn === invoke) invoke('llm_stop');"])).toEqual(['llm_stop']);
+  });
+
+  it('ignores comments: a call in one is not a call, and a name in one is not a missing literal', () => {
+    const source = [
+      "// invoke('session_delete') used to run here",
+      '/** Calls invoke(command) for each command. */',
+      "/* const call = invoke; */ invoke('llm_stop');",
+      "const url = 'http://127.0.0.1'; invoke('llm_start'); // trailing",
+      'const re = /\\/\\/ not a comment/; invoke(`session_list`);',
+    ].join('\n');
+    expect(invokedCommands([source])).toEqual(['llm_start', 'llm_stop', 'session_list']);
+  });
 });
 
 describe('the parsers', () => {
