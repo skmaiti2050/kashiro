@@ -49,11 +49,15 @@ struct Running {
     child: Child,
     model: PathBuf,
     info: HelperInfo,
+    /// False while the model loads (/health not yet 200).
+    ready: bool,
 }
 
-/// At most one server. Starting and stopping take the same lock, so a start never overlaps a pending stop.
+/// At most one server. Starts are serialised by `starting`; `helper` is only held for short steps, so a stop
+/// (or app exit) can kill a server that is still loading.
 #[derive(Default)]
 pub struct LlmState {
+    starting: Mutex<()>,
     helper: Mutex<Helper>,
 }
 
@@ -137,7 +141,9 @@ fn vulkan_gpu_present(exe: &Path) -> bool {
     reader.join().map(|text| lists_gpu(&text)).unwrap_or(false)
 }
 
-/// 64 hex characters derived from std's RandomState, whose SipHash keys come from the OS random generator.
+/// 64 hex characters from std's RandomState. Its SipHash keys are seeded once per thread from the OS random
+/// generator, and each later RandomState adds 1 to the first key, so the four hashes share that 128-bit seed:
+/// the key carries 128 bits of OS randomness, which SipHash and SHA-256 do not reveal.
 fn new_api_key() -> String {
     let mut hasher = Sha256::new();
     for n in 0..4u8 {
@@ -150,8 +156,14 @@ fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
-/// A model file the user chose: an existing `.gguf` file, by absolute path.
+/// A model file the user chose: an existing `.gguf` file, by absolute local path. A network (UNC) or device
+/// path is refused before anything touches it: opening `\\host\share` would send the user's Windows
+/// credentials to that host.
 fn check_model_path(model: &Path) -> Result<(), String> {
+    let text = model.as_os_str().to_string_lossy();
+    if text.starts_with(r"\\") || text.starts_with("//") {
+        return Err(format!("{text} is on a network share. Copy the model file to this computer and choose it again in Settings › Modules."));
+    }
     let is_gguf = model.extension().is_some_and(|e| e.eq_ignore_ascii_case("gguf"));
     if !model.is_absolute() || !is_gguf {
         return Err(format!("{} is not a .gguf model file. Choose the model file again in Settings › Modules.", model.display()));
@@ -181,22 +193,6 @@ fn health_ok(port: u16) -> bool {
     stream.read_exact(&mut status).is_ok() && status.starts_with(b"HTTP/1.1 200")
 }
 
-fn wait_until_ready(child: &mut Child, port: u16) -> Result<(), String> {
-    let started = Instant::now();
-    loop {
-        if let Ok(Some(status)) = child.try_wait() {
-            return Err(format!("The writing helper stopped while loading the model ({status}). The file may not be a model llama.cpp can run."));
-        }
-        if health_ok(port) {
-            return Ok(());
-        }
-        if started.elapsed() > START_TIMEOUT {
-            return Err(String::from("The writing helper did not finish loading the model within 2 minutes. Try a smaller model."));
-        }
-        std::thread::sleep(Duration::from_millis(250));
-    }
-}
-
 fn stop_running(helper: &mut Helper) -> io::Result<()> {
     let Some(mut running) = helper.running.take() else { return Ok(()) };
     // kill fails with InvalidInput when the process already ended; then wait just reaps it.
@@ -208,49 +204,97 @@ fn stop_running(helper: &mut Helper) -> io::Result<()> {
     }
 }
 
+const DAMAGED: &str = "the writing helper's state is damaged; restart the app";
+const STOPPED_WHILE_LOADING: &str = "The writing helper was stopped while it was loading the model.";
+
 impl LlmState {
-    /// Starts the server for `model` with the first of `builds` that comes up (Vulkan, then CPU) and waits
-    /// until it answers, or returns the running one when it already serves this model. A server that died, or
-    /// serves another model, is replaced. Fails only when every build failed, naming each failure.
-    pub fn start(&self, builds: &[(Backend, PathBuf)], model: &Path) -> Result<HelperInfo, String> {
+    fn helper(&self) -> Result<std::sync::MutexGuard<'_, Helper>, String> {
+        self.helper.lock().map_err(|_| String::from(DAMAGED))
+    }
+
+    /// Starts the server for `model` with the first of `builds()` that comes up (Vulkan, then CPU) and waits
+    /// until it answers, or returns the running one when it is ready and serves this model (then `builds` is
+    /// never called, so no device probe runs). A server that died, or serves another model, is replaced.
+    /// Fails only when every build failed, naming each failure.
+    pub fn start(&self, builds: impl FnOnce() -> Result<Vec<(Backend, PathBuf)>, String>, model: &Path) -> Result<HelperInfo, String> {
         check_model_path(model)?;
-        let mut helper = self.helper.lock().map_err(|_| "the writing helper's state is damaged; restart the app")?;
-        if let Some(running) = helper.running.as_mut() {
-            let alive = matches!(running.child.try_wait(), Ok(None));
-            if alive && running.model == model {
-                return Ok(running.info.clone());
+        // One start at a time; stop never takes this lock, so it can end a server that is still loading.
+        let _one_start = self.starting.lock().map_err(|_| String::from(DAMAGED))?;
+        {
+            let mut helper = self.helper()?;
+            if let Some(running) = helper.running.as_mut() {
+                let alive = matches!(running.child.try_wait(), Ok(None));
+                if alive && running.ready && running.model == model {
+                    return Ok(running.info.clone());
+                }
             }
+            stop_running(&mut helper).map_err(|e| format!("could not stop the previous writing helper: {e}"))?;
         }
-        stop_running(&mut helper).map_err(|e| format!("could not stop the previous writing helper: {e}"))?;
         let mut failures = Vec::new();
-        for (backend, exe) in builds {
-            match Self::launch(&mut helper, *backend, exe, model) {
+        for (backend, exe) in builds()? {
+            match self.launch(backend, &exe, model) {
                 Ok(info) => return Ok(info),
+                Err(e) if e == STOPPED_WHILE_LOADING => return Err(e),
                 Err(e) => failures.push(e),
             }
         }
         Err(failures.join(" "))
     }
 
-    /// One build: spawn, tie to the job object, wait for /health. Kills the process on any failure.
-    fn launch(helper: &mut Helper, backend: Backend, exe: &Path, model: &Path) -> Result<HelperInfo, String> {
+    /// One build: spawn, tie to the job object, keep it where stop() can kill it, and wait for /health without
+    /// holding the lock. Kills the process on any failure.
+    fn launch(&self, backend: Backend, exe: &Path, model: &Path) -> Result<HelperInfo, String> {
         let port = free_port().map_err(|e| format!("no free local port for the writing helper: {e}"))?;
         let api_key = new_api_key();
         let mut child = server_command(exe, model, port, &api_key, std::env::vars_os())
             .spawn()
             .map_err(|e| format!("could not start the writing helper ({}): {e}. Reinstall the app.", exe.display()))?;
-        #[cfg(windows)]
-        let tied = Self::assign_to_job(helper, &child).map_err(|e| format!("could not tie the writing helper to the app: {e}"));
-        #[cfg(not(windows))]
-        let tied: Result<(), String> = Ok(());
-        if let Err(e) = tied.and_then(|_| wait_until_ready(&mut child, port)) {
-            let _ = child.kill();
-            let _ = child.wait();
-            return Err(e);
-        }
         let info = HelperInfo { port, api_key, backend };
-        helper.running = Some(Running { child, model: model.to_owned(), info: info.clone() });
+        {
+            let mut helper = self.helper()?;
+            #[cfg(windows)]
+            if let Err(e) = Self::assign_to_job(&mut helper, &child) {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(format!("could not tie the writing helper to the app: {e}"));
+            }
+            helper.running = Some(Running { child, model: model.to_owned(), info: info.clone(), ready: false });
+        }
+        self.wait_until_ready(port)?;
         Ok(info)
+    }
+
+    /// Polls /health until 200. Fails when the process exits, when stop() took it, or after START_TIMEOUT
+    /// (then it is killed). The lock is held only for each short check.
+    fn wait_until_ready(&self, port: u16) -> Result<(), String> {
+        let started = Instant::now();
+        loop {
+            {
+                let mut helper = self.helper()?;
+                let Some(running) = helper.running.as_mut().filter(|r| r.info.port == port) else {
+                    return Err(String::from(STOPPED_WHILE_LOADING));
+                };
+                if let Ok(Some(status)) = running.child.try_wait() {
+                    helper.running = None;
+                    return Err(format!("The writing helper stopped while loading the model ({status}). The file may not be a model llama.cpp can run."));
+                }
+            }
+            let ready = health_ok(port);
+            let mut helper = self.helper()?;
+            let Some(running) = helper.running.as_mut().filter(|r| r.info.port == port) else {
+                return Err(String::from(STOPPED_WHILE_LOADING));
+            };
+            if ready {
+                running.ready = true;
+                return Ok(());
+            }
+            if started.elapsed() > START_TIMEOUT {
+                let _ = stop_running(&mut helper);
+                return Err(String::from("The writing helper did not finish loading the model within 2 minutes. Try a smaller model."));
+            }
+            drop(helper);
+            std::thread::sleep(Duration::from_millis(250));
+        }
     }
 
     #[cfg(windows)]
@@ -261,10 +305,10 @@ impl LlmState {
         helper.job.as_ref().expect("created above").assign(child)
     }
 
-    /// Stops the server, if one runs, and waits until its process has ended.
+    /// Stops the server, if one runs or is still loading, and waits until its process has ended. Never waits
+    /// for a start to finish, so app exit can't hang on a model load.
     pub fn stop(&self) -> Result<(), String> {
-        let mut helper = self.helper.lock().map_err(|_| "the writing helper's state is damaged; restart the app")?;
-        stop_running(&mut helper).map_err(|e| format!("could not stop the writing helper: {e}"))
+        stop_running(&mut *self.helper()?).map_err(|e| format!("could not stop the writing helper: {e}"))
     }
 }
 
@@ -313,10 +357,7 @@ pub async fn sha256_file(app: tauri::AppHandle, path: String) -> Result<String, 
 /// Starts the writing helper with the model file at `model_path` and returns its port, key and build.
 #[tauri::command]
 pub async fn llm_start(app: tauri::AppHandle, model_path: String) -> Result<HelperInfo, String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        let builds = builds_to_try(&app)?;
-        app.state::<LlmState>().start(&builds, Path::new(&model_path))
-    })
+    tauri::async_runtime::spawn_blocking(move || app.state::<LlmState>().start(|| builds_to_try(&app), Path::new(&model_path)))
     .await
     .map_err(|e| format!("could not start the writing helper: {e}"))?
 }
@@ -405,6 +446,13 @@ mod tests {
     }
 
     #[test]
+    fn refuses_network_and_device_paths_without_touching_them() {
+        for path in [r"\\attacker\share\model.gguf", "//attacker/share/model.gguf", r"\\?\UNC\host\share\m.gguf", r"\\.\pipe\m.gguf"] {
+            assert!(check_model_path(Path::new(path)).unwrap_err().contains("network share"), "{path}");
+        }
+    }
+
+    #[test]
     fn stopping_with_nothing_running_is_fine() {
         assert!(LlmState::default().stop().is_ok());
     }
@@ -424,20 +472,26 @@ mod tests {
         fs::create_dir_all(&dir).unwrap();
         let model = dir.join("m.gguf");
         fs::write(&model, b"GGUF").unwrap();
-        let builds = [(Backend::Vulkan, dir.join("vulkan/llama-server.exe")), (Backend::Cpu, dir.join("cpu/llama-server.exe"))];
-        let e = LlmState::default().start(&builds, &model).unwrap_err();
+        let builds = vec![(Backend::Vulkan, dir.join("vulkan/llama-server.exe")), (Backend::Cpu, dir.join("cpu/llama-server.exe"))];
+        let e = LlmState::default().start(|| Ok(builds), &model).unwrap_err();
         assert!(e.contains("vulkan") && e.contains("cpu"), "{e}");
         fs::remove_dir_all(&dir).unwrap();
     }
 
-    /// GET `path` on the server with an optional bearer key; returns the HTTP status.
-    fn status_of(port: u16, path: &str, key: Option<&str>) -> u16 {
+    /// POSTs a one-token chat request, as the client does, with an optional bearer key; returns the HTTP status.
+    fn chat_status(port: u16, key: Option<&str>) -> u16 {
+        let body = r#"{"messages":[{"role":"user","content":"Hi"}],"max_tokens":1}"#;
         let mut stream = TcpStream::connect((Ipv4Addr::LOCALHOST, port)).unwrap();
         let auth = key.map(|k| format!("Authorization: Bearer {k}\r\n")).unwrap_or_default();
-        write!(stream, "GET {path} HTTP/1.1\r\nHost: 127.0.0.1\r\n{auth}Connection: close\r\n\r\n").unwrap();
+        let head = format!("POST /v1/chat/completions HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\nContent-Length: {}\r\n", body.len());
+        write!(stream, "{head}{auth}Connection: close\r\n\r\n{body}").unwrap();
         let mut reply = String::new();
         stream.read_to_string(&mut reply).unwrap();
         reply[9..12].parse().unwrap()
+    }
+
+    fn cpu_only() -> Result<Vec<(Backend, PathBuf)>, String> {
+        Ok(vec![(Backend::Cpu, bundled("cpu"))])
     }
 
     fn test_model() -> PathBuf {
@@ -453,16 +507,33 @@ mod tests {
     #[ignore = "needs the builds (npm run fetch:llama) and a model in WRITING_CHECK_TEST_MODEL"]
     fn the_real_server_refuses_requests_without_the_key_and_stops() {
         let model = test_model();
-        let builds = [(Backend::Cpu, bundled("cpu"))];
         let state = LlmState::default();
-        let info = state.start(&builds, &model).unwrap();
+        let info = state.start(cpu_only, &model).unwrap();
         assert_eq!(info.backend, Backend::Cpu);
-        assert_eq!(state.start(&builds, &model).unwrap(), info, "a second start reuses the running server");
-        assert_eq!(status_of(info.port, "/v1/models", None), 401);
-        assert_eq!(status_of(info.port, "/v1/models", Some("wrong")), 401);
-        assert_eq!(status_of(info.port, "/v1/models", Some(&info.api_key)), 200);
+        let reused = state.start(|| panic!("no device probe when the running server is reused"), &model).unwrap();
+        assert_eq!(reused, info, "a second start reuses the running server");
+        assert_eq!(chat_status(info.port, None), 401);
+        assert_eq!(chat_status(info.port, Some("wrong")), 401);
+        assert_eq!(chat_status(info.port, Some(&info.api_key)), 200);
         state.stop().unwrap();
         assert!(!health_ok(info.port), "the server still answers after stop");
+    }
+
+    #[test]
+    #[ignore = "needs the builds (npm run fetch:llama) and a model in WRITING_CHECK_TEST_MODEL"]
+    fn stop_ends_a_server_that_is_still_loading_without_waiting_for_it() {
+        let model = test_model();
+        let state = std::sync::Arc::new(LlmState::default());
+        let starter = std::thread::spawn({
+            let state = state.clone();
+            move || state.start(cpu_only, &model)
+        });
+        // The model takes several seconds to load; stop while it does.
+        std::thread::sleep(Duration::from_millis(1500));
+        let asked = Instant::now();
+        state.stop().unwrap();
+        assert!(asked.elapsed() < Duration::from_secs(3), "stop waited {:?}", asked.elapsed());
+        assert_eq!(starter.join().unwrap().unwrap_err(), STOPPED_WHILE_LOADING);
     }
 
     #[test]
@@ -472,12 +543,12 @@ mod tests {
         assert!(vulkan_gpu_present(&bundled("vulkan")), "this test needs a Vulkan GPU");
         assert!(!vulkan_gpu_present(&bundled("cpu")), "the CPU build lists no GPU");
         let state = LlmState::default();
-        let info = state.start(&[(Backend::Vulkan, bundled("vulkan")), (Backend::Cpu, bundled("cpu"))], &model).unwrap();
+        let info = state.start(|| Ok(vec![(Backend::Vulkan, bundled("vulkan")), (Backend::Cpu, bundled("cpu"))]), &model).unwrap();
         assert_eq!(info.backend, Backend::Vulkan);
         state.stop().unwrap();
         // A Vulkan build that can't start (here: missing) falls back to the CPU build.
         let broken = Path::new(env!("CARGO_MANIFEST_DIR")).join("binaries/missing/llama-server.exe");
-        let info = state.start(&[(Backend::Vulkan, broken), (Backend::Cpu, bundled("cpu"))], &model).unwrap();
+        let info = state.start(|| Ok(vec![(Backend::Vulkan, broken), (Backend::Cpu, bundled("cpu"))]), &model).unwrap();
         assert_eq!(info.backend, Backend::Cpu);
         state.stop().unwrap();
     }

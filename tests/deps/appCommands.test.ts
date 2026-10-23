@@ -72,6 +72,14 @@ describe('invokedCommands', () => {
     expect(() => invokedCommands(['invoke(`llm_${verb}`)'])).toThrow('must be a string literal');
     expect(() => invokedCommands(["invoke<void>('session_' + kind)"])).toThrow('must be a string literal');
   });
+
+  it('fails on invoke imported under another name, whose calls the check could not see', () => {
+    expect(() => invokedCommands(["import { invoke as call } from '@tauri-apps/api/core';\ncall('llm_start');"])).toThrow(
+      'Import invoke under its own name, so the command check can see each call: invoke as call',
+    );
+    expect(() => invokedCommands(["import { convertFileSrc, invoke as tauriInvoke } from '@tauri-apps/api/core';"])).toThrow('invoke as tauriInvoke');
+    expect(invokedCommands(["import { invoke } from '@tauri-apps/api/core';\ninvoke('llm_stop');"])).toEqual(['llm_stop']);
+  });
 });
 
 describe('the parsers', () => {

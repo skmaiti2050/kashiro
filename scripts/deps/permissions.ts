@@ -77,7 +77,7 @@ export interface PermissionSurface {
 
 interface TauriConf {
   app?: { security?: Record<string, unknown>; withGlobalTauri?: unknown };
-  bundle?: { externalBin?: unknown };
+  bundle?: { externalBin?: unknown; resources?: unknown };
   plugins?: unknown;
 }
 interface Capability {
@@ -117,7 +117,13 @@ export function readPermissionSurface(confJson: string, capabilityFiles: Record<
   for (const [key, value] of Object.entries(security)) {
     if (!(CSP_KEYS as readonly string[]).includes(key)) settings[`app.security.${key}`] = JSON.stringify(value);
   }
-  const optional = { 'app.withGlobalTauri': conf.app?.withGlobalTauri, 'bundle.externalBin': conf.bundle?.externalBin, plugins: conf.plugins };
+  // bundle.resources holds the llama-server builds the app runs (Task 12): another program there must be reviewed.
+  const optional = {
+    'app.withGlobalTauri': conf.app?.withGlobalTauri,
+    'bundle.externalBin': conf.bundle?.externalBin,
+    'bundle.resources': conf.bundle?.resources,
+    plugins: conf.plugins,
+  };
   for (const [key, value] of Object.entries(optional)) if (value !== undefined) settings[key] = JSON.stringify(value);
 
   const capabilities: Record<string, string[]> = {};

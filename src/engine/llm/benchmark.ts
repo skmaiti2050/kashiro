@@ -1,3 +1,4 @@
+import type { Variant } from '../types';
 import type { Rewriter } from './suggest';
 
 /** An ordinary awkward sentence with nothing fact-locked, about as long as the sentences the helper is sent. */
@@ -13,11 +14,12 @@ export const SLOW_SECONDS = 5;
  */
 export async function timeOneSentence(
   rewriter: Rewriter,
+  variant: Variant,
   signal: AbortSignal,
   now: () => number = () => performance.now(),
 ): Promise<{ seconds: number; slow: boolean }> {
   const started = now();
-  await rewriter.rewrite(BENCHMARK_SENTENCE, 'business', signal);
+  await rewriter.rewrite(BENCHMARK_SENTENCE, 'business', variant, signal);
   const seconds = (now() - started) / 1000;
   return { seconds, slow: seconds > SLOW_SECONDS };
 }

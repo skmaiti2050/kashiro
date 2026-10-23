@@ -66,6 +66,20 @@ describe('withSavedSettings', () => {
     expect(withSavedSettings(defaults, undefined)).toEqual(defaults);
   });
 
+  it('keeps a valid model file and its hash; drops a damaged path or hash, and a network (UNC) path', () => {
+    const sha = 'ff5c3e9740a5aa53f04fdf3b0b8cc75da556bf8948cdb19d61c512d3a43465d9';
+    const resolved = (saved: unknown) => {
+      const s = withSavedSettings(defaults, saved as Partial<Settings>);
+      return { modelPath: s.modelPath, modelSha256: s.modelSha256 };
+    };
+    expect(resolved({ modelPath: 'C:\\models\\q.gguf', modelSha256: sha })).toEqual({ modelPath: 'C:\\models\\q.gguf', modelSha256: sha });
+    expect(resolved({ modelPath: 'C:\\models\\q.gguf', modelSha256: sha.toUpperCase() })).toEqual({ modelPath: 'C:\\models\\q.gguf', modelSha256: sha });
+    expect(resolved({ modelPath: 42, modelSha256: 'abc' })).toEqual({ modelPath: null, modelSha256: null });
+    expect(resolved({ modelPath: '\\\\attacker\\share\\q.gguf', modelSha256: sha })).toEqual({ modelPath: null, modelSha256: null });
+    expect(resolved({ modelPath: '//attacker/share/q.gguf', modelSha256: sha })).toEqual({ modelPath: null, modelSha256: null });
+    expect(resolved({ modelPath: null, modelSha256: sha })).toEqual({ modelPath: null, modelSha256: null });
+  });
+
   it('settings saved before modules existed get the default modules', () => {
     const saved: Partial<Settings> = { preset: 'blog', dictionary: ['Sujit'] };
     expect(withSavedSettings(defaults, saved)).toEqual({ ...defaults, preset: 'blog', dictionary: ['Sujit'] });

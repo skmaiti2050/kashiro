@@ -77,6 +77,14 @@ describe('findWidenings (tauri.conf.json CSP and capabilities against a baseline
     ]);
   });
 
+  it('rejects a changed bundle.resources: the llama-server builds are bundled there, so another program could be', () => {
+    const conf = editedConf((c) => {
+      (c.bundle as { resources: Record<string, string> }).resources['binaries/other/*'] = 'llama/other/';
+    });
+    const [widening] = findWidenings(baseline, readPermissionSurface(conf, { 'default.json': CAPABILITY }));
+    expect(widening).toMatch(/^bundle\.resources changed: .* -> .*binaries\/other/);
+  });
+
   it('compares platforms: dropping the list (all platforms) or adding a platform widens', () => {
     const limited = (platforms?: string[]) =>
       readPermissionSurface(CONF, { 'default.json': JSON.stringify({ ...JSON.parse(CAPABILITY), platforms }) });

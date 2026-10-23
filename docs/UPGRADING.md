@@ -88,7 +88,8 @@ committed baseline `deps/snapshots/permissions.json`. A capability identifier de
 fails.
 These all fail: an added CSP source, a dropped CSP directive, a new permission, window, remote URL or capability,
 a new platform (or a dropped platform list, which means every platform), local access turned on, or any change to
-another security setting. A TOML capability that uses more than strings and string arrays fails to read: write it
+another security setting, including `bundle.externalBin` and `bundle.resources` (where the two `llama-server`
+builds the app runs are bundled). A TOML capability that uses more than strings and string arrays fails to read: write it
 as JSON.
 
 The app's own commands (`overwrite_with_backup` and the saved-review `session_*` commands) are locked down by

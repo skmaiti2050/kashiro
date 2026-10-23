@@ -1,4 +1,5 @@
 import type { PresetId } from '../presets';
+import type { Variant } from '../types';
 
 /** The register each writing goal asks for. */
 const REGISTER: Record<PresetId, string> = {
@@ -12,12 +13,23 @@ const REGISTER: Record<PresetId, string> = {
 export const UNCHANGED = 'UNCHANGED';
 
 /**
- * The fixed instructions (the system message) for a writing goal. They hold no sentence, so they are
- * byte-identical for every request of a goal: llama-server can reuse them from its prompt cache.
+ * The document's English stays its own (owner rule): measured rewrites added US serial commas to Indian
+ * English. Never auto-convert between variants (global constraints).
  */
-export function rewriteInstructions(preset: PresetId): string {
+function dialectRule(variant: Variant): string {
+  if (variant === 'American') return 'Keep US spelling and punctuation.';
+  return `Keep the original ${variant} spelling and punctuation; do not add serial (Oxford) commas; do not change to US spelling.`;
+}
+
+/**
+ * The fixed instructions (the system message) for a writing goal and the document's English variant. They
+ * hold no sentence, so they are byte-identical for every request of a document: llama-server reuses them
+ * from its prompt cache.
+ */
+export function rewriteInstructions(preset: PresetId, variant: Variant): string {
   return [
     `Rewrite one sentence so it reads naturally in ${REGISTER[preset]}.`,
+    dialectRule(variant),
     'Keep its meaning. Keep every number, name, quote and term exactly as written.',
     'Do not add any hedge (such as "broadly", "arguably" or "perhaps") and do not add new claims.',
     `Return the sentence only, on one line. If it already reads well, return ${UNCHANGED}.`,

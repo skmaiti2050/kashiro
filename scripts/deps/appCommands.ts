@@ -40,18 +40,24 @@ const INVOKE_CALL = /\binvoke\s*(?:<[^()]*?>)?\(\s*([^,)]*)/g;
 /** A plain string literal command name in any quote style: 'llm_start', "llm_start", `llm_start` (no `${`). */
 const LITERAL_NAME = /^(['"`])([A-Za-z0-9_]+)\1$/;
 
+/** invoke imported under another name: `import { invoke as call } from '@tauri-apps/api/core'`. */
+const RENAMED_INVOKE = /\binvoke\s+as\s+[A-Za-z_$][\w$]*/;
+
 /**
  * The distinct command names the frontend sources invoke, sorted. Throws on a name that is not a literal
- * (`invoke(command)`, `` invoke(`llm_${verb}`) ``): such a call could reach a command this check never sees.
+ * (`invoke(command)`, `` invoke(`llm_${verb}`) ``) and on invoke imported under another name: such a call
+ * could reach a command this check never sees.
  */
 export function invokedCommands(sources: string[]): string[] {
-  const names = sources.flatMap((source) =>
-    [...source.matchAll(INVOKE_CALL)].map((m) => {
+  const names = sources.flatMap((source) => {
+    const renamed = RENAMED_INVOKE.exec(source);
+    if (renamed) throw new Error(`Import invoke under its own name, so the command check can see each call: ${renamed[0]}`);
+    return [...source.matchAll(INVOKE_CALL)].map((m) => {
       const argument = m[1].trim();
       const literal = LITERAL_NAME.exec(argument);
       if (!literal) throw new Error(`A Tauri command name must be a string literal: invoke(${argument}`);
       return literal[2];
-    }),
-  );
+    });
+  });
   return sorted([...new Set(names)]);
 }

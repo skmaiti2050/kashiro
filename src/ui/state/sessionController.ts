@@ -26,7 +26,7 @@ import { SessionPersistence, type PersistenceHost, type SavedReviewsState } from
 import { SessionStore, type SessionFiles } from './sessionStore';
 import { OptionalModules, type HelperBackend, type ModuleLoaders } from './optionalModules';
 import { timeOneSentence } from '@/engine/llm/benchmark';
-import { modulesFor, type Settings } from './settings';
+import { isLocalPath, modulesFor, type Settings } from './settings';
 import * as settingsActions from './settingsActions';
 
 export type { Files, OpenedFile, SavedFile } from './saveFlow';
@@ -477,7 +477,8 @@ export class SessionController {
    */
   async benchmarkHelper(signal: AbortSignal): Promise<{ seconds: number; slow: boolean } | null> {
     const rewriter = this.helper();
-    return rewriter && timeOneSentence(await rewriter, signal);
+    // The user's fallback English: no document is needed for the first-run benchmark.
+    return rewriter && timeOneSentence(await rewriter, this.state.settings.fallbackVariant, signal);
   }
 
   /**
@@ -492,6 +493,8 @@ export class SessionController {
     try {
       path = await models.choose();
       if (path === null) return;
+      // Reading a file on a network share would contact that host (llm.rs refuses such paths too).
+      if (!isLocalPath(path)) throw new Error('The model file is on a network share. Copy it to this computer first.');
       this.set({ checkingModel: true });
       sha256 = await models.hash(path);
     } catch (e) {

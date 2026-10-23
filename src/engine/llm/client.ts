@@ -1,8 +1,11 @@
 import type { PresetId } from '../presets';
+import type { Variant } from '../types';
 import { rewriteInstructions, sentenceMessage, UNCHANGED } from './prompt';
 
 /** Low temperature: the helper should edit, not invent. */
 const TEMPERATURE = 0.2;
+/** A fixed sampling seed: the same sentence gets the same suggestion each time, and measurements repeat. */
+const SEED = 42;
 /** Room for a reply up to 1.5x the input, in tokens: the guard refuses anything longer anyway (spec §5). */
 const OUTPUT_RATIO = 1.5;
 /** The reply is one sentence on one line: generation stops at the first line break. */
@@ -47,7 +50,7 @@ export class LlmClient {
    * One rewritten sentence, or null when the helper finds nothing to change (or the sentence is too long for
    * its context, so it is not sent). One request per sentence. Rejects when `signal` aborts.
    */
-  async rewrite(text: string, preset: PresetId, signal: AbortSignal): Promise<string | null> {
+  async rewrite(text: string, preset: PresetId, variant: Variant, signal: AbortSignal): Promise<string | null> {
     signal.throwIfAborted();
     if (approxTokens(text) > MAX_SENTENCE_TOKENS) return null;
     const request: RequestInit = {
@@ -55,10 +58,11 @@ export class LlmClient {
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.apiKey}` },
       body: JSON.stringify({
         messages: [
-          { role: 'system', content: rewriteInstructions(preset) },
+          { role: 'system', content: rewriteInstructions(preset, variant) },
           { role: 'user', content: sentenceMessage(text) },
         ],
         temperature: TEMPERATURE,
+        seed: SEED,
         max_tokens: Math.ceil(OUTPUT_RATIO * approxTokens(text)),
         stop: STOP,
       }),

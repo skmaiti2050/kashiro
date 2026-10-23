@@ -82,6 +82,25 @@ export function defaultSettings(locale: string): Settings {
   };
 }
 
+/** A network (UNC) or device path: `\\host\share\…`, `//host/…`, `\\?\…`. Opening one would contact that host. */
+const NETWORK_PATH = /^(?:\\\\|\/\/)/;
+/** A SHA-256 in hex. */
+const SHA256_HEX = /^[0-9a-f]{64}$/i;
+
+/** True for a model path the app may use: not on a network share (llm.rs refuses those too). */
+export function isLocalPath(path: string): boolean {
+  return !NETWORK_PATH.test(path);
+}
+
+/**
+ * The saved model file and its hash, or both null: a hand-edited or damaged settings file may hold another
+ * type, a hash that is not SHA-256, or a network path.
+ */
+function resolveModel(path: unknown, sha256: unknown): Pick<Settings, 'modelPath' | 'modelSha256'> {
+  if (typeof path !== 'string' || path === '' || !isLocalPath(path)) return { modelPath: null, modelSha256: null };
+  return { modelPath: path, modelSha256: typeof sha256 === 'string' && SHA256_HEX.test(sha256) ? sha256.toLowerCase() : null };
+}
+
 /** Ten years: a longer retention in a hand-edited file is cut to this. */
 const MAX_RETENTION_DAYS = 3650;
 
@@ -106,6 +125,7 @@ export function withSavedSettings(defaults: Settings, saved: Partial<Settings> |
   return {
     ...defaults,
     ...saved,
+    ...resolveModel(saved.modelPath, saved.modelSha256),
     modules: resolveModules(saved.modules ?? defaults.modules),
     modulesByPreset,
     reading: resolveReading(saved.reading ?? defaults.reading),

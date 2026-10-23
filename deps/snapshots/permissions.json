@@ -73,5 +73,7 @@
       "local true"
     ]
   },
-  "settings": {}
+  "settings": {
+    "bundle.resources": "{\"../resources/dictionary/oewn.json.gz\":\"dictionary/oewn.json.gz\",\"binaries/cpu/*\":\"llama/cpu/\",\"binaries/vulkan/*\":\"llama/vulkan/\"}"
+  }
 }

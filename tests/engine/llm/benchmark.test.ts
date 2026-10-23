@@ -17,18 +17,18 @@ function timed(seconds: number) {
 const live = () => new AbortController().signal;
 
 describe('timeOneSentence', () => {
-  it('times one rewrite of the sample sentence, in seconds', async () => {
+  it("times one rewrite of the sample sentence in the user's English, in seconds", async () => {
     const { rewriter, now } = timed(1.4);
-    expect(await timeOneSentence(rewriter, live(), now)).toEqual({ seconds: 1.4, slow: false });
-    expect(rewriter.rewrite).toHaveBeenCalledWith(BENCHMARK_SENTENCE, 'business', expect.any(AbortSignal));
+    expect(await timeOneSentence(rewriter, 'Indian', live(), now)).toEqual({ seconds: 1.4, slow: false });
+    expect(rewriter.rewrite).toHaveBeenCalledWith(BENCHMARK_SENTENCE, 'business', 'Indian', expect.any(AbortSignal));
   });
 
   it('calls a machine slow when one sentence takes longer than the plan allows (5 s on CPU)', async () => {
     expect(SLOW_SECONDS).toBe(5);
     const atLimit = timed(5);
-    expect(await timeOneSentence(atLimit.rewriter, live(), atLimit.now)).toEqual({ seconds: 5, slow: false });
+    expect(await timeOneSentence(atLimit.rewriter, 'British', live(), atLimit.now)).toEqual({ seconds: 5, slow: false });
     const slow = timed(9.9);
-    expect(await timeOneSentence(slow.rewriter, live(), slow.now)).toEqual({ seconds: 9.9, slow: true });
+    expect(await timeOneSentence(slow.rewriter, 'British', live(), slow.now)).toEqual({ seconds: 9.9, slow: true });
   });
 
   it('the sample is one ordinary sentence the guard can judge: no locked facts, about 25 words', () => {
@@ -39,7 +39,7 @@ describe('timeOneSentence', () => {
   it('a cancel rejects', async () => {
     const ac = new AbortController();
     ac.abort();
-    const rewriter: Rewriter = { rewrite: async (_t, _p, signal) => (signal.throwIfAborted(), null) };
-    await expect(timeOneSentence(rewriter, ac.signal)).rejects.toThrow();
+    const rewriter: Rewriter = { rewrite: async (_t, _p, _v, signal) => (signal.throwIfAborted(), null) };
+    await expect(timeOneSentence(rewriter, 'American', ac.signal)).rejects.toThrow();
   });
 });

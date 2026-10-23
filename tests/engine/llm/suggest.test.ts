@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { CheckSession } from '@/engine/session';
 import { createLinter, type RulesLinter } from '@/engine/linter';
-import { suggestRewrites, type Rewriter } from '@/engine/llm/suggest';
+import { onlyPunctuationChanged, suggestRewrites, type Rewriter } from '@/engine/llm/suggest';
 import type { Candidate, Paragraph, Span } from '@/engine/types';
 
 let linter: RulesLinter;
@@ -25,12 +25,15 @@ const styleLint = (paraId: number, span: Span): Candidate => ({
 });
 
 /** A helper that answers from a table (anything else: UNCHANGED) and records what it was sent. */
-function recordedHelper(answers: Record<string, string>): Rewriter & { sent: string[] } {
+function recordedHelper(answers: Record<string, string>): Rewriter & { sent: string[]; variants: string[] } {
   const sent: string[] = [];
+  const variants: string[] = [];
   return {
     sent,
-    async rewrite(text) {
+    variants,
+    async rewrite(text, _preset, variant) {
       sent.push(text);
+      variants.push(variant);
       return answers[text] ?? null;
     },
   };
@@ -51,7 +54,44 @@ async function tehSession() {
   return s;
 }
 
+describe('onlyPunctuationChanged', () => {
+  it.each([
+    ['Furniture, curtains, lights and small things added up.', 'Furniture, curtains, lights, and small things added up.'],
+    ['In my first year I missed a deadline.', 'In my first year, I missed a deadline.'],
+    ['It rose  by 3%.', 'It rose by 3% !'],
+  ])('%j → %j: only punctuation or spaces', (original, rewrite) => {
+    expect(onlyPunctuationChanged(original, rewrite)).toBe(true);
+  });
+
+  it.each([
+    ['The room was hotter then the site.', 'The room was hotter than the site.'],
+    ['The dog wagged its tail.', "The dog wagged it's tail."],
+    ['We study 48 tanks.', 'The study examines 48 tanks.'],
+    ['the plan was approved.', 'The plan was approved.'],
+  ])('%j → %j: a word changed', (original, rewrite) => {
+    expect(onlyPunctuationChanged(original, rewrite)).toBe(false);
+  });
+});
+
 describe('suggestRewrites', () => {
+  it("sends the session's English variant, so the helper keeps the document's spelling and punctuation", async () => {
+    const s = await tehSession();
+    const helper = recordedHelper({});
+    await suggestRewrites(s, helper, 'business', live());
+    expect(helper.variants.length).toBeGreaterThan(0);
+    expect(new Set(helper.variants)).toEqual(new Set([s.variant]));
+  });
+
+  it('drops a rewrite that only changes punctuation or spaces: not offered, not judged by the guard, counted', async () => {
+    const s = await tehSession();
+    const original = 'Attendance rose by 3.2% in districts that served hot meals.';
+    const helper = recordedHelper({ [original]: 'Attendance rose by 3.2%, in districts that served hot meals.' });
+    const run = await suggestRewrites(s, helper, 'business', live());
+    expect(run).toMatchObject({ added: 0, punctuationOnly: 1, rejected: [] });
+    expect(s.candidates().filter((c) => c.source === 'llm')).toEqual([]);
+    expect(s.sentToHelper(0, SECOND)).toBe(true);
+  });
+
   it('sends sentences with accepted rule edits applied; a passing rewrite becomes a review-tier llm Rewrite over the whole sentence', async () => {
     const s = await tehSession();
     const helper = recordedHelper({
@@ -60,7 +100,7 @@ describe('suggestRewrites', () => {
     const run = await suggestRewrites(s, helper, 'business', live());
 
     expect(helper.sent).toEqual(['I think the cat is here.', 'Attendance rose by 3.2% in districts that served hot meals.']);
-    expect(run).toEqual({ sent: 2, added: 1, rejected: [], cancelled: false });
+    expect(run).toEqual({ sent: 2, added: 1, punctuationOnly: 0, rejected: [], cancelled: false });
     const llm = s.candidates().filter((c) => c.source === 'llm');
     expect(llm).toHaveLength(1);
     expect(llm[0]).toMatchObject({
@@ -145,7 +185,7 @@ describe('suggestRewrites', () => {
     const s = await tehSession();
     const ac = new AbortController();
     const helper: Rewriter = {
-      async rewrite(text, _preset, signal) {
+      async rewrite(text, _preset, _variant, signal) {
         if (text.startsWith('I think')) {
           ac.abort(); // the user presses Cancel while the first answer arrives
           return 'I think that the cat is here.';

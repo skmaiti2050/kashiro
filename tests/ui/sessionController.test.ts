@@ -862,6 +862,15 @@ describe('SessionController: the writing helper model', () => {
     expect(controller.helper()).toBeNull();
   });
 
+  it('a model file on a network share is refused before it is read', async () => {
+    const models = modelFiles('\\\\server\\models\\q.gguf');
+    const { controller, saved } = makeController({ models });
+    await controller.chooseModel();
+    expect(models.hash).not.toHaveBeenCalled();
+    expect(saved).toEqual([]);
+    expect(controller.getState().error).not.toBeNull();
+  });
+
   it('a cancelled choice changes nothing; a file that cannot be read is reported and not stored', async () => {
     const { controller, saved } = makeController({ models: modelFiles(null) });
     await controller.chooseModel();
