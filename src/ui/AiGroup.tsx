@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { CheckSession } from '@/engine/session';
 import { BatchPreview } from './BatchPreview';
 import { useT } from './i18n/useT';
-import { pendingSuggestions } from './state/aiSuggestions';
+import { pendingSuggestions } from './state/aiState';
 import { CATEGORIES } from './state/categories';
 import { speedAdvice } from './state/helperSpeed';
 import type { ControllerState, SessionController } from './state/sessionController';

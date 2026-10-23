@@ -26,7 +26,8 @@ import { SessionPersistence, type PersistenceHost, type SavedReviewsState } from
 import { SessionStore, type SessionFiles } from './sessionStore';
 import { OptionalModules, type HelperBackend, type ModuleLoaders } from './optionalModules';
 import * as helperActions from './helperActions';
-import { AiSuggestions, NO_AI, type AiState } from './aiSuggestions';
+import { AiSuggestions } from './aiSuggestions';
+import { NO_AI, type AiState } from './aiState';
 import { modulesFor, type Settings } from './settings';
 import * as settingsActions from './settingsActions';
 

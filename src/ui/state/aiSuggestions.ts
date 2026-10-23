@@ -1,27 +1,11 @@
 import type { CheckSession } from '@/engine/session';
 import { pickSentences, sentenceAt, type PickedSentence } from '@/engine/llm/select';
 import { offerRewrite, runBudget } from '@/engine/llm/suggest';
-import type { Candidate } from '@/engine/types';
 import { msg, type Message } from '../i18n/message';
+import { NO_AI, pendingSuggestions, type AiState } from './aiState';
 import { explain } from './errors';
-import { helper as startedRewriter, measureSpeed, type HelperHost } from './helperActions';
+import { helper as startedRewriter, SpeedCheck, type HelperHost } from './helperActions';
 import { modulesFor } from './settings';
-
-/** The AI group's part of the controller state. */
-export interface AiState {
-  /** Sentences answered and asked for, while a run lasts (the progress bar). */
-  run: { done: number; total: number } | null;
-  /** "Check how it reads" ran for this document: the group offers "Check more sentences" now. */
-  checkedDocument: boolean;
-  /** The group's last word: "No improvement suggested for this sentence", why nothing was sent… */
-  notice: Message | null;
-  /** A suggestion that came back for "Improve this sentence": the panel brings up its card. `seq` is new each time. */
-  ready: { candidateId: string; seq: number } | null;
-  /** The first-use speed check is running. */
-  measuring: boolean;
-}
-
-export const NO_AI: AiState = { run: null, checkedDocument: false, notice: null, ready: null, measuring: false };
 
 /** What the AI suggestions need from the controller: the helper's (see helperActions), and the review's. */
 export interface AiHost extends HelperHost {
@@ -57,14 +41,6 @@ interface Run {
 const sameSentence = (a: PickedSentence, b: PickedSentence) => a.paraId === b.paraId && a.span.start === b.span.start && a.span.end === b.span.end;
 const rewriteId = (s: PickedSentence) => `llm:${s.paraId}:${s.span.start}-${s.span.end}`;
 
-/** The AI suggestions waiting for review, in document order. */
-export function pendingSuggestions(session: CheckSession): Candidate[] {
-  return session
-    .outcomes()
-    .filter((o) => o.candidate.source === 'llm' && o.status === 'pending' && o.unplaceable === undefined)
-    .map((o) => o.candidate);
-}
-
 /**
  * AI help on demand (Task 13): "Check how it reads" and "Check more sentences" over the document, and "Improve
  * this sentence". One sentence goes to the helper at a time, in the background; each answer is offered as soon as
@@ -75,11 +51,12 @@ export function pendingSuggestions(session: CheckSession): Candidate[] {
 export class AiSuggestions {
   private active: Run | null = null;
   private working: Promise<void> = Promise.resolve();
-  private measuring: AbortController | null = null;
-  private measured: Promise<void> = Promise.resolve();
+  private readonly speed: SpeedCheck;
   private readySeq = 0;
 
-  constructor(private readonly host: AiHost) {}
+  constructor(private readonly host: AiHost) {
+    this.speed = new SpeedCheck(host, (measuring) => this.updateAi({ measuring }));
+  }
 
   /** AI rewrites are on and a model is chosen: the entry points show. */
   available(): boolean {
@@ -136,6 +113,11 @@ export class AiSuggestions {
     else this.stop();
   }
 
+  /** The one-time speed check (helperActions.SpeedCheck), when AI rewrites are on. */
+  measureSpeedIfNeeded(): void {
+    if (this.available()) this.speed.start();
+  }
+
   /** Stops the run; the suggestions that came back stay. */
   cancel(): void {
     this.active?.abort.abort();
@@ -149,7 +131,7 @@ export class AiSuggestions {
   /** AI rewrites went off: the run and the speed check stop (the controller stops the helper). */
   stop(): void {
     this.cancel();
-    this.measuring?.abort();
+    this.speed.stop();
   }
 
   /** Another document, or a resumed review: the run stops quietly and the group starts afresh. */
@@ -188,31 +170,13 @@ export class AiSuggestions {
     return carried;
   }
 
-  /** The one-time speed check (helperActions.measureSpeed), when AI rewrites are on; a failure is shown. */
-  measureSpeedIfNeeded(): void {
-    if (!this.available() || this.measuring) return;
-    const abort = new AbortController();
-    this.measuring = abort;
-    this.updateAi({ measuring: true });
-    this.measured = measureSpeed(this.host, abort.signal)
-      .catch((e) => {
-        if (!abort.signal.aborted) this.host.set({ error: explain(msg('error.helper'), e, msg('error.helperNext')) });
-      })
-      .finally(() => {
-        this.measuring = null;
-        this.updateAi({ measuring: false });
-      });
-  }
-
   /** Resolves once no run and no speed check is going. */
   async settled(): Promise<void> {
     let working: Promise<void>;
-    let measured: Promise<void>;
     do {
       working = this.working;
-      measured = this.measured;
-      await Promise.all([working, measured]);
-    } while (working !== this.working || measured !== this.measured);
+      await Promise.all([working, this.speed.settled()]);
+    } while (working !== this.working);
   }
 
   private check(more: boolean): void {

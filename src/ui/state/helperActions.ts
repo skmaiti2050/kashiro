@@ -63,6 +63,48 @@ export async function measureSpeed(host: HelperHost, signal: AbortSignal): Promi
 }
 
 /**
+ * The one-time speed check (measureSpeed) in the background: one at a time, stopped when AI rewrites go off, and a
+ * failure shown as an error. `onMeasuring` tells when it starts and ends ("Measuring…").
+ */
+export class SpeedCheck {
+  private running: AbortController | null = null;
+  private done: Promise<void> = Promise.resolve();
+
+  constructor(
+    private readonly host: HelperHost,
+    private readonly onMeasuring: (measuring: boolean) => void,
+  ) {}
+
+  start(): void {
+    if (this.running) return;
+    const abort = new AbortController();
+    this.running = abort;
+    this.onMeasuring(true);
+    this.done = measureSpeed(this.host, abort.signal)
+      .catch((e) => {
+        if (!abort.signal.aborted) this.host.set({ error: explain(msg('error.helper'), e, msg('error.helperNext')) });
+      })
+      .finally(() => {
+        this.running = null;
+        this.onMeasuring(false);
+      });
+  }
+
+  stop(): void {
+    this.running?.abort();
+  }
+
+  /** Resolves once no check is going. */
+  async settled(): Promise<void> {
+    let done: Promise<void>;
+    do {
+      done = this.done;
+      await done;
+    } while (done !== this.done);
+  }
+}
+
+/**
  * Settings › Modules › "Choose model file…": hashes the picked file (to name a known model) and stores its
  * path. A helper running the previous model is stopped; the next use starts the new one.
  */
