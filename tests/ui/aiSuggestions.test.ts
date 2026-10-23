@@ -149,10 +149,12 @@ describe('"Check how it reads"', () => {
     const helper = mockHelper((text) => (text === LONG ? LONG_REWRITE : null));
     const { controller } = makeController({ startHelper: helper.startHelper });
     await controller.open();
+    // The check's own result ("Check finished: …") was announced before; only the AI's announcements count.
     const seen: string[] = [];
+    const before = controller.getState().announcement?.seq;
     controller.subscribe(() => {
       const text = announced(controller);
-      if (text && seen.at(-1) !== text) seen.push(text);
+      if (text && controller.getState().announcement?.seq !== before && seen.at(-1) !== text) seen.push(text);
     });
     controller.ai.checkDocument();
     await controller.ai.settled();

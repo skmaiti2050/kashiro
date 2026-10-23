@@ -94,9 +94,11 @@ describe('screen reader: announcements', () => {
     const { controller } = makeController();
     renderShell(controller);
     await openAndWait(controller, () => controller.openSample());
-    expect(statusTexts().join('')).toBe('');
+    // The check's result first (Task U3 item 2).
+    expect(statusTexts().join('')).toMatch(/^Check finished: \d+ suggestions to decide\.$/);
+    const afterCheck = controller.getState().announcement!.seq;
     // The first card may be a batch: Enter opens its preview, a second Enter applies it.
-    for (let i = 0; i < 2 && !controller.getState().announcement; i++) fireEvent.keyDown(reviewPanel(), { key: 'Enter' });
+    for (let i = 0; i < 2 && controller.getState().announcement!.seq === afterCheck; i++) fireEvent.keyDown(reviewPanel(), { key: 'Enter' });
     const said = english(controller.getState().announcement!.message);
     expect(said).toMatch(/^(Accepted|Applied)\. \d+ of \d+ left\.$/);
     expect(statusTexts()).toContain(said);

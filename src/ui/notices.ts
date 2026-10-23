@@ -14,19 +14,23 @@ import libraries from '../../resources/notices/THIRD-PARTY-NOTICES.txt?raw';
 /** The app's version (package.json, kept equal to tauri.conf.json's by tests/ui/notices.test.ts). */
 export const APP_VERSION: string = version;
 
-/** One notice file. The title is the English name of what it covers; the text is the licence notice in English. */
+/**
+ * One notice file. The title is the English name of what it covers; the text is the licence notice in English,
+ * as Markdown (shown as formatted text) or plain text (shown as it is, monospace).
+ */
 export interface Notice {
   title: string;
   text: string;
+  format: 'markdown' | 'text';
 }
 
 export const THIRD_PARTY_NOTICES: readonly Notice[] = [
-  { title: 'Open English WordNet (word lookup)', text: dictionary },
-  { title: 'wordfreq (word frequencies)', text: frequency },
-  { title: 'Dakshina dataset (words in Indian languages)', text: romanised },
-  { title: 'Fonts (SIL Open Font License)', text: fonts },
-  { title: 'react-intl, intl-messageformat and FormatJS (interface text)', text: i18n },
-  { title: 'Harper (grammar and spelling checker)', text: harper },
-  { title: 'llama.cpp (writing helper)', text: llama },
-  { title: 'Other libraries (JavaScript packages and Rust crates)', text: libraries },
+  { title: 'Open English WordNet (word lookup)', text: dictionary, format: 'markdown' },
+  { title: 'wordfreq (word frequencies)', text: frequency, format: 'markdown' },
+  { title: 'Dakshina dataset (words in Indian languages)', text: romanised, format: 'markdown' },
+  { title: 'Fonts (SIL Open Font License)', text: fonts, format: 'markdown' },
+  { title: 'react-intl, intl-messageformat and FormatJS (interface text)', text: i18n, format: 'markdown' },
+  { title: 'Harper (grammar and spelling checker)', text: harper, format: 'markdown' },
+  { title: 'llama.cpp (writing helper)', text: llama, format: 'markdown' },
+  { title: 'Other libraries (JavaScript packages and Rust crates)', text: libraries, format: 'text' },
 ];

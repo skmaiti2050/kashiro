@@ -3,7 +3,7 @@ import { Kbd } from './Kbd';
 import type { MessageKey } from './i18n/catalogues';
 import { useT } from './i18n/useT';
 import type { ReadTarget } from './state/readAloud';
-import { readAloudKey } from './state/reviewKeys';
+import { readAloudControlKey, readAloudKey } from './state/reviewKeys';
 import type { ReadAloud } from './useReadAloud';
 
 interface Props {
@@ -35,10 +35,21 @@ export function ReadAloudBar({ readAloud, textFor, keysEnabled }: Props) {
   useEffect(() => {
     latest.current = read;
   });
+  const latestControl = useRef(readAloud);
+  useEffect(() => {
+    latestControl.current = readAloud;
+  });
   useEffect(() => {
     if (!keysEnabled) return;
     const onKey = (e: KeyboardEvent) => {
-      const target = e.defaultPrevented ? null : readAloudKey(e);
+      if (e.defaultPrevented) return;
+      const control = readAloudControlKey(e);
+      if (control) {
+        e.preventDefault();
+        latestControl.current[control]();
+        return;
+      }
+      const target = readAloudKey(e);
       if (!target) return;
       e.preventDefault();
       latest.current(target);
@@ -55,6 +66,16 @@ export function ReadAloudBar({ readAloud, textFor, keysEnabled }: Props) {
           {t.t(b.label)} <Kbd>{b.keys}</Kbd>
         </button>
       ))}
+      {readAloud.status !== 'idle' && (
+        <>
+          <button className="quiet" aria-keyshortcuts="Alt+K" onClick={() => readAloud.pauseOrResume()}>
+            {t.t(readAloud.status === 'paused' ? 'read.resume' : 'read.pause')} <Kbd>Alt+K</Kbd>
+          </button>
+          <button className="quiet" aria-keyshortcuts="Alt+X" onClick={() => readAloud.stop()}>
+            {t.t('read.stop')} <Kbd>Alt+X</Kbd>
+          </button>
+        </>
+      )}
       {!english && <span className="hint">{t.t('read.needsEnglishVoice')}</span>}
     </div>
   );

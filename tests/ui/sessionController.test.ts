@@ -143,7 +143,8 @@ describe('SessionController: open and check', () => {
     const stop = controller.subscribe(() => seen.push(controller.getState().phase));
     await controller.openText('I think teh cat is here.');
     stop();
-    expect(seen).toEqual(['checking', 'ready']);
+    // The first change is "Opening…" (still the empty phase), then the check.
+    expect(seen).toEqual(['empty', 'checking', 'ready']);
   });
 
   it('an unreadable file is reported, not thrown', async () => {
@@ -182,6 +183,18 @@ describe('SessionController: broken or unexpected files (Task U3 item 10)', () =
     expect(state.phase).toBe('empty');
     expect(state.document).toBeNull();
     expect(saves).toEqual([]);
+  });
+
+  it('an error and a notice can each be dismissed (Task U3 item 5)', async () => {
+    const { controller } = makeController();
+    await controller.openFile({ name: 'locked.docx', path: '/docs/locked.docx', bytes: fixture('encrypted.docx') });
+    controller.dismissError();
+    expect(controller.getState().error).toBeNull();
+    await controller.openFile({ name: 'note.txt', path: '/docs/note.txt', bytes: encode(CANT) });
+    await controller.save();
+    expect(english(controller.getState().notice)).toMatch(/^Saved as /);
+    controller.dismissNotice();
+    expect(controller.getState().notice).toBeNull();
   });
 
   it('a broken file leaves the open document as it was', async () => {
@@ -402,7 +415,8 @@ describe('SessionController: screen-reader announcements', () => {
   it('a decision is announced with what is left: "Accepted. N of M left."', async () => {
     const { controller } = makeController();
     await controller.openText(TWO);
-    expect(controller.getState().announcement).toBeNull();
+    const found = controller.getState().session!.rankedDecisionCount();
+    expect(english(controller.getState().announcement!.message)).toBe(`Check finished: ${found} suggestions to decide.`);
     const first = controller.getState().session!.decisions().top[0];
     controller.accept(first.id);
     const left = controller.getState().session!.rankedDecisionCount();

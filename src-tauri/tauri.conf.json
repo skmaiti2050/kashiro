@@ -17,7 +17,8 @@
         "width": 1200,
         "height": 800,
         "minWidth": 760,
-        "minHeight": 480
+        "minHeight": 480,
+        "visible": false
       }
     ],
     "security": {
@@ -30,7 +31,7 @@
     "targets": ["nsis"],
     "windows": {
       "webviewInstallMode": { "type": "skip" },
-      "nsis": { "installMode": "currentUser" }
+      "nsis": { "installMode": "currentUser", "installerHooks": "nsis/close-app.nsh" }
     },
     "resources": {
       "../resources/dictionary/oewn.json.gz": "dictionary/oewn.json.gz",

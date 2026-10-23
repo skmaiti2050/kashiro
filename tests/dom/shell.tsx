@@ -39,16 +39,40 @@ export function installSpeech(voices: FakeVoice[]) {
     lang = '';
     rate = 1;
     pitch = 1;
+    onend: (() => void) | null = null;
     constructor(readonly text: string) {}
   }
+  let current: Utterance | null = null;
   const synth = {
     speaking: false,
+    paused: false,
     cancelled: 0,
     getVoices: () => voices,
-    speak: (u: Utterance) => spoken.push({ text: u.text, voice: u.voice, rate: u.rate, pitch: u.pitch }),
+    speak: (u: Utterance) => {
+      spoken.push({ text: u.text, voice: u.voice, rate: u.rate, pitch: u.pitch });
+      current = u;
+      synth.speaking = true;
+    },
+    // Like Chromium: cancel ends the utterance (onend fires) but leaves a paused synthesizer paused.
     cancel: () => {
       synth.cancelled++;
       synth.speaking = false;
+      const ending = current;
+      current = null;
+      ending?.onend?.();
+    },
+    pause: () => {
+      if (synth.speaking) synth.paused = true;
+    },
+    resume: () => {
+      synth.paused = false;
+    },
+    /** The voice reaches the end of the text. */
+    finish: () => {
+      synth.speaking = false;
+      const ending = current;
+      current = null;
+      ending?.onend?.();
     },
     addEventListener: (_type: string, listener: () => void) => listeners.add(listener),
     removeEventListener: (_type: string, listener: () => void) => listeners.delete(listener),

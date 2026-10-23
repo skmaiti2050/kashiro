@@ -218,5 +218,10 @@ describe('axe-core: no serious or critical violations', () => {
     const dialog = await screen.findByRole('dialog', { name: 'About writing-check' });
     act(() => dialog.querySelectorAll('details').forEach((details) => (details.open = true)));
     await audit('About');
+    // Readable text, not Markdown source (Task U3 item 8); the licence texts stay verbatim in <pre>.
+    const shown = [...dialog.querySelectorAll('.notice-markdown > :not(pre)')].map((el) => el.textContent ?? '');
+    expect(shown.filter((text) => /^#|```|\*\*|\]\(/.test(text))).toEqual([]);
+    expect(within(dialog).getByRole('heading', { name: 'Fonts attribution' })).toBeTruthy();
+    expect([...dialog.querySelectorAll('pre')].some((pre) => pre.textContent!.includes('SIL OPEN FONT LICENSE Version 1.1'))).toBe(true);
   });
 });

@@ -35,10 +35,24 @@ import './a11y.css';
 // Loaded when first opened: the notice texts stay out of the main bundle.
 const AboutDialog = lazy(() => import('./AboutDialog').then((module) => ({ default: module.AboutDialog })));
 
+/** Loading shorter than this shows no "Starting…", so a quick start doesn't flash it. */
+const SLOW_START_MS = 300;
+
 export default function App() {
   const [controller, setController] = useState<SessionController | null>(null);
   const [startError, setStartError] = useState<Message | null>(null);
+  const [slowStart, setSlowStart] = useState(false);
   const started = useRef(false);
+
+  useEffect(() => {
+    // The window starts hidden (tauri.conf.json): shown once this first frame is drawn, it never shows blank white.
+    let frame = requestAnimationFrame(() => (frame = requestAnimationFrame(() => void getCurrentWindow().show())));
+    const slow = setTimeout(() => setSlowStart(true), SLOW_START_MS);
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(slow);
+    };
+  }, []);
 
   useEffect(() => {
     // StrictMode runs effects twice in development; one controller (and one linter) is enough.
@@ -72,7 +86,7 @@ export default function App() {
     const t = translatorFor('system');
     return (
       <main className="starting" lang={t.language} dir={t.dir}>
-        {startError ? t.format(startError) : t.t('app.starting')}
+        {startError ? t.format(startError) : slowStart && t.t('app.starting')}
       </main>
     );
   }
@@ -94,7 +108,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
   const t = useT();
   const [panel, setPanel] = useState<'none' | 'settings' | 'help' | 'shortcuts' | 'about'>('none');
   const { lookup, state: lookupState } = useWordLookup(controller);
-  const readAloud = useReadAloud(state.settings.reading);
+  const readAloud = useReadAloud(state.settings.reading, state.document?.id ?? null);
   const caretReader = useRef<() => CaretText | null>(() => null);
   const improveAtCaret = useRef<() => void>(() => {});
   const [logOpen, setLogOpen] = useState(false);
@@ -148,6 +162,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
   };
   const onOpen = () => unlessUnsaved(() => void controller.open());
   const onPaste = () => unlessUnsaved(() => void paste());
+  const onClose = () => unlessUnsaved(() => void controller.close());
   const openFromHelp = () => {
     setPanel('none');
     onOpen();
@@ -159,8 +174,16 @@ function ShellView({ controller, state }: { controller: SessionController; state
     if (dialogOpen) return;
     if (shortcut === 'open') onOpen();
     else if (shortcut === 'paste') onPaste();
+    else if (shortcut === 'close') onClose();
     else setPanel(shortcut);
   });
+
+  // A notice ("Saved as …") clears on its own; an error stays until dismissed.
+  useEffect(() => {
+    if (!state.notice) return;
+    const timer = setTimeout(() => controller.dismissNotice(), NOTICE_MS);
+    return () => clearTimeout(timer);
+  }, [state.notice, controller]);
   const { reading } = state.settings;
   useEffect(() => {
     // The whole page, so text outside .app (none yet) and the native spell-check language follow too.
@@ -188,8 +211,13 @@ function ShellView({ controller, state }: { controller: SessionController; state
           them out of a dialog's inert page (Dialog.tsx), so an error raised behind a dialog is still heard.
         */}
         <div className="banners" data-live-regions>
-          <div role="alert">{state.error && <p className="banner error">{t.format(state.error)}</p>}</div>
-          <div role="status">{state.notice && !state.error && <p className="banner">{t.format(state.notice)}</p>}</div>
+          <Banner role="alert" className="banner error" text={state.error && t.format(state.error)} onDismiss={() => controller.dismissError()} />
+          <Banner
+            role="status"
+            className="banner"
+            text={state.notice && !state.error ? t.format(state.notice) : null}
+            onDismiss={() => controller.dismissNotice()}
+          />
         </div>
         <p className="visually-hidden" role="status" aria-atomic="true" data-live-regions>
           {state.announcement && <span key={state.announcement.seq}>{t.format(state.announcement.message)}</span>}
@@ -258,6 +286,27 @@ function ShellView({ controller, state }: { controller: SessionController; state
           }}
           onCancel={() => setAfterUnsaved(null)}
         />
+      )}
+    </div>
+  );
+}
+
+/** How long a notice stays before it clears on its own. */
+const NOTICE_MS = 6000;
+
+/**
+ * An error or notice with its × (a real button: Tab reaches it, Enter or Space dismisses). The live region
+ * is always there and holds only the message, so the screen reader announces the text and not the button.
+ */
+function Banner({ role, className, text, onDismiss }: { role: 'alert' | 'status'; className: string; text: string | null; onDismiss(): void }) {
+  const t = useT();
+  return (
+    <div className={text ? className : undefined}>
+      <div role={role}>{text && <p>{text}</p>}</div>
+      {text && (
+        <button className="quiet dismiss" aria-label={t.t('banner.dismiss')} title={t.t('banner.dismiss')} onClick={onDismiss}>
+          ×
+        </button>
       )}
     </div>
   );

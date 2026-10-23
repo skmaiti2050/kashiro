@@ -38,20 +38,35 @@ export function onVoicesChanged(changed: (voices: SpeechSynthesisVoice[]) => voi
  * Speaks `text` with `voice`, stopping whatever was being read. A voice that is not local is refused here
  * too, so the text can never go to an online voice, whatever the caller passed.
  */
-export function speak(text: string, voice: SpeechSynthesisVoice, options: { rate: number; pitch: number }): void {
+export function speak(text: string, voice: SpeechSynthesisVoice, options: { rate: number; pitch: number }, onEnd: () => void = () => {}): boolean {
   const speech = synth();
-  if (!speech || voice.localService !== true || text.trim() === '') return;
-  speech.cancel();
+  if (!speech || voice.localService !== true || text.trim() === '') return false;
+  stopSpeaking();
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.voice = voice;
   utterance.lang = voice.lang;
   utterance.rate = options.rate;
   utterance.pitch = options.pitch;
+  utterance.onend = onEnd;
+  utterance.onerror = onEnd;
   speech.speak(utterance);
+  return true;
 }
 
+/** Stops the reading. Chromium keeps a paused synthesizer paused after cancel, which would silence the next reading. */
 export function stopSpeaking(): void {
-  synth()?.cancel();
+  const speech = synth();
+  if (!speech) return;
+  speech.cancel();
+  if (speech.paused) speech.resume();
+}
+
+export function pauseSpeaking(): void {
+  synth()?.pause();
+}
+
+export function resumeSpeaking(): void {
+  synth()?.resume();
 }
 
 export function isSpeaking(): boolean {

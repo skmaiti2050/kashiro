@@ -54,6 +54,7 @@
       "window main",
       "core:default",
       "core:window:allow-destroy",
+      "core:window:allow-show",
       "dialog:allow-open",
       "dialog:allow-save",
       "fs:allow-read-file",
@@ -77,7 +78,8 @@
   },
   "settings": {
     "bundle.resources": "{\"../resources/dictionary/oewn.json.gz\":\"dictionary/oewn.json.gz\",\"binaries/llama/*\":\"llama/\",\"binaries/vulkan/*\":\"llama/vulkan/\",\"../LICENSE\":\"LICENSE.txt\",\"../README.md\":\"README.md\",\"../docs/INSTALL.md\":\"INSTALL.md\",\"../resources/dictionary/ATTRIBUTION.md\":\"notices/dictionary.md\",\"../resources/frequency/ATTRIBUTION.md\":\"notices/word-frequencies.md\",\"../resources/romanised/ATTRIBUTION.md\":\"notices/indian-languages.md\",\"../resources/fonts/ATTRIBUTION.md\":\"notices/fonts.md\",\"../resources/i18n/ATTRIBUTION.md\":\"notices/interface-text.md\",\"../resources/harper/ATTRIBUTION.md\":\"notices/harper.md\",\"../resources/llama/ATTRIBUTION.md\":\"notices/llama-cpp.md\",\"../resources/notices/THIRD-PARTY-NOTICES.txt\":\"notices/THIRD-PARTY-NOTICES.txt\"}",
+    "bundle.windows.nsis.installerHooks": "nsis/close-app.nsh sha256 f7b3dd98d4112905edee4f2b070f57f6b928ce52d0b5c2d91064f07dc10c4dd9",
     "noai bundle.resources": "{\"../resources/dictionary/oewn.json.gz\":\"dictionary/oewn.json.gz\",\"../LICENSE\":\"LICENSE.txt\",\"../README.md\":\"README.md\",\"../docs/INSTALL.md\":\"INSTALL.md\",\"../resources/dictionary/ATTRIBUTION.md\":\"notices/dictionary.md\",\"../resources/frequency/ATTRIBUTION.md\":\"notices/word-frequencies.md\",\"../resources/romanised/ATTRIBUTION.md\":\"notices/indian-languages.md\",\"../resources/fonts/ATTRIBUTION.md\":\"notices/fonts.md\",\"../resources/i18n/ATTRIBUTION.md\":\"notices/interface-text.md\",\"../resources/harper/ATTRIBUTION.md\":\"notices/harper.md\",\"../resources/llama/ATTRIBUTION.md\":\"notices/llama-cpp.md\",\"../resources/notices/THIRD-PARTY-NOTICES.txt\":\"notices/THIRD-PARTY-NOTICES.txt\"}",
-    "noai bundle.windows.nsis.installerHooks": "nsis/noai-hooks.nsh sha256 2376de17ef85b5db0c3559c11499171133e1fb2263a59acc15e4dbc49d0c5a3f"
+    "noai bundle.windows.nsis.installerHooks": "nsis/noai-hooks.nsh sha256 fb69328066c8f774b9f9534109c71d0d12fa678381e8360ec18ab67bcdf88656"
   }
 }

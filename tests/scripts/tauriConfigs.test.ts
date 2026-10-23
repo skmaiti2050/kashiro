@@ -44,8 +44,9 @@ describe('the two release configs', () => {
     /** A Delete line of the hook: `Delete "$INSTDIR\llama\ggml.dll"`. */
     const DELETE_LINE = /^\s*Delete "\$INSTDIR\\(llama\\[^"]+)"\s*$/gm;
 
-    it('only the full config has no hooks', () => {
-      expect((full.bundle as { windows: { nsis: Record<string, unknown> } }).windows.nsis.installerHooks).toBeUndefined();
+    it('the full config has only the close-the-app hooks; the version without AI includes them too', () => {
+      expect((full.bundle as { windows: { nsis: Record<string, unknown> } }).windows.nsis.installerHooks).toBe('nsis/close-app.nsh');
+      expect(text).toMatch(/^!include "\$\{__FILEDIR__\}\\close-app\.nsh"$/m);
     });
 
     it('deletes exactly the pinned files, by name: never a whole folder a user may own', () => {
@@ -58,6 +59,25 @@ describe('the two release configs', () => {
 
     it('does it only in a folder that holds writing-check.exe', () => {
       expect(text).toMatch(/\$\{If\} \$\{FileExists\} "\$INSTDIR\\writing-check\.exe"/);
+    });
+  });
+
+  describe('reinstalling while the app is open asks the user to close it (Task U3 item 9)', () => {
+    const text = fs.readFileSync(path.join(ROOT, 'src-tauri', 'nsis', 'close-app.nsh'), 'utf8');
+
+    it('before installing and before uninstalling', () => {
+      expect(text).toMatch(/^!macro NSIS_HOOK_PREINSTALL$/m);
+      expect(text).toMatch(/^!macro NSIS_HOOK_PREUNINSTALL$/m);
+    });
+
+    it('with Retry and Cancel, never by closing the app itself', () => {
+      expect(text).toMatch(/MessageBox MB_RETRYCANCEL/);
+      expect(text).toMatch(/Close writing-check yourself/);
+      expect(text).not.toMatch(/RmShutdown|taskkill|KillProcess/i);
+    });
+
+    it('asks only in an interactive install: a silent one keeps Tauri’s own handling', () => {
+      expect(text).toMatch(/IfSilent/);
     });
   });
 });

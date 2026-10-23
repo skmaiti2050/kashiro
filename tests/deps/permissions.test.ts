@@ -196,8 +196,12 @@ describe('the committed baseline (deps/snapshots/permissions.json)', () => {
     const widened = editedConf((c) => {
       c.app.security.csp = String(c.app.security.csp).replace('connect-src', 'connect-src https://example.com');
     });
-    // Only tauri.conf.json is edited here, so the baseline's entries for the config without AI are left out.
-    const confPart = { ...committed, settings: Object.fromEntries(Object.entries(committed.settings).filter(([key]) => !key.startsWith('noai '))) };
+    // Only tauri.conf.json is edited here, so the baseline's entries for the config without AI, and the installer
+    // hooks (hashed from their files, which this test does not read), are left out.
+    const confPart = {
+      ...committed,
+      settings: Object.fromEntries(Object.entries(committed.settings).filter(([key]) => !key.startsWith('noai ') && !key.endsWith('installerHooks'))),
+    };
     expect(findWidenings(confPart, readPermissionSurface(widened, { 'default.json': CAPABILITY }))).toEqual([
       'csp connect-src adds https://example.com',
     ]);

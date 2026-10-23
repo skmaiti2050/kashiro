@@ -11,6 +11,7 @@ interface Shortcut {
 const ANYWHERE: Shortcut[] = [
   { keys: 'Ctrl+O', action: 'shortcuts.open' },
   { keys: 'Ctrl+V', action: 'shortcuts.paste' },
+  { keys: 'Ctrl+W', action: 'shortcuts.close' },
   { keys: 'Ctrl+,', action: 'shortcuts.settings' },
   { keys: ['F1', '?'], action: 'shortcuts.list' },
   { keys: 'Tab / Shift+Tab', action: 'shortcuts.tab' },
@@ -30,6 +31,8 @@ const READ_ALOUD: Shortcut[] = [
   { keys: 'Alt+S', action: 'shortcuts.readSentence' },
   { keys: 'Alt+R', action: 'shortcuts.readSuggestion' },
   { keys: 'Alt+P', action: 'shortcuts.readParagraph' },
+  { keys: 'Alt+K', action: 'shortcuts.readPause' },
+  { keys: 'Alt+X', action: 'shortcuts.readStop' },
 ];
 
 const LOOK_UP: Shortcut = { keys: 'Ctrl+D', action: 'shortcuts.lookUp' };

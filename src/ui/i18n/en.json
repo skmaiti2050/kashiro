@@ -79,6 +79,9 @@
 
   "panel.label": "Review",
   "panel.checking": "Checking…",
+  "panel.opening": "Opening…",
+  "banner.dismiss": "Dismiss this message",
+  "doc.opening": "Opening {name}…",
   "panel.emptyHint": "Decisions show up here after a check.",
   "panel.currentCard": "Current card",
   "panel.keyAdd": "add",
@@ -191,6 +194,9 @@
   "read.sentence": "Sentence",
   "read.suggestion": "Suggestion",
   "read.paragraph": "Paragraph",
+  "read.pause": "Pause",
+  "read.resume": "Resume",
+  "read.stop": "Stop",
   "read.needsEnglishVoice": "Sentence and Paragraph need an English voice on this PC.",
 
   "speech.card": "Card {position, number} of {left, number} left. {speech}",
@@ -202,6 +208,8 @@
 
   "announce.after": "{verb}. {left, number} of {total, number} left.",
   "announce.afterAll": "{verb}. All reviewed.",
+  "announce.checking": "Checking document…",
+  "announce.checked": "Check finished: {count, plural, =0 {nothing to decide} one {# suggestion to decide} other {# suggestions to decide}}.",
   "verb.accepted": "Accepted",
   "verb.rejected": "Rejected",
   "verb.ignored": "Ignored",
@@ -280,6 +288,7 @@
   "shortcuts.either": "{first} or {second}",
   "shortcuts.open": "Open a file",
   "shortcuts.paste": "Paste text (on the start screen)",
+  "shortcuts.close": "Close the document",
   "shortcuts.settings": "Settings",
   "shortcuts.list": "This list of shortcuts",
   "shortcuts.tab": "Move between controls",
@@ -293,6 +302,8 @@
   "shortcuts.readSentence": "Read the sentence",
   "shortcuts.readSuggestion": "Read the suggestion",
   "shortcuts.readParagraph": "Read the paragraph",
+  "shortcuts.readPause": "Pause or resume reading",
+  "shortcuts.readStop": "Stop reading",
   "shortcuts.lookUp": "In the text: look up the selected word, or the word at the cursor",
 
   "lookup.title": "Look up “{word}”",

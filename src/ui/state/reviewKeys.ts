@@ -53,12 +53,12 @@ export function reviewKeyAction(press: KeyPress, target: KeyTarget): ReviewKeyAc
   }
 }
 
-export type AppShortcut = 'open' | 'paste' | 'settings' | 'shortcuts';
+export type AppShortcut = 'open' | 'paste' | 'close' | 'settings' | 'shortcuts';
 
 /**
  * App-wide shortcuts: Ctrl+O opens a file; Ctrl+V on the empty start screen pastes as a new document
- * (once a document is open, Ctrl+V is the editor's own paste); Ctrl+, opens Settings; F1, or ? where it
- * would not type a question mark, opens the keyboard shortcuts.
+ * (once a document is open, Ctrl+V is the editor's own paste); Ctrl+W closes the open document; Ctrl+,
+ * opens Settings; F1, or ? where it would not type a question mark, opens the keyboard shortcuts.
  */
 export function appShortcut(press: KeyPress, hasDocument: boolean, control: KeyTarget['control']): AppShortcut | null {
   if (press.altKey || press.metaKey) return null;
@@ -69,6 +69,7 @@ export function appShortcut(press: KeyPress, hasDocument: boolean, control: KeyT
   if (press.shiftKey) return null;
   const key = press.key.toLowerCase();
   if (key === 'o') return 'open';
+  if (key === 'w' && hasDocument) return 'close';
   if (key === ',') return 'settings';
   if (key === 'v' && !hasDocument && control !== 'text-entry') return 'paste';
   return null;
@@ -99,4 +100,11 @@ const READ_KEYS: Record<string, ReadTarget> = { s: 'sentence', r: 'suggestion', 
 export function readAloudKey(press: KeyPress): ReadTarget | null {
   if (!press.altKey || press.ctrlKey || press.metaKey || press.shiftKey || press.repeat) return null;
   return READ_KEYS[press.key.toLowerCase()] ?? null;
+}
+
+/** Alt+K pauses or resumes the reading, Alt+X stops it (Task U3 item 3); Alt alone, as readAloudKey. */
+export function readAloudControlKey(press: KeyPress): 'pauseOrResume' | 'stop' | null {
+  if (!press.altKey || press.ctrlKey || press.metaKey || press.shiftKey || press.repeat) return null;
+  const key = press.key.toLowerCase();
+  return key === 'k' ? 'pauseOrResume' : key === 'x' ? 'stop' : null;
 }

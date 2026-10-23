@@ -117,7 +117,7 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
   if (!session) {
     return (
       <aside className="review">
-        <p className="hint">{state.phase === 'checking' ? t.t('panel.checking') : t.t('panel.emptyHint')}</p>
+        <p className="hint">{state.opening ? t.t('panel.opening') : state.phase === 'checking' ? t.t('panel.checking') : t.t('panel.emptyHint')}</p>
       </aside>
     );
   }

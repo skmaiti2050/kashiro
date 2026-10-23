@@ -126,6 +126,22 @@ async fn overwrite_with_backup(app: tauri::AppHandle, request: Request<'_>) -> R
         .map_err(|e| format!("could not overwrite {path}: {e}"))
 }
 
+/// How long the page has to show the window (App.tsx does, after its first frame) before Rust does.
+const SHOW_WINDOW_FALLBACK: std::time::Duration = std::time::Duration::from_secs(5);
+
+/// The main window starts hidden (tauri.conf.json) so it never flashes white. If the page fails before it can
+/// show the window, it is shown anyway, so the app never runs invisibly.
+fn show_window_if_page_does_not(app: tauri::AppHandle) {
+    use tauri::Manager;
+    std::thread::spawn(move || {
+        std::thread::sleep(SHOW_WINDOW_FALLBACK);
+        let Some(window) = app.get_webview_window("main") else { return };
+        if !window.is_visible().unwrap_or(true) {
+            let _ = window.show();
+        }
+    });
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -133,6 +149,10 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .manage(llm::LlmState::default())
+        .setup(|app| {
+            show_window_if_page_does_not(app.handle().clone());
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             overwrite_with_backup,
             sessions::session_save,

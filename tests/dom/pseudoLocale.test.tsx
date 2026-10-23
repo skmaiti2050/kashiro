@@ -134,6 +134,13 @@ function overflowRisks(): string[] {
     const style = getComputedStyle(grid);
     if (style.display !== 'grid' || !style.gridTemplateColumns) continue;
     const tracks = gridTracks(style.gridTemplateColumns);
+    // Bare text in a grid lands in its first track ("No changes yet." in the change log's 48px column, Task U3 item 7).
+    const bare = [...grid.childNodes].filter((n) => n.nodeType === Node.TEXT_NODE && n.textContent!.trim()).map((n) => n.textContent!.trim());
+    const firstFixed = /^(\d+)px$/.exec(tracks[0] ?? '');
+    if (firstFixed && bare.length && isUiText(grid)) {
+      const longest = Math.max(...bare.join(' ').split(/\s+/).map((word) => [...word].length));
+      if (longest * CHAR_PX > Number(firstFixed[1])) risks.push(`${elementName(grid)}: bare text in its ${firstFixed[1]}px first column: “${bare.join(' ')}”`);
+    }
     [...grid.children].forEach((child, i) => {
       const fixed = /^(\d+)px$/.exec(tracks[i % tracks.length] ?? '');
       if (!fixed || !isUiText(child)) return;
@@ -200,6 +207,15 @@ describe('pseudo-locale (en-XA)', () => {
     } finally {
       speech.remove();
     }
+  });
+
+  it('the change log, open with no changes yet', async () => {
+    const { controller } = makeController({ uiLanguage: 'en-XA' });
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText('Nothing to fix here.'));
+    fireEvent.click(screen.getByRole('button', { name: `▸ ${pseudo.t('log.toggle', { count: 0 })}` }));
+    expect(screen.getByText(name('log.empty'))).toBeTruthy();
+    await expectTranslatedAndFitting(controller);
   });
 
   it('Settings, keyboard shortcuts and unsaved changes', async () => {

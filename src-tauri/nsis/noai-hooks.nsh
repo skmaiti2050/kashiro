@@ -6,6 +6,10 @@
 ; Never damage the user's files: $INSTDIR is whatever folder was picked, so this runs only where writing-check.exe
 ; is, deletes only the pinned file names (deps/assets.json: llama-server, vc-runtime, llama-server-vulkan; a test
 ; keeps this list equal to them), and removes a folder only once it is empty.
+
+; Asks the user to close writing-check before installing or uninstalling, as the full version does.
+!include "${__FILEDIR__}\close-app.nsh"
+
 !macro NSIS_HOOK_POSTINSTALL
   ${If} ${FileExists} "$INSTDIR\writing-check.exe"
     Delete "$INSTDIR\llama\llama-server.exe"

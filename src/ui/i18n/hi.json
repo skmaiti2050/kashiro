@@ -80,6 +80,9 @@
 
   "panel.label": "समीक्षा",
   "panel.checking": "जाँच हो रही है…",
+  "panel.opening": "खुल रही है…",
+  "banner.dismiss": "यह संदेश हटाएँ",
+  "doc.opening": "{name} खुल रही है…",
   "panel.emptyHint": "जाँच के बाद सुझाव यहाँ दिखेंगे।",
   "panel.currentCard": "मौजूदा कार्ड",
   "panel.keyAdd": "जोड़ें",
@@ -192,6 +195,9 @@
   "read.sentence": "वाक्य",
   "read.suggestion": "सुझाव",
   "read.paragraph": "पैराग्राफ़",
+  "read.pause": "रोकें",
+  "read.resume": "फिर से चलाएँ",
+  "read.stop": "बंद करें",
   "read.needsEnglishVoice": "वाक्य और पैराग्राफ़ पढ़ने के लिए इस PC पर अंग्रेज़ी आवाज़ चाहिए।",
 
   "speech.card": "बाक़ी {left, number} में से कार्ड {position, number}। {speech}",
@@ -203,6 +209,8 @@
 
   "announce.after": "{verb}। {total, number} में से {left, number} बाक़ी।",
   "announce.afterAll": "{verb}। सभी की समीक्षा हो गई।",
+  "announce.checking": "डॉक्यूमेंट की जाँच हो रही है…",
+  "announce.checked": "जाँच पूरी: {count, plural, =0 {तय करने को कुछ नहीं} one {तय करने को # सुझाव} other {तय करने को # सुझाव}}।",
   "verb.accepted": "स्वीकार किया",
   "verb.rejected": "अस्वीकार किया",
   "verb.ignored": "अनदेखा किया",
@@ -281,6 +289,7 @@
   "shortcuts.either": "{first} या {second}",
   "shortcuts.open": "फ़ाइल खोलें",
   "shortcuts.paste": "टेक्स्ट पेस्ट करें (शुरुआती स्क्रीन पर)",
+  "shortcuts.close": "डॉक्यूमेंट बंद करें",
   "shortcuts.settings": "सेटिंग्स",
   "shortcuts.list": "शॉर्टकट की यह सूची",
   "shortcuts.tab": "एक कंट्रोल से दूसरे पर जाएँ",
@@ -294,6 +303,8 @@
   "shortcuts.readSentence": "वाक्य पढ़ें",
   "shortcuts.readSuggestion": "सुझाव पढ़ें",
   "shortcuts.readParagraph": "पैराग्राफ़ पढ़ें",
+  "shortcuts.readPause": "पढ़ना रोकें या फिर से चलाएँ",
+  "shortcuts.readStop": "पढ़ना बंद करें",
   "shortcuts.lookUp": "टेक्स्ट में: चुने हुए शब्द का, या कर्सर वाले शब्द का मतलब देखें",
 
   "lookup.title": "“{word}” का मतलब",

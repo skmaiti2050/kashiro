@@ -67,6 +67,12 @@ describe('appShortcut', () => {
     expect(appShortcut(press('v', { ctrlKey: true }), false, 'text-entry')).toBeNull();
   });
 
+  it('Ctrl+W closes the document, from anywhere, only when one is open (Task U3 item 5)', () => {
+    expect(appShortcut(press('w', { ctrlKey: true }), true, 'text-entry')).toBe('close');
+    expect(appShortcut(press('W', { ctrlKey: true }), true, 'none')).toBe('close');
+    expect(appShortcut(press('w', { ctrlKey: true }), false, 'none')).toBeNull();
+  });
+
   it('ignores other chords', () => {
     expect(appShortcut(press('o'), false, 'none')).toBeNull();
     expect(appShortcut(press('v', { ctrlKey: true, shiftKey: true }), false, 'none')).toBeNull();

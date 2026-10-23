@@ -97,6 +97,19 @@ describe('saved reviews: autosave', () => {
     expect(JSON.parse(saved.json)).toMatchObject({ name: 'note.txt', path: '/docs/note.txt', made: 2 });
   });
 
+  it('Close document (Task U3 item 5) writes the waiting review at once and returns to the empty state', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const { controller, disk } = run();
+    await controller.openFile(FILE);
+    controller.accept(decisionOn(controller, 'recieved'));
+    expect(disk.stored.size).toBe(0); // the autosave still waits for its pause
+    await controller.close();
+    expect(disk.stored.size).toBe(1);
+    expect(controller.getState()).toMatchObject({ phase: 'empty', document: null, session: null, checking: false });
+    expect(controller.hasUnsavedWork()).toBe(false);
+    expect(controller.getState().recentReviews.map((r) => r.name)).toEqual(['note.txt']);
+  });
+
   it('never stores the file: no paragraph text in the saved review', async () => {
     const { disk } = await reviewed();
     const [saved] = [...disk.stored.values()];

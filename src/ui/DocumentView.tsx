@@ -273,9 +273,18 @@ export function DocumentView({ controller, state, focus, onUnderlineClick, onOpe
   // Ctrl+I outside the text (the panel, the toolbar); inside it, the editor's keymap answers first.
   useImproveKey(aiOn && doc !== null, () => improveAtCaret.current());
 
+  // Visual only: the screen reader hears "Checking document…" and the result from the app's announcements.
+  const busy = state.opening ? t.t('doc.opening', { name: state.opening }) : state.phase === 'checking' ? t.t('panel.checking') : null;
+  const busyLine = busy && (
+    <p className="busy" aria-hidden="true">
+      {busy}
+    </p>
+  );
+  if (!doc && busyLine) return <section className="document empty">{busyLine}</section>;
   if (!doc) return <EmptyState onOpen={onOpen} onPaste={onPaste} onSample={onSample} recent={state.recentReviews} onOpenRecent={onOpenRecent} />;
   return (
     <section className="document" aria-label={doc.name}>
+      {busyLine}
       {doc.note && <p className="note">{t.format(doc.note)}</p>}
       <div className="editor" ref={host} />
       <p id={FLAG_AT_CURSOR_ID} className="visually-hidden" aria-live="polite">

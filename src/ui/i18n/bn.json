@@ -80,6 +80,9 @@
 
   "panel.label": "রিভিউ",
   "panel.checking": "পরীক্ষা চলছে…",
+  "panel.opening": "খোলা হচ্ছে…",
+  "banner.dismiss": "এই বার্তাটি সরান",
+  "doc.opening": "{name} খোলা হচ্ছে…",
   "panel.emptyHint": "পরীক্ষার পরে সিদ্ধান্তগুলো এখানে দেখাবে।",
   "panel.currentCard": "এখনকার কার্ড",
   "panel.keyAdd": "যোগ করুন",
@@ -192,6 +195,9 @@
   "read.sentence": "বাক্য",
   "read.suggestion": "পরামর্শ",
   "read.paragraph": "অনুচ্ছেদ",
+  "read.pause": "থামান",
+  "read.resume": "আবার চালান",
+  "read.stop": "বন্ধ করুন",
   "read.needsEnglishVoice": "বাক্য আর অনুচ্ছেদ পড়ার জন্য এই PC-তে ইংরেজি ভয়েস দরকার।",
 
   "speech.card": "বাকি {left, number}টির মধ্যে কার্ড {position, number}। {speech}",
@@ -203,6 +209,8 @@
 
   "announce.after": "{verb}। {total, number}টির মধ্যে {left, number}টি বাকি।",
   "announce.afterAll": "{verb}। সব দেখা হয়ে গেছে।",
+  "announce.checking": "ডকুমেন্ট পরীক্ষা চলছে…",
+  "announce.checked": "পরীক্ষা শেষ: {count, plural, =0 {ঠিক করার কিছু নেই} one {ঠিক করার #টি পরামর্শ} other {ঠিক করার #টি পরামর্শ}}।",
   "verb.accepted": "মেনে নেওয়া হলো",
   "verb.rejected": "বাদ দেওয়া হলো",
   "verb.ignored": "উপেক্ষা করা হলো",
@@ -281,6 +289,7 @@
   "shortcuts.either": "{first} বা {second}",
   "shortcuts.open": "ফাইল খুলুন",
   "shortcuts.paste": "লেখা পেস্ট করুন (শুরুর স্ক্রিনে)",
+  "shortcuts.close": "ডকুমেন্ট বন্ধ করুন",
   "shortcuts.settings": "সেটিংস",
   "shortcuts.list": "শর্টকাটের এই তালিকা",
   "shortcuts.tab": "এক কন্ট্রোল থেকে আরেকটায় যান",
@@ -294,6 +303,8 @@
   "shortcuts.readSentence": "বাক্যটি পড়ুন",
   "shortcuts.readSuggestion": "পরামর্শটি পড়ুন",
   "shortcuts.readParagraph": "অনুচ্ছেদটি পড়ুন",
+  "shortcuts.readPause": "পড়া থামান বা আবার চালান",
+  "shortcuts.readStop": "পড়া বন্ধ করুন",
   "shortcuts.lookUp": "লেখার মধ্যে: বেছে নেওয়া শব্দের, বা কার্সরের জায়গার শব্দের মানে দেখুন",
 
   "lookup.title": "“{word}”-এর মানে",

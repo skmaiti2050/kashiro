@@ -78,6 +78,8 @@ export interface ControllerState extends SavedReviewsState {
   error: Message | null;
   /** Typed text waits for its re-check, or a re-check is running (the status bar's "Checking…"). */
   checking: boolean;
+  /** The name of the file being read, until it is shown (the document area's "Opening…"). */
+  opening: string | null;
   /** Decisions the user made since the document was opened (the progress header's "of M"). */
   decided: number;
   /** Kinds dismissed with "This rule in this document": dropped when another document is opened. */
@@ -184,6 +186,7 @@ export class SessionController {
       notice: null,
       error: null,
       checking: false,
+      opening: null,
       decided: 0,
       documentIgnoredRules: [],
       announcement: null,
@@ -275,11 +278,12 @@ export class SessionController {
   /** `isFile`: an opened file (one with no text is refused), not a paste or the sample. */
   private async load(name: string, path: string | null, adapter: FormatAdapter, bytes: Uint8Array, isFile = false): Promise<void> {
     let read: { loaded: LoadedFile; document: OpenDocument };
+    this.set({ opening: name });
     try {
       read = await readDocument(this.documents + 1, name, path, adapter, bytes, isFile);
     } catch (e) {
       // The open document (if any) stays as it was, typing included; nothing is written.
-      this.set({ error: openError(name, e) });
+      this.set({ error: openError(name, e), opening: null });
       return;
     }
     this.queue.cancel();
@@ -298,9 +302,10 @@ export class SessionController {
       notice: null,
       error: null,
       checking: true,
+      opening: null,
       decided: this.tally.decided,
       documentIgnoredRules: [],
-      announcement: null,
+      announcement: { message: msg('announce.checking'), seq: ++this.announcements },
     });
     await this.queue.track(this.check(false));
     await this.reviews.opened(document, bytes);
@@ -355,7 +360,9 @@ export class SessionController {
         // AI answers after the rule decisions: a rewrite was made for its sentence with the accepted fixes in it.
         this.tally.remap(new Map([...carryDecisions(userDecisions(before), session, unchanged), ...this.ai.sessionReplaced(before, session, unchanged)]));
       }
-      this.set({ phase: 'ready', session, checking: this.queue.waiting });
+      // A new document's result is announced; a re-check while typing stays quiet.
+      const announcement = before ? {} : { announcement: { message: msg('announce.checked', { count: session.rankedDecisionCount() }), seq: ++this.announcements } };
+      this.set({ phase: 'ready', session, checking: this.queue.waiting, ...announcement });
       if (before) this.reviews.changed();
       // After every check, so a goal switch (whose own modules may differ) releases too.
       this.releaseModules(session.modules);
@@ -558,6 +565,43 @@ export class SessionController {
   /** For failures outside the controller (a dropped file that can't be read, the linter not starting). */
   showError(error: Message): void {
     this.set({ error });
+  }
+
+  /** The error banner's ×. */
+  dismissError(): void {
+    this.set({ error: null });
+  }
+
+  /** The notice banner's × (notices also clear on their own, see App.tsx). */
+  dismissNotice(): void {
+    this.set({ notice: null });
+  }
+
+  /**
+   * "Close document" (Ctrl+W), after the unsaved-changes guard: the saved review is written now (S3), and the
+   * app returns to the empty state with the recent reviews listed.
+   */
+  async close(): Promise<void> {
+    if (!this.state.document) return;
+    this.queue.cancel();
+    await this.reviews.leave();
+    this.loaded = null;
+    this.unsaved = false;
+    this.tally.reset();
+    this.ai.reset();
+    this.set({
+      phase: 'empty',
+      document: null,
+      session: null,
+      variantOverride: null,
+      notice: null,
+      error: null,
+      checking: false,
+      decided: this.tally.decided,
+      documentIgnoredRules: [],
+      announcement: null,
+    });
+    await this.reviews.refresh();
   }
 
   private set(patch: Partial<ControllerState>): void {

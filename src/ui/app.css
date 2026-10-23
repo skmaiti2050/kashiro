@@ -380,10 +380,29 @@ legend {
 
 /* Banner */
 .banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin: 0;
-  padding: 6px 12px;
+  padding-block: 6px;
+  padding-inline: 12px 4px;
   background: var(--warn-bg);
   border-bottom: 1px solid var(--line);
+}
+
+.banner [role] {
+  flex: 1;
+}
+
+.banner p {
+  margin: 0;
+}
+
+.banner .dismiss {
+  flex: none;
+  min-width: 28px;
+  padding: 0 6px;
+  font-size: 16px;
 }
 
 .banner.error {
@@ -408,6 +427,32 @@ legend {
   justify-content: center;
   align-items: center;
   color: var(--muted);
+}
+
+/* "Opening…" / "Checking…" (Task U3 item 2): a line of text with a thin moving bar under it. */
+.busy {
+  position: relative;
+  margin: 0;
+  padding: 6px 16px 8px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--line);
+}
+
+.busy::after {
+  content: '';
+  position: absolute;
+  inset-inline-start: 0;
+  bottom: -1px;
+  width: 30%;
+  height: 2px;
+  background: var(--accent);
+  animation: busy-slide 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes busy-slide {
+  to {
+    inset-inline-start: 70%;
+  }
 }
 
 .document .note {
@@ -958,6 +1003,11 @@ button.link {
   border-bottom: 1px solid var(--line);
 }
 
+/* "No changes yet." is one line of text, not a change row: in the row grid it fell into the 48px column. */
+.changelog .entries li.hint {
+  display: block;
+}
+
 .changelog .where,
 .changelog .status {
   color: var(--muted);
@@ -1080,6 +1130,28 @@ button.link {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   font-size: 12px;
+}
+
+/* The notice files' Markdown, as text (AboutDialog.tsx). */
+.notice-markdown {
+  overflow-wrap: anywhere;
+}
+
+.notice-markdown h4,
+.notice-markdown h5,
+.notice-markdown h6 {
+  margin: 12px 0 4px;
+  font-size: 14px;
+}
+
+.notice-markdown h4 {
+  font-size: 15px;
+}
+
+.notice-markdown p,
+.notice-markdown ul,
+.notice-markdown ol {
+  margin: 4px 0;
 }
 
 .dropzone {
