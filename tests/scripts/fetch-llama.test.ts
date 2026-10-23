@@ -4,26 +4,44 @@ import os from 'node:os';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import JSZip from 'jszip';
-import { BUILDS, copyLlamaServer, filesInZip, hashMismatches, installLlamaServer, pinnedFiles, releaseZip } from '../../scripts/fetch-llama';
+import { BUILDS, copyLlamaServer, filesInZip, hashMismatches, installedBuildProblems, installLlamaServer, pinnedFiles, releaseZip } from '../../scripts/fetch-llama';
 
 const sha = (text: string) => createHash('sha256').update(text).digest('hex');
 
 describe('fetch-llama', () => {
-  it('pins a CPU and a Vulkan build of the same release; the Vulkan one adds only its backend', () => {
-    expect(BUILDS.map((b) => b.folder)).toEqual(['cpu', 'vulkan']);
-    const cpu = pinnedFiles('llama-server');
-    const vulkan = pinnedFiles('llama-server-vulkan');
-    expect(cpu['llama-server.exe']).toMatch(/^[0-9a-f]{64}$/);
-    expect(cpu).not.toHaveProperty('ggml-vulkan.dll');
-    const { 'ggml-vulkan.dll': backend, ...shared } = vulkan;
-    expect(backend).toMatch(/^[0-9a-f]{64}$/);
-    expect(shared).toEqual(cpu);
+  it('pins one llama folder from the CPU zip, and only the Vulkan backend from the Vulkan zip (fix round 1)', () => {
+    expect(BUILDS.map((b) => b.folder)).toEqual(['llama', 'vulkan']);
+    const llama = pinnedFiles('llama-server');
+    expect(llama['llama-server.exe']).toMatch(/^[0-9a-f]{64}$/);
+    expect(llama).not.toHaveProperty('ggml-vulkan.dll');
+    expect(Object.keys(pinnedFiles('llama-server-vulkan'))).toEqual(['ggml-vulkan.dll']);
   });
 
-  it('tauri.conf.json bundles each build folder as a resource of the same name, and no sidecar', () => {
+  it('tauri.conf.json bundles the server in llama/ and the Vulkan backend alone in llama/vulkan/, and no sidecar', () => {
     const conf = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../src-tauri/tauri.conf.json'), 'utf8'));
     expect(conf.bundle.externalBin).toBeUndefined();
-    for (const { folder } of BUILDS) expect(conf.bundle.resources[`binaries/${folder}/*`]).toBe(`llama/${folder}/`);
+    expect(conf.bundle.resources['binaries/llama/*']).toBe('llama/');
+    expect(conf.bundle.resources['binaries/vulkan/*']).toBe('llama/vulkan/');
+    expect(conf.bundle.resources['binaries/cpu/*']).toBeUndefined();
+  });
+
+  it('installing removes files its own folder should not have, and the check reports a folder that differs', () => {
+    const binaries = fs.mkdtempSync(path.join(os.tmpdir(), 'fetch-llama-'));
+    const target = path.join(binaries, 'llama');
+    fs.mkdirSync(target);
+    fs.writeFileSync(path.join(target, 'stale.dll'), 'old');
+    const pinned = { 'llama-server.exe': sha('exe') };
+    installLlamaServer({ 'llama-server.exe': Buffer.from('exe') }, 'the zip', target, pinned);
+    expect(fs.readdirSync(target)).toEqual(['llama-server.exe']);
+
+    const builds = [{ folder: 'llama', pinned }, { folder: 'vulkan', pinned: { 'ggml-vulkan.dll': sha('vk') } }];
+    expect(installedBuildProblems(binaries, builds)).toEqual([`vulkan: missing (${path.join(binaries, 'vulkan')}): run npm run fetch:llama`]);
+    fs.mkdirSync(path.join(binaries, 'vulkan'));
+    fs.writeFileSync(path.join(binaries, 'vulkan', 'ggml-vulkan.dll'), 'vk');
+    fs.writeFileSync(path.join(binaries, 'llama', 'extra.dll'), 'x');
+    fs.writeFileSync(path.join(binaries, 'llama', 'llama-server.exe'), 'changed');
+    expect(installedBuildProblems(binaries, builds)).toEqual([`llama: llama-server.exe: sha256 is ${sha('changed')}, expected ${sha('exe')}`, 'llama: extra.dll: not pinned']);
+    fs.rmSync(binaries, { recursive: true });
   });
 
   it('reports a missing file and a changed file by name', () => {

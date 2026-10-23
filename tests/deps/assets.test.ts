@@ -60,10 +60,13 @@ describe('deps/assets.json', () => {
     expect(DICTIONARY_SHA).toBe(pinnedSha256('wordnet'));
   });
 
-  it.each(LLAMA_BUILDS)('%s: pins b11727 file by file, its exe hash under sha256', (id) => {
+  it.each([
+    ['llama-server', 'llama-server.exe'],
+    ['llama-server-vulkan', 'ggml-vulkan.dll'],
+  ])('%s: pins b11727 file by file, the hash of %s under sha256', (id, main) => {
     const llama = ASSETS.find((a) => a.id === id)!;
     expect(llama.version).toBe('b11727');
-    expect(llama.files!['llama-server.exe']).toBe(llama.sha256);
+    expect(llama.files![main]).toBe(llama.sha256);
     for (const hash of Object.values(llama.files!)) expect(hash).toMatch(/^[0-9a-f]{64}$/);
   });
 

@@ -1,12 +1,14 @@
 /**
- * Puts the pinned llama.cpp `llama-server` builds (Windows x64) in src-tauri/binaries/<build>/, which
- * tauri.conf.json bundles as resources: the CPU build, and the Vulkan build the app tries first on a machine
- * with a usable GPU (src-tauri/src/llm.rs). They are separate folders so the CPU fallback never loads the
- * Vulkan backend (a broken GPU driver could crash it).
+ * Puts the pinned llama.cpp `llama-server` files (Windows x64) in src-tauri/binaries/, which tauri.conf.json
+ * bundles as resources: binaries/llama/ (the server and its libraries, from the CPU build) and binaries/vulkan/
+ * (only ggml-vulkan.dll, from the Vulkan build; the rest of that zip equals the CPU build). The app loads the
+ * Vulkan backend by path only for the GPU probe and the GPU launch (src-tauri/src/llm.rs), so the CPU launch
+ * never loads it (a broken GPU driver could crash it).
  *
  * Source:  the official llama.cpp b11727 release zips (commit 8f97d82da), URL and zip sha256 in deps/assets.json
  * sha256:  the zip, then every file, pinned in deps/assets.json ("llama-server", "llama-server-vulkan" → files);
- *          checked before and after the copy. Only the pinned files are taken out of a zip.
+ *          checked before and after the copy. Only the pinned files are taken out of a zip, and files that are
+ *          not pinned are removed from the target folder.
  * Licence: MIT (libomp.dll: Apache-2.0 WITH LLVM-exception); texts in resources/llama/ATTRIBUTION.md
  *
  * Usage:
@@ -14,20 +16,24 @@
  *                                                         and CI step; the app itself never does this)
  *   npm run fetch:llama -- <CPU build> <Vulkan build>     the same from local copies: each a release zip or
  *                                                         an unzipped release folder
+ *   npm run check:llama                                   checks that binaries/ holds exactly the pinned files
+ *                                                         (run before packaging, and by upgrade:check)
  * src-tauri/binaries/ is gitignored: binaries are never committed.
  */
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import JSZip from 'jszip';
 import { ASSETS } from './deps/assets';
 
-/** Each build: its folder under src-tauri/binaries/ and its entry in deps/assets.json. */
+/** Each part: its folder under src-tauri/binaries/ and its entry in deps/assets.json. */
 export const BUILDS = [
-  { folder: 'cpu', assetId: 'llama-server' },
+  { folder: 'llama', assetId: 'llama-server' },
   { folder: 'vulkan', assetId: 'llama-server-vulkan' },
 ] as const;
+
+export const BINARIES = resolve(dirname(fileURLToPath(import.meta.url)), '../src-tauri/binaries');
 
 /** File name -> contents. */
 type BuildFiles = Record<string, Buffer>;
@@ -67,15 +73,44 @@ export async function filesInZip(zip: Buffer, zipSha256: string, pinned: Record<
   return files;
 }
 
-/** Verifies every file, writes them all, then verifies the written copies. Writes nothing when a file is wrong. */
+/** The names in `folder` that are not pinned (a file left from an older layout or release). */
+const unpinnedIn = (folder: string, pinned: Record<string, string>) => readdirSync(folder).filter((name) => !(name in pinned)).sort();
+
+/**
+ * Verifies every file, writes them all, removes anything else in `target` (only that gitignored folder), then
+ * verifies the folder. Writes nothing when a file is wrong.
+ */
 export function installLlamaServer(files: BuildFiles, from: string, target: string, pinned: Record<string, string>): void {
   const wrong = hashMismatches(pinned, hashesOf(files));
   if (wrong.length > 0) throw new Error(`Wrong llama-server files in ${from} (expected llama.cpp b11727):\n${wrong.join('\n')}`);
   mkdirSync(target, { recursive: true });
   for (const name of Object.keys(pinned)) writeFileSync(join(target, name), files[name]);
-  const written = hashMismatches(pinned, hashesOf(filesInFolder(target, pinned)));
-  if (written.length > 0) throw new Error(`The copies in ${target} do not match:\n${written.join('\n')}`);
+  for (const name of unpinnedIn(target, pinned)) rmSync(join(target, name), { recursive: true });
+  const problems = folderProblems(target, pinned);
+  if (problems.length > 0) throw new Error(`The copies in ${target} do not match:\n${problems.join('\n')}`);
 }
+
+/** Wrong or missing pinned files, then files that are not pinned. */
+function folderProblems(folder: string, pinned: Record<string, string>): string[] {
+  const wrong = hashMismatches(pinned, hashesOf(filesInFolder(folder, pinned)));
+  return [...wrong, ...unpinnedIn(folder, pinned).map((name) => `${name}: not pinned`)];
+}
+
+/**
+ * Every way the folders under `binaries` differ from the pinned sets, one line each ("vulkan: missing"); empty when
+ * they hold exactly the pinned files. A build must never bundle a file nobody pinned.
+ */
+export function installedBuildProblems(binaries: string, builds: { folder: string; pinned: Record<string, string> }[]): string[] {
+  return builds.flatMap(({ folder, pinned }) => {
+    const dir = join(binaries, folder);
+    if (!existsSync(dir)) return [`${folder}: missing (${dir}): run npm run fetch:llama`];
+    return folderProblems(dir, pinned).map((problem) => `${folder}: ${problem}`);
+  });
+}
+
+/** installedBuildProblems for the real binaries folder and deps/assets.json. */
+export const pinnedBuildProblems = (): string[] =>
+  installedBuildProblems(BINARIES, BUILDS.map((b) => ({ folder: b.folder, pinned: pinnedFiles(b.assetId) })));
 
 /** installLlamaServer from an unzipped release folder. */
 export function copyLlamaServer(source: string, target: string, pinned: Record<string, string>): void {
@@ -112,15 +147,20 @@ async function buildFiles(assetId: string, source: string | undefined): Promise<
 
 async function main(): Promise<void> {
   const sources = process.argv.slice(2);
+  if (sources[0] === '--check') {
+    const problems = pinnedBuildProblems();
+    if (problems.length > 0) throw new Error(`src-tauri/binaries does not hold exactly the pinned llama.cpp files:\n${problems.join('\n')}`);
+    console.log('src-tauri/binaries holds exactly the pinned llama.cpp files.');
+    return;
+  }
   if (sources.length !== 0 && sources.length !== BUILDS.length) {
     throw new Error('Usage: npm run fetch:llama [-- <CPU build zip or folder> <Vulkan build zip or folder>]');
   }
-  const binaries = resolve(dirname(fileURLToPath(import.meta.url)), '../src-tauri/binaries');
   for (const [i, build] of BUILDS.entries()) {
     const from = sources[i] ?? releaseZip(build.assetId).url;
     const pinned = pinnedFiles(build.assetId);
-    installLlamaServer(await buildFiles(build.assetId, sources[i]), from, join(binaries, build.folder), pinned);
-    console.log(`${build.folder}: ${Object.keys(pinned).length} files verified and copied to ${join(binaries, build.folder)}`);
+    installLlamaServer(await buildFiles(build.assetId, sources[i]), from, join(BINARIES, build.folder), pinned);
+    console.log(`${build.folder}: ${Object.keys(pinned).length} files verified and copied to ${join(BINARIES, build.folder)}`);
   }
 }
 

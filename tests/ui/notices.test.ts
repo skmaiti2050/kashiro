@@ -91,7 +91,7 @@ describe('app version and bundled dictionary', () => {
   it('bundles the dictionary, both llama-server builds, and every notice beside the app (Task 14)', () => {
     expect(tauriConf().bundle.resources).toEqual({
       '../resources/dictionary/oewn.json.gz': 'dictionary/oewn.json.gz',
-      'binaries/cpu/*': 'llama/cpu/',
+      'binaries/llama/*': 'llama/',
       'binaries/vulkan/*': 'llama/vulkan/',
       '../LICENSE': 'LICENSE.txt',
       '../README.md': 'README.md',

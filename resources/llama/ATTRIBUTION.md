@@ -1,13 +1,14 @@
 # Writing helper (llama.cpp): third-party notice
 
 The optional writing helper runs `llama-server` from **llama.cpp** (https://github.com/ggml-org/llama.cpp),
-release **b11727** (commit 8f97d82da). writing-check bundles two builds, unmodified, from the official Windows
-x64 release files `llama-b11727-bin-win-cpu-x64.zip` and `llama-b11727-bin-win-vulkan-x64.zip`: the CPU build in
-`llama/cpu/` and the Vulkan (graphics card) build in `llama/vulkan/`. Nothing is downloaded at run time.
+release **b11727** (commit 8f97d82da). writing-check bundles its files unmodified from the official Windows x64
+release files `llama-b11727-bin-win-cpu-x64.zip` and `llama-b11727-bin-win-vulkan-x64.zip`: the server and its
+libraries in `llama/`, and the Vulkan (graphics card) backend `ggml-vulkan.dll` in `llama/vulkan/`. Nothing is
+downloaded at run time.
 
 The licence texts below are the ones this llama.cpp release carries for itself and for the code built into it
 (the release prints them with `llama --license`). The LLVM OpenMP text also ships as `LICENSE-LLVM-OpenMP` beside
-`libomp.dll` in both folders.
+`libomp.dll` in `llama/`.
 
 | Component | Used for | Licence |
 |---|---|---|

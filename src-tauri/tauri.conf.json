@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "npm run build",
+    "beforeBuildCommand": "npm run check:llama && npm run build",
     "frontendDist": "../dist"
   },
   "app": {
@@ -34,7 +34,7 @@
     },
     "resources": {
       "../resources/dictionary/oewn.json.gz": "dictionary/oewn.json.gz",
-      "binaries/cpu/*": "llama/cpu/",
+      "binaries/llama/*": "llama/",
       "binaries/vulkan/*": "llama/vulkan/",
       "../LICENSE": "LICENSE.txt",
       "../README.md": "README.md",

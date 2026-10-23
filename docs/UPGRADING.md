@@ -7,12 +7,16 @@ Nothing changes until we choose to upgrade, and every upgrade produces a report 
 - **npm:** exact versions in `package.json` (`.npmrc` has `save-exact=true`), `package-lock.json` committed.
 - **Rust:** `src-tauri/Cargo.lock` committed.
 - **Data files and models:** `deps/assets.json`, one entry each with version, source URL, licence, the source
-  sha256 its build script verifies, and the sha256 of the committed file. The default model and the two
-  `llama-server` builds (CPU and Vulkan, b11727) are pinned but not committed: the user picks the model file, and
-  `npm run fetch:llama` downloads the two official release zips from the pinned URLs, checks each zip's sha256
-  and then every file's, and copies only the pinned files into the gitignored `src-tauri/binaries/` (run it
-  before `cargo test` or a Tauri build; CI needs this step too). Offline, pass local copies instead:
-  `npm run fetch:llama -- <CPU build zip or folder> <Vulkan build zip or folder>`.
+  sha256 its build script verifies, and the sha256 of the committed file. The default model and `llama-server`
+  (b11727) are pinned but not committed: the user picks the model file, and `npm run fetch:llama` downloads the
+  two official release zips from the pinned URLs, checks each zip's sha256 and then every file's, and copies only
+  the pinned files into the gitignored `src-tauri/binaries/`: the server and its libraries from the CPU zip into
+  `binaries/llama/`, and only `ggml-vulkan.dll` from the Vulkan zip into `binaries/vulkan/` (the rest of that zip
+  is the same). Files that are not pinned are removed from those two folders. Run it before `cargo test` or a
+  Tauri build; CI needs this step too. Offline, pass local copies instead:
+  `npm run fetch:llama -- <CPU build zip or folder> <Vulkan build zip or folder>`. `npm run check:llama` (run by
+  every Tauri build, by `npm run portable:zip` and by upgrade:check) fails when the folders hold anything but
+  exactly the pinned files.
 - **Third-party notices:** `resources/notices/THIRD-PARTY-NOTICES.txt` holds the licence texts of the npm
   production packages and of the crates compiled into the exe. After any upgrade, run `npm run build:notices`
   (offline: installed packages and `cargo metadata --offline`) and commit the result with the upgrade;
@@ -96,8 +100,8 @@ committed baseline `deps/snapshots/permissions.json`. A capability identifier de
 fails.
 These all fail: an added CSP source, a dropped CSP directive, a new permission, window, remote URL or capability,
 a new platform (or a dropped platform list, which means every platform), local access turned on, or any change to
-another security setting, including `bundle.externalBin` and `bundle.resources` (where the two `llama-server`
-builds the app runs are bundled, beside the dictionary and the notice files). A TOML capability that uses more than strings and string arrays fails to read: write it
+another security setting, including `bundle.externalBin` and `bundle.resources` (where the `llama-server` the app
+runs and its Vulkan backend are bundled, beside the dictionary and the notice files). A TOML capability that uses more than strings and string arrays fails to read: write it
 as JSON.
 
 The app's own commands (`overwrite_with_backup` and the saved-review `session_*` commands) are locked down by
@@ -119,5 +123,7 @@ upgrade:check never rewrites the baseline, so a widening fails even after it is 
 deliberate change is its own reviewed commit, never part of an upgrade: make the change, run
 `npm run deps:accept-permissions`, and commit the baseline's diff with it so the reviewer sees exactly what was
 widened. Task 12 did this for the writing helper: `connect-src http://127.0.0.1:*` (the local llama-server on a
-port chosen at each start) and the `llm_start`, `llm_stop` and `sha256_file` commands. The webview has no shell
-or process permission: Rust starts only the two bundled `llama-server` builds, with a fixed argument list.
+port chosen at each start) and the `llm_start`, `llm_stop` and `sha256_file` commands; Task 14 added
+`llm_installed` (whether the helper's files are there) and moved the bundled files to `llama/` and
+`llama/vulkan/`. The webview has no shell or process permission: Rust starts only the bundled `llama-server`,
+on the processor or with its Vulkan backend, with a fixed argument list.

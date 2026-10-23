@@ -1,10 +1,11 @@
-//! The local writing helper (Task 12): llama.cpp's `llama-server`, bundled in two builds as resources
-//! (`llama/vulkan/` and `llama/cpu/`, see tauri.conf.json), run as a child process on 127.0.0.1 with a random
-//! key for each launch. Only this module starts it, from those two paths only, with a fixed argument list plus
-//! the model file the user chose: the webview can't pass flags, and has no shell or process permission at all
-//! (owner decision, 2026-10-23: no shell plugin). The Vulkan build is tried first when it lists a GPU; if it
-//! does not come up, the CPU build is started instead. The server is stopped by llm_stop, on app exit, and
-//! (Windows) by a job object when the app dies without running its exit handler.
+//! The local writing helper (Task 12): llama.cpp's `llama-server`, bundled as a resource in `llama/`, with its
+//! Vulkan backend alone in `llama/vulkan/` (see tauri.conf.json), run as a child process on 127.0.0.1 with a
+//! random key for each launch. Only this module starts it, from that one path only, with a fixed argument list
+//! plus the model file the user chose: the webview can't pass flags, and has no shell or process permission at
+//! all (owner decision, 2026-10-23: no shell plugin). The Vulkan build (the server with the backend loaded by
+//! GGML_BACKEND_PATH) is tried first when it lists a GPU; if it does not come up, the CPU build (the same server
+//! without it, so a broken GPU driver is never loaded) is started instead. The server is stopped by llm_stop, on
+//! app exit, and (Windows) by a job object when the app dies without running its exit handler.
 
 use sha2::{Digest, Sha256};
 use std::ffi::OsString;
@@ -27,6 +28,62 @@ const INHERITED_PREFIXES: [&str; 2] = ["LLAMA_", "GGML_"];
 
 /// `--list-devices` must answer within this; a hung GPU driver means CPU.
 const DEVICE_PROBE_TIMEOUT: Duration = Duration::from_secs(15);
+
+/// Windows exit codes of a program whose DLLs could not be loaded: STATUS_DLL_NOT_FOUND and
+/// STATUS_INVALID_IMAGE_FORMAT. For llama-server that is the Visual C++ runtime.
+const DLL_LOAD_FAILURES: [u32; 2] = [0xC000_0135, 0xC000_007B];
+const RUNTIME_MISSING: &str = "The writing helper's Visual C++ runtime is missing; see INSTALL.md.";
+
+/// SEM_FAILCRITICALERRORS | SEM_NOOPENFILEERRORBOX.
+#[cfg(windows)]
+const QUIET_ERROR_MODE: u32 = 0x0001 | 0x8000;
+
+#[cfg(windows)]
+#[link(name = "kernel32")]
+unsafe extern "system" {
+    fn SetErrorMode(mode: u32) -> u32;
+    fn GetErrorMode() -> u32;
+}
+
+/// A child process inherits the error mode: with it set, a missing DLL ends llama-server with an exit code
+/// (see DLL_LOAD_FAILURES) instead of a Windows dialog nobody asked for. It also applies to the app itself, which
+/// has no such dialogs to lose (its C runtime is linked in).
+#[cfg(windows)]
+fn quiet_loader_errors() {
+    unsafe { SetErrorMode(GetErrorMode() | QUIET_ERROR_MODE) };
+}
+
+/// The bundled server, under the app's resources: one exe for both builds.
+fn server_exe(resources: &Path) -> PathBuf {
+    resources.join("llama").join(format!("llama-server{}", std::env::consts::EXE_SUFFIX))
+}
+
+/// One way to run the bundled server: on the processor, or with the Vulkan backend loaded beside it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Build {
+    backend: Backend,
+    exe: PathBuf,
+    /// ggml-vulkan.dll for the Vulkan build; None for the CPU build, which then never loads it.
+    gpu_library: Option<PathBuf>,
+}
+
+impl Build {
+    fn cpu(exe: PathBuf) -> Self {
+        Build { backend: Backend::Cpu, exe, gpu_library: None }
+    }
+
+    fn vulkan(exe: PathBuf, gpu_library: PathBuf) -> Self {
+        Build { backend: Backend::Vulkan, exe, gpu_library: Some(gpu_library) }
+    }
+}
+
+/// Why the server stopped while loading: a missing runtime has its own message (`status` is the exit status as text).
+fn load_failure(code: Option<i32>, status: &str) -> String {
+    if code.is_some_and(|c| DLL_LOAD_FAILURES.contains(&(c as u32))) {
+        return String::from(RUNTIME_MISSING);
+    }
+    format!("The writing helper stopped while loading the model ({status}). The file may not be a model llama.cpp can run.")
+}
 
 /// Which llama-server build runs: Settings shows it.
 #[derive(serde::Serialize, Clone, Copy, Debug, PartialEq)]
@@ -87,9 +144,12 @@ fn server_args(model: &Path, port: u16) -> Vec<OsString> {
 }
 
 /// A llama-server command with no console window, no input, and none of the app's LLAMA_*/GGML_* settings.
+/// The Vulkan build loads its backend by a path relative to the backend's folder, its working folder: ggml
+/// reads GGML_BACKEND_PATH with getenv, which can't spell a non-English install path. The CPU build works in
+/// the server's own folder, which has no backend: ggml also loads any ggml-*.dll in the working folder.
 /// `inherited` is the app's environment (passed in for tests).
-fn bare_command(exe: &Path, inherited: impl Iterator<Item = (OsString, OsString)>) -> Command {
-    let mut command = Command::new(exe);
+fn bare_command(build: &Build, inherited: impl Iterator<Item = (OsString, OsString)>) -> Command {
+    let mut command = Command::new(&build.exe);
     command.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
     for (name, _) in inherited {
         let upper = name.to_string_lossy().to_ascii_uppercase();
@@ -97,10 +157,21 @@ fn bare_command(exe: &Path, inherited: impl Iterator<Item = (OsString, OsString)
             command.env_remove(&name);
         }
     }
+    let folder = |path: &Path| path.parent().unwrap_or(Path::new(".")).to_path_buf();
+    match &build.gpu_library {
+        Some(library) => {
+            let name = library.file_name().unwrap_or_default();
+            command.current_dir(folder(library)).env("GGML_BACKEND_PATH", Path::new(".").join(name));
+        }
+        None => {
+            command.current_dir(folder(&build.exe));
+        }
+    }
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
         const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        quiet_loader_errors();
         command.creation_flags(CREATE_NO_WINDOW);
     }
     command
@@ -108,8 +179,8 @@ fn bare_command(exe: &Path, inherited: impl Iterator<Item = (OsString, OsString)
 
 /// The server's command. The key goes in its environment, not its arguments, so it isn't shown in Task
 /// Manager's command line.
-fn server_command(exe: &Path, model: &Path, port: u16, api_key: &str, inherited: impl Iterator<Item = (OsString, OsString)>) -> Command {
-    let mut command = bare_command(exe, inherited);
+fn server_command(build: &Build, model: &Path, port: u16, api_key: &str, inherited: impl Iterator<Item = (OsString, OsString)>) -> Command {
+    let mut command = bare_command(build, inherited);
     command.args(server_args(model, port)).env("LLAMA_API_KEY", api_key);
     command
 }
@@ -123,9 +194,10 @@ fn lists_gpu(output: &str) -> bool {
     })
 }
 
-/// Asks the Vulkan build which devices it sees (it exits at once). Any failure or a hang means no GPU.
-fn vulkan_gpu_present(exe: &Path) -> bool {
-    let mut command = bare_command(exe, std::env::vars_os());
+/// Asks the Vulkan build which devices it sees (it exits at once). Any failure or a hang means no GPU; a
+/// missing runtime then shows when the CPU build fails the same way (load_failure).
+fn vulkan_gpu_present(build: &Build) -> bool {
+    let mut command = bare_command(build, std::env::vars_os());
     command.arg("--list-devices").stdout(Stdio::piped());
     let Ok(mut child) = command.spawn() else { return false };
     let mut stdout = child.stdout.take().expect("piped above");
@@ -226,7 +298,7 @@ impl LlmState {
     /// until it answers, or returns the running one when it is ready and serves this model (then `builds` is
     /// never called, so no device probe runs). A server that died, or serves another model, is replaced.
     /// Fails only when every build failed, naming each failure.
-    pub fn start(&self, builds: impl FnOnce() -> Result<Vec<(Backend, PathBuf)>, String>, model: &Path) -> Result<HelperInfo, String> {
+    pub fn start(&self, builds: impl FnOnce() -> Result<Vec<Build>, String>, model: &Path) -> Result<HelperInfo, String> {
         check_model_path(model)?;
         // Read before waiting for another start: any stop asked for after this point cancels this start.
         let stops_at_start = self.helper()?.stop_requests;
@@ -244,13 +316,13 @@ impl LlmState {
         }
         let mut failures = Vec::new();
         let mut failed = Vec::new();
-        for (backend, exe) in builds()? {
-            match self.launch(backend, &exe, model, stops_at_start, gpu_fallback(backend, &failed)) {
+        for build in builds()? {
+            match self.launch(&build, model, stops_at_start, gpu_fallback(build.backend, &failed)) {
                 Ok(info) => return Ok(info),
                 Err(e) if e == STOPPED_WHILE_LOADING => return Err(e),
                 Err(e) => {
                     failures.push(e);
-                    failed.push(backend);
+                    failed.push(build.backend);
                 }
             }
         }
@@ -260,7 +332,8 @@ impl LlmState {
     /// One build: spawn, tie to the job object, keep it where stop() can kill it, and wait for /health without
     /// holding the lock. Kills the process on any failure. Spawns nothing when a stop was asked for since the
     /// start began (`stops_at_start`): the spawn happens under the same lock that stop() counts under.
-    fn launch(&self, backend: Backend, exe: &Path, model: &Path, stops_at_start: u64, gpu_fallback: bool) -> Result<HelperInfo, String> {
+    fn launch(&self, build: &Build, model: &Path, stops_at_start: u64, gpu_fallback: bool) -> Result<HelperInfo, String> {
+        let backend = build.backend;
         let port = free_port().map_err(|e| format!("no free local port for the writing helper: {e}"))?;
         let api_key = new_api_key();
         {
@@ -268,9 +341,9 @@ impl LlmState {
             if helper.stop_requests != stops_at_start {
                 return Err(String::from(STOPPED_WHILE_LOADING));
             }
-            let mut child = server_command(exe, model, port, &api_key, std::env::vars_os())
+            let mut child = server_command(build, model, port, &api_key, std::env::vars_os())
                 .spawn()
-                .map_err(|e| format!("could not start the writing helper ({}): {e}. Reinstall the app.", exe.display()))?;
+                .map_err(|e| format!("could not start the writing helper ({}): {e}. Reinstall the app.", build.gpu_library.as_ref().unwrap_or(&build.exe).display()))?;
             let info = HelperInfo { port, api_key: api_key.clone(), backend, gpu_fallback };
             // Spawning under the lock is short (no wait for the model), and keeps the spawn and the stop count in step.
             #[cfg(windows)]
@@ -297,7 +370,7 @@ impl LlmState {
                 };
                 if let Ok(Some(status)) = running.child.try_wait() {
                     helper.running = None;
-                    return Err(format!("The writing helper stopped while loading the model ({status}). The file may not be a model llama.cpp can run."));
+                    return Err(load_failure(status.code(), &status.to_string()));
                 }
             }
             let ready = health_ok(port);
@@ -335,18 +408,25 @@ impl LlmState {
     }
 }
 
-/// The bundled builds to try, in order: Vulkan when it lists a GPU, then CPU. These two paths are the only
-/// programs the app ever starts.
-fn builds_to_try(app: &tauri::AppHandle) -> Result<Vec<(Backend, PathBuf)>, String> {
+/// The bundled builds to try, in order: Vulkan when it lists a GPU, then CPU. The bundled server is the only
+/// program the app ever starts.
+fn builds_to_try(app: &tauri::AppHandle) -> Result<Vec<Build>, String> {
     let resources = app.path().resource_dir().map_err(|e| format!("could not find the app's folder: {e}"))?;
-    let exe = |folder: &str| resources.join("llama").join(folder).join(format!("llama-server{}", std::env::consts::EXE_SUFFIX));
-    let vulkan = exe("vulkan");
+    let exe = server_exe(&resources);
+    let vulkan = Build::vulkan(exe.clone(), resources.join("llama").join("vulkan").join("ggml-vulkan.dll"));
     let mut builds = Vec::new();
     if vulkan_gpu_present(&vulkan) {
-        builds.push((Backend::Vulkan, vulkan));
+        builds.push(vulkan);
     }
-    builds.push((Backend::Cpu, exe("cpu")));
+    builds.push(Build::cpu(exe));
     Ok(builds)
+}
+
+/// True when the writing helper's files are there: the version without the AI helper (the "noai" zip) leaves
+/// them out, and Settings then says so instead of offering AI rewrites.
+#[tauri::command]
+pub fn llm_installed(app: tauri::AppHandle) -> bool {
+    app.path().resource_dir().is_ok_and(|resources| server_exe(&resources).is_file())
 }
 
 /// SHA-256 of a file in lowercase hex, read in chunks (models are gigabytes).
@@ -438,13 +518,44 @@ mod tests {
         let inherited = [("LLAMA_ARG_TOOLS", "all"), ("ggml_backend", "x"), ("PATH", "C:/Windows"), ("LLAMA_API_KEY", "old")]
             .into_iter()
             .map(|(k, v)| (OsString::from(k), OsString::from(v)));
-        let command = server_command(Path::new("llama-server"), Path::new("/m.gguf"), 1, "secret", inherited);
+        let command = server_command(&Build::cpu(PathBuf::from("llama-server")), Path::new("/m.gguf"), 1, "secret", inherited);
         let envs: Vec<(&OsStr, Option<&OsStr>)> = command.get_envs().collect();
         assert!(envs.contains(&(os("LLAMA_ARG_TOOLS"), None)));
         assert!(envs.contains(&(os("ggml_backend"), None)));
         assert!(envs.contains(&(os("LLAMA_API_KEY"), Some(os("secret")))));
         assert!(!envs.iter().any(|(k, _)| *k == os("PATH")));
         assert!(!command.get_args().any(|a| a.to_string_lossy().contains("secret")));
+    }
+
+    #[test]
+    fn only_the_vulkan_build_loads_the_gpu_backend_and_by_a_path_relative_to_its_folder() {
+        let exe = PathBuf::from("C:/app/llama/llama-server.exe");
+        let inherited = || [("GGML_BACKEND_PATH", "C:/evil.dll")].into_iter().map(|(k, v)| (OsString::from(k), OsString::from(v)));
+        let cpu = bare_command(&Build::cpu(exe.clone()), inherited());
+        assert!(cpu.get_envs().any(|e| e == (os("GGML_BACKEND_PATH"), None)), "the app's own setting is removed");
+        assert_eq!(cpu.get_current_dir(), Some(Path::new("C:/app/llama")));
+        let vulkan = bare_command(&Build::vulkan(exe, PathBuf::from("C:/app/llama/vulkan/ggml-vulkan.dll")), inherited());
+        // Relative (ASCII) so that a non-English install path still loads: ggml reads it with getenv.
+        let expected = Path::new(".").join("ggml-vulkan.dll");
+        assert!(vulkan.get_envs().any(|e| e == (os("GGML_BACKEND_PATH"), Some(expected.as_os_str()))));
+        assert_eq!(vulkan.get_current_dir(), Some(Path::new("C:/app/llama/vulkan")));
+    }
+
+    #[test]
+    fn a_missing_visual_cpp_runtime_gets_its_own_message() {
+        for code in [0xC000_0135_u32, 0xC000_007B] {
+            assert_eq!(load_failure(Some(code as i32), "exit code"), RUNTIME_MISSING, "{code:#x}");
+        }
+        let other = load_failure(Some(1), "exit code: 1");
+        assert!(other.contains("(exit code: 1)") && other.contains("may not be a model"), "{other}");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn loader_errors_end_the_helper_quietly_instead_of_opening_a_windows_dialog() {
+        bare_command(&Build::cpu(PathBuf::from("llama-server.exe")), std::iter::empty());
+        let mode = unsafe { GetErrorMode() };
+        assert_eq!(mode & QUIET_ERROR_MODE, QUIET_ERROR_MODE);
     }
 
     #[test]
@@ -495,7 +606,7 @@ mod tests {
         fs::create_dir_all(&dir).unwrap();
         let model = dir.join("m.gguf");
         fs::write(&model, b"GGUF").unwrap();
-        let builds = vec![(Backend::Vulkan, dir.join("vulkan/llama-server.exe")), (Backend::Cpu, dir.join("cpu/llama-server.exe"))];
+        let builds = vec![Build::vulkan(dir.join("vulkan/llama-server.exe"), dir.join("vulkan/ggml-vulkan.dll")), Build::cpu(dir.join("cpu/llama-server.exe"))];
         let e = LlmState::default().start(|| Ok(builds), &model).unwrap_err();
         assert!(e.contains("vulkan") && e.contains("cpu"), "{e}");
         fs::remove_dir_all(&dir).unwrap();
@@ -511,11 +622,11 @@ mod tests {
         // The stop arrives while builds() probes the GPU: nothing may be spawned after it.
         let builds = || {
             state.stop().unwrap();
-            Ok(vec![(Backend::Cpu, dir.join("cpu/llama-server.exe"))])
+            Ok(vec![Build::cpu(dir.join("cpu/llama-server.exe"))])
         };
         assert_eq!(state.start(builds, &model).unwrap_err(), STOPPED_WHILE_LOADING);
         // A stop that came before the start does not cancel it: this start runs (and fails on the missing build).
-        let e = state.start(|| Ok(vec![(Backend::Cpu, dir.join("cpu/llama-server.exe"))]), &model).unwrap_err();
+        let e = state.start(|| Ok(vec![Build::cpu(dir.join("cpu/llama-server.exe"))]), &model).unwrap_err();
         assert!(e.contains("could not start the writing helper"), "{e}");
         fs::remove_dir_all(&dir).unwrap();
     }
@@ -539,16 +650,25 @@ mod tests {
         reply[9..12].parse().unwrap()
     }
 
-    fn cpu_only() -> Result<Vec<(Backend, PathBuf)>, String> {
-        Ok(vec![(Backend::Cpu, bundled("cpu"))])
+    fn cpu_only() -> Result<Vec<Build>, String> {
+        Ok(vec![bundled_cpu()])
     }
 
     fn test_model() -> PathBuf {
         PathBuf::from(std::env::var("WRITING_CHECK_TEST_MODEL").expect("WRITING_CHECK_TEST_MODEL"))
     }
 
-    fn bundled(folder: &str) -> PathBuf {
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("binaries").join(folder).join("llama-server.exe")
+    /// The files npm run fetch:llama put in src-tauri/binaries (bundled as llama/ and llama/vulkan/).
+    fn binaries() -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("binaries")
+    }
+
+    fn bundled_cpu() -> Build {
+        Build::cpu(binaries().join("llama/llama-server.exe"))
+    }
+
+    fn bundled_vulkan(library: &str) -> Build {
+        Build::vulkan(binaries().join("llama/llama-server.exe"), binaries().join(library))
     }
 
     /// Runs the real server: `WRITING_CHECK_TEST_MODEL=<model.gguf> cargo test -- --ignored --test-threads=1`.
@@ -586,21 +706,43 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "needs the builds (npm run fetch:llama) and a GPU"]
+    fn the_device_probe_sees_the_gpu_only_through_the_vulkan_backend() {
+        assert!(vulkan_gpu_present(&bundled_vulkan("vulkan/ggml-vulkan.dll")), "this test needs a Vulkan GPU");
+        // The CPU launch runs the same exe without the backend: it never loads the GPU driver.
+        assert!(!vulkan_gpu_present(&bundled_cpu()), "the CPU build lists no GPU");
+        // An unavailable backend (no ggml-vulkan.dll that loads) means no GPU. ggml also scans the working folder
+        // for backends, so this one works where there is none.
+        assert!(!vulkan_gpu_present(&bundled_vulkan("llama/missing.dll")), "an unavailable backend means no GPU");
+    }
+
+    #[test]
     #[ignore = "needs the builds (npm run fetch:llama), a GPU, and a model in WRITING_CHECK_TEST_MODEL"]
     fn vulkan_when_a_gpu_is_listed_and_cpu_when_vulkan_does_not_come_up() {
         let model = test_model();
-        assert!(vulkan_gpu_present(&bundled("vulkan")), "this test needs a Vulkan GPU");
-        assert!(!vulkan_gpu_present(&bundled("cpu")), "the CPU build lists no GPU");
         let state = LlmState::default();
-        let info = state.start(|| Ok(vec![(Backend::Vulkan, bundled("vulkan")), (Backend::Cpu, bundled("cpu"))]), &model).unwrap();
+        let info = state.start(|| Ok(vec![bundled_vulkan("vulkan/ggml-vulkan.dll"), bundled_cpu()]), &model).unwrap();
         assert_eq!(info.backend, Backend::Vulkan);
         assert!(!info.gpu_fallback);
         state.stop().unwrap();
-        // A Vulkan build that can't start (here: missing) falls back to the CPU build.
-        let broken = Path::new(env!("CARGO_MANIFEST_DIR")).join("binaries/missing/llama-server.exe");
-        let info = state.start(|| Ok(vec![(Backend::Vulkan, broken), (Backend::Cpu, bundled("cpu"))]), &model).unwrap();
+        // A Vulkan launch that fails (here its backend folder is missing) falls back to the CPU launch.
+        let info = state.start(|| Ok(vec![bundled_vulkan("missing/ggml-vulkan.dll"), bundled_cpu()]), &model).unwrap();
         assert_eq!(info.backend, Backend::Cpu);
         assert!(info.gpu_fallback, "the CPU build runs because the GPU build failed");
+        state.stop().unwrap();
+    }
+
+    #[test]
+    #[ignore = "needs the builds (npm run fetch:llama) and a model in WRITING_CHECK_TEST_MODEL"]
+    fn with_the_vulkan_backend_unavailable_the_app_runs_the_cpu_build_alone() {
+        let model = test_model();
+        let state = LlmState::default();
+        // What builds_to_try does when the probe sees no GPU: only the CPU launch is tried.
+        let unavailable = bundled_vulkan("llama/missing.dll");
+        let builds = move || Ok(if vulkan_gpu_present(&unavailable) { vec![unavailable, bundled_cpu()] } else { vec![bundled_cpu()] });
+        let info = state.start(builds, &model).unwrap();
+        assert_eq!(info.backend, Backend::Cpu);
+        assert!(!info.gpu_fallback, "no GPU was listed, so nothing fell back");
         state.stop().unwrap();
     }
 }
