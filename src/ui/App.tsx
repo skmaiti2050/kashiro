@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { Banners } from './Banners';
 import { ChangeLog } from './ChangeLog';
 import { DocumentView, type DocumentFocus } from './DocumentView';
 import { GoogleDocsHelp } from './GoogleDocsHelp';
@@ -14,6 +15,7 @@ import { UnsavedChangesDialog } from './UnsavedChangesDialog';
 import { useAppShortcuts } from './useKeys';
 import { useReadAloud } from './useReadAloud';
 import { useWordLookup } from './useWordLookup';
+import { useShowWindowWhenDrawn } from './useShowWindowWhenDrawn';
 import { msg, type Message } from './i18n/message';
 import { translatorFor } from './i18n/translatorFor';
 import { TranslatorProvider, useT } from './i18n/useT';
@@ -44,14 +46,10 @@ export default function App() {
   const [slowStart, setSlowStart] = useState(false);
   const started = useRef(false);
 
+  useShowWindowWhenDrawn();
   useEffect(() => {
-    // The window starts hidden (tauri.conf.json): shown once this first frame is drawn, it never shows blank white.
-    let frame = requestAnimationFrame(() => (frame = requestAnimationFrame(() => void getCurrentWindow().show())));
     const slow = setTimeout(() => setSlowStart(true), SLOW_START_MS);
-    return () => {
-      cancelAnimationFrame(frame);
-      clearTimeout(slow);
-    };
+    return () => clearTimeout(slow);
   }, []);
 
   useEffect(() => {
@@ -179,12 +177,6 @@ function ShellView({ controller, state }: { controller: SessionController; state
     else setPanel(shortcut);
   });
 
-  // A notice ("Saved as …") clears on its own; an error stays until dismissed.
-  useEffect(() => {
-    if (!state.notice) return;
-    const timer = setTimeout(() => controller.dismissNotice(), NOTICE_MS);
-    return () => clearTimeout(timer);
-  }, [state.notice, controller]);
   const { reading } = state.settings;
   useEffect(() => {
     // The whole page, so text outside .app (none yet) and the native spell-check language follow too.
@@ -209,19 +201,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
           onLookUp={lookUpOn ? () => lookUpAtCaret.current() || controller.showNotice(msg('lookup.noWord')) : null}
           onImprove={aiOn && state.session ? () => improveAtCaret.current() : null}
         />
-        {/*
-          Live regions exist before their text arrives, so screen readers announce it. data-live-regions keeps
-          them out of a dialog's inert page (Dialog.tsx), so an error raised behind a dialog is still heard.
-        */}
-        <div className="banners" data-live-regions>
-          <Banner role="alert" className="banner error" text={state.error && t.format(state.error)} onDismiss={() => controller.dismissError()} />
-          <Banner
-            role="status"
-            className="banner"
-            text={state.notice && !state.error ? t.format(state.notice) : null}
-            onDismiss={() => controller.dismissNotice()}
-          />
-        </div>
+        <Banners controller={controller} state={state} />
         <p className="visually-hidden" role="status" aria-atomic="true" data-live-regions>
           {state.announcement && <span key={state.announcement.seq}>{t.format(state.announcement.message)}</span>}
         </p>
@@ -290,27 +270,6 @@ function ShellView({ controller, state }: { controller: SessionController; state
           }}
           onCancel={() => setAfterUnsaved(null)}
         />
-      )}
-    </div>
-  );
-}
-
-/** How long a notice stays before it clears on its own. */
-const NOTICE_MS = 6000;
-
-/**
- * An error or notice with its × (a real button: Tab reaches it, Enter or Space dismisses). The live region
- * is always there and holds only the message, so the screen reader announces the text and not the button.
- */
-function Banner({ role, className, text, onDismiss }: { role: 'alert' | 'status'; className: string; text: string | null; onDismiss(): void }) {
-  const t = useT();
-  return (
-    <div className={text ? className : undefined}>
-      <div role={role}>{text && <p>{text}</p>}</div>
-      {text && (
-        <button className="quiet dismiss" aria-label={t.t('banner.dismiss')} title={t.t('banner.dismiss')} onClick={onDismiss}>
-          ×
-        </button>
       )}
     </div>
   );

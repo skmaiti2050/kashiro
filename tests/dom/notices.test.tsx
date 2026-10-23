@@ -6,6 +6,7 @@ import { describe, it, expect, beforeAll, vi, afterEach } from 'vitest';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { makeController, noFiles, warmLinter } from './harness';
 import { openAndWait, renderShell } from './shell';
+import { msg } from '@/ui/i18n/message';
 
 vi.mock('@tauri-apps/api/window', async () => (await import('./platformMocks')).tauriWindow);
 vi.mock('@/ui/platform/files', async () => (await import('./platformMocks')).platformFiles);
@@ -44,6 +45,20 @@ describe('banners', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss this message' }));
     expect(screen.queryByText(/^Saved as /)).toBeNull();
   }, 20000);
+
+  // Task U3 fix 1: changes left out of the saved file must not go unseen.
+  it('"Saved, but N changes couldn’t be placed" stays until its × is pressed', async () => {
+    const { controller } = makeController({}, noFiles);
+    renderShell(controller);
+    vi.useFakeTimers();
+    act(() => controller.showNotice(msg('notice.savedUnplaced', { saved: msg('notice.saved', { path: '/d/a.checked.docx' }), count: 2 })));
+    await act(async () => {
+      vi.advanceTimersByTime(30_000);
+    });
+    expect(screen.getByText(/2 changes couldn’t be placed/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss this message' }));
+    expect(screen.queryByText(/2 changes couldn’t be placed/)).toBeNull();
+  });
 });
 
 describe('Close document', () => {

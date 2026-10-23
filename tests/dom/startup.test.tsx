@@ -21,6 +21,7 @@ import App from '@/ui/App';
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.restoreAllMocks(); // the spies on requestAnimationFrame and console.error
   show.mockClear();
 });
 
@@ -45,6 +46,39 @@ describe('start-up', () => {
       vi.advanceTimersByTime(100); // two animation frames
     });
     expect(show).toHaveBeenCalledTimes(1);
+  });
+
+  // Task U3 fix 1: WebView2 may pause animation frames while the window is hidden, which left it hidden until
+  // the Rust safety net 5 s later.
+  it('shows the window after a short timer when no animation frame comes', async () => {
+    vi.useFakeTimers();
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 0);
+    render(<App />);
+    await act(async () => {
+      vi.advanceTimersByTime(99);
+    });
+    expect(show).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the window once when both the frames and the timer fire', async () => {
+    vi.useFakeTimers();
+    render(<App />);
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(show).toHaveBeenCalledTimes(1);
+  });
+
+  it('a refused show() is reported in the log, not left unhandled (the Rust safety net still shows the window)', async () => {
+    vi.useFakeTimers();
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+    show.mockRejectedValueOnce(new Error('window is gone'));
+    render(<App />);
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(logged).toHaveBeenCalledTimes(1);
+    expect(String(logged.mock.calls[0])).toMatch(/window is gone/);
   });
 
   it('"Starting…" appears only when loading takes longer than 300 ms', async () => {
