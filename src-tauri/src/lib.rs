@@ -141,7 +141,8 @@ pub fn run() {
             sessions::session_prune,
             llm::sha256_file,
             llm::llm_start,
-            llm::llm_stop
+            llm::llm_stop,
+            llm::llm_installed
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

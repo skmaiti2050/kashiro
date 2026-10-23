@@ -2,7 +2,11 @@
 import { describe, it, expect, vi } from 'vitest';
 import axe from 'axe-core';
 import { act, fireEvent, screen, within } from '@testing-library/react';
-import { makeController } from './harness';
+import { createLinter } from '@/engine/linter';
+import { DEFAULT_MODULES } from '@/engine/modules';
+import { SessionController } from '@/ui/state/sessionController';
+import { defaultSettings } from '@/ui/state/settings';
+import { makeController, noFiles } from './harness';
 import { renderShell } from './shell';
 
 vi.mock('@tauri-apps/api/window', async () => (await import('./platformMocks')).tauriWindow);
@@ -44,5 +48,29 @@ describe('the model file picker', () => {
     await act(() => new Promise((resolve) => setTimeout(resolve, 30)));
     const results = await axe.run(document.body, { resultTypes: ['violations'] });
     expect(results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => v.id)).toEqual([]);
+  });
+});
+
+describe('without the AI helper installed (the version without AI, Task 14 fix round 1)', () => {
+  // AI rewrites were switched on with a model, as in an earlier install that had the helper.
+  const controller = () =>
+    new SessionController({
+      files: noFiles,
+      createLinter: (variant, words) => createLinter(variant, words),
+      saveSettings: async () => {},
+      settings: { ...defaultSettings('en-US'), preset: 'academic', modelPath: 'C:/models/a.gguf', modules: { ...DEFAULT_MODULES, aiRewrites: true } },
+      helperInstalled: false,
+    });
+
+  it('Settings says the AI helper is not installed, offers no model file, and AI rewrites stay off', () => {
+    const c = controller();
+    renderShell(c);
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    const ai = screen.getByRole('switch', { name: /AI rewrites/ }) as HTMLInputElement;
+    expect(ai.disabled).toBe(true);
+    expect(ai.checked).toBe(false);
+    expect(screen.getByText(/AI helper not installed\./)).toBeTruthy();
+    expect(screen.queryByRole('group', { name: /Model file/ })).toBeNull();
+    expect(c.ai.available()).toBe(false);
   });
 });

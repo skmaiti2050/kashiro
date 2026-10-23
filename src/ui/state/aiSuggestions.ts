@@ -13,6 +13,8 @@ export interface AiHost extends HelperHost {
   announce(message: Message): void;
   /** "Accept all helper suggestions", as a review action (counted, unsaved, announced). */
   applyRewrites(candidateIds: string[]): void;
+  /** False when the helper's files are not installed: no entry point shows. Absent means installed. */
+  helperInstalled?: boolean;
 }
 
 /** One sentence to ask about. `requested`: the user's "Improve this sentence" (its outcome is always told). */
@@ -58,9 +60,9 @@ export class AiSuggestions {
     this.speed = new SpeedCheck(host, (measuring) => this.updateAi({ measuring }));
   }
 
-  /** AI rewrites are on and a model is chosen: the entry points show. */
+  /** The helper is installed, AI rewrites are on and a model is chosen: the entry points show. */
   available(): boolean {
-    return modulesFor(this.host.state().settings).aiRewrites;
+    return this.host.helperInstalled !== false && modulesFor(this.host.state().settings).aiRewrites;
   }
 
   /** "Check how it reads": the budgeted sentences (within the review depth's room). */

@@ -13,6 +13,7 @@ fn main() {
             "sha256_file",
             "llm_start",
             "llm_stop",
+            "llm_installed",
         ]),
     ))
     .expect("failed to run the Tauri build script");

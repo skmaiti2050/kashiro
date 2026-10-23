@@ -371,6 +371,7 @@
   "modules.legend": "Modules",
   "modules.perGoal": "Use different modules for the {goal} goal",
   "modules.needsModel": "Needs a model file. Choose one below.",
+  "modules.aiNotInstalled": "AI helper not installed. This copy of writing-check was installed without it; see INSTALL.md to add it.",
   "modules.alwaysOn": "Spelling and grammar rules, and the protection of names, numbers, quotes and code, are always on.",
   "modules.namesCard": "Names card",
   "modules.namesCardDescription": "Groups names and places into one card you add in one go.",

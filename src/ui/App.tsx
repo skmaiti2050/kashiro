@@ -19,7 +19,7 @@ import { translatorFor } from './i18n/translatorFor';
 import { TranslatorProvider, useT } from './i18n/useT';
 import { loadAppDictionary } from './platform/dictionary';
 import { files, onFileDrop, setDialogLabels } from './platform/files';
-import { modelFiles, startAppHelper, stopAppHelper } from './platform/helper';
+import { helperInstalled, modelFiles, startAppHelper, stopAppHelper } from './platform/helper';
 import { createAppLinter } from './platform/linter';
 import { sessionFiles } from './platform/sessions';
 import { loadSettings, saveSettings } from './platform/settings';
@@ -44,8 +44,8 @@ export default function App() {
     // StrictMode runs effects twice in development; one controller (and one linter) is enough.
     if (started.current) return;
     started.current = true;
-    loadSettings().then(
-      (settings) => {
+    Promise.all([loadSettings(), helperInstalled()]).then(
+      ([settings, installed]) => {
         const c = new SessionController({
           files,
           settings,
@@ -53,9 +53,9 @@ export default function App() {
           createLinter: createAppLinter,
           sessions: sessionFiles,
           loadDictionary: loadAppDictionary,
-          startHelper: startAppHelper,
-          stopHelper: stopAppHelper,
-          models: modelFiles,
+          // Without the helper's files (the version without AI) nothing can start it.
+          ...(installed && { startHelper: startAppHelper, stopHelper: stopAppHelper, models: modelFiles }),
+          helperInstalled: installed,
         });
         setController(c);
         // Deletes saved reviews past their retention, then lists the rest (failures show as an error banner).

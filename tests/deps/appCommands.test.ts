@@ -17,6 +17,7 @@ const manifest = manifestCommands(read('src-tauri/build.rs'));
 describe('app commands (src-tauri)', () => {
   it('lists the registered commands', () => {
     expect(handlers).toEqual([
+      'llm_installed',
       'llm_start',
       'llm_stop',
       'overwrite_with_backup',

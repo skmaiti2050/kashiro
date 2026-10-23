@@ -50,6 +50,11 @@ export interface ControllerDeps {
   stopHelper?: ModuleLoaders['stopHelper'];
   /** The writing helper's model file (Settings › Modules); without it no model can be chosen. */
   models?: ModelFiles;
+  /**
+   * False when the writing helper's files are not installed (the version without AI): Settings says so and AI
+   * rewrites stay off whatever the saved switch says. Default true.
+   */
+  helperInstalled?: boolean;
   /** The saved-review files in the app's data folder; without them no review is saved. */
   sessions?: SessionFiles;
 }
@@ -147,8 +152,11 @@ export class SessionController {
   readonly reviews: SessionPersistence;
   /** AI suggestions on demand: "Check how it reads", "Improve this sentence" (see AiSuggestions). */
   readonly ai: AiSuggestions;
+  /** The writing helper's files are installed (see ControllerDeps.helperInstalled). */
+  readonly helperInstalled: boolean;
 
   constructor(private readonly deps: ControllerDeps) {
+    this.helperInstalled = deps.helperInstalled ?? true;
     this.saveHost = {
       state: () => this.state,
       set: (patch) => this.set(patch),
@@ -188,6 +196,7 @@ export class SessionController {
     };
     this.ai = new AiSuggestions({
       ...this.helperHost,
+      helperInstalled: this.helperInstalled,
       announce: (message) => this.set({ announcement: { message, seq: ++this.announcements } }),
       applyRewrites: (ids) => this.act((s) => s.applyRewrites(ids), () => this.tally.made(ids.length), 'verb.applied'),
     });

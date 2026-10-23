@@ -54,6 +54,9 @@ export function ModulesSettings({ controller, settings, checkingModel, helperBac
   const own = settings.modulesByPreset[settings.preset];
   const shown = own ?? settings.modules;
   const noModel = settings.modelPath === null;
+  // The version without the AI helper: the switch shows, off and locked, with a note instead of the model file.
+  const notInstalled = !controller.helperInstalled;
+  const aiHint = notInstalled ? t.t('modules.aiNotInstalled') : t.t('modules.needsModel');
 
   return (
     <fieldset>
@@ -63,7 +66,7 @@ export function ModulesSettings({ controller, settings, checkingModel, helperBac
         {t.t('modules.perGoal', { goal: t.t(PRESET_KEYS[settings.preset]) })}
       </label>
       {MODULES.map((m) => {
-        const locked = m.name === 'aiRewrites' && noModel;
+        const locked = m.name === 'aiRewrites' && (noModel || notInstalled);
         return (
           <label key={m.name} className="module-switch">
             <input
@@ -76,12 +79,12 @@ export function ModulesSettings({ controller, settings, checkingModel, helperBac
             <span>
               {t.rich('modules.switch', { label: t.t(m.label), description: t.t(m.description), b: strong })}
               <br />
-              <span className="hint">{locked ? t.t('modules.needsModel') : t.t(m.cost, m.costValues)}</span>
+              <span className="hint">{locked ? aiHint : t.t(m.cost, m.costValues)}</span>
             </span>
           </label>
         );
       })}
-      <ModelFile controller={controller} settings={settings} checking={checkingModel} backend={helperBackend} />
+      {!notInstalled && <ModelFile controller={controller} settings={settings} checking={checkingModel} backend={helperBackend} />}
       <p className="hint">{t.t('modules.alwaysOn')}</p>
     </fieldset>
   );

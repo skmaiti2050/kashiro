@@ -37,5 +37,8 @@ export async function startAppHelper(modelPath: string): Promise<WritingHelper> 
   };
 }
 
+/** Whether the writing helper's files are installed (the version without AI leaves them out). */
+export const helperInstalled = (): Promise<boolean> => invoke<boolean>('llm_installed');
+
 /** Stops the server, also one still loading its model (llm.rs then cancels that start). */
 export const stopAppHelper = (): Promise<void> => invoke<void>('llm_stop');
