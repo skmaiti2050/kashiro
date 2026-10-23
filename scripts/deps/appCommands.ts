@@ -42,10 +42,16 @@ const LITERAL_NAME = /^(['"`])([A-Za-z0-9_]+)\1$/;
 
 /** invoke imported under another name: `import { invoke as call } from '@tauri-apps/api/core'`. */
 const RENAMED_INVOKE = /\binvoke\s+as\s+[A-Za-z_$][\w$]*/;
-/** invoke kept under another name: `const call = invoke;` (not `fn === invoke`, not a call `= invoke(`). */
-const ASSIGNED_INVOKE = /(?<![=!<>])=\s*invoke\b(?!\s*[<(])/;
-/** invoke destructured under another name: `const { invoke: call } = …`. */
-const DESTRUCTURED_INVOKE = /\binvoke\s*:\s*[A-Za-z_$][\w$]*/;
+/**
+ * invoke kept under another name: `const call = invoke;`, `= core.invoke`, `= (invoke)` (not `fn === invoke`, not
+ * a call `= invoke(` or `= core.invoke(`).
+ */
+const ASSIGNED_INVOKE = /(?<![=!<>])=\s*\(?\s*(?:[A-Za-z_$][\w$]*\.)?invoke\b\s*\)?(?!\s*[<(])/;
+/**
+ * invoke destructured under another name: `const { invoke: call } = …` (an object pattern before `=`; a type
+ * member `{ invoke: Caller }` has none).
+ */
+const DESTRUCTURED_INVOKE = /\{[^{}]*\binvoke\s*:\s*[A-Za-z_$][\w$]*[^{}]*\}\s*=(?![=>])/;
 
 /**
  * `source` with its `//` and `/* *\/` comments blanked (newlines kept), so a call in a comment is not counted

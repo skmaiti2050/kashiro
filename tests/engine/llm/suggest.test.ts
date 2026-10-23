@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { CheckSession } from '@/engine/session';
 import { createLinter, type RulesLinter } from '@/engine/linter';
-import { onlyPunctuationChanged, suggestRewrites, type Rewriter } from '@/engine/llm/suggest';
+import { onlyPunctuationChanged, runBudget, suggestRewrites, type Rewriter } from '@/engine/llm/suggest';
 import type { Candidate, Paragraph, Span } from '@/engine/types';
 
 let linter: RulesLinter;
@@ -179,6 +179,22 @@ describe('suggestRewrites', () => {
     expect(helper.sent).toEqual([]);
     // An explicit "Check more sentences" gets the normal budget: round(3 * 773 / 1500) = 2.
     expect((await suggestRewrites(s, helper, 'business', live(), { more: true })).sent).toBe(2);
+  });
+
+  it('"Check how it reads" on a short document (no room under the depth, or nothing to review) still sends 1 sentence', async () => {
+    // 27 words: upFrontRoom = floor(10 * 27 / 1500) = 0.
+    const short = await start([{ id: 0, text: 'The council met on a wet morning to talk about roads, schools, water supply, the new market, the bus depot and the park.' }]);
+    expect(runBudget(short, false)).toBe(1);
+    // 773 words with nothing to review: room 5, 0 ranked → the depth's rate, 2.
+    const clean = await start([{ id: 0, text: FILLER }]);
+    expect(clean.rankedDecisionCount()).toBe(0);
+    expect(runBudget(clean, false)).toBe(Math.max(1, Math.round((3 * 756) / 1500)));
+  });
+
+  it('a review that is really full gets no floor: "Check how it reads" sends nothing', async () => {
+    const s = await tehSession();
+    s.addCandidates([0, 24, 48, 72, 96].map((at, i) => ({ ...styleLint(1, { start: at, end: at + 3 }), message: `Lint ${i}` })));
+    expect(runBudget(s, false)).toBe(0);
   });
 
   it('the first run is capped by the room left under the budget', async () => {

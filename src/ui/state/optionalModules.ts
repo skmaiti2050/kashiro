@@ -20,6 +20,8 @@ export interface ModuleLoaders {
   loadDictionary?: () => Promise<Dictionary>;
   /** Starts the local writing helper (AI rewrites) with the model file the user chose. */
   startHelper?: (modelPath: string) => Promise<WritingHelper>;
+  /** Stops the helper the shell is still starting (its start then fails), without waiting for the model to load. */
+  stopHelper?: () => Promise<void>;
 }
 
 /**
@@ -30,6 +32,8 @@ export interface ModuleLoaders {
 export class OptionalModules {
   private loadedDictionary: Promise<Dictionary> | null = null;
   private startedHelper: Promise<WritingHelper> | null = null;
+  /** The started helper is still starting (loading its model). */
+  private helperLoading = false;
   /** The last stop asked for, until it settles; a start waits for it (two servers would clash on 4 GB). */
   private stopping: Promise<void> | null = null;
 
@@ -55,6 +59,11 @@ export class OptionalModules {
       const afterStop = (this.stopping ?? Promise.resolve()).catch(() => {});
       const started = afterStop.then(() => start(modelPath));
       this.startedHelper = started;
+      this.helperLoading = true;
+      const loaded = () => {
+        if (this.startedHelper === started) this.helperLoading = false;
+      };
+      started.then(loaded, loaded);
       this.forgetOnFailure(started, () => {
         if (this.startedHelper === started) this.startedHelper = null;
       });
@@ -74,10 +83,15 @@ export class OptionalModules {
     const started = this.startedHelper;
     if (!started) return this.stopping ?? Promise.resolve();
     this.startedHelper = null;
-    const stopping = started.then(
+    // Still loading: the shell stops it now (llm.rs counts the stop and cancels the start) rather than after the load.
+    const now = this.helperLoading && this.loaders.stopHelper ? this.loaders.stopHelper() : null;
+    this.helperLoading = false;
+    const afterLoad = started.then(
+      // Came up anyway (the stop reached the shell before its start did): stop it now.
       (helper) => helper.stop(),
       () => {}, // it never started, so there is nothing to stop (the caller of helper() saw the error)
     );
+    const stopping = Promise.all([now, afterLoad]).then(() => {});
     this.stopping = stopping;
     const settled = () => {
       if (this.stopping === stopping) this.stopping = null;

@@ -47,6 +47,7 @@ export interface ControllerDeps {
   /** Loaders of the optional data and helper modules (see OptionalModules). */
   loadDictionary?: ModuleLoaders['loadDictionary'];
   startHelper?: ModuleLoaders['startHelper'];
+  stopHelper?: ModuleLoaders['stopHelper'];
   /** The writing helper's model file (Settings › Modules); without it no model can be chosen. */
   models?: ModelFiles;
   /** The saved-review files in the app's data folder; without them no review is saved. */
@@ -161,7 +162,7 @@ export class SessionController {
     this.helperHost = {
       state: () => this.state,
       set: (patch) => this.set(patch),
-      optional: new OptionalModules({ loadDictionary: deps.loadDictionary, startHelper: deps.startHelper }),
+      optional: new OptionalModules({ loadDictionary: deps.loadDictionary, startHelper: deps.startHelper, stopHelper: deps.stopHelper }),
       models: deps.models,
       updateSettings: (patch) => settingsActions.updateSettings(this.settingsHost, patch),
       clock: deps.now && (() => deps.now!().getTime()), // also times the helper

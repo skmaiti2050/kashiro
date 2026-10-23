@@ -2,7 +2,7 @@ import type { CheckSession } from '../session';
 import type { PresetId } from '../presets';
 import { countWords } from '../words';
 import type { GuardReason } from './guard';
-import { rewriteCount } from '../depth';
+import { rewriteCount, upFrontRoom } from '../depth';
 import { firstRunBudget, pickSentences, type PickedSentence } from './select';
 import type { LlmClient } from './client';
 
@@ -84,7 +84,13 @@ export async function suggestRewrites(
  */
 export function runBudget(session: CheckSession, more: boolean): number {
   const words = session.paragraphs().reduce((n, p) => n + countWords(p.text), 0);
-  return more ? rewriteCount(session.depth, words, true) : firstRunBudget(words, session.rankedDecisionCount(), session.depth);
+  if (more) return rewriteCount(session.depth, words, true);
+  const ranked = session.rankedDecisionCount();
+  const budget = firstRunBudget(words, ranked, session.depth);
+  // A click on a short document (under ~150 words the room rounds down to 0) or one with nothing to review still
+  // gets one sentence; a review that is really full gets none. `everything` sends nothing automatically (spec §5).
+  const roomRoundsToNothing = upFrontRoom(session.depth, words) === 0 || ranked === 0;
+  return budget === 0 && roomRoundsToNothing && rewriteCount(session.depth, words, false) > 0 ? 1 : budget;
 }
 
 /** What became of one answer: offered for review, nothing to offer, or why it was dropped. */

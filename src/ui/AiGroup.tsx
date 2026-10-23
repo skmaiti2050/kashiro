@@ -21,9 +21,12 @@ interface Props {
  */
 export function AiGroup({ controller, state, session, paraText }: Props) {
   const t = useT();
-  const [previewing, setPreviewing] = useState(false);
+  /** The suggestions the open Accept-all preview shows: fixed when it opens, so one arriving later is never applied unseen. */
+  const [previewIds, setPreviewIds] = useState<string[] | null>(null);
   const { run, checkedDocument, notice, measuring } = state.ai;
   const pending = pendingSuggestions(session);
+  // Still pending among those shown: one decided or withdrawn meanwhile leaves the preview.
+  const previewed = previewIds && pending.filter((c) => previewIds.includes(c.id));
   const advice = speedAdvice(state.settings);
   const progressText = run ? t.t('ai.progress', { done: run.done, total: run.total }) : '';
 
@@ -70,24 +73,24 @@ export function AiGroup({ controller, state, session, paraText }: Props) {
         </p>
       )}
       {notice && <p className="hint">{t.format(notice)}</p>}
-      {pending.length > 0 && !previewing && (
+      {pending.length > 0 && !previewed?.length && (
         <div className="actions">
           <span className="hint">{t.t('ai.pending', { count: pending.length })}</span>
-          <button onClick={() => setPreviewing(true)}>{t.t('ai.acceptAll', { count: pending.length })}</button>
+          <button onClick={() => setPreviewIds(pending.map((c) => c.id))}>{t.t('ai.acceptAll', { count: pending.length })}</button>
         </div>
       )}
-      {previewing && pending.length > 0 && (
+      {previewed && previewed.length > 0 && (
         <BatchPreview
-          members={pending}
+          members={previewed}
           replacementIndex={0}
           paraText={paraText}
           // Outside the card slot, Enter and Backspace act on the current card, not on this preview.
           reviewKeys={false}
           onApply={(ids) => {
-            setPreviewing(false);
+            setPreviewIds(null);
             controller.ai.acceptAll(ids);
           }}
-          onCancel={() => setPreviewing(false)}
+          onCancel={() => setPreviewIds(null)}
         />
       )}
     </section>

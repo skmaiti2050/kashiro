@@ -581,12 +581,12 @@ legend {
   margin: 0 0 8px;
 }
 
-/* The AI suggestions group (Task 13): its own box under the card, marked with the AI glyph in words and colour. */
+/* The AI suggestions group (Task 13): its own box under the card, outlined in the AI colour; the heading says
+   "AI suggestions" in words, so colour is never the only sign. In forced colours the border becomes CanvasText. */
 .ai-group {
   margin: 16px 0;
   padding: 12px;
-  border: 1px solid var(--line);
-  border-inline-start: 3px solid var(--cat-ai);
+  border: 1px solid var(--cat-ai);
   border-radius: 8px;
 }
 

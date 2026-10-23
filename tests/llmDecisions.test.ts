@@ -102,8 +102,11 @@ describe('"Check how it reads" at every review depth (Task 13 UI)', () => {
       const helper = recordedHelper(file);
       await suggestRewrites(session, helper, doc.preset, new AbortController().signal);
       // The first run never adds past the room the depth leaves; a document already over it gets nothing sent.
-      expect(session.rankedDecisionCount()).toBeLessThanOrEqual(Math.max(before, upFrontRoom(depth, countWords(paras))));
-      if (depth === 'everything') expect(helper.sent).toBe(0);
+      const room = upFrontRoom(depth, countWords(paras));
+      expect(session.rankedDecisionCount()).toBeLessThanOrEqual(Math.max(before, room));
+      // Room left (and a depth that sends): sentences go out; none at `everything` or when the review is full.
+      if (depth === 'everything' || before >= room) expect(helper.sent).toBe(0);
+      else expect(helper.sent).toBeGreaterThan(0);
     },
     30_000,
   );

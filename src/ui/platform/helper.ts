@@ -33,6 +33,9 @@ export async function startAppHelper(modelPath: string): Promise<WritingHelper> 
     rewriter: new LlmClient({ port, apiKey }),
     backend,
     gpuFallback,
-    stop: () => invoke<void>('llm_stop'),
+    stop: stopAppHelper,
   };
 }
+
+/** Stops the server, also one still loading its model (llm.rs then cancels that start). */
+export const stopAppHelper = (): Promise<void> => invoke<void>('llm_stop');

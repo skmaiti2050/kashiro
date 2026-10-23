@@ -25,7 +25,12 @@ const FIRST = 'We was late again.';
 const FIRST_REWRITE = 'We were late again.';
 const SECOND = 'The bus come at nine every morning.';
 const SECOND_REWRITE = 'The bus came at nine every morning.';
-const AI_ON: Partial<Settings> = { modelPath: 'C:/models/helper.gguf', modules: { ...DEFAULT_MODULES, aiRewrites: true } };
+/** AI rewrites on, with the model already timed on the mock's CPU build (no speed check gets in the way). */
+const AI_ON: Partial<Settings> = {
+  modelPath: 'C:/models/helper.gguf',
+  modules: { ...DEFAULT_MODULES, aiRewrites: true },
+  helperSpeed: { modelPath: 'C:/models/helper.gguf', seconds: 2.5, backend: 'cpu', gpuFallback: false },
+};
 
 /** A controller whose writing helper answers with `answer` and records what it was sent. */
 function aiController(answer: (text: string) => string | null | Promise<string | null>, settings: Partial<Settings> = AI_ON) {
@@ -195,6 +200,37 @@ describe('"Check how it reads": progress, Cancel and Accept all', () => {
     fireEvent.click(screen.getByRole('button', { name: /Change log/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Undo all 2' }));
     expect([session.outputText(0), session.outputText(1)]).toEqual([FIRST, SECOND]);
+  });
+});
+
+describe('the Accept-all preview applies only what it showed (I2)', () => {
+  it('a suggestion that arrives while the preview is open is not in it and is not applied', async () => {
+    const { controller } = aiController((text) => (text === FIRST ? FIRST_REWRITE : text === SECOND ? SECOND_REWRITE : null));
+    await openText(controller);
+    await act(async () => {
+      controller.ai.improveSentence(0, 0);
+      await controller.ai.settled();
+    });
+    fireEvent.click(within(aiGroup()).getByRole('button', { name: 'Accept all helper suggestions (1)' }));
+    await act(async () => {
+      controller.ai.improveSentence(1, 0); // arrives while the preview is open
+      await controller.ai.settled();
+    });
+    expect(within(aiGroup()).queryByText(SECOND_REWRITE)).toBeNull();
+    fireEvent.click(within(aiGroup()).getByRole('button', { name: /^Apply 1/ }));
+    const session = controller.getState().session!;
+    expect([session.outputText(0), session.outputText(1)]).toEqual([FIRST_REWRITE, SECOND]);
+    const second = session.outcomes().find((o) => o.candidate.source === 'llm' && o.candidate.paraId === 1)!;
+    expect(second.status).toBe('pending');
+  });
+});
+
+describe('Settings', () => {
+  it('says that AI suggestions already shown stay after AI rewrites are switched off', async () => {
+    const { controller } = aiController(() => null);
+    await openText(controller);
+    fireEvent.keyDown(document.body, { key: ',', ctrlKey: true });
+    expect(within(screen.getByRole('dialog')).getByText('AI suggestions already shown stay until you decide them, even with AI rewrites off.')).toBeTruthy();
   });
 });
 

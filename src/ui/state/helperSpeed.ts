@@ -20,6 +20,15 @@ export function speedOfChosenModel(settings: Pick<Settings, 'modelPath' | 'helpe
   return speed && speed.modelPath === settings.modelPath ? speed : null;
 }
 
+/**
+ * The chosen model should be timed: never timed, or the helper now runs on another build than it was timed on
+ * (`running`: the build running now, null while none runs).
+ */
+export function needsSpeedCheck(settings: Pick<Settings, 'modelPath' | 'helperSpeed'>, running: HelperBackend | null): boolean {
+  const speed = speedOfChosenModel(settings);
+  return !speed || (running !== null && running !== speed.backend);
+}
+
 /** Seconds as the advice shows them: one decimal at most ("about 6.6 s"). */
 const shownSeconds = (seconds: number) => Math.round(seconds * 10) / 10;
 

@@ -214,7 +214,7 @@ fn gpu_fallback(running: Backend, failed: &[Backend]) -> bool {
     running == Backend::Cpu && failed.contains(&Backend::Vulkan)
 }
 
-const DAMAGED: &str ="the writing helper's state is damaged; restart the app";
+const DAMAGED: &str = "the writing helper's state is damaged; restart the app";
 const STOPPED_WHILE_LOADING: &str = "The writing helper was stopped while it was loading the model.";
 
 impl LlmState {

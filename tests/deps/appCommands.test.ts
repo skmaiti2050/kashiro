@@ -89,6 +89,24 @@ describe('invokedCommands', () => {
     expect(invokedCommands(["if (fn === invoke) invoke('llm_stop');"])).toEqual(['llm_stop']);
   });
 
+  it('fails on core.invoke or a parenthesised invoke kept under another name (M4)', () => {
+    expect(() => invokedCommands(['const call = core.invoke;'])).toThrow('= core.invoke');
+    expect(() => invokedCommands(['const call = (invoke);'])).toThrow('= (invoke)');
+    expect(() => invokedCommands(['const call = (core.invoke);'])).toThrow('= (core.invoke)');
+    expect(() => invokedCommands(["let { invoke: call, transformCallback } = core;"])).toThrow('invoke: call');
+    expect(invokedCommands(["const reply = core.invoke('llm_stop');"])).toEqual(['llm_stop']);
+  });
+
+  it('does not take a type member named invoke for a rename', () => {
+    const source = [
+      'interface Api { invoke: (command: string) => Promise<void>; }',
+      'type Shell = { invoke: Function; other: number };',
+      'function use(api: { invoke: Caller }) {}',
+      "invoke('llm_stop');",
+    ].join('\n');
+    expect(invokedCommands([source])).toEqual(['llm_stop']);
+  });
+
   it('ignores comments: a call in one is not a call, and a name in one is not a missing literal', () => {
     const source = [
       "// invoke('session_delete') used to run here",

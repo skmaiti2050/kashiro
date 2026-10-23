@@ -33,7 +33,12 @@ const FILLER = 'The cat sat on the mat. '.repeat(250).trim();
 const TEXT = `${LONG}\n\n${WAS} The bus came at nine.\n\n${FILLER}`;
 const FILE: OpenedFile = { name: 'notes.txt', path: '/docs/notes.txt', bytes: new TextEncoder().encode(TEXT) };
 const MODEL = 'C:/models/helper.gguf';
-const AI_ON = { modelPath: MODEL, modules: { ...DEFAULT_MODULES, aiRewrites: true } };
+/** AI rewrites on, with the model already timed on the mock's CPU build (no speed check gets in the way). */
+const AI_ON = {
+  modelPath: MODEL,
+  modules: { ...DEFAULT_MODULES, aiRewrites: true },
+  helperSpeed: { modelPath: MODEL, seconds: 2.5, backend: 'cpu' as const, gpuFallback: false },
+};
 
 /** A promise with its resolve function, to hold an answer open. */
 function deferred<T>() {
@@ -166,20 +171,33 @@ describe('"Check how it reads"', () => {
     for (const text of helper.sent.slice(first.length)) expect(first).not.toContain(text);
   });
 
-  it('a document with no room left under the review depth sends nothing and says why', async () => {
+  it('a short document (the depth’s room rounds down to nothing) still gets one sentence checked', async () => {
     const helper = mockHelper();
     const { controller } = makeController({ startHelper: helper.startHelper });
-    await controller.openText(`${LONG}\n\n${WAS}`); // ~40 words: no room for a first run
+    await controller.openText(`${LONG}\n\n${WAS}`); // ~40 words: upFrontRoom is 0
+    controller.ai.checkDocument();
+    await controller.ai.settled();
+    expect(helper.sent).toEqual([LONG]);
+    expect(english(controller.getState().ai.notice)).toBeNull();
+  });
+
+  it('a review that is really full sends nothing and says so with its count', async () => {
+    const helper = mockHelper();
+    const { controller } = makeController({ startHelper: helper.startHelper });
+    // ~300 words: room for floor(10 * 300 / 1500) = 2 decisions, and more than 2 are open.
+    await controller.openText(`${WAS} She recieved the letter. Their going home now.\n\n${LONG}\n\n${'The cat sat on the mat. '.repeat(42).trim()}`);
+    const ranked = session(controller).rankedDecisionCount();
+    expect(ranked).toBeGreaterThanOrEqual(2);
     controller.ai.checkDocument();
     await controller.ai.settled();
     expect(helper.sent).toEqual([]);
     expect(english(controller.getState().ai.notice)).toBe(
-      'Nothing was sent: your review already has as many items as the review depth allows. Use “Check more sentences” to go on anyway.',
+      `Your review already has ${ranked} items, as many as the review depth allows, so nothing was sent. Use “Check more sentences” to go on anyway.`,
     );
     expect(controller.getState().ai.checkedDocument).toBe(true);
     controller.ai.checkMore();
     await controller.ai.settled();
-    expect(helper.sent).toContain(LONG);
+    expect(helper.sent.length).toBeGreaterThan(0);
   });
 
   it('Cancel keeps the results that already came back', async () => {
@@ -256,6 +274,21 @@ describe('"Improve this sentence"', () => {
     await controller.ai.settled();
     expect(helper.sent).toEqual([]);
     expect(announced(controller)).toMatch(/^This sentence can’t be sent to the AI helper safely/);
+  });
+
+  it('a sentence whose suggestion the user already accepted or rejected says so, instead of "No improvement suggested"', async () => {
+    for (const decide of ['accept', 'reject'] as const) {
+      const helper = mockHelper(() => WAS_REWRITE);
+      const { controller } = makeController({ startHelper: helper.startHelper });
+      await controller.openText(WAS);
+      improve(controller, WAS);
+      await controller.ai.settled();
+      controller[decide](suggestions(controller)[0].id);
+      improve(controller, WAS);
+      await controller.ai.settled();
+      expect(helper.sent).toEqual([WAS]);
+      expect(english(controller.getState().ai.notice)).toBe('You already decided the AI suggestion for this sentence. Undo it in the change log to review it again.');
+    }
   });
 
   it('a sentence with a suggestion waiting brings that suggestion up instead of asking again', async () => {
@@ -397,7 +430,7 @@ describe('speed advice on first use', () => {
       now += 7000;
       return null;
     });
-    const { controller, saved } = makeController({ startHelper: helper.startHelper, settings: { modules: DEFAULT_MODULES }, now: () => new Date(now) });
+    const { controller, saved } = makeController({ startHelper: helper.startHelper, settings: { modules: DEFAULT_MODULES, helperSpeed: null }, now: () => new Date(now) });
     controller.setModule('aiRewrites', true);
     await controller.ai.settled();
     expect(helper.sent).toHaveLength(1);
@@ -420,6 +453,29 @@ describe('speed advice on first use', () => {
     const { controller, saved } = makeController({ models, settings: { helperSpeed: fast } });
     await controller.chooseModel();
     expect(saved.at(-1)!.helperSpeed).toBeNull();
+  });
+
+  it('a model already timed is not timed again, and "Measuring…" never shows for it', async () => {
+    const helper = mockHelper();
+    const cached = { modelPath: MODEL, seconds: 2.5, backend: 'cpu' as const, gpuFallback: false };
+    const { controller } = makeController({ startHelper: helper.startHelper, settings: { modules: DEFAULT_MODULES, helperSpeed: cached } });
+    const measuring: boolean[] = [];
+    controller.subscribe(() => measuring.push(controller.getState().ai.measuring));
+    controller.setModule('aiRewrites', true);
+    await controller.ai.settled();
+    expect(measuring).not.toContain(true);
+    expect(helper.startHelper).not.toHaveBeenCalled();
+  });
+
+  it('timed on the GPU but now running on the CPU: timed again after the next answer', async () => {
+    const helper = mockHelper(() => null, 'cpu');
+    const onGpu = { modelPath: MODEL, seconds: 2.5, backend: 'vulkan' as const, gpuFallback: false };
+    const { controller, saved } = makeController({ startHelper: helper.startHelper, settings: { helperSpeed: onGpu } });
+    await controller.openText(WAS);
+    improve(controller, WAS);
+    await controller.ai.settled();
+    expect(helper.sent).toHaveLength(2); // the sentence, then the sample sentence
+    expect(saved.at(-1)!.helperSpeed).toMatchObject({ modelPath: MODEL, backend: 'cpu' });
   });
 
   it('when the GPU build failed and the CPU runs, the advice says so', () => {

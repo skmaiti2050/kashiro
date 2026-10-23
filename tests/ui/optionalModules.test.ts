@@ -22,8 +22,12 @@ function loaders() {
 /** A promise with its resolve function, to hold a start or stop open. */
 function deferred<T = void>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((r) => (resolve = r));
-  return { promise, resolve };
+  let reject!: (error: Error) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
 }
 
 const AI_ON = { ...DEFAULT_MODULES, aiRewrites: true };
@@ -116,6 +120,51 @@ describe('OptionalModules', () => {
     await released;
     expect((await second).rewriter).toBe(fakeRewriter);
     expect(events).toEqual(['start 1', 'stop 1', 'stopped 1', 'start 2']);
+  });
+
+  it('off while the model still loads: the shell is told to stop at once, without waiting for the load (M5)', async () => {
+    const events: string[] = [];
+    const load = deferred<WritingHelper>();
+    const startHelper = vi.fn(() => {
+      events.push('start');
+      return load.promise;
+    });
+    const stopLoading = vi.fn(async () => void events.push('stop now'));
+    const modules = new OptionalModules({ startHelper, stopHelper: stopLoading });
+    const started = modules.helper(AI_ON, MODEL)!;
+    await vi.waitFor(() => expect(events).toEqual(['start']));
+    const released = modules.release(AI_OFF);
+    await Promise.resolve();
+    expect(events).toEqual(['start', 'stop now']);
+    // The shell cancels the load (llm.rs's stop counter): the start fails, and there is nothing more to stop.
+    load.reject(new Error('The writing helper was stopped while it was loading the model.'));
+    await expect(started).rejects.toThrow('stopped while it was loading');
+    await released;
+    expect(stopLoading).toHaveBeenCalledTimes(1);
+  });
+
+  it('a stop that reached the shell before its start: the helper that comes up anyway is stopped too', async () => {
+    const l = loaders();
+    const load = deferred<WritingHelper>();
+    const stopLoading = vi.fn(async () => {});
+    const modules = new OptionalModules({ startHelper: () => load.promise, stopHelper: stopLoading });
+    const started = modules.helper(AI_ON, MODEL)!;
+    const released = modules.release(AI_OFF);
+    load.resolve({ rewriter: fakeRewriter, stop: l.stop, backend: 'cpu' });
+    await started;
+    await released;
+    expect(stopLoading).toHaveBeenCalledTimes(1);
+    expect(l.stop).toHaveBeenCalledTimes(1);
+  });
+
+  it('a helper that finished starting is stopped through itself, not the shell (once)', async () => {
+    const l = loaders();
+    const stopLoading = vi.fn(async () => {});
+    const modules = new OptionalModules({ ...l, stopHelper: stopLoading });
+    await modules.helper(AI_ON, MODEL);
+    await modules.release(AI_OFF);
+    expect(l.stop).toHaveBeenCalledTimes(1);
+    expect(stopLoading).not.toHaveBeenCalled();
   });
 
   it('after a release, the next helper starts with the model file it is given', async () => {

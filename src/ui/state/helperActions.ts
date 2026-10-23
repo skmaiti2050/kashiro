@@ -3,7 +3,7 @@ import type { Rewriter } from '@/engine/llm/suggest';
 import type { ModuleSwitches } from '@/engine/modules';
 import { msg } from '../i18n/message';
 import { explain } from './errors';
-import { speedOfChosenModel } from './helperSpeed';
+import { needsSpeedCheck, speedOfChosenModel } from './helperSpeed';
 import type { OptionalModules, WritingHelper } from './optionalModules';
 import { isLocalPath, modulesFor, type Settings } from './settings';
 import type { ControllerState, ModelFiles } from './sessionController';
@@ -49,15 +49,17 @@ export async function benchmarkHelper(host: HelperHost, signal: AbortSignal): Pr
 }
 
 /**
- * The first-use speed check: when AI rewrites are on and the chosen model has not been timed yet, times one
- * sample sentence (starting the helper) and keeps the result in the settings, for the speed advice. Once per
- * model file. Rejects when the helper fails to start or answer.
+ * The first-use speed check: when AI rewrites are on and the chosen model has not been timed (or was timed on
+ * another build than the one running), times one sample sentence (starting the helper) and keeps the result in
+ * the settings, for the speed advice. Rejects when the helper fails to start or answer.
  */
 export async function measureSpeed(host: HelperHost, signal: AbortSignal): Promise<void> {
-  const { settings } = host.state();
-  const started = speedOfChosenModel(settings) ? null : startedHelper(host);
+  const { settings, helperBackend } = host.state();
+  const started = needsSpeedCheck(settings, helperBackend) ? startedHelper(host) : null;
   if (!started || settings.modelPath === null) return;
   const h = await started;
+  // Started just now on the build it was timed on: nothing to measure.
+  if (speedOfChosenModel(settings)?.backend === h.backend) return;
   const { seconds } = await timeOneSentence(h.rewriter, settings.fallbackVariant, signal, host.clock);
   host.updateSettings({ helperSpeed: { modelPath: settings.modelPath, seconds, backend: h.backend, gpuFallback: h.gpuFallback ?? false } });
 }
@@ -75,8 +77,10 @@ export class SpeedCheck {
     private readonly onMeasuring: (measuring: boolean) => void,
   ) {}
 
+  /** Starts the check when AI rewrites are on and the model needs timing (needsSpeedCheck). */
   start(): void {
-    if (this.running) return;
+    const { settings, helperBackend } = this.host.state();
+    if (this.running || !modulesFor(settings).aiRewrites || !needsSpeedCheck(settings, helperBackend)) return;
     const abort = new AbortController();
     this.running = abort;
     this.onMeasuring(true);

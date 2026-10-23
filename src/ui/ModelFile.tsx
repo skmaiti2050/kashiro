@@ -48,6 +48,7 @@ export function ModelFile({ controller, settings, checking, backend }: Props) {
         {t.t('modules.chooseModel')}
       </button>
       <p className="hint">{t.t('modules.modelHint')}</p>
+      <p className="hint">{t.t('modules.aiStays')}</p>
     </div>
   );
 }

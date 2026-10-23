@@ -84,6 +84,8 @@ export class AiSuggestions {
       this.host.announce(msg('ai.alreadySuggested'));
       return;
     }
+    const decided = session.outcomes().find((o) => o.candidate.id === rewriteId(sentence) && (o.status === 'applied' || o.status === 'rejected'));
+    if (decided) return this.tell(msg('ai.alreadyDecided'));
     // Asked before with nothing to offer: the same sentence gets the same answer (decision 2: no retry).
     if (session.sentToHelper(paraId, sentence.span)) return this.tell(msg('ai.noImprovement'));
     const run = this.active;
@@ -113,9 +115,9 @@ export class AiSuggestions {
     else this.stop();
   }
 
-  /** The one-time speed check (helperActions.SpeedCheck), when AI rewrites are on. */
+  /** The speed check (helperActions.SpeedCheck), when AI rewrites are on and the model needs timing. */
   measureSpeedIfNeeded(): void {
-    if (this.available()) this.speed.start();
+    this.speed.start();
   }
 
   /** Stops the run; the suggestions that came back stay. */
@@ -175,7 +177,9 @@ export class AiSuggestions {
     let working: Promise<void>;
     do {
       working = this.working;
-      await Promise.all([working, this.speed.settled()]);
+      await working;
+      // After the run: its end may start a speed check.
+      await this.speed.settled();
     } while (working !== this.working);
   }
 
@@ -186,7 +190,7 @@ export class AiSuggestions {
     this.updateAi({ checkedDocument: true });
     if (picks.length === 0) {
       const anyLeft = pickSentences(session, Infinity).length > 0;
-      return this.tell(msg(!more && anyLeft ? 'ai.noRoom' : 'ai.nothingMore'));
+      return this.tell(!more && anyLeft ? msg('ai.noRoom', { count: session.rankedDecisionCount() }) : msg('ai.nothingMore'));
     }
     this.host.announce(msg('ai.started', { count: picks.length }));
     this.start(
@@ -269,6 +273,8 @@ export class AiSuggestions {
     if (failed) return;
     if (run.abort.signal.aborted) this.host.announce(msg('ai.stopped', { count: run.added }));
     else if (run.checksDocument) this.host.announce(msg('ai.done', { count: run.added }));
+    // The helper may have come up on another build than the one it was timed on (the GPU build failed this time).
+    if (!run.abort.signal.aborted) this.measureSpeedIfNeeded();
   }
 
   private showProgress(run: Run): void {
