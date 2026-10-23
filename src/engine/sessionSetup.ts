@@ -7,8 +7,8 @@ import { findContractions } from './contractions';
 import { improveSuggestions, withoutOffensiveSuggestions } from './suggestions/improve';
 import { resolveModules } from './modules';
 import { findForeignSentences, findRomanisedSentences, loadModelIfNeeded } from './otherLanguage';
-import { byPosition, overlaps, type CheckOptions, type SessionDeps } from './sessionTypes';
-import { findConfusables } from './confusables';
+import { byPosition, type CheckOptions, type SessionDeps } from './sessionTypes';
+import { findConfusables, replacesLinterFlag } from './confusables';
 import type { TierContext } from './tiers';
 import type { Candidate, Paragraph, Span, Variant } from './types';
 
@@ -50,8 +50,8 @@ export async function prepareCheck(
     modules.betterSuggestions ? improveSuggestions(c, paraText.get(c.paraId), locked.get(c.paraId)) : withoutOffensiveSuggestions(c),
   );
   const confusables = paras.flatMap((p) => findConfusables(p, locked.get(p.id)));
-  // The curated rule knows these words better than the linter ("intercast" → "inter cast"): its flag replaces any it overlaps.
-  const found = linted.filter((c) => !confusables.some((x) => x.paraId === c.paraId && overlaps(x.span, c.span)));
+  // The curated rule knows these words better than the linter ("intercast" → "inter cast"): its flag replaces the linter's word flag there.
+  const found = linted.filter((c) => !confusables.some((x) => replacesLinterFlag(x, c)));
   found.push(...confusables);
   for (const p of paras) {
     found.push(...findInvisible(p));

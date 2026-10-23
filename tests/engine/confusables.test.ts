@@ -4,7 +4,7 @@
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import { findConfusables } from '@/engine/confusables';
-import { CheckSession } from '@/engine/session';
+import { CheckSession, type CheckOptions } from '@/engine/session';
 import { createLinter, type RulesLinter } from '@/engine/linter';
 
 const flags = (text: string) => findConfusables({ id: 0, text }).map((c) => `${c.original} → ${c.replacements.join(' | ')}`);
@@ -23,6 +23,12 @@ describe('findConfusables', () => {
     ['they spend a lot of time in call when my brother is outside for work.', ['in call → on calls | on a call']],
     ['She could not cope up with the pressure.', ['cope up with → cope with']],
     ['Coping up with change is hard.', ['Coping up with → Coping with']],
+    // Task U3 fix 1: "in call" only at a phrase end, before with/when/for/and, or after "spend".
+    ['She was in call with me.', ['in call → on calls | on a call']],
+    ['I was in call.', ['in call → on calls | on a call']],
+    ['They spent hours in call discussing it.', ['in call → on calls | on a call']],
+    // An all-caps word stays all caps.
+    ['THE CAST SYSTEM IS UNFAIR.', ['CAST → CASTE']],
   ])('%s', (text, expected) => {
     expect(flags(text)).toEqual(expected);
   });
@@ -38,6 +44,16 @@ describe('findConfusables', () => {
     'She works in call centres in Pune.',
     'The doctor is on call tonight.',
     'Lower caste groups organised the march.',
+    // Task U3 fix 1: the reviewer's false positives.
+    'The frame is in call stack order.',
+    'Check the setting in call history.',
+    'Options in call forwarding.',
+    'The lower cast iron part broke.',
+    'An upper cast steel frame.',
+    'The photo had a dominant cast of blue.',
+    'A higher cast metal content.',
+    'The RBI kept a loose money policy.',
+    'Loose control of costs hurts.',
   ])('no flag: %s', (text) => {
     expect(flags(text)).toEqual([]);
   });
@@ -79,6 +95,19 @@ describe('confusables in a check', () => {
     );
     const cast = s.candidates().find((c) => c.original === 'cast')!;
     expect(s.tier(cast.id)).toBe('review');
+  });
+
+  it('keeps an unrelated linter flag on the same words: a capital at a sentence start, a long sentence', async () => {
+    const options: CheckOptions = { preset: 'blog', variant: 'Indian', fallbackVariant: 'Indian', language: 'plaintext', dictionary: [] };
+    const capital = await CheckSession.start([{ id: 0, text: 'It was old. cast system is unfair.' }], options, { linter });
+    expect(capital.candidates().filter((c) => c.original === 'cast').map((c) => [c.kind, c.replacements[0]])).toEqual([
+      ['Capitalization', 'Cast'],
+      ['WordChoice', 'caste'],
+    ]);
+    const long =
+      'They spend a lot of time in call when my brother is outside for work and they talk about everything that happens at home and at work and in the family and with the neighbours and with the relatives who live far away.';
+    const session = await CheckSession.start([{ id: 0, text: long }], options, { linter });
+    expect(session.candidates().map((c) => c.kind).sort()).toEqual(['Readability', 'WordChoice']);
   });
 
   it('replaces Harper\'s wrong split of "intercast" ("inter cast")', async () => {

@@ -1,5 +1,5 @@
 import type { Candidate, Paragraph, Span } from './types';
-import { UPPER_START } from './wordFlags';
+import { UPPER_START, WORD_REWRITE_KINDS } from './wordFlags';
 
 /**
  * Curated words easily confused in Indian English that the rules linter misses (Task U3 item 6). Each rule
@@ -29,9 +29,9 @@ const toCaste = (matched: string) => [matched.toLowerCase().replace(/t(s?)$/, 't
 const CASTE_MESSAGE = CONFUSABLE_MESSAGES.caste;
 
 const RULES: ConfusableRule[] = [
-  // "lower cast", "upper-cast", "scheduled cast" (not "a talented cast")
+  // "lower cast", "upper-cast", "scheduled cast" (not "a talented cast", "lower cast iron", "a dominant cast of blue")
   {
-    pattern: /(?<=\b(?:lower|upper|higher|scheduled|backward|forward|dominant)[ -])casts?(?![\p{L}-])/giu,
+    pattern: /(?<=\b(?:lower|upper|higher|scheduled|backward|forward|dominant)[ -])casts?(?![\p{L}-])(?!\s+(?:iron|steel|metal|of)\b)/giu,
     fix: toCaste,
     message: CASTE_MESSAGE,
   },
@@ -43,15 +43,19 @@ const RULES: ConfusableRule[] = [
   },
   // "intercast", "inter-cast" (marriage)
   { pattern: /(?<![\p{L}-])inter-?cast(?![\p{L}-])/giu, fix: toCaste, message: CASTE_MESSAGE },
-  // "will loose weight", "loosing money" (not "to loose": Harper flags that, nor "came loose")
+  // "will loose weight", "loosing money" (not "to loose": Harper flags that, nor "came loose"; "loose" not before
+  // money or control: "a loose money policy" and "loose control" are right)
   {
-    pattern: /(?<![\p{L}-])(?<!\bto\s)(?:loose|loosing)(?=\s+(?:weight|money|hope|track|interest|control|patience|sleep)\b)/giu,
+    pattern:
+      /(?<![\p{L}-])(?<!\bto\s)(?:loose(?=\s+(?:weight|hope|track|interest|patience|sleep)\b)|loosing(?=\s+(?:weight|money|hope|track|interest|control|patience|sleep)\b))/giu,
     fix: (matched) => [matched.toLowerCase() === 'loose' ? 'lose' : 'losing'],
     message: CONFUSABLE_MESSAGES.lose,
   },
-  // "spend time in call" (not "in call centres")
+  // "in call." / "in call with me" / "spent hours in call" (not "in call centres", "in call stack order"): at a phrase
+  // end, before with/when/while/for/and, or in a clause with "spend". After "is" alone is not enough: "is in call stack".
   {
-    pattern: /(?<![\p{L}-])in call(?![\p{L}-])(?!\s+(?:cent(?:er|re)s?|options?|logs?|queues?|recordings?|quality)\b)/giu,
+    pattern:
+      /(?<![\p{L}-])in call(?![\p{L}-])(?:(?=[ \t]*(?:[.,;:!?)\r\n]|$))|(?=\s+(?:with|when|while|for|and)\b)|(?<=\bspen(?:ds?|t|ding)\b[^.!?\n]{1,60}))/giu,
     fix: () => ['on calls', 'on a call'],
     message: CONFUSABLE_MESSAGES.onCall,
   },
@@ -67,9 +71,21 @@ const RULES: ConfusableRule[] = [
 const CONFUSABLE_KIND = 'WordChoice';
 const CONFUSABLE_SOURCE = 'preset';
 
-/** "Cast" keeps its capital: "Caste". */
+/** "Cast" keeps its capital: "Caste"; "CAST" stays all caps: "CASTE". */
 function keepCase(original: string, replacement: string): string {
+  if (original.length > 1 && original === original.toUpperCase() && original !== original.toLowerCase()) return replacement.toUpperCase();
   return UPPER_START.test(original) ? replacement[0].toUpperCase() + replacement.slice(1) : replacement;
+}
+
+/**
+ * True when the curated flag `confusable` makes the linter's flag `c` redundant: a word flag (spelling, typo or
+ * word choice) inside the same words, such as Harper's "intercast" → "inter cast". Other flags on those words
+ * (a capital at a sentence start, a long sentence) are about something else and stay.
+ */
+export function replacesLinterFlag(confusable: Candidate, c: Candidate): boolean {
+  if (c.paraId !== confusable.paraId) return false;
+  if (!WORD_REWRITE_KINDS.has(c.kind) && c.kind !== CONFUSABLE_KIND) return false;
+  return confusable.span.start <= c.span.start && c.span.end <= confusable.span.end;
 }
 
 /** A flag from this rule: always reviewed, whatever the user's settings for word choice. */
