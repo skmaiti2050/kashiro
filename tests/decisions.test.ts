@@ -244,6 +244,29 @@ describe('recall and fact lock (always enforced)', () => {
   );
 });
 
+/**
+ * Recall floor (review #4, Task F3): the share of planted errors found across the corpus, so recall can't
+ * silently drop by the engine seeing less. Measured at F3: safe 118/137 (0.861: 73 auto-applied, 45 ranked),
+ * judgment 30/118 (0.254). The floors sit two points below; raise them when recall improves.
+ */
+const SAFE_RECALL_FLOOR = 0.84;
+const JUDGMENT_RECALL_FLOOR = 0.23;
+
+describe('recall floor across the corpus', () => {
+  it('finds at least the measured share of planted safe and judgment errors', async () => {
+    let safe = 0;
+    let judgment = 0;
+    for (const doc of docs) {
+      const m = await measure(doc);
+      safe += m.safeFound.auto + m.safeFound.ranked;
+      judgment += m.judgmentFound;
+    }
+    const planted = docs.reduce((n, d) => ({ safe: n.safe + d.errors.safe, judgment: n.judgment + d.errors.judgment }), { safe: 0, judgment: 0 });
+    expect(safe / planted.safe).toBeGreaterThanOrEqual(SAFE_RECALL_FLOOR);
+    expect(judgment / planted.judgment).toBeGreaterThanOrEqual(JUDGMENT_RECALL_FLOOR);
+  }, 120_000);
+});
+
 describe('review budget: ranked decisions ≤10 per 1,500 words', () => {
   for (const doc of docs) {
     const known = KNOWN_OVER_BUDGET.has(doc.file);

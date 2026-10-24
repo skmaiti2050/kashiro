@@ -64,6 +64,13 @@ section 10's "default view" count, so it cannot pass by capping:
   auto-applied or ranked, and a planted judgment error must be ranked (never auto-applied). Planted errors
   that the engine does not detect at all are listed in the table.
 - No auto-applied or accept-all edit touches a fact-locked span.
+- **Recall floor:** across the corpus, the share of planted safe and judgment errors found stays at or
+  above the level measured in Task F3, minus two points, so recall can't drop by the engine seeing less.
+
+`tests/cleanText.test.ts` is the other side: the correct prose in `trust/clean/` (legitimate doublings such
+as "had had" and "What it is is", names, Indian English, list labels, acronyms, amounts, URLs, code) gets no
+automatic change under any preset, and only a few decisions. `tests/engine/neverDamage.test.ts` checks
+several hundred generated trap sentences with every auto-apply setting on.
 
 Nothing is folded out of the ranking. Candidates on fact-locked spans (names, numbers, quotes), repeats
 of the same unknown word and similar low-value items are demoted (score 0, ranked last), so they fill
