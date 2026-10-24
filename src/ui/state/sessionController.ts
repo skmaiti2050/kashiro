@@ -7,6 +7,7 @@ import type { Rewriter } from '@/engine/llm/suggest';
 import type { ModuleSwitches } from '@/engine/modules';
 import type { PresetId } from '@/engine/presets';
 import type { Variant } from '@/engine/types';
+import { uncheckedText } from '@/engine/uncheckedScripts';
 import { adapterFor as registryAdapterFor } from '@/formats/registry';
 import type { FormatAdapter } from '@/formats/types';
 import { afterAction } from './announce';
@@ -374,7 +375,9 @@ export class SessionController {
         this.tally.remap(new Map([...carryDecisions(userDecisions(before), session, unchanged), ...this.ai.sessionReplaced(before, session, unchanged)]));
       }
       // A new document's result is announced; a re-check while typing stays quiet.
-      const announcement = before ? {} : { announcement: { message: msg('announce.checked', { count: session.rankedDecisionCount() }), seq: ++this.announcements } };
+      // Hindi or Bengali text was skipped: never let "nothing to decide" read as an all-clear for it.
+      const checked = uncheckedText(loaded.paras).paragraphs > 0 ? 'announce.checkedEnglishOnly' : 'announce.checked';
+      const announcement = before ? {} : { announcement: { message: msg(checked, { count: session.rankedDecisionCount() }), seq: ++this.announcements } };
       // "Nothing can be saved until the text is checked" (or a save refused for it) is no longer true.
       const error = this.state.error;
       const outdated = error !== null && (error === this.checkFailure || error.key === 'error.saveNotChecked');

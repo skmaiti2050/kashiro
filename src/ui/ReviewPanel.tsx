@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Decision } from '@/engine/decisions';
 import type { Candidate } from '@/engine/types';
+import { uncheckedText } from '@/engine/uncheckedScripts';
 import { AiGroup } from './AiGroup';
 import { DecisionCard } from './DecisionCard';
 import { DepthSlider } from './DepthSlider';
@@ -129,6 +130,10 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
   const fixesApplied = session.outcomes().filter((o) => o.status === 'applied').length;
   /** Nothing left to decide: the panel says so in one line. */
   const allClear = !current && progress.left === 0;
+  /** Hindi or Bengali text the English-only check skipped: never an all-clear for a document that is mostly that. */
+  const unchecked = uncheckedText(session.paragraphs());
+  const englishOnly = unchecked.paragraphs > 0 ? t.t('panel.englishOnly') : null;
+  const doneLine = unchecked.mostly ? englishOnly : t.t('panel.allClear', { count: fixesApplied });
   const pick = (d: Decision) => {
     setCursor((c) => cursorAt(top, d.id, c));
     setReveal((r) => ({ seq: r.seq + 1, focus: true }));
@@ -157,7 +162,7 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
         {/* Not a live region: the app's announcer says "Accepted. 4 of 9 left." once per decision. */}
         {allClear ? (
           // Done: one calm line, and no depth controls, since there is nothing left to show more or less of.
-          <h2>{t.t('panel.allClear', { count: fixesApplied })}</h2>
+          <h2>{doneLine}</h2>
         ) : (
           <>
             <h2>{progressLabel(t, progress)}</h2>
@@ -167,6 +172,7 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
             <DepthSlider value={session.depth} onChange={(d) => controller.setDepth(d)} />
           </>
         )}
+        {englishOnly && doneLine !== englishOnly && <p className="hint english-only">{englishOnly}</p>}
       </header>
 
       <div ref={cardSlot} className="card-slot" role="group" tabIndex={-1} aria-label={slotLabel}>
