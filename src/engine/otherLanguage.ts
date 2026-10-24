@@ -13,8 +13,8 @@ const LOWERCASE_WORD = /^[a-z]+$/;
  */
 const EVERYDAY_WORD_ZIPF = 4;
 
-/** A word of a sentence, for counting: "school", "don't". */
-const WORD = /\p{L}+(?:['’]\p{L}+)*/gu;
+/** A word of a sentence, for counting: "school", "don't", "स्कूल" (its vowel signs, virama and joiners inside it). */
+const WORD = /\p{L}[\p{L}\p{M}‌‍]*(?:['’]\p{L}[\p{L}\p{M}‌‍]*)*/gu;
 
 /** A Spelling/Typo flag of a lowercase a-z word: the only flags the classifier judges. */
 function isLowercaseWordFlag(c: Candidate): boolean {

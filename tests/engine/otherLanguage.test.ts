@@ -169,6 +169,11 @@ describe('findForeignSentences: more than half of the words flagged', () => {
     const text = 'I read it. ami kal te jabo.';
     expect(sentencesOf(text, 'ami', 'kal', 'te', 'jabo')).toEqual([{ start: 11, end: 27 }]);
   });
+
+  it('a Hindi word counts as one word, not one per letter between its vowel signs', () => {
+    // 5 words, 3 flagged: foreign. Split at the vowel signs and virama, हिन्दी and स्कूल would count as 6.
+    expect(sentencesOf('ami हिन्दी स्कूल te jabo.', 'ami', 'te', 'jabo')).toEqual([{ start: 0, end: 25 }]);
+  });
 });
 
 describe('words-in-other-languages card in a session (Harper)', () => {
