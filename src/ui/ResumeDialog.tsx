@@ -11,15 +11,19 @@ interface Props {
   onDismiss(): void;
 }
 
-/** "Resume your review? (N decisions made, M left)" when a document with a saved review is opened again. */
+/**
+ * "Resume your review? (N decisions made, M left)" when a document with a saved review is opened again, or
+ * offered again after typing interrupted the resume (then it says so; the file itself did not change).
+ */
 export function ResumeDialog({ offer, onResume, onStartFresh, onDismiss }: Props) {
   const t = useT();
   const resumeButton = useRef<HTMLButtonElement>(null);
-  const title = t.t(offer.changed ? 'resume.changedTitle' : 'resume.title');
+  const title = t.t(offer.changed && !offer.interrupted ? 'resume.changedTitle' : 'resume.title');
 
   return (
     <Dialog title={title} role="alertdialog" className="resume" describedBy="resume-text" initialFocus={resumeButton} onClose={onDismiss}>
       <div id="resume-text">
+        {offer.interrupted && <p>{t.t('resume.interrupted')}</p>}
         {offer.changed && <p>{t.t('resume.changedText')}</p>}
         <p>{t.t('resume.text', { made: offer.made, left: offer.left })}</p>
       </div>

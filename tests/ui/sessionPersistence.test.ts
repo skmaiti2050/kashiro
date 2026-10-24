@@ -168,7 +168,7 @@ describe('saved reviews: resume', () => {
     const left = first.getState().session!.rankedDecisionCount();
     const { controller } = run(disk);
     await controller.openFile(FILE);
-    expect(controller.getState().resumeOffer).toEqual({ made: 2, left, changed: false });
+    expect(controller.getState().resumeOffer).toEqual({ made: 2, left, changed: false, interrupted: false });
   });
 
   it('Resume restores every decision, the count and the change log; it is announced', async () => {
@@ -508,10 +508,8 @@ describe('saved reviews: typing while Resume runs (final review I2)', () => {
     await controller.settled();
     expect(await controller.save()).toBe(true);
     expect(new TextDecoder().decode(saves[0].bytes)).toBe(TYPED_SAVED);
-    expect(controller.getState().resumeOffer).toMatchObject({ made: 2, changed: true });
-    expect(english(controller.getState().announcement!.message)).toBe(
-      'The text changed while the review was resuming, so it was not resumed. Choose Resume again to bring your decisions back.',
-    );
+    // Offered again with the reason, which the dialog shows (and reads out as its description): final re-review m6.
+    expect(controller.getState().resumeOffer).toMatchObject({ made: 2, changed: true, interrupted: true });
     // Resumed again on the typed text: the unchanged paragraph's decision comes back.
     await controller.reviews.resume();
     expect(statusOf(controller, 'was')).toBe('rejected');
@@ -527,7 +525,7 @@ describe('saved reviews: typing while Resume runs (final review I2)', () => {
     await vi.advanceTimersByTimeAsync(1100);
     await controller.reviews.flush();
     expect(madeOnDisk(disk)).toEqual([2]);
-    expect(controller.getState().resumeOffer).toMatchObject({ made: 2, changed: true });
+    expect(controller.getState().resumeOffer).toMatchObject({ made: 2, changed: true, interrupted: true });
     expect(await controller.save()).toBe(true);
     expect(new TextDecoder().decode(saves[0].bytes)).toBe(TYPED_SAVED);
   });

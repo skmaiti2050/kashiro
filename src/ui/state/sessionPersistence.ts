@@ -51,11 +51,15 @@ export interface SavedReviewsState {
   recentReviews: RecentReview[];
 }
 
-/** "Resume your review? (N decisions made, M left)"; `changed`: the file changed since (same path, other bytes). */
+/**
+ * "Resume your review? (N decisions made, M left)"; `changed`: the text differs from the reviewed one (the file
+ * changed since, or the user typed); `interrupted`: offered again because the user typed while it was resuming.
+ */
 export interface ResumeOffer {
   made: number;
   left: number;
   changed: boolean;
+  interrupted: boolean;
 }
 
 /** Saved after the user's last decision has rested this long (plan: 1 s). */
@@ -129,7 +133,7 @@ export class SessionPersistence {
     const changed = found.key !== key;
     if (picked?.key === found.key && !changed) return this.resumeFrom(found);
     this.offered = found;
-    this.host.set({ resumeOffer: { made: found.review.made, left: found.review.left, changed } });
+    this.host.set({ resumeOffer: { made: found.review.made, left: found.review.left, changed, interrupted: false } });
   }
 
   private async openedPastedText(picked: KeyedReview | null): Promise<void> {
@@ -175,13 +179,12 @@ export class SessionPersistence {
 
   /**
    * The user typed while the review was restored, and the typed text has its own check: the restored session
-   * (built on the older text) is dropped, and the review is offered again for the new text. While it is
-   * offered, nothing is autosaved over it.
+   * (built on the older text) is dropped, and the review is offered again for the new text, saying why (the
+   * dialog shows it, and reads it out as its description). While it is offered, nothing is autosaved over it.
    */
   private offerAgain(found: KeyedReview): void {
     this.offered = found;
-    this.host.set({ resumeOffer: { made: found.review.made, left: found.review.left, changed: true } });
-    this.host.announce(msg('resume.interrupted'));
+    this.host.set({ resumeOffer: { made: found.review.made, left: found.review.left, changed: true, interrupted: true } });
   }
 
   private takeOffer(): KeyedReview | null {

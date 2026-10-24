@@ -1,7 +1,8 @@
 // Saved review sessions (Task S3) in the app shell: the resume prompt, the Recent reviews list and Settings.
 import { describe, it, expect, beforeAll, vi } from 'vitest';
-import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { DEFAULT_MODULES } from '@/engine/modules';
+import { ResumeDialog } from '@/ui/ResumeDialog';
 import type { Files, OpenedFile, SessionController } from '@/ui/state/sessionController';
 import { memorySessionFiles } from '../fixtures/memorySessionFiles';
 import { makeController, noFiles, warmLinter } from './harness';
@@ -96,6 +97,13 @@ describe('resume prompt', () => {
     await openAndWait(controller, () => controller.openFile(changed));
     await waitFor(() => expect(screen.getByRole('alertdialog', { name: 'This file changed since your last review' })).toBeTruthy());
     expect(screen.getByRole('alertdialog').textContent).toContain('Resume where possible?');
+  });
+
+  it('a resume interrupted by typing says so on screen, not that the file changed (final re-review m6)', () => {
+    const offer = { made: 2, left: 3, changed: true, interrupted: true };
+    render(<ResumeDialog offer={offer} onResume={() => {}} onStartFresh={() => {}} onDismiss={() => {}} />);
+    const dialog = screen.getByRole('alertdialog', { name: 'Resume your review?' });
+    expect(dialog.textContent).toContain('The text changed while the review was resuming, so it was not resumed.');
   });
 });
 

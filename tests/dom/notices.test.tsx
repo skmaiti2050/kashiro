@@ -36,15 +36,24 @@ describe('banners', () => {
     const { controller } = makeController({}, noFiles);
     renderShell(controller);
     await openAndWait(controller, () => controller.openSample());
+    // Fake time for the notice's own timer: a real 6 s wait timed out under the full suite's load.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     await act(() => controller.save().then(() => {}));
     expect(screen.getByText(/^Saved as /)).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Dismiss this message' })).toBeTruthy();
-    await waitFor(() => expect(screen.queryByText(/^Saved as /)).toBeNull(), { timeout: 8000 });
+    await act(async () => {
+      vi.advanceTimersByTime(5_000);
+    });
+    expect(screen.getByText(/^Saved as /)).toBeTruthy();
+    await act(async () => {
+      vi.advanceTimersByTime(1_000);
+    });
+    expect(screen.queryByText(/^Saved as /)).toBeNull();
 
     await act(() => controller.save().then(() => {}));
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss this message' }));
     expect(screen.queryByText(/^Saved as /)).toBeNull();
-  }, 20000);
+  });
 
   // Task U3 fix 1: changes left out of the saved file must not go unseen.
   it('"Saved, but N changes couldn’t be placed" stays until its × is pressed', async () => {

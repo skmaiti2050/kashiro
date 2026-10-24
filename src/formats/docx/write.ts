@@ -49,7 +49,8 @@ const ALLOWED_BETWEEN = new Set([
   'w:lastRenderedPageBreak',
 ]);
 
-const ILLEGAL_CHAR = /[\u0000-\u0008\u000B\u000C\u000E-\u001F￾￿]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
+/** A character XML 1.0 can't hold (a control character, U+FFFE, U+FFFF) or a lone surrogate, e.g. "\u0001". */
+const ILLEGAL_CHAR = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
 
 const isHigh = (c: string | undefined) => c !== undefined && c >= '\uD800' && c <= '\uDBFF';
 const isLow = (c: string | undefined) => c !== undefined && c >= '\uDC00' && c <= '\uDFFF';

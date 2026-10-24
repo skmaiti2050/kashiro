@@ -118,6 +118,12 @@ describe('wording fixes (Task F2)', () => {
     expect(bnT.t('explain.aOrAn')).toBe('শব্দের শুরুতে ব্যঞ্জনের মতো আওয়াজ হলে “a”, আর স্বরের মতো আওয়াজ হলে “an” বসে।');
   });
 
+  it('the saved-reviews cost says pasted text can be kept, not "never a copy" (final re-review m4)', () => {
+    expect(text(en, 'modules.savedSessionsCost')).toMatch(/pasted text/);
+    expect(text(hi, 'modules.savedSessionsCost')).toContain('पेस्ट');
+    expect(text(bn, 'modules.savedSessionsCost')).toContain('পেস্ট');
+  });
+
   it('Bengali names card: one item reads as one name or place, more as names and places', () => {
     const t = createTranslator('bn', ['bn-IN']);
     expect(t.t('card.namesTitle', { count: 1 })).toBe('1টি নাম বা জায়গা');

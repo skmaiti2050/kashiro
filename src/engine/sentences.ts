@@ -19,8 +19,11 @@ export function sentenceWithEdits(paraText: string, span: Span, edits: Edit[]): 
   return text;
 }
 
-/** A sentence end: . ? or ! with any closing quotes or brackets, before a space (`?" ` in `he asked?" Then`), or a line break. */
-const SENTENCE_END = /[.?!]+["'”’)\]]*(?=\s)|\n/g;
+/**
+ * A sentence end: . ? ! or a Hindi/Bengali danda (। ॥) with any closing quotes or brackets, before a space
+ * (`?" ` in `he asked?" Then`), or a line break.
+ */
+const SENTENCE_END = /[.?!।॥]+["'”’)\]]*(?=\s)|\n/g;
 /** A Markdown heading, list or quote marker at the start of a line, e.g. "## " or "- ". */
 const LINE_MARKER = /^(?:#{1,6}|[-*+]|\d+[.)]|>)[ \t]+/;
 

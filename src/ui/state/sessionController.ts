@@ -126,6 +126,8 @@ export class SessionController {
   private savedChanges = 0;
   /** Why the latest typed text was not read (too long to check, say); saving waits until it can be. */
   private typingRefused: Message | null = null;
+  /** The error the last failed check showed; a check that works takes it down. */
+  private checkFailure: Message | null = null;
   private readonly tally = new DecisionTally();
   private announcements = 0;
   private readonly settingsHost: settingsActions.SettingsHost = {
@@ -373,7 +375,11 @@ export class SessionController {
       }
       // A new document's result is announced; a re-check while typing stays quiet.
       const announcement = before ? {} : { announcement: { message: msg('announce.checked', { count: session.rankedDecisionCount() }), seq: ++this.announcements } };
-      this.set({ phase: 'ready', session, checking: this.queue.waiting, ...announcement });
+      // "Nothing can be saved until the text is checked" (or a save refused for it) is no longer true.
+      const error = this.state.error;
+      const outdated = error !== null && (error === this.checkFailure || error.key === 'error.saveNotChecked');
+      this.checkFailure = null;
+      this.set({ phase: 'ready', session, checking: this.queue.waiting, ...announcement, ...(outdated ? { error: null } : {}) });
       if (before) this.reviews.changed();
       // After every check, so a goal switch (whose own modules may differ) releases too.
       this.releaseModules(session.modules);
@@ -382,6 +388,7 @@ export class SessionController {
       // Typed text that failed its check: the session still holds the older text, so save() refuses until a check works.
       const stale = this.state.session !== null && !sameParagraphs(this.state.session.paragraphs(), loaded.paras);
       const error = explain(msg('error.check'), e, msg(stale ? 'error.checkNextNotSaved' : 'error.checkNext'));
+      this.checkFailure = error;
       this.set({ phase: this.state.session ? 'ready' : 'empty', error, checking: this.queue.waiting });
       // A switch turned off before this re-check must still stop its module.
       this.releaseModules(modulesFor(this.state.settings));

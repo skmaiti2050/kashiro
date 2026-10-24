@@ -157,6 +157,11 @@ describe('docx writer: tracked', () => {
     expect(xml).toContain('<w:delText xml:space="preserve">teh</w:delText>');
   });
 
+  it.each(['\uFFFE', '\uFFFF', '\u0001', '\uD800'])('a replacement holding a character Word cannot store (%j) is unplaceable, never written', async (bad) => {
+    const { unplaceable } = await write(p(r(t('x teh y'))), [edit(0, 2, 5, `t${bad}he`)], 'tracked');
+    expect(unplaceable.map((u) => u.reason)).toEqual(['the replacement contains a character that cannot be saved in a Word document']);
+  });
+
   it('escapes the replacement and preserves leading/trailing spaces', async () => {
     const { xml } = await write(p(r(t('x teh y'))), [edit(0, 2, 5, 'a < b & "c"'), edit(0, 7, 7, ' z ')], 'tracked');
     expect(xml).toContain('<w:t xml:space="preserve">a &lt; b &amp; "c"</w:t>');

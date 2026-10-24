@@ -498,6 +498,7 @@ describe('SessionController: unsaved work', () => {
     await controller.openText(CANT);
     controller.editText(CANT + ' More.');
     expect(controller.hasUnsavedWork()).toBe(true);
+    await controller.close(); // drops the typing pause, so its re-check can't run during a later test
   });
 
   it('text typed while a save is being written stays unsaved, so closing still asks first', async () => {
@@ -521,6 +522,7 @@ describe('SessionController: unsaved work', () => {
     finishWrite();
     expect(await saving).toBe(true);
     expect(controller.hasUnsavedWork()).toBe(true);
+    await controller.close(); // drops the typing pause, so its re-check can't run during a later test
   });
 
   it('opening another document starts with nothing unsaved', async () => {
@@ -631,15 +633,43 @@ describe('SessionController: typing re-checks', () => {
     const saved = await controller.save();
     expect(saves.map((s) => decode(s.bytes))).toEqual([]);
     expect(saved).toBe(false);
+    // Both refusals say what to do if the check keeps failing (final re-review m2).
     expect(english(controller.getState().error)).toMatch(/^Not saved: the text changed after its last check/);
-    expect(checkError).toBe('The check failed: checker stopped. Nothing can be saved until the text is checked: edit the text to try again.');
+    expect(english(controller.getState().error)).toMatch(/If the check keeps failing, copy your text somewhere safe, then close the document\. Your file on disk is unchanged\.$/);
+    expect(checkError).toBe(
+      'The check failed: checker stopped. Nothing can be saved until the text is checked: edit the text to try again. ' +
+        'If it keeps failing, copy your text somewhere safe, then close the document. Your file on disk is unchanged.',
+    );
     // A check that works again: the typed text is saved as typed, with the decision on the unchanged paragraph.
     failing = false;
     controller.editText(typed);
     await vi.advanceTimersByTimeAsync(300);
     await controller.settled();
+    expect(controller.getState().error).toBeNull(); // the "Nothing can be saved" banner goes (m7)
     expect(await controller.save()).toBe(true);
     expect(decode(saves[0].bytes)).toBe("Hi there. I can't go.\n\nYou cannot stay.");
+  });
+
+  it('a check that works again takes down the "Nothing can be saved" banner (final re-review m7)', async () => {
+    let failing = false;
+    const flaky: RulesLinter = {
+      ...shared,
+      variant: shared.variant,
+      lintParagraphs: (p, l) => (failing ? Promise.reject(new Error('checker stopped')) : shared.lintParagraphs(p, l)),
+    };
+    const { controller } = makeController({ createLinter: async () => flaky });
+    await controller.openText(CANT);
+    failing = true;
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    controller.editText(`Hi there. ${CANT}`);
+    await vi.advanceTimersByTimeAsync(300);
+    await controller.settled();
+    expect(english(controller.getState().error)).toMatch(/Nothing can be saved until the text is checked/);
+    failing = false;
+    controller.editText(`Hi there. ${CANT} More.`);
+    await vi.advanceTimersByTimeAsync(300);
+    await controller.settled();
+    expect(controller.getState().error).toBeNull();
   });
 
   it('Close document while a re-check runs: its result is dropped, not shown after the close', async () => {

@@ -114,8 +114,9 @@ describe('"Improve this sentence"', () => {
     fireEvent.keyDown(cursorIn('every morning').contentDOM, { key: 'i', ctrlKey: true });
     await waitFor(() => expect(controller.getState().ai.ready).not.toBeNull());
     expect(sent).toEqual([SECOND]);
+    // Looked up afresh each time: the AI card can replace the card shown before it.
+    await waitFor(() => expect(reviewPanel().querySelector('.card .category')?.textContent).toContain('AI suggestion'));
     const card = reviewPanel().querySelector<HTMLElement>('.card')!;
-    await waitFor(() => expect(card.querySelector('.category')?.textContent).toContain('AI suggestion'));
     expect(card.querySelector('del')?.textContent).toBe(SECOND);
     expect(card.querySelector('ins')?.textContent).toBe(SECOND_REWRITE);
     expect(announced()).toContain('AI suggestion ready to review.');

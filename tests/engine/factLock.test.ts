@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { findLockedSpans, followsAbbreviation } from '../../src/engine/factLock';
+import { findLockedSpans, followsAbbreviation, isSentenceStart } from '../../src/engine/factLock';
 
 function covered(text: string, needle: string, from = 0): boolean {
   const start = text.indexOf(needle, from);
@@ -43,6 +43,11 @@ describe('findLockedSpans', () => {
       expect(covered(`we saw ${needle} here`, needle)).toBe(true);
     },
   );
+
+  // Task F2: the number and amount locks take any script's digits, not only 0-9.
+  it.each(['₹५,०००', 'Rs ५,०००', '१,२०,०००', '৩.৫', '৫০%', '-৭'])('locks %s written in Devanagari or Bengali digits', (needle) => {
+    expect(covered(`कुल ${needle} मिले`, needle)).toBe(true);
+  });
 
   it.each(['60s', '1990s', "’90s", "1990's"])('locks decade or age %s', (needle) => {
     expect(covered(`RAMESH (${needle}) waits`, needle)).toBe(true);
@@ -177,6 +182,12 @@ describe('abbreviation edge cases', () => {
     expect(followsAbbreviation('Sections 234B and 234C. The amounts', 24)).toBe(false);
     expect(followsAbbreviation('about 20 °C. My kitchen', 13)).toBe(false);
     expect(unlocked('Pay under 234C. The amounts add up.', 'The')).toBe(true);
+  });
+
+  it('a danda or double danda ends a sentence, so the next word starts one (Task F2)', () => {
+    const text = 'काम पूरा हुआ। Kashiro ने देखा॥ Then';
+    expect(isSentenceStart(text, text.indexOf('Kashiro'))).toBe(true);
+    expect(isSentenceStart(text, text.indexOf('Then'))).toBe(true);
   });
 });
 

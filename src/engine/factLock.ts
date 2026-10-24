@@ -32,13 +32,14 @@ const PATTERNS: RegExp[] = [
   new RegExp(String.raw`\b${MONTH}\.?\s+\d{1,2}(?:st|nd|rd|th)?(?:,?\s+\d{4})?\b`, 'g'),
   new RegExp(String.raw`\b${MONTH}\s+\d{4}\b`, 'g'),
   /\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g,
-  // numbers: currency, statistics, versions, percentages
-  /(?:Rs\.?\s?|[₹$€£¥])\s?\d[\d,]*(?:\.\d+)?/g,
+  // numbers: currency, statistics, versions, percentages. Amounts and bare numbers use \p{Nd}, so digits of
+  // any script lock too: "₹५,०००", "৫০%" (\d is 0-9 only, even with the u flag).
+  /(?:Rs\.?\s?|[₹$€£¥])\s?\p{Nd}[\p{Nd},]*(?:\.\p{Nd}+)?/gu,
   /\bp\s*[<>=≤≥]\s*\d*\.?\d+/gi,
   /\bv\d+(?:\.\d+)+\b/g,
-  /\d[\d,]*(?:\.\d+)?%/g,
+  /\p{Nd}[\p{Nd},]*(?:\.\p{Nd}+)?%/gu,
   // bare numbers: integers, decimals, 1,200 / 1,20,000, negatives, ordinals, ranges
-  /(?<![\p{L}\p{N}])-?\d+(?:,\d+)*(?:\.\d+)?(?:st|nd|rd|th)?(?:\s*[–-]\s*\d+(?:,\d+)*(?:\.\d+)?(?:st|nd|rd|th)?)?(?![\p{L}\p{N}])/gu,
+  /(?<![\p{L}\p{N}])-?\p{Nd}+(?:,\p{Nd}+)*(?:\.\p{Nd}+)?(?:st|nd|rd|th)?(?:\s*[–-]\s*\p{Nd}+(?:,\p{Nd}+)*(?:\.\p{Nd}+)?(?:st|nd|rd|th)?)?(?![\p{L}\p{N}])/gu,
   // camelCase and inner capitals, 4+ characters: preventDefault, iPhone, DevTools (not "tHe"; lookaheads from a word start: linear)
   /(?<![\p{L}\p{N}])(?=[\p{L}\p{N}]*\p{Ll}\p{Lu})(?=[\p{L}\p{N}]{4})[\p{L}\p{N}]+/gu,
   // the word after a title is part of a name, whatever its case: "Mr. and Mrs.", "Dr. smith"
@@ -156,7 +157,7 @@ export function isSentenceStart(text: string, i: number): boolean {
   if (j === i) return false; // glued to the previous word
   if (j === 0) return true;
   if (text[j - 1] === '.' && endsAbbreviation(text, j - 1, i)) return false;
-  return '.?!:'.includes(text[j - 1]);
+  return '.?!:।॥'.includes(text[j - 1]);
 }
 
 /** Ranges that must never be auto-changed. Sorted, merged. */

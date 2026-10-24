@@ -23,6 +23,11 @@ describe('sentenceSpans', () => {
     expect(split('He said "go." She left (quietly.) The end')).toEqual(['He said "go."', 'She left (quietly.)', 'The end']);
   });
 
+  it('a danda or double danda ends a Hindi or Bengali sentence (Task F2)', () => {
+    expect(split('आज बारिश हुई। कल धूप थी॥ फिर')).toEqual(['आज बारिश हुई।', 'कल धूप थी॥', 'फिर']);
+    expect(split('আজ বৃষ্টি হয়েছে। কাল রোদ ছিল।')).toEqual(['আজ বৃষ্টি হয়েছে।', 'কাল রোদ ছিল।']);
+  });
+
   it('a line break ends a sentence; Markdown line markers are not part of it', () => {
     expect(split('## Results\n- Attendance rose\n> Quoted line')).toEqual(['Results', 'Attendance rose', 'Quoted line']);
   });
