@@ -500,6 +500,29 @@ describe('SessionController: unsaved work', () => {
     expect(controller.hasUnsavedWork()).toBe(true);
   });
 
+  it('text typed while a save is being written stays unsaved, so closing still asks first', async () => {
+    let finishWrite!: () => void;
+    const writing = new Promise<void>((r) => (finishWrite = r));
+    let started = false;
+    const files: Files = {
+      open: async () => null,
+      save: async (path) => {
+        started = true;
+        await writing;
+        return { path, backup: null };
+      },
+    };
+    const { controller } = makeController({ files });
+    await controller.openFile({ name: 'note.txt', path: '/docs/note.txt', bytes: encode(CANT) });
+    controller.accept(controller.getState().session!.decisions().top[0].id);
+    const saving = controller.save();
+    await vi.waitFor(() => expect(started).toBe(true)); // the file is being written
+    controller.editText(`${CANT} More.`);
+    finishWrite();
+    expect(await saving).toBe(true);
+    expect(controller.hasUnsavedWork()).toBe(true);
+  });
+
   it('opening another document starts with nothing unsaved', async () => {
     const { controller } = makeController();
     await controller.openText(CANT);

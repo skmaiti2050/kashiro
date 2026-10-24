@@ -19,8 +19,10 @@ export interface SaveHost {
    */
   saveRefused(): Message | null;
   files: Files;
-  /** The document on disk now matches the review: nothing is unsaved. */
-  markSaved(): void;
+  /** A count that moves with every edit, decision or typed text in the open document. */
+  changes(): number;
+  /** The document on disk now matches the review as it was at `changes`: later changes stay unsaved. */
+  markSaved(changes: number): void;
 }
 
 const SAVE_AGAIN = msg('error.saveAgain');
@@ -31,6 +33,8 @@ const NOT_CHECKED = msg('error.saveNotChecked');
  * backup. Returns true when the file was written (false when cancelled or failed).
  */
 export async function save(host: SaveHost): Promise<boolean> {
+  // Counted before the typed text is flushed: typing or decisions that come later may miss the file, so they stay unsaved.
+  const changes = host.changes();
   await host.flush();
   const { session, document, settings } = host.state();
   const loaded = host.loaded();
@@ -47,7 +51,7 @@ export async function save(host: SaveHost): Promise<boolean> {
     // Unplaceable edits may have been marked on the session, so this always re-renders.
     host.set({ notice, error: null });
     if (notice === null) return false;
-    host.markSaved();
+    host.markSaved(changes);
     return true;
   } catch (e) {
     host.set({ error: explain(msg('error.save', { name: document.name }), e, SAVE_AGAIN) });

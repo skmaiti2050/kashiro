@@ -120,8 +120,10 @@ export class SessionController {
   private documents = 0;
   /** Checks started; a check whose number is no longer the latest drops its result. */
   private checks = 0;
-  /** Edits applied, decisions made or text typed since the document was opened or last saved. */
-  private unsaved = false;
+  /** Counts every edit applied, decision made or text typed in the open document. */
+  private changes = 0;
+  /** `changes` when the document was opened or last saved: anything after it is unsaved work. */
+  private savedChanges = 0;
   /** Why the latest typed text was not read (too long to check, say); saving waits until it can be. */
   private typingRefused: Message | null = null;
   private readonly tally = new DecisionTally();
@@ -140,7 +142,7 @@ export class SessionController {
       this.set({ ...patch, decided: this.tally.decided });
       this.reviews.changed();
     },
-    markUnsaved: () => (this.unsaved = true),
+    markUnsaved: () => this.changes++,
     announce: (verb) => this.set({ announcement: this.announcement(verb) }),
     dropLinter: () => (this.linter = null),
     recheck: () => this.recheck(),
@@ -169,7 +171,8 @@ export class SessionController {
       loaded: () => this.loaded,
       saveRefused: () => this.typingRefused,
       files: deps.files,
-      markSaved: () => (this.unsaved = false),
+      changes: () => this.changes,
+      markSaved: (changes) => (this.savedChanges = changes),
     };
     this.reviews = new SessionPersistence(this.reviewsHost(), deps.sessions ? new SessionStore(deps.sessions) : null);
     this.adapterFor = deps.adapterFor ?? registryAdapterFor;
@@ -250,7 +253,7 @@ export class SessionController {
    * back on the next check.
    */
   hasUnsavedWork(): boolean {
-    return this.unsaved;
+    return this.changes !== this.savedChanges;
   }
 
   // ---- opening -------------------------------------------------------------
@@ -296,7 +299,7 @@ export class SessionController {
     this.documents = document.id;
     this.loaded = loaded;
     this.typingRefused = null;
-    this.unsaved = false;
+    this.savedChanges = this.changes;
     this.tally.reset();
     this.ai.reset();
     this.set({
@@ -321,7 +324,7 @@ export class SessionController {
   /** Typing in the editor (the text read back with the document's line separator): re-checks after a 300 ms pause. */
   editText(text: string): void {
     if (!this.state.document?.editable) return;
-    this.unsaved = true;
+    this.changes++;
     this.queue.push(text);
     if (!this.state.checking) this.set({ checking: true });
   }
@@ -548,7 +551,7 @@ export class SessionController {
       this.set({ error: plainError(e) });
       return;
     }
-    this.unsaved = true;
+    this.changes++;
     count();
     this.set({ error: null, decided: this.tally.decided, announcement: this.announcement(msg(verb)) });
     this.reviews.changed();
@@ -603,7 +606,7 @@ export class SessionController {
     await this.reviews.leave();
     this.loaded = null;
     this.typingRefused = null;
-    this.unsaved = false;
+    this.savedChanges = this.changes;
     this.tally.reset();
     this.ai.reset();
     this.set({
