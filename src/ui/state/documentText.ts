@@ -27,6 +27,11 @@ export function matchUnchangedParagraphs(before: Paragraph[], after: Paragraph[]
   return matched;
 }
 
+/** True when both lists hold the same paragraphs (ids and text) in the same order. */
+export function sameParagraphs(a: Paragraph[], b: Paragraph[]): boolean {
+  return a.length === b.length && a.every((p, i) => p.id === b[i].id && p.text === b[i].text);
+}
+
 /** `/docs/essay.docx` + `.checked` → `/docs/essay.checked.docx`; `ext` replaces the extension. */
 export function siblingPath(path: string, suffix: string, ext?: string): string {
   const nameStart = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\')) + 1;

@@ -77,6 +77,8 @@ export class SessionPersistence {
   private offered: KeyedReview | null = null;
   /** Picked in the Recent reviews list: resumed without asking once its document opens. */
   private picked: KeyedReview | null = null;
+  /** The document whose saved review is being restored: nothing is autosaved over it until the restore is shown or dropped. */
+  private resuming: number | null = null;
   private timer: ReturnType<typeof setTimeout> | null = null;
   /** Writes run one after another, so an older snapshot never lands after a newer one; each resolves to its success. */
   private writing: Promise<boolean> = Promise.resolve(true);
@@ -171,6 +173,17 @@ export class SessionPersistence {
     if (this.takeOffer()) this.key = null;
   }
 
+  /**
+   * The user typed while the review was restored, and the typed text has its own check: the restored session
+   * (built on the older text) is dropped, and the review is offered again for the new text. While it is
+   * offered, nothing is autosaved over it.
+   */
+  private offerAgain(found: KeyedReview): void {
+    this.offered = found;
+    this.host.set({ resumeOffer: { made: found.review.made, left: found.review.left, changed: true } });
+    this.host.announce(msg('resume.interrupted'));
+  }
+
   private takeOffer(): KeyedReview | null {
     const found = this.offered;
     if (found) this.host.set({ resumeOffer: null });
@@ -178,7 +191,8 @@ export class SessionPersistence {
     return found;
   }
 
-  private async resumeFrom({ key, review }: KeyedReview): Promise<void> {
+  private async resumeFrom(found: KeyedReview): Promise<void> {
+    const { key, review } = found;
     const { host } = this;
     const loaded = host.loaded();
     const documentId = this.documentId;
@@ -187,10 +201,12 @@ export class SessionPersistence {
     // The goal, variant and dismissed rules change only once the restore has worked.
     const settings = withReviewPreset(host.state().settings, snap.preset, snap.depth);
     host.set({ checking: true });
+    this.resuming = documentId;
     try {
       const options = checkOptions(settings, snap.variantOverride, snap.documentIgnoredRules, loaded.adapter.language);
       const { session, restored, rechecked } = await restore(loaded.paras, snap, options, { linter: await host.linter(), now: host.now });
       if (this.documentId !== documentId) return;
+      if (host.loaded() !== loaded) return this.offerAgain(found);
       if (settings !== host.state().settings) host.storeSettings(settings);
       host.set({ variantOverride: snap.variantOverride, documentIgnoredRules: [...snap.documentIgnoredRules] });
       // Counted as the prompt counts (a rejection of several places is one decision): the saved count when
@@ -204,6 +220,8 @@ export class SessionPersistence {
     } catch (e) {
       host.set({ error: explain(msg('error.resume'), e, msg('error.resumeNext')), checking: false });
       return;
+    } finally {
+      if (this.resuming === documentId) this.resuming = null;
     }
     // A changed file's review moves to the new fingerprint at once, so it is never only half there.
     if (key === this.key) return;
@@ -215,7 +233,8 @@ export class SessionPersistence {
 
   /** The review changed: saves it once it has rested for AUTOSAVE_DELAY_MS. */
   changed(): void {
-    if (!this.key || this.offered || !this.enabled()) return;
+    // With a key there is an open document, so `resuming` (null when no restore runs) can only match a real id.
+    if (!this.key || this.offered || this.resuming === this.documentId || !this.enabled()) return;
     this.cancelTimer();
     this.timer = setTimeout(() => {
       this.timer = null;

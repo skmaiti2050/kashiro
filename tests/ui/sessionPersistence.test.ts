@@ -465,3 +465,70 @@ describe('saved reviews: fix round 1', () => {
     expect(disk.stored.size).toBe(0);
   });
 });
+
+describe('saved reviews: typing while Resume runs (final review I2)', () => {
+  const TYPED = TEXT.replace('She recieved', 'Oh. She recieved');
+  const TYPED_SAVED = 'I think the cat is here.\n\nOh. She recieved the letter.\n\nWe was late again.';
+
+  /**
+   * Reopens the reviewed FILE with a linter whose lint passes wait for `release` (`onlyFirst`: only the next
+   * one, the resume's), then clicks Resume and types TYPED; the typed text's pause has passed on return.
+   */
+  async function typeDuringResume(onlyFirst: boolean) {
+    const { disk } = await reviewed(); // "recieved" accepted, "was" rejected
+    let gate: Promise<void> | null = null;
+    const gated: RulesLinter = {
+      ...linter,
+      variant: linter.variant,
+      lintParagraphs: async (p, l) => {
+        const wait = gate;
+        if (onlyFirst) gate = null;
+        if (wait) await wait;
+        return linter.lintParagraphs(p, l);
+      },
+    };
+    const { files, saves } = fakeFiles();
+    const { controller } = run(disk, { files, createLinter: async () => gated });
+    await controller.openFile(FILE);
+    let release!: () => void;
+    gate = new Promise((r) => (release = r));
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const resuming = controller.reviews.resume();
+    controller.editText(TYPED);
+    await vi.advanceTimersByTimeAsync(300);
+    return { controller, disk, saves, resuming, release };
+  }
+
+  const madeOnDisk = (disk: ReturnType<typeof memorySessionFiles>) => [...disk.stored.values()].map((s) => JSON.parse(s.json).made);
+
+  it('the typed text keeps its check and is saved as typed; the review is offered again', async () => {
+    const { controller, saves, resuming, release } = await typeDuringResume(false);
+    release();
+    await resuming;
+    await controller.settled();
+    expect(await controller.save()).toBe(true);
+    expect(new TextDecoder().decode(saves[0].bytes)).toBe(TYPED_SAVED);
+    expect(controller.getState().resumeOffer).toMatchObject({ made: 2, changed: true });
+    expect(english(controller.getState().announcement!.message)).toBe(
+      'The text changed while the review was resuming, so it was not resumed. Choose Resume again to bring your decisions back.',
+    );
+    // Resumed again on the typed text: the unchanged paragraph's decision comes back.
+    await controller.reviews.resume();
+    expect(statusOf(controller, 'was')).toBe('rejected');
+  });
+
+  it('the typed check finishing first does not autosave over the saved review while the resume runs', async () => {
+    const { controller, disk, saves, resuming, release } = await typeDuringResume(true);
+    await vi.advanceTimersByTimeAsync(1100); // the typed check is done; its autosave pause passes
+    await controller.reviews.flush();
+    expect(madeOnDisk(disk)).toEqual([2]);
+    release();
+    await resuming;
+    await vi.advanceTimersByTimeAsync(1100);
+    await controller.reviews.flush();
+    expect(madeOnDisk(disk)).toEqual([2]);
+    expect(controller.getState().resumeOffer).toMatchObject({ made: 2, changed: true });
+    expect(await controller.save()).toBe(true);
+    expect(new TextDecoder().decode(saves[0].bytes)).toBe(TYPED_SAVED);
+  });
+});

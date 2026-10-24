@@ -587,6 +587,52 @@ describe('SessionController: typing re-checks', () => {
     expect(saves).toHaveLength(1);
   });
 
+  it('a re-check that throws after typing refuses the save, so the old edits never land in the new text (final review I1)', async () => {
+    const { files, saves } = fakeFiles();
+    let failing = false;
+    const flaky: RulesLinter = {
+      ...shared,
+      variant: shared.variant,
+      lintParagraphs: (p, l) => (failing ? Promise.reject(new Error('checker stopped')) : shared.lintParagraphs(p, l)),
+    };
+    const { controller } = makeController({ files, createLinter: async () => flaky });
+    await controller.openFile({ name: 'note.txt', path: '/docs/note.txt', bytes: encode(CANT) });
+    controller.accept(controller.getState().session!.decisions().top[0].id); // can't → cannot, both places
+    failing = true;
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const typed = `Hi there. ${CANT}`;
+    controller.editText(typed);
+    await vi.advanceTimersByTimeAsync(300);
+    await controller.settled();
+    const checkError = english(controller.getState().error);
+    const saved = await controller.save();
+    expect(saves.map((s) => decode(s.bytes))).toEqual([]);
+    expect(saved).toBe(false);
+    expect(english(controller.getState().error)).toMatch(/^Not saved: the text changed after its last check/);
+    expect(checkError).toBe('The check failed: checker stopped. Nothing can be saved until the text is checked: edit the text to try again.');
+    // A check that works again: the typed text is saved as typed, with the decision on the unchanged paragraph.
+    failing = false;
+    controller.editText(typed);
+    await vi.advanceTimersByTimeAsync(300);
+    await controller.settled();
+    expect(await controller.save()).toBe(true);
+    expect(decode(saves[0].bytes)).toBe("Hi there. I can't go.\n\nYou cannot stay.");
+  });
+
+  it('Close document while a re-check runs: its result is dropped, not shown after the close', async () => {
+    const { controller } = makeController();
+    await controller.openText(CANT);
+    let release!: () => void;
+    lintGate = new Promise((r) => (release = r));
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    controller.editText(`${CANT} More.`);
+    await vi.advanceTimersByTimeAsync(300);
+    await controller.close();
+    release();
+    await controller.settled();
+    expect(controller.getState()).toMatchObject({ phase: 'empty', document: null, session: null });
+  });
+
   it('a check that finishes after a depth change uses the new depth', async () => {
     const { controller } = makeController();
     await controller.openText(CANT);

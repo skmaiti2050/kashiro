@@ -16,7 +16,7 @@ import { UnreadableFileError } from '@/formats/fileProblems';
 import { explain, openError, plainError } from './errors';
 import { checkOptions, currentDepth } from './checkOptions';
 import { DecisionTally } from './decisionTally';
-import { matchUnchangedParagraphs } from './documentText';
+import { matchUnchangedParagraphs, sameParagraphs } from './documentText';
 import { readDocument, readTypedText, type LoadedFile, type OpenDocument } from './openDocument';
 import { progressOf } from './progress';
 import { RecheckQueue } from './recheckQueue';
@@ -376,7 +376,9 @@ export class SessionController {
       this.releaseModules(session.modules);
     } catch (e) {
       if (run !== this.checks) return;
-      const error = explain(msg('error.check'), e, msg('error.checkNext'));
+      // Typed text that failed its check: the session still holds the older text, so save() refuses until a check works.
+      const stale = this.state.session !== null && !sameParagraphs(this.state.session.paragraphs(), loaded.paras);
+      const error = explain(msg('error.check'), e, msg(stale ? 'error.checkNextNotSaved' : 'error.checkNext'));
       this.set({ phase: this.state.session ? 'ready' : 'empty', error, checking: this.queue.waiting });
       // A switch turned off before this re-check must still stop its module.
       this.releaseModules(modulesFor(this.state.settings));
@@ -597,6 +599,7 @@ export class SessionController {
   async close(): Promise<void> {
     if (!this.state.document) return;
     this.queue.cancel();
+    ++this.checks; // a check still running would show its result after the close
     await this.reviews.leave();
     this.loaded = null;
     this.typingRefused = null;

@@ -1,4 +1,5 @@
 import { msg, type Message } from '../i18n/message';
+import { sameParagraphs } from './documentText';
 import { explain } from './errors';
 import type { LoadedFile } from './openDocument';
 import { saveDocument, saveReport, type Files } from './saveFlow';
@@ -12,7 +13,10 @@ export interface SaveHost {
   flush(): Promise<void>;
   /** The open file's adapter and handle; null with nothing open. */
   loaded(): LoadedFile | null;
-  /** Why saving would lose typed text (it was too long to read for a check), or null when a save is safe. */
+  /**
+   * Why saving would lose typed text (it was too long to read for a check), or null. A session checked on
+   * other text than `loaded` is refused by save() itself.
+   */
   saveRefused(): Message | null;
   files: Files;
   /** The document on disk now matches the review: nothing is unsaved. */
@@ -20,6 +24,7 @@ export interface SaveHost {
 }
 
 const SAVE_AGAIN = msg('error.saveAgain');
+const NOT_CHECKED = msg('error.saveNotChecked');
 
 /**
  * Writes the document with the accepted edits: a tracked or clean copy, or over the file after a
@@ -30,7 +35,8 @@ export async function save(host: SaveHost): Promise<boolean> {
   const { session, document, settings } = host.state();
   const loaded = host.loaded();
   if (!session || !document || !loaded) return false;
-  const refused = host.saveRefused();
+  // The edits' offsets belong to the text the session checked: written into other text, they land in the wrong places.
+  const refused = host.saveRefused() ?? (sameParagraphs(session.paragraphs(), loaded.paras) ? null : NOT_CHECKED);
   if (refused) {
     host.set({ error: refused });
     return false;
