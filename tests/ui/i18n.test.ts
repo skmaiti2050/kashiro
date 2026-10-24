@@ -97,6 +97,34 @@ describe('wording that must not be confused (review fix round 1)', () => {
   });
 });
 
+describe('wording fixes (Task F2)', () => {
+  const text = (catalogue: unknown, key: string) => (catalogue as Record<string, string>)[key];
+
+  it('About does not say the app downloads a model: the user picks a local file', () => {
+    expect(text(en, 'about.privacy')).not.toMatch(/download/i);
+    expect(text(hi, 'about.privacy')).not.toContain('डाउनलोड');
+    expect(text(bn, 'about.privacy')).not.toContain('ডাউনলোড');
+  });
+
+  it('the owner-approved Hindi and Bengali wording', () => {
+    const hiT = createTranslator('hi', ['hi-IN']);
+    const bnT = createTranslator('bn', ['bn-IN']);
+    expect(hiT.t('announce.checked', { count: 0 })).toBe('जाँच पूरी। देखने के लिए कोई सुझाव बाकी नहीं है।');
+    expect(bnT.t('announce.checked', { count: 0 })).toBe('দেখা শেষ। আর কোনো পরামর্শ বাকি নেই।');
+    expect(hiT.t('panel.emptyHint')).toBe('जाँच के बाद सुझाव यहाँ दिखेंगे।');
+    expect(bnT.t('panel.emptyHint')).toBe('লেখা দেখার পরে পরামর্শগুলো এখানে দেখা যাবে।');
+    expect(hiT.t('ai.waitForCheck')).toBe('अभी जो लिखा है, उसकी जाँच पूरी होने दें। फिर कोशिश करें।');
+    expect(bnT.t('ai.waitForCheck')).toBe('এইমাত্র যা লিখেছেন, সেটা দেখা শেষ হলে আবার চেষ্টা করুন।');
+    expect(bnT.t('explain.aOrAn')).toBe('শব্দের শুরুতে ব্যঞ্জনের মতো আওয়াজ হলে “a”, আর স্বরের মতো আওয়াজ হলে “an” বসে।');
+  });
+
+  it('Bengali names card: one item reads as one name or place, more as names and places', () => {
+    const t = createTranslator('bn', ['bn-IN']);
+    expect(t.t('card.namesTitle', { count: 1 })).toBe('1টি নাম বা জায়গা');
+    expect(t.t('card.namesTitle', { count: 3 })).toBe('3টি নাম ও জায়গা');
+  });
+});
+
 describe('plurals', () => {
   const count = (language: 'en' | 'hi' | 'bn', n: number) => createTranslator(language, ['en-IN']).t('status.words', { count: n });
 

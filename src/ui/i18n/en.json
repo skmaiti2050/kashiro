@@ -143,6 +143,7 @@
   "card.clickToShow": "Click to show it in the document",
   "card.accept": "Accept",
   "card.use": "Use {what}",
+  "card.acceptDelete": "Delete",
   "card.applyTo": "Apply {what} to all {count, number}…",
   "card.applyAll": "Apply all {count, plural, one {# fix} other {# fixes}} ({kind})",
   "card.deleteWord": "delete",
@@ -332,7 +333,7 @@
 
   "about.title": "About Kashiro",
   "about.version": "Version {version}",
-  "about.privacy": "Your writing stays on this PC. Kashiro makes no network connections, except to download the writing model when you ask it to.",
+  "about.privacy": "Your writing stays on this PC. Kashiro never connects to the internet. The writing model is a file you choose on this computer.",
   "about.licence": "Kashiro is free software under the Apache License 2.0.",
   "about.notices": "Third-party notices",
   "about.noticesHint": "Credits and licences of the data, fonts and libraries included in Kashiro. They are in English.",

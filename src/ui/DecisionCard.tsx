@@ -161,11 +161,13 @@ export function DecisionCard({ controller, decision, candidates, paraText, touch
   );
 }
 
-/** "Accept", "Use “its”", or for a batch its count and kind: "Apply all 12 fixes (Formatting)" (opens the preview). */
+/** "Accept", "Use “its”", "Delete", or for a batch its count and kind: "Apply all 12 fixes (Formatting)" (opens the preview). */
 function acceptLabel(t: Translator, first: Candidate, replacement: string, isBatch: boolean, places: number): string {
   const what = replacement === '' ? t.t('card.deleteWord') : t.t('quote', { text: excerpt(replacement).text });
   const choices = first.replacements.length;
   if (isBatch && choices === 1) return batchApplyLabel(t, first.kind, places);
   if (isBatch) return t.t('card.applyTo', { what, count: places });
-  return choices === 1 ? t.t('card.accept') : t.t('card.use', { what });
+  if (choices === 1) return t.t('card.accept');
+  // A whole label: "Use" + "delete" reads badly, and in Hindi and Bengali it isn't a sentence.
+  return replacement === '' ? t.t('card.acceptDelete') : t.t('card.use', { what });
 }
