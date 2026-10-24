@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 use tauri::Manager;
 
-use crate::replace_via_temp;
+use crate::{replace_via_temp, TEMP_SUFFIX};
 
 const FOLDER: &str = "sessions";
 const EXTENSION: &str = ".json";
@@ -20,8 +20,8 @@ const MAX_SESSION_BYTES: usize = 32 * 1024 * 1024;
 const DAY: Duration = Duration::from_secs(24 * 60 * 60);
 /// At most this many saved reviews; saving one more deletes the oldest.
 const MAX_SESSIONS: usize = 500;
-/// replace_via_temp's temporary files (lib.rs), left behind only by a crash.
-const TEMP_SUFFIX: &str = ".writing-check-tmp";
+/// The temporary files of builds before the Kashiro rename (TEMP_SUFFIX is today's): leftovers of either are ours.
+const OLD_TEMP_SUFFIX: &str = ".writing-check-tmp";
 
 /// One saved review as the webview reads it back.
 #[derive(serde::Serialize, Debug, PartialEq)]
@@ -101,7 +101,7 @@ fn our_files(dir: &Path, problems: &mut Vec<String>) -> io::Result<Vec<(String, 
         match entry {
             Ok(entry) => {
                 let name = entry.file_name().to_string_lossy().into_owned();
-                if key_of(&name).is_some() || name.ends_with(TEMP_SUFFIX) {
+                if key_of(&name).is_some() || name.ends_with(TEMP_SUFFIX) || name.ends_with(OLD_TEMP_SUFFIX) {
                     files.push((name, entry.path()));
                 }
             }
@@ -370,6 +370,19 @@ mod tests {
         delete_at(&dir, SHA).unwrap();
         delete_at(&dir, SHA).unwrap();
         assert_eq!(load_at(&dir, SHA).unwrap(), None);
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn prune_removes_leftover_temp_files_from_this_build_and_older_ones() {
+        let dir = scratch("prune-temps");
+        save_at(&dir, SHA, "a").unwrap();
+        // Left by a crash mid-save: one from this build, one from a build before the Kashiro rename.
+        fs::write(dir.join(format!(".{SHA}.json.1-0.kashiro-tmp")), "partial").unwrap();
+        fs::write(dir.join(format!(".{SHA}.json.1-1.writing-check-tmp")), "partial").unwrap();
+        prune_at(&dir, 0, SystemTime::now()).unwrap();
+        let left: Vec<String> = fs::read_dir(&dir).unwrap().map(|e| e.unwrap().file_name().to_string_lossy().into_owned()).collect();
+        assert_eq!(left, Vec::<String>::new());
         fs::remove_dir_all(&dir).unwrap();
     }
 

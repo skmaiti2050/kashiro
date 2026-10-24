@@ -1,6 +1,6 @@
 # Trust suite
 
-The release gate for writing-check (spec sections 9 and 10). It shows, on every release, that the app keeps
+The release gate for Kashiro (spec sections 9 and 10). It shows, on every release, that the app keeps
 facts, formatting and meaning intact, and that review stays within budget. Every check is pass/fail. A
 failing check blocks the release.
 

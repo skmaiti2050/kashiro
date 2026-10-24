@@ -35,6 +35,9 @@ fn create_backup_file(source: &Path) -> io::Result<(PathBuf, File)> {
     }))
 }
 
+/// The end of a temporary file's name; a leftover one (only a crash leaves one) is cleaned up in sessions.rs.
+const TEMP_SUFFIX: &str = ".kashiro-tmp";
+
 /// A temporary sibling with a name no other save uses: two quick saves never share one.
 fn create_temp_file(target: &Path) -> io::Result<(PathBuf, File)> {
     static NEXT: AtomicU64 = AtomicU64::new(0);
@@ -42,7 +45,7 @@ fn create_temp_file(target: &Path) -> io::Result<(PathBuf, File)> {
     let pid = std::process::id();
     create_first_free((0..100).map(|_| {
         let n = NEXT.fetch_add(1, Ordering::Relaxed);
-        target.with_file_name(format!(".{name}.{pid}-{n}.writing-check-tmp"))
+        target.with_file_name(format!(".{name}.{pid}-{n}{TEMP_SUFFIX}"))
     }))
 }
 
@@ -182,7 +185,7 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::{overwrite_with_backup_at, overwrite_with_backup_using, percent_decode, replace_via_temp};
+    use super::{create_temp_file, overwrite_with_backup_at, overwrite_with_backup_using, percent_decode, replace_via_temp, TEMP_SUFFIX};
     use std::fs;
     use std::path::{Path, PathBuf};
 
@@ -194,7 +197,17 @@ mod tests {
     }
 
     fn temp_files(dir: &Path) -> usize {
-        fs::read_dir(dir).unwrap().filter(|e| e.as_ref().unwrap().file_name().to_string_lossy().ends_with(".writing-check-tmp")).count()
+        fs::read_dir(dir).unwrap().filter(|e| e.as_ref().unwrap().file_name().to_string_lossy().ends_with(TEMP_SUFFIX)).count()
+    }
+
+    #[test]
+    fn the_temp_file_is_named_after_kashiro() {
+        let dir = scratch("temp-name");
+        let (temp, file) = create_temp_file(&dir.join("a.txt")).unwrap();
+        drop(file);
+        let name = temp.file_name().unwrap().to_string_lossy().into_owned();
+        assert!(name.starts_with(".a.txt.") && name.ends_with(".kashiro-tmp"), "{name}");
+        fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
@@ -266,7 +279,7 @@ mod tests {
         // A leftover temp from a crash, under the first name the next save could pick, is not reused.
         let pid = std::process::id();
         for n in 0..3 {
-            fs::write(dir.join(format!(".a.txt.{pid}-{n}.writing-check-tmp")), b"stale").unwrap();
+            fs::write(dir.join(format!(".a.txt.{pid}-{n}{TEMP_SUFFIX}")), b"stale").unwrap();
         }
         overwrite_with_backup_at(&doc, b"1").unwrap();
         assert_eq!(fs::read(&doc).unwrap(), b"1");

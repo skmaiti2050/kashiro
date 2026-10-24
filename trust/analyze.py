@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Release gates for writing-check, scored from input/output pairs.
+"""Release gates for Kashiro, scored from input/output pairs.
 
 Ported from the turnitout-audit kit (analyze.py). The kit's claims become pass/fail
 gates for this app, and the humanizer-only claims (signature phrases, similarity
@@ -216,7 +216,7 @@ def main() -> None:
     outputs = args.outputs.resolve()
     if not CORPUS.exists():
         sys.exit("Run make_corpus.py first.")
-    say(f"# writing-check trust gates: {outputs.name}\n")
+    say(f"# Kashiro trust gates: {outputs.name}\n")
     missing = 0
     for name, orig_p, facts in inputs(args.manifest):
         out_p = outputs / name

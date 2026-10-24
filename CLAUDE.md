@@ -1,4 +1,4 @@
-# writing-check: coding standards
+# Kashiro: coding standards
 
 Read before writing or reviewing code here. The design is `docs/superpowers/specs/`, the current plan is `docs/superpowers/plans/`.
 

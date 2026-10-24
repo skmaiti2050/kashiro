@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the trust-suite corpus for writing-check.
+"""Generate the trust-suite corpus for Kashiro.
 
 Ported from the turnitout-audit kit (make_corpus.py). Each file makes one or more
 release gates measurable:
