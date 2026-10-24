@@ -443,26 +443,63 @@ pub fn sha256_of(path: &Path) -> io::Result<String> {
     }
 }
 
-/// The hash of a file the user just chose (the open dialog put it in the fs scope), so the app can name a
-/// known model. Async, so a multi-gigabyte read runs off the main thread.
+/// The file in the app's data folder naming the model file the user last chose (sha256_file). After a restart
+/// the open dialog's fs scope no longer holds the model, so llm_start also accepts this one.
+const CHOSEN_MODEL_RECORD: &str = "chosen-model.txt";
+
+fn chosen_model_record(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let data = app.path().app_data_dir().map_err(|e| format!("could not find the app's data folder: {e}"))?;
+    Ok(data.join(CHOSEN_MODEL_RECORD))
+}
+
+/// Remembers `model` in `record`, written only for a file the fs scope allowed.
+fn remember_chosen_model(record: &Path, model: &Path) -> io::Result<()> {
+    if let Some(dir) = record.parent() {
+        std::fs::create_dir_all(dir)?;
+    }
+    std::fs::write(record, model.to_string_lossy().as_bytes())
+}
+
+/// The model file the user chose last, if `record` names one.
+fn remembered_model(record: &Path) -> Option<PathBuf> {
+    std::fs::read_to_string(record).ok().filter(|path| !path.is_empty()).map(PathBuf::from)
+}
+
+/// The helper starts only with a model the user chose in Kashiro: in this session's open dialog (`in_scope`)
+/// or earlier (`remembered`). Any other path the page passes is refused (review #4).
+fn require_chosen_model(model: &Path, in_scope: bool, remembered: Option<&Path>) -> Result<(), String> {
+    if in_scope || remembered == Some(model) {
+        return Ok(());
+    }
+    Err(format!("{} was not chosen in Kashiro as the writing model; choose it again in Settings › Modules", model.display()))
+}
+
+/// The hash of a model file the user just chose (the open dialog put it in the fs scope), so the app can name a
+/// known model; the file is remembered as the chosen model for llm_start. Async, so a multi-gigabyte read runs
+/// off the main thread.
 #[tauri::command]
 pub async fn sha256_file(app: tauri::AppHandle, path: String) -> Result<String, String> {
     let file = PathBuf::from(&path);
     if !app.fs_scope().is_allowed(&file) {
         return Err(format!("{path} was not chosen in Kashiro, so it can't be read"));
     }
+    remember_chosen_model(&chosen_model_record(&app)?, &file).map_err(|e| format!("could not remember the model file {path}: {e}"))?;
     tauri::async_runtime::spawn_blocking(move || sha256_of(&file))
         .await
         .map_err(|e| format!("could not read {path}: {e}"))?
         .map_err(|e| format!("could not read {path}: {e}"))
 }
 
-/// Starts the writing helper with the model file at `model_path` and returns its port, key and build.
+/// Starts the writing helper with the model file at `model_path`, one the user chose (require_chosen_model),
+/// and returns its port, key and build.
 #[tauri::command]
 pub async fn llm_start(app: tauri::AppHandle, model_path: String) -> Result<HelperInfo, String> {
-    tauri::async_runtime::spawn_blocking(move || app.state::<LlmState>().start(|| builds_to_try(&app), Path::new(&model_path)))
-    .await
-    .map_err(|e| format!("could not start the writing helper: {e}"))?
+    let model = PathBuf::from(&model_path);
+    let remembered = remembered_model(&chosen_model_record(&app)?);
+    require_chosen_model(&model, app.fs_scope().is_allowed(&model), remembered.as_deref())?;
+    tauri::async_runtime::spawn_blocking(move || app.state::<LlmState>().start(|| builds_to_try(&app), &model))
+        .await
+        .map_err(|e| format!("could not start the writing helper: {e}"))?
 }
 
 /// Stops the writing helper (AI rewrites switched off, or the model changed).
@@ -488,6 +525,29 @@ mod tests {
 
     fn os(text: &str) -> &OsStr {
         OsStr::new(text)
+    }
+
+    #[test]
+    fn starts_only_with_a_model_the_user_chose() {
+        let model = Path::new("C:/models/qwen.gguf");
+        assert!(require_chosen_model(model, true, None).is_ok());
+        assert!(require_chosen_model(model, false, Some(model)).is_ok());
+        let e = require_chosen_model(model, false, None).unwrap_err();
+        assert!(e.contains("was not chosen in Kashiro"), "{e}");
+        assert!(require_chosen_model(Path::new("C:/Windows/win.ini"), false, Some(model)).is_err());
+    }
+
+    #[test]
+    fn remembers_the_chosen_model() {
+        let dir = std::env::temp_dir().join(format!("writing-check-chosen-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let record = dir.join("data").join(CHOSEN_MODEL_RECORD);
+        assert_eq!(remembered_model(&record), None);
+        remember_chosen_model(&record, Path::new("C:/models/qwen.gguf")).unwrap();
+        assert_eq!(remembered_model(&record), Some(PathBuf::from("C:/models/qwen.gguf")));
+        remember_chosen_model(&record, Path::new("D:/other.gguf")).unwrap();
+        assert_eq!(remembered_model(&record), Some(PathBuf::from("D:/other.gguf")));
+        fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
