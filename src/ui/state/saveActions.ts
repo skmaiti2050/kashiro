@@ -2,7 +2,7 @@ import { msg, type Message } from '../i18n/message';
 import { sameParagraphs } from './documentText';
 import { explain } from './errors';
 import type { LoadedFile } from './openDocument';
-import { saveDocument, saveReport, type Files } from './saveFlow';
+import { SaveOverOriginalError, saveDocument, saveReport, type Files } from './saveFlow';
 import type { ControllerState } from './sessionController';
 
 /** What saving and exporting need from the controller. */
@@ -54,9 +54,14 @@ export async function save(host: SaveHost): Promise<boolean> {
     host.markSaved(changes);
     return true;
   } catch (e) {
-    host.set({ error: explain(msg('error.save', { name: document.name }), e, SAVE_AGAIN) });
+    host.set({ error: saveError(e, msg('error.save', { name: document.name }), document.name) });
     return false;
   }
+}
+
+/** What to say when a save failed: a copy refused over the open document has its own message. */
+function saveError(e: unknown, what: Message, name: string): Message {
+  return e instanceof SaveOverOriginalError ? msg('error.saveOverOriginal', { name }) : explain(what, e, SAVE_AGAIN);
 }
 
 /** Saves the change report (Markdown) beside the document. The document itself still counts as unsaved. */
@@ -67,6 +72,6 @@ export async function exportReport(host: SaveHost): Promise<void> {
   try {
     host.set({ notice: await saveReport(session, document.name, document.path, host.files), error: null });
   } catch (e) {
-    host.set({ error: explain(msg('error.saveReport'), e, SAVE_AGAIN) });
+    host.set({ error: saveError(e, msg('error.saveReport'), document.name) });
   }
 }

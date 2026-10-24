@@ -5,6 +5,7 @@ fn main() {
     tauri_build::try_build(tauri_build::Attributes::new().app_manifest(
         tauri_build::AppManifest::new().commands(&[
             "overwrite_with_backup",
+            "save_copy",
             "session_save",
             "session_load",
             "session_list",

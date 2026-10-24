@@ -22,6 +22,7 @@ describe('app commands (src-tauri)', () => {
       'llm_stop',
       'os_locale',
       'overwrite_with_backup',
+      'save_copy',
       'session_delete',
       'session_list',
       'session_load',

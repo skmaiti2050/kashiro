@@ -481,6 +481,7 @@
   "error.save": "Couldn’t save {name}",
   "error.saveReport": "Couldn’t save the report",
   "error.saveAgain": "Close the file if another program has it open, or choose another folder, then save again.",
+  "error.saveOverOriginal": "Not saved: {name} is the document you opened, and a copy never replaces it. Choose another name, or turn on “Overwrite (keeps a backup)” in Save options.",
   "error.saveNotChecked": "Not saved: the text changed after its last check, so your changes could land in the wrong places. Edit the text to check it again, then save. If the check keeps failing, copy your text somewhere safe, then close the document. Your file on disk is unchanged.",
   "error.checkerStart": "The checker could not start",
   "error.checkerStartNext": "Restart the app. If it happens again, reinstall it.",

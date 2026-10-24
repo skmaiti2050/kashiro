@@ -7,6 +7,7 @@ import { adapterFor } from '@/formats/registry';
 import type { FormatAdapter } from '@/formats/types';
 import { SessionController, type ControllerDeps, type Files, type OpenedFile } from '@/ui/state/sessionController';
 import { defaultSettings, type Settings } from '@/ui/state/settings';
+import { SaveOverOriginalError } from '@/ui/state/saveFlow';
 import { highlightRanges, locateCandidate } from '@/ui/state/highlights';
 import { progressOf } from '@/ui/state/progress';
 import { buildDocx } from '../fixtures/make_docx';
@@ -499,6 +500,29 @@ describe('SessionController: unsaved work', () => {
     controller.editText(CANT + ' More.');
     expect(controller.hasUnsavedWork()).toBe(true);
     await controller.close(); // drops the typing pause, so its re-check can't run during a later test
+  });
+
+  it('a copy refused over the open document says so, passes the original to the save, and leaves the work unsaved (review #4)', async () => {
+    const originals: (string | null | undefined)[] = [];
+    const files: Files = {
+      open: async () => null,
+      save: async (_path, _bytes, { original }) => {
+        originals.push(original);
+        throw new SaveOverOriginalError('/docs/note.txt');
+      },
+    };
+    const { controller } = makeController({ files });
+    await controller.openFile({ name: 'note.txt', path: '/docs/note.txt', bytes: encode(CANT) });
+    controller.accept(controller.getState().session!.decisions().top[0].id);
+    expect(await controller.save()).toBe(false);
+    expect(originals).toEqual(['/docs/note.txt']);
+    expect(english(controller.getState().error)).toBe(
+      'Not saved: note.txt is the document you opened, and a copy never replaces it. Choose another name, or turn on “Overwrite (keeps a backup)” in Save options.',
+    );
+    expect(controller.hasUnsavedWork()).toBe(true);
+    await controller.exportReport();
+    expect(originals).toEqual(['/docs/note.txt', '/docs/note.txt']);
+    expect(english(controller.getState().error)).toMatch(/^Not saved: note\.txt is the document you opened/);
   });
 
   it('text typed while a save is being written stays unsaved, so closing still asks first', async () => {

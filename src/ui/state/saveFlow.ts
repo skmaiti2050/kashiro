@@ -25,10 +25,21 @@ export interface Files {
   open(defaultPath?: string): Promise<OpenedFile | null>;
   /**
    * Writes `bytes`. With `overwrite`, backs `path` up first (`name.bak.ext`) and replaces it whole;
-   * otherwise lets the user confirm or change the suggested `path`. Null when the user cancelled.
+   * otherwise lets the user confirm or change the suggested `path`, writes the copy whole or not at all, and
+   * throws SaveOverOriginalError when the chosen file is `original` (the open document). Null when the user cancelled.
    */
-  save(path: string, bytes: Uint8Array, opts: { overwrite: boolean }): Promise<SavedFile | null>;
+  save(path: string, bytes: Uint8Array, opts: { overwrite: boolean; original?: string | null }): Promise<SavedFile | null>;
 }
+
+/** A copy was to be saved over the open document itself (review #4): only Overwrite, after a backup, may replace it. */
+export class SaveOverOriginalError extends Error {
+  constructor(readonly path: string) {
+    super(`${path} is the document you opened; a copy never replaces it`);
+  }
+}
+
+/** Windows paths name the same file whatever their case or slashes: "C:\\Docs\\a.txt" = "c:/docs/A.TXT". */
+export const isSamePath = (a: string, b: string): boolean => a.replaceAll('\\', '/').toLowerCase() === b.replaceAll('\\', '/').toLowerCase();
 
 interface SaveRequest {
   session: CheckSession;
@@ -59,7 +70,7 @@ export async function saveDocument({ session, adapter, handle, name, path, setti
   }
   const overwrite = settings.overwrite && path !== null;
   const target = overwrite ? path : siblingPath(path ?? name, '.checked');
-  const saved = await files.save(target, bytes, { overwrite });
+  const saved = await files.save(target, bytes, { overwrite, original: path });
   if (!saved) return null;
   const notice = saved.backup ? msg('notice.savedBackup', { path: saved.path, backup: saved.backup }) : msg('notice.saved', { path: saved.path });
   return unplaceable.length ? msg('notice.savedUnplaced', { saved: notice, count: unplaceable.length }) : notice;
@@ -68,6 +79,6 @@ export async function saveDocument({ session, adapter, handle, name, path, setti
 /** Saves the Markdown change report beside the document. Returns the notice, or null when cancelled. */
 export async function saveReport(session: CheckSession, name: string, path: string | null, files: Files): Promise<Message | null> {
   const bytes = new TextEncoder().encode(exportReport(session, name));
-  const saved = await files.save(siblingPath(path ?? name, '.report', '.md'), bytes, { overwrite: false });
+  const saved = await files.save(siblingPath(path ?? name, '.report', '.md'), bytes, { overwrite: false, original: path });
   return saved ? msg('notice.report', { path: saved.path }) : null;
 }

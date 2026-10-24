@@ -1,8 +1,9 @@
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { open, save } from '@tauri-apps/plugin-dialog';
-import { readFile, writeFile } from '@tauri-apps/plugin-fs';
+import { readFile } from '@tauri-apps/plugin-fs';
 import type { Files, OpenedFile } from '../state/sessionController';
+import { isSamePath, SaveOverOriginalError } from '../state/saveFlow';
 
 const OPEN_EXTENSIONS = ['docx', 'txt', 'md', 'markdown'];
 
@@ -35,7 +36,7 @@ export const files: Files = {
     return path === null ? null : readChosen(path);
   },
 
-  async save(path, bytes, { overwrite }) {
+  async save(path, bytes, { overwrite, original }) {
     if (overwrite) {
       // Rust backs the file up, writes a temporary sibling and renames it over the original (lib.rs):
       // the webview may write neither sibling, and a failure must not leave the original half-written.
@@ -46,7 +47,11 @@ export const files: Files = {
     const ext = extension(path);
     const chosen = await save({ defaultPath: path, filters: ext ? [{ name: ext.toUpperCase(), extensions: [ext] }] : [] });
     if (chosen === null) return null;
-    await writeFile(chosen, bytes);
+    if (original && isSamePath(chosen, original)) throw new SaveOverOriginalError(chosen);
+    // Rust writes a temporary sibling and renames it into place, and refuses the original too (lib.rs save_copy).
+    const headers: Record<string, string> = { path: encodeURIComponent(chosen) };
+    if (original) headers.original = encodeURIComponent(original);
+    await invoke<void>('save_copy', bytes, { headers });
     return { path: chosen, backup: null };
   },
 };

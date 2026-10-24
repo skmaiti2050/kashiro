@@ -113,8 +113,7 @@ fn percent_decode(text: &str) -> Option<String> {
 /// header. Async, so the disk work runs off the main thread.
 #[tauri::command]
 async fn overwrite_with_backup(app: tauri::AppHandle, request: Request<'_>) -> Result<String, String> {
-    let header = request.headers().get("path").and_then(|v| v.to_str().ok()).ok_or("the save request has no path")?;
-    let path = percent_decode(header).ok_or("the save request's path is not valid")?;
+    let path = header_path(&request, "path")?.ok_or("the save request has no path")?;
     let InvokeBody::Raw(bytes) = request.body() else {
         return Err(String::from("the save request has no file contents"));
     };
@@ -128,6 +127,48 @@ async fn overwrite_with_backup(app: tauri::AppHandle, request: Request<'_>) -> R
         .map_err(|e| format!("could not overwrite {path}: {e}"))?
         .map(|backup| backup.to_string_lossy().into_owned())
         .map_err(|e| format!("could not overwrite {path}: {e}"))
+}
+
+/// The URI-encoded path in the request's `name` header, if there is one.
+fn header_path(request: &Request<'_>, name: &str) -> Result<Option<String>, String> {
+    let Some(value) = request.headers().get(name) else { return Ok(None) };
+    let text = value.to_str().map_err(|_| format!("the save request's {name} is not valid"))?;
+    percent_decode(text).map(Some).ok_or_else(|| format!("the save request's {name} is not valid"))
+}
+
+/// True when `a` and `b` name the same existing file (case, `..` and links resolved).
+fn is_same_file(a: &Path, b: &Path) -> bool {
+    matches!((fs::canonicalize(a), fs::canonicalize(b)), (Ok(x), Ok(y)) if x == y)
+}
+
+/// Writes a new copy at `path` through a temporary sibling renamed into place, so a failure never leaves a
+/// half-written file. Refuses when `path` is `original`, the open document: only overwrite_with_backup,
+/// which backs it up first, may replace that (review #4).
+fn save_copy_at(path: &Path, original: Option<&Path>, bytes: &[u8]) -> io::Result<()> {
+    if original.is_some_and(|original| is_same_file(path, original)) {
+        return Err(io::Error::other("that is the document you opened; a copy never replaces it"));
+    }
+    replace_via_temp(path, bytes, |from, to| fs::rename(from, to))
+}
+
+/// "Save a copy" (and the change report) to a path the user chose in the save dialog, which put it in the fs
+/// scope. The file comes as a raw IPC body, the paths URI-encoded in the `path` and optional `original` headers.
+#[tauri::command]
+async fn save_copy(app: tauri::AppHandle, request: Request<'_>) -> Result<(), String> {
+    let path = header_path(&request, "path")?.ok_or("the save request has no path")?;
+    let original = header_path(&request, "original")?.map(PathBuf::from);
+    let InvokeBody::Raw(bytes) = request.body() else {
+        return Err(String::from("the save request has no file contents"));
+    };
+    let target = PathBuf::from(&path);
+    if !app.fs_scope().is_allowed(&target) {
+        return Err(format!("{path} was not chosen in Kashiro, so it can't be written"));
+    }
+    let bytes = bytes.clone();
+    tauri::async_runtime::spawn_blocking(move || save_copy_at(&target, original.as_deref(), &bytes))
+        .await
+        .map_err(|e| format!("could not save {path}: {e}"))?
+        .map_err(|e| format!("could not save {path}: {e}"))
 }
 
 /// How long the page has to show the window (App.tsx does, after its first frame) before Rust does.
@@ -163,6 +204,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             overwrite_with_backup,
+            save_copy,
             sessions::session_save,
             sessions::session_load,
             sessions::session_list,
@@ -185,7 +227,7 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::{create_temp_file, overwrite_with_backup_at, overwrite_with_backup_using, percent_decode, replace_via_temp, TEMP_SUFFIX};
+    use super::{create_temp_file, overwrite_with_backup_at, overwrite_with_backup_using, percent_decode, replace_via_temp, save_copy_at, TEMP_SUFFIX};
     use std::fs;
     use std::path::{Path, PathBuf};
 
@@ -198,6 +240,26 @@ mod tests {
 
     fn temp_files(dir: &Path) -> usize {
         fs::read_dir(dir).unwrap().filter(|e| e.as_ref().unwrap().file_name().to_string_lossy().ends_with(TEMP_SUFFIX)).count()
+    }
+
+    #[test]
+    fn a_copy_is_written_whole_and_replaces_an_older_copy_but_never_the_original() {
+        let dir = scratch("save-copy");
+        let original = dir.join("essay.txt");
+        fs::write(&original, b"original").unwrap();
+        let copy = dir.join("essay.checked.txt");
+
+        save_copy_at(&copy, Some(&original), b"first").unwrap();
+        save_copy_at(&copy, Some(&original), b"second").unwrap();
+        assert_eq!(fs::read(&copy).unwrap(), b"second");
+
+        // The same file by another spelling of its path (Windows paths are case-insensitive).
+        let same = dir.join(".").join("ESSAY.TXT");
+        let e = save_copy_at(&same, Some(&original), b"checked").unwrap_err();
+        assert!(e.to_string().contains("the document you opened"), "{e}");
+        assert_eq!(fs::read(&original).unwrap(), b"original");
+        assert_eq!(temp_files(&dir), 0);
+        fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
