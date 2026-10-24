@@ -262,6 +262,7 @@
   "unplaceable.lineBreak": "নতুন লেখায় ট্যাব বা লাইন ব্রেক আছে, যা সাধারণ টেক্সট হিসেবে সেভ করা যায় না",
   "unplaceable.illegalCharacter": "নতুন লেখায় এমন অক্ষর আছে যা Word ডকুমেন্টে সেভ করা যায় না",
   "unplaceable.splitsCharacter": "অংশটি একটা অক্ষরকে মাঝখান থেকে ভাগ করে",
+  "unplaceable.halfCharacter": "পরিবর্তনে একটা অক্ষরের শুধু অর্ধেক আছে",
   "unplaceable.nowhereToInsert": "এই অনুচ্ছেদে লেখা বসানোর জায়গা নেই",
   "unplaceable.lockedContent": "লক করা অংশ ছুঁয়ে যায়",
   "unplaceable.formattingChange": "লেখায় ফরম্যাটিংয়ের ট্র্যাক করা পরিবর্তন আছে",

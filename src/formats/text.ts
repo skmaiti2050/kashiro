@@ -28,16 +28,19 @@ interface Line {
   end: number;
 }
 
+/** A line break in any convention: Windows "\r\n", Unix "\n", or old Mac "\r" alone (review #4). */
+const LINE_BREAK = /\r\n|\r|\n/g;
+
+/** The lines of `text`; the breaks themselves stay in the text, so a write keeps each line's own ending. */
 function linesOf(text: string): Line[] {
   const lines: Line[] = [];
-  let pos = 0;
-  for (;;) {
-    const nl = text.indexOf('\n', pos);
-    const lineEnd = nl === -1 ? text.length : nl;
-    lines.push({ start: pos, end: lineEnd > pos && text[lineEnd - 1] === '\r' ? lineEnd - 1 : lineEnd });
-    if (nl === -1) return lines;
-    pos = nl + 1;
+  let start = 0;
+  for (const m of text.matchAll(LINE_BREAK)) {
+    lines.push({ start, end: m.index });
+    start = m.index + m[0].length;
   }
+  lines.push({ start, end: text.length });
+  return lines;
 }
 
 /** The text cells of a table row, trimmed, as [start, end) in `text`: "| a | b |" → "a", "b" (empty cells left out). */
@@ -118,6 +121,24 @@ export function textParagraphStarts(handle: unknown): Map<number, number> {
   return new Map((handle as TextHandle).offsets.map((offset, id) => [id, offset]));
 }
 
+/** Half of a surrogate pair standing alone: UTF-8 can't encode it, so it would be written as U+FFFD. */
+const LONE_SURROGATE = /\p{Cs}/u;
+
+const isHigh = (c: string | undefined) => c !== undefined && c >= '\u{D800}' && c <= '\u{DBFF}';
+const isLow = (c: string | undefined) => c !== undefined && c >= '\u{DC00}' && c <= '\u{DFFF}';
+
+/** Why `edit` can't be written into the file, or null; the same character checks as the .docx writer (review #4). */
+function editProblem(handle: TextHandle, edit: Edit): string | null {
+  const off = handle.offsets[edit.paraId];
+  const { start, end } = edit.span;
+  if (off === undefined || start < 0 || end < start || end > handle.lengths[edit.paraId]) return 'paragraph or span not found';
+  for (const at of [off + start, off + end]) {
+    if (isHigh(handle.text[at - 1]) && isLow(handle.text[at])) return 'the span splits a character';
+  }
+  if (LONE_SURROGATE.test(edit.replacement)) return 'the replacement contains half a character';
+  return null;
+}
+
 function make(exts: string[], language: 'plaintext' | 'markdown'): FormatAdapter {
   return {
     exts,
@@ -143,17 +164,18 @@ function make(exts: string[], language: 'plaintext' | 'markdown'): FormatAdapter
       const unplaceable: { edit: Edit; reason: string }[] = [];
       const abs: { start: number; end: number; replacement: string }[] = [];
       for (const edit of edits) {
-        const off = handle.offsets[edit.paraId];
-        if (off === undefined || edit.span.start < 0 || edit.span.end < edit.span.start || edit.span.end > handle.lengths[edit.paraId]) {
-          unplaceable.push({ edit, reason: 'paragraph or span not found' });
+        const reason = editProblem(handle, edit);
+        if (reason) {
+          unplaceable.push({ edit, reason });
           continue;
         }
+        const off = handle.offsets[edit.paraId];
         abs.push({ start: off + edit.span.start, end: off + edit.span.end, replacement: edit.replacement });
       }
       abs.sort((a, b) => b.start - a.start || b.end - a.end);
       let out = handle.text;
       for (const e of abs) out = out.slice(0, e.start) + e.replacement + out.slice(e.end);
-      if (handle.bom) out = '﻿' + out;
+      if (handle.bom) out = '\u{FEFF}' + out;
       return { bytes: new TextEncoder().encode(out), unplaceable };
     },
   };

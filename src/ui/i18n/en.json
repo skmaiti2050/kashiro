@@ -261,6 +261,7 @@
   "unplaceable.lineBreak": "the replacement contains a tab or line break, which cannot be saved as plain text",
   "unplaceable.illegalCharacter": "the replacement contains a character that cannot be saved in a Word document",
   "unplaceable.splitsCharacter": "the span splits a character",
+  "unplaceable.halfCharacter": "the replacement contains half a character",
   "unplaceable.nowhereToInsert": "nowhere to insert text in this paragraph",
   "unplaceable.lockedContent": "touches locked content",
   "unplaceable.formattingChange": "the text has a tracked formatting change",

@@ -262,6 +262,7 @@
   "unplaceable.lineBreak": "नए टेक्स्ट में टैब या लाइन ब्रेक है, जिसे सादे टेक्स्ट में सेव नहीं किया जा सकता",
   "unplaceable.illegalCharacter": "नए टेक्स्ट में ऐसा अक्षर है जिसे Word दस्तावेज़ में सेव नहीं किया जा सकता",
   "unplaceable.splitsCharacter": "यह हिस्सा किसी अक्षर को बीच से तोड़ता है",
+  "unplaceable.halfCharacter": "बदलाव में किसी अक्षर का सिर्फ़ आधा हिस्सा है",
   "unplaceable.nowhereToInsert": "इस पैराग्राफ़ में टेक्स्ट डालने की जगह नहीं है",
   "unplaceable.lockedContent": "लॉक की गई सामग्री को छूता है",
   "unplaceable.formattingChange": "टेक्स्ट में फ़ॉर्मैटिंग का ट्रैक किया गया बदलाव है",

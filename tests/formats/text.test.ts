@@ -28,6 +28,33 @@ describe('text adapter', () => {
     expect([...bytes.slice(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
   });
 
+  it('splits paragraphs on lone CR line breaks too, and keeps every line ending on write (review #4)', async () => {
+    const src = 'Old Mac teh line\rsecond line\r\rNext para.\r\nWindows line\r\n\r\nUnix teh\n\nend\r';
+    const { paras, handle } = await txt.read(enc(src));
+    expect(paras.map((p) => p.text)).toEqual(['Old Mac teh line\rsecond line', 'Next para.\r\nWindows line', 'Unix teh', 'end']);
+    expect((await txt.write(handle, [], 'clean')).bytes).toEqual(enc(src));
+    const edits = [0, 2].map((paraId) => {
+      const i = paras[paraId].text.indexOf('teh');
+      return { paraId, span: { start: i, end: i + 3 }, replacement: 'the' };
+    });
+    expect(dec((await txt.write(handle, edits, 'clean')).bytes)).toBe(src.replaceAll('teh', 'the'));
+  });
+
+  it('refuses an edit that splits a surrogate pair or writes half of one, so no U+FFFD is written (review #4)', async () => {
+    const src = 'I love \u{1F600} a lot';
+    const { handle } = await txt.read(enc(src));
+    const inside = { paraId: 0, span: { start: 8, end: 9 }, replacement: 'x' };
+    const half = { paraId: 0, span: { start: 0, end: 1 }, replacement: '\u{1F600}'.slice(0, 1) };
+    const whole = { paraId: 0, span: { start: 7, end: 9 }, replacement: ':)' };
+    const r = await txt.write(handle, [inside, half, whole], 'clean');
+    expect(r.unplaceable).toEqual([
+      { edit: inside, reason: 'the span splits a character' },
+      { edit: half, reason: 'the replacement contains half a character' },
+    ]);
+    expect(dec(r.bytes)).toBe('I love :) a lot');
+    expect(dec(r.bytes)).not.toContain('\u{FFFD}');
+  });
+
   it('applies several edits in one paragraph right-to-left', async () => {
     const { handle } = await txt.read(enc('aa bb cc'));
     const { bytes } = await txt.write(

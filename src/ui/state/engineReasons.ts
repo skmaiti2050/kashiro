@@ -19,6 +19,7 @@ const UNPLACEABLE: Record<string, MessageKey> = {
   'the replacement contains a tab or line break, which cannot be saved as plain text': 'unplaceable.lineBreak',
   'the replacement contains a character that cannot be saved in a Word document': 'unplaceable.illegalCharacter',
   'the span splits a character': 'unplaceable.splitsCharacter',
+  'the replacement contains half a character': 'unplaceable.halfCharacter',
   'nowhere to insert text in this paragraph': 'unplaceable.nowhereToInsert',
   'touches locked content': 'unplaceable.lockedContent',
   'the text has a tracked formatting change': 'unplaceable.formattingChange',
