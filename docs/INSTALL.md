@@ -107,7 +107,7 @@ with the cursor leaves the other. In Word, use Review › Accept All, or select 
 | The window's own browser data | `%LOCALAPPDATA%\app.kashiro.desktop\` |
 | Your documents, corrected copies and `.bak` backups | where you saved them; the app never moves them |
 
-Saved reviews hold your decisions, never a copy of your document. Your model file stays where you saved it.
+Saved reviews of files hold your decisions, never a copy of the file. Text you paste is different: with **Keep pasted text for resuming** turned on in Settings (it is off at first), its review keeps a copy of that text, so it can be opened again. Your model file stays where you saved it.
 
 If you used writing-check before, its data is still in the `app.writingcheck.desktop` folders in the same two
 places until you delete them.
