@@ -13,6 +13,21 @@ export const PLAIN_WORD = /^[\p{L}'’]+$/u;
 export const TWO_EDIT_LENGTH = 6;
 
 export const HAS_DIGIT = /\p{N}/u;
+
+/** One word written twice, e.g. "the the", "The the", "had had". */
+const DOUBLED_WORD = /^(\p{L}+) (\p{L}+)$/u;
+
+/**
+ * The repeated word of a Repetition flag that keeps the first copy ("The the" → "The": "the"), in lowercase,
+ * with the second copy lowercase; null for any other flag.
+ */
+export function doubledWord(c: Candidate): string | null {
+  if (c.kind !== 'Repetition' || c.replacements.length !== 1) return null;
+  const m = DOUBLED_WORD.exec(c.original);
+  if (!m || c.replacements[0] !== m[1] || m[1].toLowerCase() !== m[2] || m[2] !== m[2].toLowerCase()) return null;
+  return m[2];
+}
+
 /** A capital right after a lowercase letter: "preventDefault", "iPhone", "DevTools". */
 const INNER_CAPITAL = /\p{Ll}\p{Lu}/u;
 /** Characters a code token may hold; the token around a flag grows over them ("et" → "et.reportAllChanges"). */

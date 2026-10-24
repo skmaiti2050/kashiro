@@ -46,6 +46,12 @@ const PER_WORDS = 1500;
  * fact-lock checks are enforced for every document.
  */
 const KNOWN_OVER_BUDGET = new Set<string>([
+  // Task F3 (review #4, C1): a planted doubled word that can be grammar ("on on", "in in", "both both", "not not")
+  // is no longer auto-applied; the "Repeated words" decision puts these four 0.4–1.1 over. See the F3 report.
+  'academic/groundwater-marathwada.md',
+  'academic/midday-meal-attendance.docx',
+  'academic/upi-small-merchants.docx',
+  'blog/first-home-loan.md',
   'academic/heat-stress-construction.md',
   'academic/water-user-associations-vidarbha.md',
   'blog/sourdough-bengaluru.docx',

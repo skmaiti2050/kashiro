@@ -1,4 +1,4 @@
-import type { Candidate, Paragraph } from './types';
+import type { Candidate, Paragraph, Span } from './types';
 
 const NAMES: Record<number, string> = {
   0x200b: 'ZERO WIDTH SPACE',
@@ -7,12 +7,23 @@ const NAMES: Record<number, string> = {
   0x2060: 'WORD JOINER',
   0xfeff: 'ZERO WIDTH NO-BREAK SPACE',
   0x00ad: 'SOFT HYPHEN',
+  0x180e: 'MONGOLIAN VOWEL SEPARATOR',
+  0x202a: 'LEFT-TO-RIGHT EMBEDDING',
+  0x202b: 'RIGHT-TO-LEFT EMBEDDING',
+  0x202c: 'POP DIRECTIONAL FORMATTING',
+  0x202d: 'LEFT-TO-RIGHT OVERRIDE',
+  0x202e: 'RIGHT-TO-LEFT OVERRIDE',
 };
 
 // Scripts where ZWJ/ZWNJ (and soft hyphen) are meaningful or common.
 const JOINER_SCRIPT =
   /[\p{Script=Devanagari}\p{Script=Bengali}\p{Script=Gurmukhi}\p{Script=Gujarati}\p{Script=Oriya}\p{Script=Tamil}\p{Script=Telugu}\p{Script=Kannada}\p{Script=Malayalam}\p{Script=Sinhala}\p{Script=Arabic}]/u;
 const EMOJI = /[\p{Extended_Pictographic}\p{Emoji_Modifier}\u{FE0F}\u{20E3}]/u;
+/** Right-to-left letters, e.g. Hebrew "ש" or Arabic "ب": a paragraph with them may need its direction controls. */
+const RTL_SCRIPT = /[\p{Script=Arabic}\p{Script=Hebrew}\p{Script=Syriac}\p{Script=Thaana}\p{Script=Nko}]/u;
+const MONGOLIAN = /\p{Script=Mongolian}/u;
+
+const isDirectionControl = (code: number) => code >= 0x202a && code <= 0x202e;
 
 function charBefore(text: string, i: number): string {
   if (i <= 0) return '';
@@ -29,21 +40,26 @@ function charAfter(text: string, i: number): string {
   return cp === undefined ? '' : String.fromCodePoint(cp);
 }
 
-/** Flags zero-width/invisible junk; leaves joiners that Indic, Arabic-script and emoji text rely on. */
+/** True when the script around the character at `i` needs it (Indic joiners, emoji sequences, RTL text, Mongolian). */
+function isMeaningful(text: string, i: number, code: number): boolean {
+  const prev = charBefore(text, i);
+  const next = charAfter(text, i + 1);
+  if (code === 0x200c || code === 0x200d || code === 0x00ad) {
+    if (JOINER_SCRIPT.test(prev) || JOINER_SCRIPT.test(next)) return true;
+    if (code !== 0x00ad && (EMOJI.test(prev) || EMOJI.test(next))) return true;
+  }
+  if (isDirectionControl(code)) return RTL_SCRIPT.test(text);
+  if (code === 0x180e) return MONGOLIAN.test(prev) || MONGOLIAN.test(next);
+  return false;
+}
+
+/** Flags zero-width/invisible junk and stray direction controls; leaves what Indic, Arabic-script, RTL, Mongolian and emoji text rely on. */
 export function findInvisible(p: Paragraph): Candidate[] {
   const out: Candidate[] = [];
   const text = p.text;
   for (let i = 0; i < text.length; i++) {
     const code = text.charCodeAt(i);
-    if (!(code in NAMES)) continue;
-    const prev = charBefore(text, i);
-    const next = charAfter(text, i + 1);
-
-    if (code === 0x200c || code === 0x200d || code === 0x00ad) {
-      if (JOINER_SCRIPT.test(prev) || JOINER_SCRIPT.test(next)) continue;
-      if (code !== 0x00ad && (EMOJI.test(prev) || EMOJI.test(next))) continue;
-    }
-
+    if (!(code in NAMES) || isMeaningful(text, i, code)) continue;
     out.push({
       id: `${p.id}:${i}:${i + 1}:Invisible`,
       paraId: p.id,
@@ -56,4 +72,34 @@ export function findInvisible(p: Paragraph): Candidate[] {
     });
   }
   return out;
+}
+
+/** A paragraph's text without the characters findInvisible flagged, and the way back to the paragraph's offsets. */
+export interface VisibleText {
+  text: string;
+  /** A span of `text` as a span of the paragraph. One that straddles an invisible character covers it there too. */
+  toParagraph(span: Span): Span;
+}
+
+/**
+ * The paragraph as the reader sees it, so the linter reads "m<U+2060>ean" as "mean" and "mod<U+200B>els" as
+ * "models" instead of flagging the pieces (review #4, C3). `invisible` is findInvisible's result.
+ */
+export function visibleText(p: Paragraph, invisible: Candidate[]): VisibleText {
+  if (invisible.length === 0) return { text: p.text, toParagraph: (span) => ({ ...span }) };
+  const removed = new Set(invisible.map((c) => c.span.start));
+  /** Index in `text` → index in the paragraph. */
+  const kept: number[] = [];
+  const parts: string[] = [];
+  for (let i = 0; i < p.text.length; i++) {
+    if (removed.has(i)) continue;
+    kept.push(i);
+    parts.push(p.text[i]);
+  }
+  const at = (i: number) => (i < kept.length ? kept[i] : p.text.length);
+  return {
+    text: parts.join(''),
+    // A non-empty span ends right after its last character, not before the next one: "teh<U+200B> " → "teh".
+    toParagraph: ({ start, end }) => ({ start: at(start), end: start === end ? at(start) : kept[end - 1] + 1 }),
+  };
 }

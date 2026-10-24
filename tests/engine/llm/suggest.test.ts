@@ -41,7 +41,7 @@ function recordedHelper(answers: Record<string, string>): Rewriter & { sent: str
 
 const live = () => new AbortController().signal;
 
-const TEH = 'I think teh cat is is here. Attendance rose by 3.2% in districts that served hot meals.';
+const TEH = 'I think teh cat of of here. Attendance rose by 3.2% in districts that served hot meals.';
 const FIRST = { start: 0, end: 27 };
 const SECOND = { start: 28, end: TEH.length };
 
@@ -105,7 +105,7 @@ describe('suggestRewrites', () => {
     });
     const run = await suggestRewrites(s, helper, 'business', live());
 
-    expect(helper.sent).toEqual(['I think the cat is here.', 'Attendance rose by 3.2% in districts that served hot meals.']);
+    expect(helper.sent).toEqual(['I think the cat of here.', 'Attendance rose by 3.2% in districts that served hot meals.']);
     expect(run).toEqual({ sent: 2, added: 1, punctuationOnly: 0, rejected: [], stale: 0, cancelled: false });
     const llm = s.candidates().filter((c) => c.source === 'llm');
     expect(llm).toHaveLength(1);
@@ -120,7 +120,7 @@ describe('suggestRewrites', () => {
     expect(s.tier(llm[0].id)).toBe('review');
     expect(s.outcomes().find((o) => o.candidate.id === llm[0].id)?.status).toBe('pending');
     // Never auto-applied; ranked with the other decisions even though its sentence holds a number.
-    expect(s.outputText(0)).toBe('I think the cat is here. Attendance rose by 3.2% in districts that served hot meals.');
+    expect(s.outputText(0)).toBe('I think the cat of here. Attendance rose by 3.2% in districts that served hot meals.');
     const top = s.decisions().top;
     const at = (id: string) => top.findIndex((d) => d.candidateIds.includes(id));
     const style = s.candidates().find((c) => c.kind === 'Style')!;
@@ -130,13 +130,13 @@ describe('suggestRewrites', () => {
 
   it('accepting a rewrite supersedes the rule edits in its sentence; undo brings them back', async () => {
     const s = await tehSession();
-    await suggestRewrites(s, recordedHelper({ 'I think the cat is here.': 'I think that the cat is here.' }), 'business', live());
+    await suggestRewrites(s, recordedHelper({ 'I think the cat of here.': 'I think that the cat of here.' }), 'business', live());
     const llm = s.candidates().find((c) => c.source === 'llm')!;
-    expect(llm.original).toBe('I think teh cat is is here.');
+    expect(llm.original).toBe('I think teh cat of of here.');
     s.accept(llm.id);
-    expect(s.outputText(0)).toBe('I think that the cat is here. Attendance rose by 3.2% in districts that served hot meals.');
+    expect(s.outputText(0)).toBe('I think that the cat of here. Attendance rose by 3.2% in districts that served hot meals.');
     s.undo(llm.id);
-    expect(s.outputText(0)).toBe('I think the cat is here. Attendance rose by 3.2% in districts that served hot meals.');
+    expect(s.outputText(0)).toBe('I think the cat of here. Attendance rose by 3.2% in districts that served hot meals.');
   });
 
   it('a rewrite the guard rejects is not offered, and is reported with its reason', async () => {
@@ -144,13 +144,13 @@ describe('suggestRewrites', () => {
     const hedged = 'Attendance broadly rose by 3.2% in districts serving hot meals.';
     const run = await suggestRewrites(
       s,
-      recordedHelper({ 'Attendance rose by 3.2% in districts that served hot meals.': hedged, 'I think the cat is here.': 'I think the cat is here at 5.' }),
+      recordedHelper({ 'Attendance rose by 3.2% in districts that served hot meals.': hedged, 'I think the cat of here.': 'I think the cat of here at 5.' }),
       'business',
       live(),
     );
     expect(run.added).toBe(0);
     expect(run.rejected).toEqual([
-      { text: 'I think the cat is here.', rewrite: 'I think the cat is here at 5.', reason: 'fact changed' },
+      { text: 'I think the cat of here.', rewrite: 'I think the cat of here at 5.', reason: 'fact changed' },
       { text: 'Attendance rose by 3.2% in districts that served hot meals.', rewrite: hedged, reason: 'hedge added' },
     ]);
     expect(s.candidates().some((c) => c.source === 'llm')).toBe(false);
@@ -210,7 +210,7 @@ describe('suggestRewrites', () => {
       async rewrite(text, _preset, _variant, signal) {
         if (text.startsWith('I think')) {
           ac.abort(); // the user presses Cancel while the first answer arrives
-          return 'I think that the cat is here.';
+          return 'I think that the cat of here.';
         }
         signal.throwIfAborted();
         return null;
@@ -225,7 +225,7 @@ describe('suggestRewrites', () => {
     const s = await tehSession();
     const helper: Rewriter = {
       async rewrite(text) {
-        if (text.startsWith('I think')) return 'I think that the cat is here.';
+        if (text.startsWith('I think')) return 'I think that the cat of here.';
         throw new Error('The writing helper stopped responding.');
       },
     };
@@ -245,9 +245,9 @@ describe('CheckSession.addRewrite', () => {
 
   it('guards against the text sent (accepted rule edits applied) and returns ok for a passing rewrite', async () => {
     const s = await tehSession();
-    expect(s.addRewrite(0, FIRST, 'I think that the cat is here.')).toEqual({ ok: true });
+    expect(s.addRewrite(0, FIRST, 'I think that the cat of here.')).toEqual({ ok: true });
     expect(s.addRewrite(0, SECOND, null)).toBeNull();
-    expect(s.candidates().filter((c) => c.source === 'llm').map((c) => c.original)).toEqual(['I think teh cat is is here.']);
+    expect(s.candidates().filter((c) => c.source === 'llm').map((c) => c.original)).toEqual(['I think teh cat of of here.']);
   });
 
   it('an llm candidate added without the guard (addCandidates) still folds when it touches locked text', async () => {

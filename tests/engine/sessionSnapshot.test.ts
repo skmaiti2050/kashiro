@@ -105,11 +105,12 @@ describe('snapshot', () => {
       const adapter = adapterFor(name)!;
       const { paras } = await adapter.read(new Uint8Array(bytes));
       const s = await CheckSession.start(paras, { ...opts, language: adapter.language }, { linter });
-      // Every candidate decided: the first fix accepted where there is one, else rejected; auto-fixes undone.
+      // Every candidate decided: auto-fixes undone, then the first fix accepted where there is one, else rejected.
+      // Two passes: a flag spanning an invisible character supersedes its auto-applied deletion when accepted.
+      for (const o of s.outcomes()) if (o.status === 'applied' && o.auto) s.undo(o.candidate.id);
       for (const o of s.outcomes()) {
-        if (o.status === 'applied' && o.auto) s.undo(o.candidate.id);
-        else if (o.status !== 'pending') continue;
-        else if (o.candidate.replacements.length > 0) tryOr(() => s.accept(o.candidate.id), () => s.reject(o.candidate.id));
+        if (o.status !== 'pending') continue;
+        if (o.candidate.replacements.length > 0) tryOr(() => s.accept(o.candidate.id), () => s.reject(o.candidate.id));
         else s.reject(o.candidate.id);
       }
       const json = JSON.stringify(await snapshot(s, VIEW));

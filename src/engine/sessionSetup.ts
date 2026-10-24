@@ -1,6 +1,6 @@
 import { createLinter, type RulesLinter } from './linter';
 import { detectVariant } from './variant';
-import { findInvisible } from './hygiene';
+import { findInvisible, visibleText, type VisibleText } from './hygiene';
 import { findLockedSpans } from './factLock';
 import { PRESETS } from './presets';
 import { findContractions } from './contractions';
@@ -24,6 +24,13 @@ async function syncDictionary(linter: RulesLinter, dictionary: string[]): Promis
   fresh.forEach((w) => seen.add(w));
 }
 
+/** A linter flag on the visible text, placed on the paragraph's own offsets and text (same id scheme as the linter's). */
+function inParagraph(c: Candidate, visible: VisibleText, paragraph: string): Candidate {
+  const span = visible.toParagraph(c.span);
+  if (span.start === c.span.start && span.end === c.span.end) return c;
+  return { ...c, id: `${c.paraId}:${span.start}:${span.end}:${c.kind}`, span, original: paragraph.slice(span.start, span.end) };
+}
+
 /** Everything a session needs before it takes over: the linter, variant, tier context and the sorted candidates. */
 export async function prepareCheck(
   paras: Paragraph[],
@@ -33,8 +40,13 @@ export async function prepareCheck(
   const linter = deps.linter ?? (await createLinter(opts.variant ?? opts.fallbackVariant, opts.dictionary));
   if (deps.linter && opts.dictionary.length) await syncDictionary(linter, opts.dictionary);
 
+  // The linter reads each paragraph without its invisible junk; its spans are mapped back below.
+  const invisible = new Map(paras.map((p) => [p.id, findInvisible(p)]));
+  const visible = new Map(paras.map((p) => [p.id, visibleText(p, invisible.get(p.id)!)]));
+  const asSeen = paras.map((p) => ({ ...p, text: visible.get(p.id)!.text }));
+
   // With an explicit variant, detection still runs to compute its variantWords (never auto-converted).
-  const { variant, mixed, variantWords, fromFallback } = await detectVariant(paras, opts.fallbackVariant, {
+  const { variant, mixed, variantWords, fromFallback } = await detectVariant(asSeen, opts.fallbackVariant, {
     linter,
     variant: opts.variant,
   });
@@ -46,15 +58,17 @@ export async function prepareCheck(
   const paraText = new Map(paras.map((p) => [p.id, p.text]));
   const modules = resolveModules(opts.modules);
 
-  const linted: Candidate[] = (await linter.lintParagraphs(paras, opts.language)).map((c) =>
-    modules.betterSuggestions ? improveSuggestions(c, paraText.get(c.paraId), locked.get(c.paraId)) : withoutOffensiveSuggestions(c),
-  );
+  const linted: Candidate[] = (await linter.lintParagraphs(asSeen, opts.language))
+    .map((c) => inParagraph(c, visible.get(c.paraId)!, paraText.get(c.paraId)!))
+    .map((c) =>
+      modules.betterSuggestions ? improveSuggestions(c, paraText.get(c.paraId), locked.get(c.paraId)) : withoutOffensiveSuggestions(c),
+    );
   const confusables = paras.flatMap((p) => findConfusables(p, locked.get(p.id)));
   // The curated rule knows these words better than the linter ("intercast" → "inter cast"): its flag replaces the linter's word flag there.
   const found = linted.filter((c) => !confusables.some((x) => replacesLinterFlag(x, c)));
   found.push(...confusables);
   for (const p of paras) {
-    found.push(...findInvisible(p));
+    found.push(...invisible.get(p.id)!);
     if (preset.extraRules.includes('contractions')) found.push(...findContractions(p, locked.get(p.id)));
   }
   found.sort(byPosition);
@@ -74,6 +88,7 @@ export async function prepareCheck(
     foreignSentences,
     romanisedSentences,
     listParagraphs: new Set(paras.filter((p) => p.listItem).map((p) => p.id)),
+    invisibleAt: new Map([...invisible].map(([id, cs]) => [id, new Set(cs.map((c) => c.span.start))])),
   };
   return { linter, variant, mixedVariant: mixed, variantFromFallback: fromFallback, ctx, found };
 }

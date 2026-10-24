@@ -7,7 +7,7 @@ import { prepareCheck } from './sessionSetup';
 import { DEFAULT_DEPTH, upFrontCount, type ReviewDepth } from './depth';
 import { countWords } from './words';
 import { DEFAULT_MODULES, type ModuleSwitches } from './modules';
-import { WORD_REWRITE_KINDS } from './wordFlags';
+import { doubledWord, WORD_REWRITE_KINDS } from './wordFlags';
 import { sentenceWithEdits } from './sentences';
 import type { GuardVerdict } from './llm/guard';
 import { HelperRewrites } from './sessionRewrites';
@@ -178,6 +178,12 @@ export class CheckSession {
     return this.ledger.inTrackedChange.has(c.id) || overlapsLocked(c, this.ctx.locked.get(c.paraId));
   }
 
+  /** True when the candidate is pending on the names, terms or Indian-language card: answered with that card's method, never accept. */
+  onWordCard(candidateId: string): boolean {
+    const { top, more } = this.decisions();
+    return [...top, ...more].some((d) => CARD_ACCEPT_METHODS.has(d.id) && d.candidateIds.includes(candidateId));
+  }
+
   /** Decisions in the default view (spec §10): the top of the ranking, sized by the review depth. */
   decisionCount(): number {
     return this.decisions().top.length;
@@ -241,7 +247,8 @@ export class CheckSession {
    * a flagged word with different suggestions in different places cannot be "fixed for all" by index.
    */
   accept(decisionId: string, replacementIndex = 0): void {
-    this.applyMembers(decisionId, this.members(decisionId), replacementIndex);
+    const { ownerId, members } = this.resolve(decisionId);
+    this.applyMembers(ownerId, members, replacementIndex);
   }
 
   /**
@@ -250,14 +257,14 @@ export class CheckSession {
    * Unchosen members stay pending. Returns the batch id (also on each member's Outcome.batch).
    */
   applyBatch(decisionId: string, candidateIds?: string[], replacementIndex = 0): string {
-    const members = this.members(decisionId);
+    const { ownerId, members } = this.resolve(decisionId);
     const chosen = (candidateIds ?? members.map((c) => c.id)).map((id) => {
       const member = members.find((c) => c.id === id);
       if (!member) throw new Error(`${id} is not part of ${decisionId}`);
       return member;
     });
     if (chosen.length === 0) throw new Error(`choose at least one place of ${decisionId} to apply`);
-    this.applyMembers(decisionId, chosen, replacementIndex);
+    this.applyMembers(ownerId, chosen, replacementIndex);
     const batchId = `batch-${++this.batchCount}`;
     for (const c of chosen) if (this.ledger.status.get(c.id) === 'applied') this.batchOf.set(c.id, batchId);
     return batchId;
@@ -273,7 +280,10 @@ export class CheckSession {
     }
   }
 
-  /** The one place accept and applyBatch apply edits, so both keep the card guard and the same-text check. */
+  /**
+   * The one place accept and applyBatch apply edits, so both keep the card guard and the same-text check.
+   * `decisionId` is the decision that owns the members (resolve), never one member's own id.
+   */
   private applyMembers(decisionId: string, members: Candidate[], replacementIndex: number): void {
     // Replacing names or terms with dictionary words by index would damage them (spec §5).
     const card = CARD_ACCEPT_METHODS.get(decisionId);
@@ -284,7 +294,9 @@ export class CheckSession {
       }
     }
     const texts = new Set(members.map((c) => c.replacements[replacementIndex].toLowerCase()));
-    if (texts.size > 1) {
+    // Doubled words share one fix, keeping the first copy, whatever the word ("had had", "the the").
+    const allDoubled = members.every((c) => doubledWord(c) !== null);
+    if (texts.size > 1 && !allDoubled) {
       throw new Error(
         `${decisionId}: members have different replacements at index ${replacementIndex} (${[...texts].join(' / ')}); accept them one by one`,
       );
@@ -462,11 +474,22 @@ export class CheckSession {
   }
 
   private members(decisionId: string): Candidate[] {
+    return this.resolve(decisionId).members;
+  }
+
+  /**
+   * A decision id → its members; a pending candidate's id → that candidate alone, with the decision that
+   * holds it as `ownerId`, so accepting one member of a card still meets the card's guard (review #4, C2).
+   */
+  private resolve(id: string): { ownerId: string; members: Candidate[] } {
     const { top, more } = this.decisions();
-    const d = [...top, ...more].find((x) => x.id === decisionId);
-    if (d) return d.candidateIds.map((id) => this.cands.get(id)!);
-    const c = this.cands.get(decisionId);
-    if (c && this.ledger.status.get(c.id) === 'pending') return [c];
-    throw new Error(`unknown or already decided: ${decisionId}`);
+    const all = [...top, ...more];
+    const d = all.find((x) => x.id === id);
+    if (d) return { ownerId: d.id, members: d.candidateIds.map((m) => this.cands.get(m)!) };
+    const c = this.cands.get(id);
+    if (c && this.ledger.status.get(c.id) === 'pending') {
+      return { ownerId: all.find((x) => x.candidateIds.includes(id))?.id ?? id, members: [c] };
+    }
+    throw new Error(`unknown or already decided: ${id}`);
   }
 }

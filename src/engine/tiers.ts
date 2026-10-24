@@ -1,7 +1,7 @@
 import type { Candidate, Span, Tier, Variant } from './types';
 import type { Preset } from './presets';
-import { followsAbbreviation, overlapsLocked } from './factLock';
-import { HAS_DIGIT, isCodeNoiseFlag, isSlipFix, UPPER_START, WORD_REWRITE_KINDS } from './wordFlags';
+import { followsAbbreviation, isSentenceStart, overlapsLocked } from './factLock';
+import { doubledWord, HAS_DIGIT, isCodeNoiseFlag, isSlipFix, UPPER_START, WORD_REWRITE_KINDS } from './wordFlags';
 import { overlaps } from './sessionTypes';
 import { isRomanisedIndic } from './romanised/classifier';
 import type { ModuleSwitches } from './modules';
@@ -34,9 +34,46 @@ export interface TierContext {
   modules?: ModuleSwitches;
   /** Ids of list-item paragraphs (Paragraph.listItem): their first word is not a sentence start. */
   listParagraphs?: ReadonlySet<number>;
+  /** paraId → offsets of the invisible characters hygiene deletes (findInvisible). */
+  invisibleAt?: Map<number, ReadonlySet<number>>;
 }
 
-const SAFE_RULE_KINDS = new Set(['Spelling', 'Typo', 'Repetition', 'Punctuation', 'Capitalization', 'Formatting']);
+// Repetition is not here: only isSlipDoubling's words are safe to undouble.
+const SAFE_RULE_KINDS = new Set(['Spelling', 'Typo', 'Punctuation', 'Capitalization', 'Formatting']);
+
+/**
+ * Words whose doubling is always a slip ("the the", "of of"). Others double in correct English, so their
+ * repetition is reviewed: "He had had enough", "that that was", "What it is is", "What it was was",
+ * "log in in the morning", "turn it on on Monday", "look at at least", "I do do care" (review #4, C1).
+ */
+const ALWAYS_SLIP_DOUBLINGS = new Set(['the', 'a', 'an', 'of', 'to', 'and', 'for', 'with', 'be']);
+
+/**
+ * A Repetition flag that is safe to apply unasked: an ALWAYS_SLIP_DOUBLINGS word written twice (doubledWord),
+ * fixed by keeping the first. A capitalised first copy must start a sentence ("The the cat"), not be a name
+ * or a label ("Plan A a day").
+ */
+function isSlipDoubling(c: Candidate, text: string | undefined): boolean {
+  const word = doubledWord(c);
+  if (word === null || !ALWAYS_SLIP_DOUBLINGS.has(word)) return false;
+  return c.original.startsWith(word) || (text !== undefined && isSentenceStart(text, c.span.start));
+}
+
+/** The next word and the space before it, invisible characters included, without punctuation: " m<U+2060>ean". */
+const NEXT_TOKEN = /^\s*[^\s\p{P}]*/u;
+
+/**
+ * True when an invisible character hygiene deletes sits inside the flag, right before it, or in the word
+ * after it. The linter read the text without it, but the paragraph still holds it, so neither the span
+ * nor a check of the next word (isArticleSwap) is what the reader sees: "a m<U+2060>ean" (review #4, C3).
+ */
+function nearInvisible(c: Candidate, ctx: TierContext): boolean {
+  const at = ctx.invisibleAt?.get(c.paraId);
+  if (!at || at.size === 0) return false;
+  const after = NEXT_TOKEN.exec(ctx.paraText?.get(c.paraId)?.slice(c.span.end) ?? '')![0].length;
+  for (let i = c.span.start - 1; i <= c.span.end + after; i++) if (at.has(i)) return true;
+  return false;
+}
 
 /** Function words (pronouns, articles, auxiliaries, prepositions…). After one, an a/an swap is likely the wrong fix ("an there was" is a typo of "and there was"); the LLM guard ignores them when comparing content words. */
 export const FUNCTION_WORDS = new Set(
@@ -148,9 +185,11 @@ function baseTier(c: Candidate, ctx: TierContext): Tier {
   if (preset.hiddenKinds.includes(c.kind)) return 'hidden';
   if (preset.reviewKinds.includes(c.kind)) return 'review';
 
+  const text = ctx.paraText?.get(c.paraId);
   const safeKind =
     c.source === 'hygiene' ||
-    (c.source === 'rules' && (SAFE_RULE_KINDS.has(c.kind) || isArticleSwap(c, ctx.paraText?.get(c.paraId))));
+    (c.source === 'rules' &&
+      (SAFE_RULE_KINDS.has(c.kind) || isArticleSwap(c, text) || (c.kind === 'Repetition' && isSlipDoubling(c, text))));
   return safeKind ? 'safe' : 'review';
 }
 
@@ -173,6 +212,9 @@ export function tierOf(c: Candidate, ctx: TierContext): Tier {
   const override = ctx.userTierOverrides?.[c.kind];
   const tier = override ?? baseTier(c, ctx);
   if (tier !== 'safe') return tier;
+  // Whatever the overrides say: a grammatical doubling, or a flag an invisible character skews, is asked first.
+  if (c.kind === 'Repetition' && !isSlipDoubling(c, paraText)) return 'review';
+  if (c.source !== 'hygiene' && nearInvisible(c, ctx)) return 'review';
   // "y0u" → "you" is likely right, but a token with a digit may be a code nobody recognised: ask first.
   if (WORD_REWRITE_KINDS.has(c.kind) && HAS_DIGIT.test(c.original)) return 'review';
   if (c.source === 'llm' || isConfusableFlag(c)) return 'review';

@@ -58,6 +58,8 @@ export function carryDecisions(decisions: UserDecision[], after: CheckSession, u
     carried.set(d.candidateId, twin.id);
     const now = statusAfter.get(twin.id);
     if (d.status === 'applied' && now === 'pending') {
+      // A word now on the names, terms or Indian-language card is answered there again, never replaced by accept.
+      if (after.onWordCard(twin.id)) continue;
       // By text, never by position: the same index may hold another word now, one the user never chose.
       const index = twin.replacements.indexOf(d.replacement ?? '');
       if (index >= 0) after.accept(twin.id, index);

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { CheckSession, type CheckOptions } from '@/engine/session';
 import { exportReport } from '@/engine/report';
+import { carryDecisions, userDecisions } from '@/engine/carryDecisions';
 import { createLinter, type RulesLinter } from '@/engine/linter';
 import type { Candidate, Paragraph } from '@/engine/types';
 
@@ -26,7 +27,9 @@ const byOriginal = (s: CheckSession, original: string, paraId = 0) =>
 
 const lastLog = (s: CheckSession, id: string) => s.log().filter((e) => e.candidateId === id).at(-1);
 
-const TEH = 'I think teh cat is is here.';
+// "of of" is a doubling that is always a slip, so it is auto-applied ("is is" can be grammar: "What it is is…").
+const TEH = 'I think teh cat of of mine is here.';
+const TEH_FIXED = 'I think the cat of mine is here.';
 
 describe('CheckSession.start', () => {
   it('ranks spelling suggestions by likelihood and never offers an offensive word (spec §5)', async () => {
@@ -41,9 +44,9 @@ describe('CheckSession.start', () => {
   it('auto-applies safe candidates and logs them as auto', async () => {
     const s = await start([{ id: 0, text: TEH }]);
     const teh = byOriginal(s, 'teh');
-    const isis = byOriginal(s, 'is is');
+    const ofof = byOriginal(s, 'of of');
     expect(s.tier(teh.id)).toBe('safe');
-    for (const c of [teh, isis]) {
+    for (const c of [teh, ofof]) {
       const e = lastLog(s, c.id)!;
       expect(e.status).toBe('applied');
       expect(e.auto).toBe(true);
@@ -52,7 +55,7 @@ describe('CheckSession.start', () => {
 
   it('outputText applies the fixes', async () => {
     const s = await start([{ id: 0, text: TEH }]);
-    expect(s.outputText(0)).toBe('I think the cat is here.');
+    expect(s.outputText(0)).toBe(TEH_FIXED);
   });
 
   it('uses the given variant without detection, and the injected clock', async () => {
@@ -156,7 +159,7 @@ describe('decisions, accept, undo', () => {
     expect(s.tier('llm:1')).toBe('review');
     s.accept('llm:1');
     expect(lastLog(s, teh.id)!.status).toBe('superseded');
-    expect(s.outputText(0)).toBe('I believe the cat is here.');
+    expect(s.outputText(0)).toBe('I believe the cat of mine is here.');
 
     const edits = s.acceptedEdits();
     for (let i = 1; i < edits.length; i++) {
@@ -208,6 +211,34 @@ describe('decisions, accept, undo', () => {
   });
 });
 
+describe('invisible characters (review #4, C3)', () => {
+  it('the linter reads words without them, so nothing is fixed from the pieces', async () => {
+    const s = await start([
+      { id: 0, text: 'We saw a m\u{2060}ean value.' },
+      { id: 1, text: 'We trained the mod\u{200B}els well.' },
+    ]);
+    expect(s.candidates().map((c) => c.kind)).toEqual(['Invisible', 'Invisible']);
+    expect([s.outputText(0), s.outputText(1)]).toEqual(['We saw a mean value.', 'We trained the models well.']);
+  });
+
+  it('a flag on a word with one inside spans it in the paragraph, and is never auto-applied', async () => {
+    const text = 'I think t\u{200B}eh cat sat.';
+    const s = await start([{ id: 0, text }]);
+    const teh = s.candidates().find((c) => c.kind === 'Typo')!;
+    expect(teh).toMatchObject({ id: '0:8:12:Typo', span: { start: 8, end: 12 }, original: 't\u{200B}eh', replacements: ['the'] });
+    expect(s.tier(teh.id)).toBe('review');
+    s.accept(teh.id);
+    expect(s.outputText(0)).toBe('I think the cat sat.');
+  });
+
+  it('flags after one keep their offsets in the paragraph', async () => {
+    const text = '\u{200B}I think teh cat sat.';
+    const s = await start([{ id: 0, text }]);
+    expect(s.candidates().find((c) => c.kind === 'Typo')).toMatchObject({ span: { start: 9, end: 12 }, original: 'teh' });
+    expect(s.outputText(0)).toBe('I think the cat sat.');
+  });
+});
+
 describe('supersede chain', () => {
   const rewrite: Candidate = {
     id: 'llm:1',
@@ -227,7 +258,7 @@ describe('supersede chain', () => {
     s.accept('llm:1');
     s.undo('llm:1');
     expect(lastLog(s, teh.id)!.status).toBe('applied');
-    expect(s.outputText(0)).toBe('I think the cat is here.');
+    expect(s.outputText(0)).toBe(TEH_FIXED);
   });
 
   it('marking the superseding edit unplaceable restores the older one', async () => {
@@ -237,12 +268,12 @@ describe('supersede chain', () => {
     s.accept('llm:1');
     s.markUnplaceable('llm:1', 'run split');
     expect(lastLog(s, teh.id)!.status).toBe('applied');
-    expect(s.outputText(0)).toBe('I think the cat is here.');
+    expect(s.outputText(0)).toBe(TEH_FIXED);
   });
 
   it('restores to pending when another applied edit now clashes', async () => {
     const s = await start([{ id: 0, text: TEH }]);
-    const isis = byOriginal(s, 'is is'); // 16..21, auto-applied
+    const ofof = byOriginal(s, 'of of'); // 16..21, auto-applied
     const llm = (id: string, start: number, end: number, r: string): Candidate => ({
       ...rewrite,
       id,
@@ -251,11 +282,11 @@ describe('supersede chain', () => {
       replacements: [r],
     });
     s.addCandidates([llm('llm:b', 16, 18, 'was'), llm('llm:c', 19, 21, 'here')]);
-    s.accept('llm:b'); // supersedes "is is"
-    s.accept('llm:c'); // overlaps "is is" only
+    s.accept('llm:b'); // supersedes "of of"
+    s.accept('llm:c'); // overlaps "of of" only
     s.undo('llm:b');
-    expect(lastLog(s, isis.id)!.status).toBe('pending');
-    expect(s.decisions().top.flatMap((d) => d.candidateIds)).toContain(isis.id);
+    expect(lastLog(s, ofof.id)!.status).toBe('pending');
+    expect(s.decisions().top.flatMap((d) => d.candidateIds)).toContain(ofof.id);
     const edits = s.acceptedEdits();
     for (let i = 1; i < edits.length; i++) expect(edits[i - 1].span.end).toBeLessThanOrEqual(edits[i].span.start);
   });
@@ -337,7 +368,7 @@ describe('exportReport', () => {
     const rows = md.split('\n').filter((l) => l.startsWith('| ') && !l.startsWith('| #'));
     const row = (needle: string) => rows.find((r) => r.includes(needle))!;
 
-    expect(row('is is')).toMatch(/\| 1 \| is is \| is \| Repetition \| auto \|/);
+    expect(row('of of')).toMatch(/\| 1 \| of of \| of \| Repetition \| auto \|/);
     expect(row('teh')).toMatch(/\| 1 \| teh \| the \| Typo \| unplaceable: run split across a hyperlink \|/);
     expect(row("can't")).toMatch(/\| 2 \| can't \| cannot \| Contraction \| rejected \|/);
     expect(row('a or b')).toMatch(/\| 3 \| a\\\|b \| a or b \| Rewrite \| accepted \|/);
@@ -471,6 +502,32 @@ describe('names card in a session', () => {
   it('accept refuses the names card (it is answered with acceptNames)', async () => {
     const s = await start([{ id: 0, text }]);
     expect(() => s.accept('names', 0)).toThrow(/acceptNames/);
+    expect(s.acceptedEdits()).toEqual([]);
+  });
+
+  it('a re-check offers a name accepted earlier as a word on the names card again, never replaying the replacement (review #4, C2)', async () => {
+    const paras = [{ id: 0, text: 'We met Anjali today.' }];
+    const before = await start(paras, { modules: { namesCard: false } });
+    const anjali = byOriginal(before, 'Anjali');
+    before.accept(anjali.id, 0);
+    expect(before.outputText(0)).not.toBe(paras[0].text);
+    const after = await start(paras);
+    expect(after.onWordCard(byOriginal(after, 'Anjali').id)).toBe(true);
+    carryDecisions(userDecisions(before), after, new Map([[0, 0]]));
+    expect(after.outputText(0)).toBe(paras[0].text);
+    expect(after.outcomes().find((o) => o.candidate.original === 'Anjali')!.status).toBe('pending');
+  });
+
+  it('accept and applyBatch refuse one card member by its own id too (review #4, C2)', async () => {
+    const s = await start([{ id: 0, text }, { id: 1, text: 'We ate ukadiche modak at home.' }]);
+    const { top, more } = s.decisions();
+    const names = [...top, ...more].find((d) => d.kind === 'names')!;
+    const indian = [...top, ...more].find((d) => d.kind === 'otherLanguage')!;
+    for (const id of [names.candidateIds[0], indian.candidateIds[0]]) {
+      expect(s.onWordCard(id)).toBe(true);
+      expect(() => s.accept(id, 0)).toThrow(/is answered with accept(Names|OtherLanguage)/);
+      expect(() => s.applyBatch(id)).toThrow(/is answered with accept(Names|OtherLanguage)/);
+    }
     expect(s.acceptedEdits()).toEqual([]);
   });
 

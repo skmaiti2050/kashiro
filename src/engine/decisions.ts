@@ -1,6 +1,6 @@
 import type { Candidate, Span, Tier } from './types';
 import { followsAbbreviation, overlapsLocked } from './factLock';
-import { isLikelyTypo, isNameFlag, TITLE_CASE_WORD, WORD_REWRITE_KINDS, withinOneEdit } from './wordFlags';
+import { doubledWord, isLikelyTypo, isNameFlag, TITLE_CASE_WORD, WORD_REWRITE_KINDS, withinOneEdit } from './wordFlags';
 import { DEFAULT_TERM_MIN_REPEATS, findTerms } from './terms';
 import { everydayWordNear, findOtherLanguageWords } from './otherLanguage';
 import { DEFAULT_MODULES, type ModuleSwitches } from './modules';
@@ -116,10 +116,14 @@ function singleLabel(c: Candidate): string {
   return `${c.original} → ${c.replacements.join(' / ')}`;
 }
 
+const REPEATED_WORDS_KEY = 'repeated-words';
+
 /**
  * The batch key of a review candidate (spec §5: "the same correction repeated → one decision"):
  * - Spelling/Typo: kind + lowercased word, whatever the suggestions. One decision per flagged word
  *   ("Sujit (12 places)"), resolved by adding it to the dictionary, ignoring all, or one replacement for all.
+ * - a doubled word (doubledWord): one key for all of them, "had had" and "that that" alike; the batch
+ *   preview lists each place with its own fix, to untick the ones that are grammar.
  * - exactly one replacement: kind + lower(original) + '→' + lower(replacement) (each member keeps its own
  *   replacement on accept, so "It's → Its" keeps its capital).
  * - otherwise (no fix, or a choice): kind + lower(original) + message, i.e. the identical flag repeated.
@@ -127,11 +131,14 @@ function singleLabel(c: Candidate): string {
 function batchKey(c: Candidate): string {
   const o = c.original.toLowerCase();
   if (WORD_REWRITE_KINDS.has(c.kind)) return `word:${c.kind}:${o}`;
+  // Every doubled word is the same correction, keep the first copy: one "Repeated words" decision to tick through.
+  if (doubledWord(c) !== null) return REPEATED_WORDS_KEY;
   if (c.replacements.length === 1) return c.kind + o + '→' + c.replacements[0].toLowerCase();
   return `flag:${c.kind}:${o}:${c.message}`;
 }
 
 function batchLabel(c: Candidate, n: number): string {
+  if (doubledWord(c) !== null) return `Repeated words (${n} places)`;
   if (WORD_REWRITE_KINDS.has(c.kind)) {
     const fixes = c.replacements.length ? ` → ${c.replacements.join(' / ')}` : '';
     return `${c.original}${fixes} (${n} places)`;

@@ -143,7 +143,7 @@ describe('core protections stay on with every module off', () => {
   });
 
   it('Harper rules, hygiene, the fact lock and code-token handling all still apply', async () => {
-    const text = 'I think teh cat is is here.​ He wrote "recieve" in 2024. Call preventDefault now.';
+    const text = 'I think teh cat of of here.\u{200B} He wrote "recieve" in 2024. Call preventDefault now.';
     const off = await start(text, ALL_OFF);
     const on = await start(text);
     const summary = (s: CheckSession) =>
@@ -156,7 +156,7 @@ describe('core protections stay on with every module off', () => {
     expect(off.candidates().some((c) => c.source === 'hygiene')).toBe(true);
     const code = off.candidates().filter((c) => c.original === 'preventDefault');
     for (const c of code) expect(off.tier(c.id)).toBe('hidden');
-    expect(off.outputText(0)).toContain('I think the cat is here.');
+    expect(off.outputText(0)).toContain('I think the cat of here.');
   });
 
   it('the romanised never-auto-fix guard still applies', async () => {

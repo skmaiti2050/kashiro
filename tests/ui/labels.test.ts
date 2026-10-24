@@ -46,6 +46,15 @@ describe('decisionTitle', () => {
     expect(decisionTitle(en, single(deletion), byId(deletion))).toBe('very → (delete)');
   });
 
+  it('a batch of different repeated words is titled by its kind, in the UI language (review #4, C1)', () => {
+    const doubled = (original: string, id: string): Candidate => ({ ...cand(original, [original.split(' ')[0]], id), kind: 'Repetition' });
+    const words = byId(doubled('had had', 'a'), doubled('that that', 'b'));
+    const batch: Decision = { id: 'batch:repeated-words', kind: 'batch', candidateIds: ['a', 'b'], label: '', score: 3 };
+    expect(decisionTitle(en, batch, words)).toBe('Repeated words (2 places)');
+    const same = byId(doubled('had had', 'a'), doubled('had had', 'b'));
+    expect(decisionTitle(en, batch, same)).toBe('had had → had (2 places)');
+  });
+
   it('the word cards show their count in words, in the UI language', () => {
     const terms: Decision = { id: 'terms', kind: 'terms', candidateIds: ['a'], label: 'engine label', score: 0, counts: { sarpanch: 5, gram: 3 } };
     expect(decisionTitle(en, terms, byId(cand('sarpanch', [], 'a')))).toBe('2 terms used in this document');

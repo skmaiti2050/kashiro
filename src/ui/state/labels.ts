@@ -68,9 +68,14 @@ export function decisionTitleParts(t: Translator, decision: Decision, candidates
   const doc = (text: string): TitlePart => ({ text, document: true });
   if (isWordCard(decision)) return [ui(wordCardTitle(t, decision, candidates))];
   const first = candidates.get(decision.candidateIds[0])!;
+  const places = decision.kind === 'batch' ? [ui(` ${t.t('card.places', { count: decision.candidateIds.length })}`)] : [];
+  // A batch of different doubled words ("had had", "the the"): its kind names it, each place shows its own fix.
+  if (decision.kind === 'batch' && first.kind === 'Repetition') {
+    const originals = new Set(decision.candidateIds.map((id) => candidates.get(id)!.original.toLowerCase()));
+    if (originals.size > 1) return [ui(kindLabel(t, first.kind)), ...places];
+  }
   const originalText = excerpt(first.original).text;
   const original = originalText ? doc(originalText) : ui(t.t('card.empty'));
-  const places = decision.kind === 'batch' ? [ui(` ${t.t('card.places', { count: decision.candidateIds.length })}`)] : [];
   if (first.replacements.length === 0) {
     const [before, after] = t.t('quote', { text: VALUE_MARK }).split(VALUE_MARK);
     return [ui(before), original, ui(after), ...places].filter((part) => part.text !== '');

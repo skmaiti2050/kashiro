@@ -34,12 +34,48 @@ function ctx(over: Partial<TierContext> = {}): TierContext {
 }
 
 describe('tierOf: safe rules', () => {
-  it.each(['Spelling', 'Typo', 'Repetition', 'Punctuation', 'Capitalization', 'Formatting'])(
+  it.each(['Spelling', 'Typo', 'Punctuation', 'Capitalization', 'Formatting'])(
     'rules %s with one replacement is safe',
     (kind) => {
       expect(tierOf(cand({ original: 'teh', replacements: ['the'], kind }), ctx())).toBe('safe');
     },
   );
+
+  /** Repetition flag on `original` (keeping its first word) where it is in `text`, with the paragraph text in ctx. */
+  const doubling = (original: string, text = `${original} rest.`, over: Partial<TierContext> = {}) => {
+    const start = text.indexOf(original);
+    const span = { start, end: start + original.length };
+    const c = cand({ original, span, replacements: [original.split(' ')[0]], kind: 'Repetition' });
+    return tierOf(c, ctx({ paraText: new Map([[0, text]]), ...over }));
+  };
+
+  it('Repetition: only a doubling that is always a slip is safe; grammatical ones are reviewed (review #4, C1)', () => {
+    for (const w of ['the', 'a', 'an', 'of', 'to', 'and', 'for', 'with', 'be']) expect(doubling(`${w} ${w}`)).toBe('safe');
+    // "He had had enough", "that that was", "What it is is", "log in in the morning", "I do do care", reduplication.
+    for (const w of ['had', 'that', 'is', 'was', 'were', 'in', 'on', 'at', 'do', 'hot', 'very']) expect(doubling(`${w} ${w}`)).toBe('review');
+    expect(doubling('The the', 'The the cat sat.')).toBe('safe'); // a sentence start
+    expect(doubling('A a', 'Take vitamin A a day.')).toBe('review'); // not a sentence start
+    expect(doubling('the The')).toBe('review'); // the second copy capitalised
+    expect(tierOf(cand({ original: 'the  the', replacements: ['the'], kind: 'Repetition' }), ctx())).toBe('review');
+    expect(tierOf(cand({ original: 'the the', replacements: ['The'], kind: 'Repetition' }), ctx())).toBe('review');
+  });
+
+  it('Repetition: a user override cannot make a grammatical doubling auto-applied', () => {
+    const everything = { userTierOverrides: { Repetition: 'safe' as Tier } };
+    expect(doubling('had had', 'had had enough.', everything)).toBe('review');
+    expect(doubling('the the', 'the the end.', everything)).toBe('safe');
+  });
+
+  it('a rules flag at or next to an invisible character hygiene deletes is reviewed (review #4, C3)', () => {
+    const text = 'We saw a m\u{2060}ean value.';
+    const article = cand({ original: 'a', span: { start: 7, end: 8 }, replacements: ['an'], kind: 'Miscellaneous' });
+    const invisibleAt = new Map([[0, new Set([10])]]);
+    const withText = ctx({ paraText: new Map([[0, text]]) });
+    expect(tierOf(article, withText)).toBe('safe'); // "m" alone reads as a word starting with a vowel sound
+    expect(tierOf(article, { ...withText, invisibleAt })).toBe('review');
+    const value = cand({ original: 'value', span: { start: 15, end: 20 }, replacements: ['values'], kind: 'Formatting' });
+    expect(tierOf(value, { ...withText, invisibleAt })).toBe('safe'); // two words away
+  });
 
   it('teh → the is safe', () => {
     expect(tierOf(cand({ original: 'teh', replacements: ['the'] }), ctx())).toBe('safe');
@@ -393,7 +429,7 @@ describe('Task 10 budget tuning', () => {
 
   it('(2) uppercase-start guard applies only to Spelling and Typo', () => {
     const rep = cand({ original: 'The the', replacements: ['The'], kind: 'Repetition' });
-    expect(tierOf(rep, ctx())).toBe('safe');
+    expect(tierOf(rep, ctx({ paraText: new Map([[0, 'The the cat sat.']]) }))).toBe('safe');
     expect(tierOf(cand({ original: 'Teh', replacements: ['The'], kind: 'Typo' }), ctx())).toBe('review');
     expect(tierOf(cand({ original: 'Recieve', replacements: ['Receive'], kind: 'Spelling' }), ctx())).toBe('review');
   });
@@ -414,7 +450,7 @@ describe('Task 10 budget tuning', () => {
     expect(t('borewell', 'bore well', 'Typo')).toBe('review');
     expect(t('arived', 'a rived', 'Typo')).toBe('review');
     // other safe kinds are unaffected by the distance rule
-    expect(t('is is', 'is', 'Repetition')).toBe('safe');
+    expect(t('the the', 'the', 'Repetition')).toBe('safe');
     // joining or splitting words (space or hyphen) is a style choice, not a slip
     expect(t('up stairs', 'upstairs')).toBe('review');
     expect(t('mid-day', 'midday')).toBe('review');

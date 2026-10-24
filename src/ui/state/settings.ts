@@ -51,6 +51,13 @@ export interface Settings {
 
 export const DEFAULT_RETENTION_DAYS = 30;
 
+/**
+ * Kinds the user may move to auto-apply in Settings (spec §5). LLM rewrites and fact-locked spans are never
+ * offered (the engine keeps them in review whatever the setting), and neither is Variant: the app never
+ * converts between English variants on its own. The never-damage stress test switches all of them on.
+ */
+export const AUTO_APPLY_KINDS = ['Agreement', 'Grammar', 'Usage', 'WordChoice', 'Redundancy', 'Style', 'Readability', 'Contraction'];
+
 // One mapping for the app and the CLI (Task U3 item 6).
 export { variantForLocale };
 

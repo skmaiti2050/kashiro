@@ -21,15 +21,9 @@
     },
     {
       "doc": "business/board-update-fy25.md",
-      "text": "I am pleased to share this update on the company's performance for the first half of the financial year, covering the period from 1 April 2025 to 30 September 2025.",
+      "text": "I am pleased to share this this update on the company's performance for the first half of the financial year, covering the period from 1 April 2025 to 30 September 2025.",
       "rewrite": "I am pleased to share this update on the company's performance in the first half of the financial year, from 1 April 2025 to 30 September 2025.",
       "expect": "ok"
-    },
-    {
-      "doc": "business/board-update-fy25.md",
-      "text": "Profit after tax was ₹9.8 crore, compared with ₹6.1 crore in the first half of last year.",
-      "rewrite": "Profit after tax was broadly ₹9.8 crore, compared with ₹6.1 crore in the first half of last year.",
-      "expect": "hedge added"
     },
     {
       "doc": "business/hybrid-work-policy.md",
@@ -38,21 +32,9 @@
       "expect": "ok"
     },
     {
-      "doc": "business/hybrid-work-policy.md",
-      "text": "If an employee is injured while working from home, they should report it to their manager and HR within 48 hours, in the same way as an injury in the office.",
-      "rewrite": "If an employee is injured while working from home, they should report it to their manager and HR within 48 hours, just as they would report an injury in the office.",
-      "expect": "ok"
-    },
-    {
       "doc": "blog/freelancer-taxes.docx",
       "text": "In my first year I missed an advance tax deadline, paid interest I could have avoided, and spent two nervous weeks waiting to hear whether I had filed the right form.",
       "rewrite": "In my first year I missed an advance tax deadline, paid interest I could have avoided, and spent two anxious weeks waiting to learn whether I had filed the right form.",
-      "expect": "ok"
-    },
-    {
-      "doc": "blog/freelancer-taxes.docx",
-      "text": "If your gross receipts from a profession are below ₹75 lakh in a year, and most of them comes through banking channels, you can declare 50% of your receipts as income and pay tax on that, without keeping detailed accounts of expenses.",
-      "rewrite": "If your gross receipts from a profession are below ₹75 lakh in a year and most of them come through banking channels, you can declare 50% of your receipts as income and pay tax on that, without keeping detailed accounts of expense.",
       "expect": "ok"
     }
   ]

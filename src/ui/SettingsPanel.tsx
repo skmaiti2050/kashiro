@@ -13,13 +13,7 @@ import { LANGUAGE_NAMES, systemLanguage, UI_LANGUAGES, type UiLanguageSetting } 
 import { useT } from './i18n/useT';
 import { kindLabel } from './state/kindLabels';
 import type { ControllerState, SessionController } from './state/sessionController';
-
-/**
- * Kinds the user may move to auto-apply (spec §5). LLM rewrites and fact-locked spans are never offered
- * (the engine keeps them in review whatever the setting), and neither is Variant: the app never converts
- * between English variants on its own.
- */
-const AUTO_APPLY_KINDS = ['Agreement', 'Grammar', 'Usage', 'WordChoice', 'Redundancy', 'Style', 'Readability', 'Contraction'];
+import { AUTO_APPLY_KINDS } from './state/settings';
 
 /** The terms card's repeat count (the engine accepts 2–5). */
 const TERM_REPEAT_CHOICES = [2, 3, 4, 5];

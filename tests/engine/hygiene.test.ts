@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { findInvisible } from '../../src/engine/hygiene';
+import { findInvisible, visibleText } from '../../src/engine/hygiene';
 
 const p = (text: string) => ({ id: 7, text });
 const ZWSP = '​';
@@ -66,5 +66,45 @@ describe('findInvisible', () => {
   it('uses UTF-16 offsets after astral characters', () => {
     const [c] = findInvisible(p(`\u{1F600} a${ZWSP}b`));
     expect(c.span).toEqual({ start: 4, end: 5 });
+  });
+
+  it('flags direction controls U+202A–U+202E and U+180E in Latin text (review #4)', () => {
+    const controls = ['\u{202A}', '\u{202B}', '\u{202C}', '\u{202D}', '\u{202E}', '\u{180E}'];
+    const r = findInvisible(p(controls.map((ch) => `a${ch}b`).join(' ')));
+    expect(r.map((c) => c.message)).toEqual([
+      'Invisible character (U+202A LEFT-TO-RIGHT EMBEDDING)',
+      'Invisible character (U+202B RIGHT-TO-LEFT EMBEDDING)',
+      'Invisible character (U+202C POP DIRECTIONAL FORMATTING)',
+      'Invisible character (U+202D LEFT-TO-RIGHT OVERRIDE)',
+      'Invisible character (U+202E RIGHT-TO-LEFT OVERRIDE)',
+      'Invisible character (U+180E MONGOLIAN VOWEL SEPARATOR)',
+    ]);
+  });
+
+  it('keeps direction controls in a paragraph with right-to-left text, and U+180E in Mongolian', () => {
+    expect(findInvisible(p(`He wrote \u{202B}שלום\u{202C} twice.`))).toEqual([]);
+    expect(findInvisible(p(`ᠮᠣᠷᠢ\u{180E}ᠠ`))).toEqual([]);
+  });
+});
+
+describe('visibleText', () => {
+  const text = `mod${ZWSP}els and t${WJ}eh${ZWSP}`;
+  const view = visibleText(p(text), findInvisible(p(text)));
+
+  it('is the text without the flagged characters', () => {
+    expect(view.text).toBe('models and teh');
+  });
+
+  it('maps spans back to the paragraph, covering what they straddle and nothing after', () => {
+    expect(view.toParagraph({ start: 0, end: 6 })).toEqual({ start: 0, end: 7 }); // "mod<ZWSP>els"
+    expect(view.toParagraph({ start: 7, end: 10 })).toEqual({ start: 8, end: 11 }); // "and"
+    expect(view.toParagraph({ start: 11, end: 14 })).toEqual({ start: 12, end: 16 }); // "t<WJ>eh", not the ZWSP after
+    expect(view.toParagraph({ start: 14, end: 14 })).toEqual({ start: 17, end: 17 }); // the end
+  });
+
+  it('is the paragraph itself when nothing is flagged', () => {
+    const clean = visibleText(p('क्\u{200D}ष'), []);
+    expect(clean.text).toBe('क्\u{200D}ष');
+    expect(clean.toParagraph({ start: 1, end: 2 })).toEqual({ start: 1, end: 2 });
   });
 });
