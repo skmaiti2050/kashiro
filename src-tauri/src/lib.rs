@@ -9,6 +9,7 @@ use tauri_plugin_fs::FsExt;
 mod job;
 mod llm;
 mod locale;
+mod migrate;
 mod sessions;
 
 /// Opens the first free name from `names` with `create_new`, so an existing file, or a link planted
@@ -116,7 +117,7 @@ async fn overwrite_with_backup(app: tauri::AppHandle, request: Request<'_>) -> R
     };
     let target = PathBuf::from(&path);
     if !app.fs_scope().is_allowed(&target) {
-        return Err(format!("{path} was not opened in writing-check, so it can't be overwritten"));
+        return Err(format!("{path} was not opened in Kashiro, so it can't be overwritten"));
     }
     let bytes = bytes.clone();
     tauri::async_runtime::spawn_blocking(move || overwrite_with_backup_at(&target, &bytes))
@@ -150,6 +151,10 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::default().build())
         .manage(llm::LlmState::default())
         .setup(|app| {
+            // Before the page loads its settings. A failed copy is reported and the app starts with new settings.
+            if let Err(e) = migrate::copy_old_app_data_once(app.handle()) {
+                eprintln!("{e}");
+            }
             show_window_if_page_does_not(app.handle().clone());
             Ok(())
         })

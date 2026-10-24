@@ -17,7 +17,7 @@ const p = (inner: string) => `<w:p>${inner}</w:p>`;
 const r = (inner: string, rPr = '') => `<w:r>${rPr}${inner}</w:r>`;
 const t = (s: string) => `<w:t xml:space="preserve">${s}</w:t>`;
 const B = '<w:rPr><w:b/></w:rPr>';
-const REV = `w:author="writing-check" w:date="${DATE}"`;
+const REV = `w:author="Kashiro" w:date="${DATE}"`;
 
 async function docXml(bytes: Uint8Array): Promise<string> {
   return (await JSZip.loadAsync(bytes)).file('word/document.xml')!.async('string');
@@ -99,7 +99,7 @@ describe('docx writer: tracked', () => {
       p(r(t('kept ')) + `<w:ins w:id="12" w:author="Ann" w:date="2020-01-01T00:00:00Z">${r(t('old'))}</w:ins>` + r(t(' adn more')));
     const { xml, unplaceable } = await write(body, [edit(0, 0, 3, 'the'), edit(1, 9, 12, 'and')], 'tracked');
     expect(unplaceable).toEqual([]);
-    const fresh = [...xml.matchAll(/<w:(?:ins|del) w:id="(\d+)" w:author="writing-check"/g)].map((m) => Number(m[1]));
+    const fresh = [...xml.matchAll(/<w:(?:ins|del) w:id="(\d+)" w:author="Kashiro"/g)].map((m) => Number(m[1]));
     expect(fresh).toHaveLength(4);
     for (const id of fresh) expect(id).toBeGreaterThan(12);
     const revIds = [...xml.matchAll(/<w:(?:ins|del) w:id="(\d+)"/g)].map((m) => m[1]);

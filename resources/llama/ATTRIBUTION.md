@@ -1,7 +1,7 @@
 # Writing helper (llama.cpp): third-party notice
 
 The optional writing helper runs `llama-server` from **llama.cpp** (https://github.com/ggml-org/llama.cpp),
-release **b11727** (commit 8f97d82da). writing-check bundles its files unmodified from the official Windows x64
+release **b11727** (commit 8f97d82da). Kashiro bundles its files unmodified from the official Windows x64
 release files `llama-b11727-bin-win-cpu-x64.zip` and `llama-b11727-bin-win-vulkan-x64.zip`: the server and its
 libraries in `llama/`, and the Vulkan (graphics card) backend `ggml-vulkan.dll` in `llama/vulkan/`. Nothing is
 downloaded at run time.
@@ -19,7 +19,7 @@ The licence texts below are the ones this llama.cpp release carries for itself a
 | LLVM OpenMP (`libomp.dll`) | running on several processor cores | Apache-2.0 WITH LLVM-exception |
 | Microsoft Visual C++ runtime | the C++ library `llama-server` is built against | Microsoft's redistributable terms (below) |
 
-**Not bundled: the language model.** writing-check never downloads or ships a model: you choose a `.gguf` file in
+**Not bundled: the language model.** Kashiro never downloads or ships a model: you choose a `.gguf` file in
 Settings. The suggested model, Qwen3.5-4B by the Qwen team (Alibaba Cloud), is licensed under Apache-2.0; its
 licence comes with the download.
 
@@ -29,9 +29,9 @@ licence comes with the download.
 "Microsoft Visual C++ v14 Redistributable (x64) - 14.51.36247", so that the writing helper runs without
 installing the runtime (which needs administrator rights). © Microsoft Corporation. All rights reserved.
 
-They are Microsoft's redistributable code, distributed with writing-check under Microsoft's licence terms for the
+They are Microsoft's redistributable code, distributed with Kashiro under Microsoft's licence terms for the
 Visual C++ Redistributable (https://aka.ms/VCRedistLicense). They are not open source and not covered by
-writing-check's Apache-2.0 licence, and they are provided only for use with writing-check.
+Kashiro's Apache-2.0 licence, and they are provided only for use with Kashiro.
 
 ## llama.cpp (MIT)
 

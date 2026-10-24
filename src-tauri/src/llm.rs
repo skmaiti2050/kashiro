@@ -449,7 +449,7 @@ pub fn sha256_of(path: &Path) -> io::Result<String> {
 pub async fn sha256_file(app: tauri::AppHandle, path: String) -> Result<String, String> {
     let file = PathBuf::from(&path);
     if !app.fs_scope().is_allowed(&file) {
-        return Err(format!("{path} was not chosen in writing-check, so it can't be read"));
+        return Err(format!("{path} was not chosen in Kashiro, so it can't be read"));
     }
     tauri::async_runtime::spawn_blocking(move || sha256_of(&file))
         .await

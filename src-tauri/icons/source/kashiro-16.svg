@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 128 128">
+  <!-- The 16 px variant of kashiro.svg: a thicker tick (stroke 18) so it stays readable. -->
+  <rect x="4" y="4" width="120" height="120" rx="28" fill="#1E2328"/>
+  <path d="M34 68 L54 88 L96 40" fill="none" stroke="#D4A62A" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

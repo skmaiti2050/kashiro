@@ -17,6 +17,7 @@
     "build:frequency": "tsx scripts/build-frequency.ts",
     "build:romanised": "tsx scripts/build-romanised.ts",
     "build:notices": "tsx scripts/build-notices.ts",
+    "build:icons": "tsx scripts/build-icons.ts",
     "fetch:llama": "tsx scripts/fetch-llama.ts",
     "check:llama": "tsx scripts/fetch-llama.ts --check",
     "portable:zip": "tsx scripts/portable-zip.ts",

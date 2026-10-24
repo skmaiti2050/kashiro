@@ -343,7 +343,7 @@ describe('SessionController: save', () => {
     expect(saves[0].path).toBe('/docs/essay.checked.docx');
     expect(saves[0].overwrite).toBe(false);
     const xml = await documentXmlOf(saves[0].bytes);
-    expect(xml.match(/<w:ins [^>]*w:author="writing-check"/g)).toHaveLength(2);
+    expect(xml.match(/<w:ins [^>]*w:author="Kashiro"/g)).toHaveLength(2);
     expect(xml).toContain('cannot');
     expect(english(controller.getState().notice)).toBe('Saved as /docs/essay.checked.docx');
   });
@@ -410,7 +410,7 @@ describe('SessionController: save', () => {
     await openDocx(controller);
     await controller.exportReport();
     expect(saves[0].path).toBe('/docs/essay.report.md');
-    expect(decode(saves[0].bytes)).toMatch(/^# Writing check report: essay\.docx/);
+    expect(decode(saves[0].bytes)).toMatch(/^# Kashiro report: essay\.docx/);
     expect(english(controller.getState().notice)).toBe('Saved the report as /docs/essay.report.md');
   });
 });

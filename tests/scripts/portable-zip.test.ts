@@ -27,7 +27,7 @@ describe('the per-user installer (tauri.conf.json)', () => {
 
   it('makes one zip per release config: the full app, and the one without AI (tauri.noai.conf.json)', () => {
     const configs = readTauriConfigs(path.join(ROOT, 'src-tauri'));
-    expect(PORTABLE_ZIPS.map((z) => z.file)).toEqual(['dist-portable/writing-check-1.0.0-win-x64.zip', 'dist-portable/writing-check-1.0.0-win-x64-noai.zip']);
+    expect(PORTABLE_ZIPS.map((z) => z.file)).toEqual(['dist-portable/Kashiro-1.0.0-win-x64.zip', 'dist-portable/Kashiro-1.0.0-win-x64-noai.zip']);
     expect(PORTABLE_ZIPS.map((z) => z.conf)).toEqual([configs.full, configs.noai]);
   });
 });
@@ -48,7 +48,8 @@ describe('portableEntries', () => {
     return { root, srcTauri };
   };
   const bundle: TauriBundleConf = {
-    productName: 'writing-check',
+    productName: 'Kashiro',
+    mainBinaryName: 'Kashiro',
     version: '1.0.0',
     bundle: { resources: { 'binaries/llama/*': 'llama/', '../resources/ATTRIBUTION.md': 'notices/data.md' } },
   };
@@ -57,10 +58,10 @@ describe('portableEntries', () => {
     const { root, srcTauri } = makeProject();
     const entries = portableEntries(bundle, srcTauri, path.join(root, 'app.exe'));
     expect(entries.map((e) => e.zipPath)).toEqual([
-      'writing-check/writing-check.exe',
-      'writing-check/llama/ggml.dll',
-      'writing-check/llama/llama-server.exe',
-      'writing-check/notices/data.md',
+      'Kashiro/Kashiro.exe',
+      'Kashiro/llama/ggml.dll',
+      'Kashiro/llama/llama-server.exe',
+      'Kashiro/notices/data.md',
     ]);
     expect(entries[3].sourcePath).toBe(path.join(root, 'resources/ATTRIBUTION.md'));
     fs.rmSync(root, { recursive: true });
@@ -90,7 +91,7 @@ describe('a stale exe is refused (Minor 7)', () => {
 
   it('refuses an exe of another version, or one older than tauri.conf.json', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'portable-exe-'));
-    const exe = path.join(dir, 'writing-check.exe');
+    const exe = path.join(dir, 'Kashiro.exe');
     const confFile = path.join(dir, 'tauri.conf.json');
     fs.writeFileSync(confFile, '{}');
     fs.writeFileSync(exe, versionResource('1.0.0'));

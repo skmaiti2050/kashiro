@@ -271,8 +271,8 @@ describe('saved reviews: .docx', () => {
     await controller.save();
     const xml = await documentXmlOf(saves[0].bytes);
     expect(saves[0].path).toBe('/docs/essay.checked.docx');
-    expect(xml.match(/<w:ins [^>]*w:author="writing-check"/g)).toHaveLength(2);
-    expect(xml.match(/<w:del [^>]*w:author="writing-check"/g)).toHaveLength(2);
+    expect(xml.match(/<w:ins [^>]*w:author="Kashiro"/g)).toHaveLength(2);
+    expect(xml.match(/<w:del [^>]*w:author="Kashiro"/g)).toHaveLength(2);
     expect(xml.match(/cannot/g)).toHaveLength(2);
   });
 

@@ -1,6 +1,6 @@
 # Fonts attribution
 
-writing-check bundles two readable fonts for Settings › Text and reading › Font, and two Indic fonts for
+Kashiro bundles two readable fonts for Settings › Text and reading › Font, and two Indic fonts for
 the Hindi and Bengali interface and for Hindi or Bengali text in documents. They are packaged into the
 app from npm (`src/ui/fonts.css`); nothing is downloaded at run time.
 

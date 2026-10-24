@@ -1,7 +1,7 @@
 # Romanised Indian-language model attribution
 
 `romanised-ngrams.json` holds character n-gram counts (orders 1–4) for ten romanised Indian languages (Hindi,
-Bengali, Tamil, Telugu, Kannada, Malayalam, Marathi, Gujarati, Punjabi and Urdu) and English. writing-check
+Bengali, Tamil, Telugu, Kannada, Malayalam, Marathi, Gujarati, Punjabi and Urdu) and English. Kashiro
 uses them to tell a romanised Indian-language word that the English spell checker flags ("accha", "khub
 bhalo", "konjam") from an English typo, for the "Words in Indian languages" card.
 

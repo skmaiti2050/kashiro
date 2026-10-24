@@ -71,7 +71,7 @@ describe('check-file CLI', () => {
     expect(json.safe).toBeGreaterThanOrEqual(1);
     const bytes = fs.readFileSync(output);
     expect(bytes.toString('utf8')).toBe('\ufeffI think the cat sat.\r\n\r\nSecond paragraph here.\r\n');
-    expect(fs.readFileSync(report, 'utf8')).toContain('# Writing check report');
+    expect(fs.readFileSync(report, 'utf8')).toContain('# Kashiro report');
   });
 
   it('refuses an output path equal to the input (case-insensitive on Windows)', async () => {

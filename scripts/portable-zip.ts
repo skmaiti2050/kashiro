@@ -1,8 +1,8 @@
 /**
  * `npm run portable:zip` (Task 14): writes the two portable zips in dist-portable/:
- *   - writing-check-<version>-win-x64.zip: writing-check.exe from the release build with every bundle resource
- *     of tauri.conf.json beside it, in the layout the installer uses (Tauri looks for resources next to the exe);
- *   - writing-check-<version>-win-x64-noai.zip: the same for tauri.noai.conf.json, the version without the AI
+ *   - Kashiro-<version>-win-x64.zip: Kashiro.exe from the release build with every bundle resource of
+ *     tauri.conf.json beside it, in the layout the installer uses (Tauri looks for resources next to the exe);
+ *   - Kashiro-<version>-win-x64-noai.zip: the same for tauri.noai.conf.json, the version without the AI
  *     helper (no llama/ folder); the app then says "AI helper not installed" in Settings.
  * Unzipped into any user folder, it runs without installing; settings and saved reviews still go to the app's
  * data folder (docs/INSTALL.md).
@@ -20,13 +20,14 @@ import { readTauriConfigs } from './tauriConfigs';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SRC_TAURI = path.join(ROOT, 'src-tauri');
 const CONF_FILE = path.join(SRC_TAURI, 'tauri.conf.json');
-/** The folder the zip unpacks to. */
-const FOLDER = 'writing-check';
 /** A resource source that stands for every file in a folder: "binaries/llama/*". */
 const FOLDER_GLOB = /\/\*$/;
 
 export interface TauriBundleConf {
+  /** Also the folder the zip unpacks to. */
   productName: string;
+  /** The exe's name without ".exe" (Tauri renames the cargo binary to it). */
+  mainBinaryName: string;
   version: string;
   bundle: { resources?: Record<string, string> };
 }
@@ -52,7 +53,8 @@ export interface ZipEntry {
  */
 export function portableEntries(tauriConf: TauriBundleConf, srcTauri: string, exe: string): ZipEntry[] {
   if (!fs.existsSync(exe)) throw new Error(`${exe} is missing: run npx tauri build first.`);
-  const entries: ZipEntry[] = [{ zipPath: `${FOLDER}/${tauriConf.productName}.exe`, sourcePath: exe }];
+  const folder = tauriConf.productName;
+  const entries: ZipEntry[] = [{ zipPath: `${folder}/${tauriConf.mainBinaryName}.exe`, sourcePath: exe }];
   for (const [source, target] of Object.entries(tauriConf.bundle.resources ?? {})) {
     const sourcePath = path.join(srcTauri, source.replace(FOLDER_GLOB, ''));
     if (!fs.existsSync(sourcePath)) {
@@ -60,11 +62,11 @@ export function portableEntries(tauriConf: TauriBundleConf, srcTauri: string, ex
       throw new Error(`${sourcePath} is missing: ${hint}.`);
     }
     if (!FOLDER_GLOB.test(source)) {
-      entries.push({ zipPath: `${FOLDER}/${target}`, sourcePath });
+      entries.push({ zipPath: `${folder}/${target}`, sourcePath });
       continue;
     }
     const names = fs.readdirSync(sourcePath, { withFileTypes: true }).filter((e) => e.isFile()).map((e) => e.name).sort();
-    for (const name of names) entries.push({ zipPath: `${FOLDER}/${target}${name}`, sourcePath: path.join(sourcePath, name) });
+    for (const name of names) entries.push({ zipPath: `${folder}/${target}${name}`, sourcePath: path.join(sourcePath, name) });
   }
   return entries;
 }
@@ -90,7 +92,7 @@ export function exeProblems(exe: string, version: string, confFile: string): str
 }
 
 async function main(): Promise<void> {
-  const exe = path.join(SRC_TAURI, 'target/release', `${conf.productName}.exe`);
+  const exe = path.join(SRC_TAURI, 'target/release', `${conf.mainBinaryName}.exe`);
   const problems = [...pinnedBuildProblems(), ...(fs.existsSync(exe) ? exeProblems(exe, conf.version, CONF_FILE) : [])];
   if (problems.length > 0) throw new Error(`Not packaging:\n${problems.join('\n')}`);
   for (const { file, conf: zipConf } of PORTABLE_ZIPS) {

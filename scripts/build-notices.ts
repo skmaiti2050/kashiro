@@ -1,7 +1,7 @@
 /**
  * `npm run build:notices` (Task 14): writes resources/notices/THIRD-PARTY-NOTICES.txt, the licence texts of
  * the code that ships inside the app: the npm production packages (bundled into the web pages) and the crates
- * compiled into writing-check.exe. Offline: it reads the installed packages and `cargo metadata --offline`.
+ * compiled into Kashiro.exe. Offline: it reads the installed packages and `cargo metadata --offline`.
  * The data files, fonts, Harper and llama.cpp have their own ATTRIBUTION.md files under resources/.
  *
  * Run it after any dependency upgrade and commit the result; tests/scripts/build-notices.test.ts checks that
@@ -58,10 +58,10 @@ export function formatThirdPartyNotices(packages: PackageNotice[]): string {
     sections.push(`${RULE}\nThese packages ship no licence file; each is used under the licence it declares:\n\n${withoutFile.join('\n')}\n`);
   }
   const header = [
-    'Third-party notices for writing-check',
+    'Third-party notices for Kashiro',
     '',
-    'The libraries built into writing-check: the JavaScript packages in its window and the Rust crates in',
-    'writing-check.exe. The word data, fonts, Harper and llama.cpp have their own notice files in this folder;',
+    'The libraries built into Kashiro: the JavaScript packages in its window and the Rust crates in',
+    'Kashiro.exe. The word data, fonts, Harper and llama.cpp have their own notice files in this folder;',
     'the Microsoft Visual C++ runtime bundled with the AI helper is covered in llama-cpp.md.',
     'The source code of every crate listed here, including the MPL-2.0 ones, is published unmodified on',
     'crates.io at the version shown; the npm packages are published on npmjs.com.',

@@ -1,8 +1,9 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "writing-check",
+  "productName": "Kashiro",
+  "mainBinaryName": "Kashiro",
   "version": "1.0.0",
-  "identifier": "app.writingcheck.desktop",
+  "identifier": "app.kashiro.desktop",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -13,7 +14,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "writing-check",
+        "title": "Kashiro",
         "width": 1200,
         "height": 800,
         "minWidth": 760,

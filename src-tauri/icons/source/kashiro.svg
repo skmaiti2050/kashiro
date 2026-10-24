@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 128 128">
+  <!-- Kashiro touchstone mark: a slate tile with one gold streak shaped like a tick. Stroke 13 for 128 px and above. -->
+  <rect x="4" y="4" width="120" height="120" rx="28" fill="#1E2328"/>
+  <path d="M34 68 L54 88 L96 40" fill="none" stroke="#D4A62A" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

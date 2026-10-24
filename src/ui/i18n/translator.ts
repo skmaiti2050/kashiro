@@ -29,7 +29,7 @@ const cache = createIntlCache();
 
 /** A format problem in a catalogue (a bad plural, a missing value) is a bug: say so, and show the key's English. */
 function reportFormatError(error: { message: string }): void {
-  console.error(`writing-check i18n: ${error.message}`);
+  console.error(`Kashiro i18n: ${error.message}`);
 }
 
 export function createTranslator(language: UiLocale, osLanguages: readonly string[]): Translator {

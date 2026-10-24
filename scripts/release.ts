@@ -1,8 +1,8 @@
 /**
  * `npm run release` (Task 14 fix round 2): builds the four release files.
- *   1. The installer without the AI helper (tauri.noai.conf.json), renamed to writing-check-noai_<version>_x64-setup.exe:
+ *   1. The installer without the AI helper (tauri.noai.conf.json), renamed to Kashiro-noai_<version>_x64-setup.exe:
  *      both builds write the same file name, so it must move before the next build.
- *   2. The full installer, writing-check_<version>_x64-setup.exe.
+ *   2. The full installer, Kashiro_<version>_x64-setup.exe.
  *   3. Both portable zips (npm run portable:zip, from the full build's exe).
  * Run `npm run fetch:llama` first; every Tauri build checks the llama.cpp files (check:llama). Offline.
  */

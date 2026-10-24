@@ -32,7 +32,7 @@ Phrases are not listed as headwords (they still appear as synonyms). Built with 
 
 ## Princeton WordNet licence
 
-The Princeton name is not used to advertise or promote writing-check.
+The Princeton name is not used to advertise or promote Kashiro.
 
 Full text, verbatim (the line numbers of the source file are removed):
 

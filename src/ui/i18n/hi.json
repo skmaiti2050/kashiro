@@ -1,7 +1,7 @@
 {
   "@@locale": "hi",
   "@@status": "needs native review",
-  "@@note": "Draft in simple everyday Hindi. Every message needs a native speaker's review before release (see docs/TRANSLATING.md).",
+  "@@note": "Draft in simple everyday Hindi. Every message needs a native speaker's review before release (see docs/TRANSLATING.md). The app's name is written काशिरो inside Hindi text (Task R1): check it reads naturally in lookup.failedNext, about.*, modules.aiNotInstalled and error.unsupported.",
 
   "app.starting": "शुरू हो रहा है…",
   "dialog.close": "बंद करें",
@@ -318,7 +318,7 @@
   "lookup.noWord": "अपने टेक्स्ट में किसी शब्द पर कर्सर रखें या उसे चुनें, फिर दोबारा \"शब्द का अर्थ देखें\" चुनें।",
   "lookup.unavailable": "इस विंडो में शब्दों का मतलब देखने की सुविधा नहीं है।",
   "lookup.failed": "डिक्शनरी नहीं खुल सकी",
-  "lookup.failedNext": "फिर से कोशिश करें; बार-बार ऐसा हो तो writing-check दोबारा इंस्टॉल करें।",
+  "lookup.failedNext": "फिर से कोशिश करें; बार-बार ऐसा हो तो काशिरो दोबारा इंस्टॉल करें।",
   "lookup.yourText": "आपका टेक्स्ट",
   "lookup.suggestion": "सुझाव",
   "lookup.inDictionary": "आपकी डिक्शनरी में है",
@@ -331,12 +331,12 @@
   "lookup.adjective": "विशेषण",
   "lookup.adverb": "क्रियाविशेषण",
 
-  "about.title": "writing-check के बारे में",
+  "about.title": "काशिरो के बारे में",
   "about.version": "संस्करण {version}",
-  "about.privacy": "आपका लिखा इसी PC पर रहता है। writing-check इंटरनेट से नहीं जुड़ता, सिवाय तब जब आप लेखन मॉडल डाउनलोड करने को कहें।",
-  "about.licence": "writing-check मुक्त सॉफ़्टवेयर है, Apache License 2.0 के तहत।",
+  "about.privacy": "आपका लिखा इसी PC पर रहता है। काशिरो इंटरनेट से नहीं जुड़ता, सिवाय तब जब आप लेखन मॉडल डाउनलोड करने को कहें।",
+  "about.licence": "काशिरो मुक्त सॉफ़्टवेयर है, Apache License 2.0 के तहत।",
   "about.notices": "दूसरों के सॉफ़्टवेयर और डेटा की सूचनाएँ",
-  "about.noticesHint": "writing-check में शामिल डेटा, फ़ॉन्ट और लाइब्रेरी के श्रेय और लाइसेंस। ये अंग्रेज़ी में हैं।",
+  "about.noticesHint": "काशिरो में शामिल डेटा, फ़ॉन्ट और लाइब्रेरी के श्रेय और लाइसेंस। ये अंग्रेज़ी में हैं।",
 
   "settings.title": "सेटिंग्स",
   "settings.variant": "अंग्रेज़ी का डिफ़ॉल्ट प्रकार",
@@ -387,7 +387,7 @@
   "modules.legend": "मॉड्यूल",
   "modules.perGoal": "{goal} लक्ष्य के लिए अलग मॉड्यूल इस्तेमाल करें",
   "modules.needsModel": "इसके लिए मॉडल फ़ाइल चाहिए। नीचे एक फ़ाइल चुनें।",
-  "modules.aiNotInstalled": "AI सहायक इंस्टॉल नहीं है। writing-check की यह कॉपी उसके बिना इंस्टॉल की गई थी; उसे जोड़ने के लिए INSTALL.md देखें।",
+  "modules.aiNotInstalled": "AI सहायक इंस्टॉल नहीं है। काशिरो की यह कॉपी उसके बिना इंस्टॉल की गई थी; उसे जोड़ने के लिए INSTALL.md देखें।",
   "modules.alwaysOn": "स्पेलिंग और व्याकरण के नियम, और नाम, संख्याओं, उद्धरणों और कोड की सुरक्षा हमेशा चालू रहती है।",
   "modules.namesCard": "नामों का कार्ड",
   "modules.namesCardDescription": "नाम और जगहें एक कार्ड में इकट्ठा करता है, ताकि आप उन्हें एक बार में जोड़ सकें।",
@@ -451,7 +451,7 @@
 
   "error.explain": "{what}: {cause} {next}",
   "error.plain": "{cause}",
-  "error.unsupported": "{name} नहीं खुल सकी: writing-check .docx, .txt और .md फ़ाइलें खोलता है। फ़ाइल को इनमें से किसी फ़ॉर्मैट में सेव करें, फिर दोबारा खोलें।",
+  "error.unsupported": "{name} नहीं खुल सकी: काशिरो .docx, .txt और .md फ़ाइलें खोलता है। फ़ाइल को इनमें से किसी फ़ॉर्मैट में सेव करें, फिर दोबारा खोलें।",
   "error.open": "{name} नहीं खुल सकी",
   "error.openNext": "देख लें कि फ़ाइल Word या किसी टेक्स्ट एडिटर में खुलती है, फिर दोबारा कोशिश करें।",
   "error.file.damaged": "{name} नहीं खुल सकी: फ़ाइल खराब है या अधूरी है। अगर इसे कॉपी या डाउनलोड किया था, तो नई कॉपी लें, या इसे Word में खोलकर फिर से सेव करें।",

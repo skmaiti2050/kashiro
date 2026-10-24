@@ -3,15 +3,15 @@
 ; removes the helper's files it does not ship, so the app says "AI helper not installed" instead of running a
 ; helper left from the other install. Settings and saved reviews are kept.
 ;
-; Never damage the user's files: $INSTDIR is whatever folder was picked, so this runs only where writing-check.exe
-; is, deletes only the pinned file names (deps/assets.json: llama-server, vc-runtime, llama-server-vulkan; a test
+; Never damage the user's files: $INSTDIR is whatever folder was picked, so this runs only where the app's exe
+; (Kashiro.exe) is, deletes only the pinned file names (deps/assets.json: llama-server, vc-runtime, llama-server-vulkan; a test
 ; keeps this list equal to them), and removes a folder only once it is empty.
 
-; Asks the user to close writing-check before installing or uninstalling, as the full version does.
+; Asks the user to close Kashiro before installing or uninstalling, as the full version does.
 !include "${__FILEDIR__}\close-app.nsh"
 
 !macro NSIS_HOOK_POSTINSTALL
-  ${If} ${FileExists} "$INSTDIR\writing-check.exe"
+  ${If} ${FileExists} "$INSTDIR\${MAINBINARYNAME}.exe"
     Delete "$INSTDIR\llama\llama-server.exe"
     Delete "$INSTDIR\llama\llama-server-impl.dll"
     Delete "$INSTDIR\llama\llama-common.dll"

@@ -1,4 +1,4 @@
-# Translating writing-check
+# Translating Kashiro
 
 The app's interface (menus, cards, messages, screen-reader text) can be shown in any language. The text
 being **checked** is always English; that is separate, and not part of these files.

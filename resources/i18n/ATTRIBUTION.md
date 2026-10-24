@@ -1,6 +1,6 @@
 # Interface translation library: third-party notices
 
-writing-check formats its interface text (ICU MessageFormat plurals, numbers and lists) with FormatJS
+Kashiro formats its interface text (ICU MessageFormat plurals, numbers and lists) with FormatJS
 `react-intl`, bundled into the app from npm (`src/ui/i18n/translator.ts`). Nothing is downloaded at run
 time. The packages below are bundled unmodified; their licence texts are copied from each package's
 `LICENSE.md` and must ship with the installer.

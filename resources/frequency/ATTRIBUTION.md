@@ -1,7 +1,7 @@
 # Word frequency data attribution
 
 `en-wordfreq.json` is derived from **wordfreq 3.1.1** by Robyn Speer (https://github.com/rspeer/wordfreq),
-English, `wordlist=large`. writing-check uses it to rank spelling suggestions, to add likely words the
+English, `wordlist=large`. Kashiro uses it to rank spelling suggestions, to add likely words the
 spell checker missed, and to tell common words from rare ones (the terms card and its common-words list,
 `src/engine/wordlists/common.ts`).
 

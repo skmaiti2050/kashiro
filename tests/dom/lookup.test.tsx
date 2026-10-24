@@ -116,7 +116,7 @@ describe('Look up on a review item', () => {
     fireEvent.click(within(showCardFor('recieve')).getByRole('button', { name: 'Look up' }));
     const message = await screen.findByText(/The dictionary could not be loaded/);
     expect(message.getAttribute('role')).toBe('alert');
-    expect(message.textContent).toBe('The dictionary could not be loaded: resource not found. Try again; if it keeps failing, reinstall writing-check.');
+    expect(message.textContent).toBe('The dictionary could not be loaded: resource not found. Try again; if it keeps failing, reinstall Kashiro.');
   });
 });
 
@@ -245,7 +245,7 @@ describe('About', () => {
     more.focus();
     chooseFromMore('About');
     // About loads its notices (about 1 MB of text) on demand; under the full suite's load that takes over 1 s.
-    const dialog = await screen.findByRole('dialog', { name: 'About writing-check' }, { timeout: 10_000 });
+    const dialog = await screen.findByRole('dialog', { name: 'About Kashiro' }, { timeout: 10_000 });
     expect(within(dialog).getByText('Version 1.0.0')).toBeTruthy();
     expect(within(dialog).getByText(/Your writing stays on this PC\./)).toBeTruthy();
     const notices = dialog.querySelector('.notices')!;

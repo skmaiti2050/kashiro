@@ -1,7 +1,7 @@
 {
   "@@locale": "bn",
   "@@status": "needs native review",
-  "@@note": "Draft in simple everyday Bengali (India). Every message needs a native speaker's review before release (see docs/TRANSLATING.md).",
+  "@@note": "Draft in simple everyday Bengali (India). Every message needs a native speaker's review before release (see docs/TRANSLATING.md). The app's name is written কাশিরো inside Bengali text (Task R1): check it reads naturally in lookup.failedNext, about.*, modules.aiNotInstalled and error.unsupported, including the suffixes কাশিরো-তে and কাশিরো-র (the name ends in a vowel).",
 
   "app.starting": "চালু হচ্ছে…",
   "dialog.close": "বন্ধ করুন",
@@ -318,7 +318,7 @@
   "lookup.noWord": "আপনার লেখার কোনো শব্দে কার্সর রাখুন বা শব্দটি বেছে নিন, তারপর আবার \"শব্দের মানে দেখুন\" বেছে নিন।",
   "lookup.unavailable": "এই উইন্ডোতে শব্দের মানে দেখার সুবিধা নেই।",
   "lookup.failed": "অভিধান খোলা যায়নি",
-  "lookup.failedNext": "আবার চেষ্টা করুন; বারবার এমন হলে writing-check আবার ইনস্টল করুন।",
+  "lookup.failedNext": "আবার চেষ্টা করুন; বারবার এমন হলে কাশিরো আবার ইনস্টল করুন।",
   "lookup.yourText": "আপনার লেখা",
   "lookup.suggestion": "পরামর্শ",
   "lookup.inDictionary": "আপনার অভিধানে আছে",
@@ -331,12 +331,12 @@
   "lookup.adjective": "বিশেষণ",
   "lookup.adverb": "ক্রিয়াবিশেষণ",
 
-  "about.title": "writing-check সম্পর্কে",
+  "about.title": "কাশিরো সম্পর্কে",
   "about.version": "সংস্করণ {version}",
-  "about.privacy": "আপনার লেখা এই PC-তেই থাকে। writing-check ইন্টারনেটে যুক্ত হয় না, শুধু আপনি বললে লেখার মডেল ডাউনলোড করে।",
-  "about.licence": "writing-check বিনামূল্যের সফটওয়্যার, Apache License 2.0 অনুযায়ী।",
+  "about.privacy": "আপনার লেখা এই PC-তেই থাকে। কাশিরো ইন্টারনেটে যুক্ত হয় না, শুধু আপনি বললে লেখার মডেল ডাউনলোড করে।",
+  "about.licence": "কাশিরো বিনামূল্যের সফটওয়্যার, Apache License 2.0 অনুযায়ী।",
   "about.notices": "অন্যদের সফটওয়্যার ও ডেটার বিজ্ঞপ্তি",
-  "about.noticesHint": "writing-check-এ থাকা ডেটা, ফন্ট আর লাইব্রেরির কৃতিত্ব ও লাইসেন্স। এগুলো ইংরেজিতে।",
+  "about.noticesHint": "কাশিরো-তে থাকা ডেটা, ফন্ট আর লাইব্রেরির কৃতিত্ব ও লাইসেন্স। এগুলো ইংরেজিতে।",
 
   "settings.title": "সেটিংস",
   "settings.variant": "ইংরেজির ডিফল্ট ধরন",
@@ -387,7 +387,7 @@
   "modules.legend": "মডিউল",
   "modules.perGoal": "{goal} লক্ষ্যের জন্য আলাদা মডিউল ব্যবহার করুন",
   "modules.needsModel": "এর জন্য একটি মডেল ফাইল দরকার। নিচে একটি ফাইল বেছে নিন।",
-  "modules.aiNotInstalled": "AI সহায়ক ইনস্টল করা নেই। writing-check-এর এই কপিটি এটি ছাড়াই ইনস্টল করা হয়েছে; এটি যোগ করতে INSTALL.md দেখুন।",
+  "modules.aiNotInstalled": "AI সহায়ক ইনস্টল করা নেই। কাশিরো-র এই কপিটি এটি ছাড়াই ইনস্টল করা হয়েছে; এটি যোগ করতে INSTALL.md দেখুন।",
   "modules.alwaysOn": "বানান ও ব্যাকরণের নিয়ম, আর নাম, সংখ্যা, উদ্ধৃতি ও কোডের সুরক্ষা সবসময় চালু থাকে।",
   "modules.namesCard": "নামের কার্ড",
   "modules.namesCardDescription": "নাম আর জায়গাগুলো একটা কার্ডে জড়ো করে, যাতে একবারে যোগ করতে পারেন।",
@@ -451,7 +451,7 @@
 
   "error.explain": "{what}: {cause} {next}",
   "error.plain": "{cause}",
-  "error.unsupported": "{name} খোলা যাচ্ছে না: writing-check .docx, .txt আর .md ফাইল খোলে। ফাইলটি এর কোনো একটা ফরম্যাটে সেভ করে আবার খুলুন।",
+  "error.unsupported": "{name} খোলা যাচ্ছে না: কাশিরো .docx, .txt আর .md ফাইল খোলে। ফাইলটি এর কোনো একটা ফরম্যাটে সেভ করে আবার খুলুন।",
   "error.open": "{name} খোলা যাচ্ছে না",
   "error.openNext": "ফাইলটি Word বা কোনো টেক্সট এডিটরে খোলে কি না দেখে নিন, তারপর আবার চেষ্টা করুন।",
   "error.file.damaged": "{name} খোলা যাচ্ছে না: ফাইলটি নষ্ট বা অসম্পূর্ণ। কপি বা ডাউনলোড করা হলে নতুন কপি নিন, অথবা Word-এ খুলে আবার সেভ করুন।",

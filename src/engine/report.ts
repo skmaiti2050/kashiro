@@ -27,7 +27,7 @@ export function exportReport(s: CheckSession, fileName: string): string {
   );
 
   const lines: string[] = [];
-  lines.push(`# Writing check report: ${fileName}`, '');
+  lines.push(`# Kashiro report: ${fileName}`, '');
   lines.push(`- Variant: ${s.variant}`);
   if (s.mixedVariant) {
     lines.push(`- Warning: mixed spelling variants; some words follow another English variant.`);

@@ -1,6 +1,6 @@
 # Grammar and spelling checker: third-party notice
 
-writing-check checks grammar and spelling with **Harper** (https://github.com/automattic/harper), bundled into
+Kashiro checks grammar and spelling with **Harper** (https://github.com/automattic/harper), bundled into
 the app from npm as `harper.js` with its WebAssembly binary (`src/engine/linter.ts`). Nothing is downloaded at
 run time. The package is bundled unmodified; it ships no NOTICE file. Its licence text below is copied from the
 package's `LICENSE` and must ship with the installer.

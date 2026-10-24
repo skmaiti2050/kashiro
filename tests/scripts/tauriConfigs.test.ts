@@ -31,8 +31,15 @@ describe('the two release configs', () => {
     expect(resources(noai)).toEqual(rest);
   });
 
+  it('the app is called Kashiro: product, exe, window title and a new identifier (Task R1)', () => {
+    expect(full.productName).toBe('Kashiro');
+    expect(full.mainBinaryName).toBe('Kashiro');
+    expect(full.identifier).toBe('app.kashiro.desktop');
+    expect((full.app as { windows: { title: string }[] }).windows[0].title).toBe('Kashiro');
+  });
+
   it('both are the same app: same name, identifier, version, CSP and installer settings, so one installs over the other', () => {
-    for (const key of ['productName', 'identifier', 'version', 'app']) expect(noai[key]).toEqual(full[key]);
+    for (const key of ['productName', 'mainBinaryName', 'identifier', 'version', 'app']) expect(noai[key]).toEqual(full[key]);
     const windows = (conf: Record<string, unknown>) => (conf.bundle as { windows: Record<string, unknown> }).windows;
     expect(windows(noai).webviewInstallMode).toEqual({ type: 'skip' });
     expect((windows(noai).nsis as Record<string, unknown>).installMode).toBe('currentUser');
@@ -57,8 +64,8 @@ describe('the two release configs', () => {
       expect(text).toMatch(/RMDir "\$INSTDIR\\llama\\vulkan"\s+RMDir "\$INSTDIR\\llama"/);
     });
 
-    it('does it only in a folder that holds writing-check.exe', () => {
-      expect(text).toMatch(/\$\{If\} \$\{FileExists\} "\$INSTDIR\\writing-check\.exe"/);
+    it('does it only in a folder that holds the app’s exe', () => {
+      expect(text).toMatch(/\$\{If\} \$\{FileExists\} "\$INSTDIR\\\$\{MAINBINARYNAME\}\.exe"/);
     });
   });
 
@@ -72,7 +79,7 @@ describe('the two release configs', () => {
 
     it('with Retry and Cancel, never by closing the app itself', () => {
       expect(text).toMatch(/MessageBox MB_RETRYCANCEL/);
-      expect(text).toMatch(/Close writing-check yourself/);
+      expect(text).toMatch(/Close \$\{PRODUCTNAME\} yourself/);
       expect(text).not.toMatch(/RmShutdown|taskkill|KillProcess/i);
     });
 

@@ -1,6 +1,6 @@
 /**
  * Writes accepted edits back into word/document.xml, either as native tracked changes (w:del / w:ins with
- * author "writing-check") or cleanly (text replaced in place). Pure string splicing on the original XML:
+ * author "Kashiro") or cleanly (text replaced in place). Pure string splicing on the original XML:
  * everything outside the rewritten runs (or, in clean mode, the rewritten w:t elements) keeps its exact bytes.
  *
  * Safety model: an edit is either placed whole or returned as unplaceable with a reason; never half-applied.
@@ -13,7 +13,7 @@ import type { SaveMode } from '../types';
 import { extractDocx, type DocxPara, type TextPiece } from './extract';
 import { splitRawText, tokenize } from './tokenize';
 
-const REVISION_AUTHOR = 'writing-check';
+const REVISION_AUTHOR = 'Kashiro';
 
 export interface Unplaceable {
   edit: Edit;

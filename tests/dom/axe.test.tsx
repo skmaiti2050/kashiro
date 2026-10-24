@@ -215,7 +215,7 @@ describe('axe-core: no serious or critical violations', () => {
   it('About, with every notice open', async () => {
     renderShell(makeController().controller);
     chooseFromMore('About');
-    const dialog = await screen.findByRole('dialog', { name: 'About writing-check' });
+    const dialog = await screen.findByRole('dialog', { name: 'About Kashiro' });
     act(() => dialog.querySelectorAll('details').forEach((details) => (details.open = true)));
     await audit('About');
     // Readable text, not Markdown source (Task U3 item 8); the licence texts stay verbatim in <pre>.
