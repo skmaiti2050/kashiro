@@ -130,7 +130,7 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
   const fixesApplied = session.outcomes().filter((o) => o.status === 'applied').length;
   /** Nothing left to decide: the panel says so in one line. */
   const allClear = !current && progress.left === 0;
-  /** Hindi or Bengali text the English-only check skipped: never an all-clear for a document that is mostly that. */
+  /** Text in another script the English-only check skipped: never an all-clear for a document that is mostly that. */
   const unchecked = uncheckedText(session.paragraphs());
   const englishOnly = unchecked.paragraphs > 0 ? t.t('panel.englishOnly') : null;
   const doneLine = unchecked.mostly ? englishOnly : t.t('panel.allClear', { count: fixesApplied });

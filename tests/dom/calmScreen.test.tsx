@@ -104,16 +104,21 @@ describe('done state', () => {
     expect(within(reviewPanel()).queryByRole('slider')).toBeNull();
   });
 
-  it('a Hindi or Bengali document never gets the all-clear: it says only English was checked (review #4)', async () => {
+  const UNCHECKED = "This document has text in a language Kashiro can't check yet. Only English text was checked.";
+
+  it.each([
+    ['Hindi and Bengali', 'यह एक छोटा सा परीक्षण है। हम कल बाज़ार गए थे।\n\nআমরা কাল বাজারে গিয়েছিলাম।'],
+    ['Tamil', 'நாங்கள் நேற்று சந்தைக்குச் சென்றோம்.\n\nஇது ஒரு சிறிய சோதனை.'],
+    ['Gujarati', 'અમે ગઈકાલે બજારમાં ગયા હતા.'],
+    ['Urdu', 'ہم کل بازار گئے تھے۔'],
+  ])('a %s document never gets the all-clear: it says only English was checked (review #4, F3 re-review M1)', async (_name, text) => {
     const { controller } = makeController();
     renderShell(controller);
-    await openAndWait(controller, () => controller.openText('यह एक छोटा सा परीक्षण है। हम कल बाज़ार गए थे।\n\nআমরা কাল বাজারে গিয়েছিলাম।'));
+    await openAndWait(controller, () => controller.openText(text));
     expect(controller.getState().session!.rankedDecisionCount()).toBe(0);
-    expect(within(reviewPanel()).getByRole('heading', { name: "Kashiro can't check Hindi or Bengali yet. Only English text was checked." })).toBeTruthy();
+    expect(within(reviewPanel()).getByRole('heading', { name: UNCHECKED })).toBeTruthy();
     expect(within(reviewPanel()).queryByText(/All clear/)).toBeNull();
-    expect(english(controller.getState().announcement!.message)).toBe(
-      "Check finished: nothing to decide. Kashiro can't check Hindi or Bengali yet. Only English text was checked.",
-    );
+    expect(english(controller.getState().announcement!.message)).toBe(`Check finished: nothing to decide. ${UNCHECKED}`);
   });
 
   it('a mostly English document with a Hindi paragraph is all clear, with the same notice under it', async () => {
@@ -121,7 +126,7 @@ describe('done state', () => {
     renderShell(controller);
     await openAndWait(controller, () => controller.openText('I think teh cat sat on the mat. We will meet again next week.\n\nयह एक परीक्षण है।'));
     expect(within(reviewPanel()).getByText('All clear: 1 fix applied, nothing left to decide.')).toBeTruthy();
-    expect(within(reviewPanel()).getByText("Kashiro can't check Hindi or Bengali yet. Only English text was checked.")).toBeTruthy();
+    expect(within(reviewPanel()).getByText(UNCHECKED)).toBeTruthy();
   });
 });
 
