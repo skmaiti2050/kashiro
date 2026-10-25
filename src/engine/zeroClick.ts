@@ -30,20 +30,41 @@ function looksLaidOut(text: string): boolean {
   return gaps.some((n) => n >= 2) || gaps.filter((n) => n > 0).length >= 2;
 }
 
+/** A sentence's end at the end of a line: "home.", "done?" (with a closing quote or bracket after it). */
+const ENDS_SENTENCE = /[.?!]["”’)]*\s*$/u;
+
+/** A one-line paragraph with a column gap and no sentence end: "Name      Rahul Sharma", "Score: India 250  Australia 245". */
+function isKeyValueLine(text: string): boolean {
+  // search, not test: COLUMN_GAP is global, and test would carry its lastIndex from one call to the next.
+  return !LINE_BREAK.test(text) && text.search(COLUMN_GAP) !== -1 && !ENDS_SENTENCE.test(text);
+}
+
+/**
+ * Ids of one-line paragraphs lined up with a neighbour: two or more key–value lines in a row (isKeyValueLine),
+ * each its own paragraph. Their spaces are layout though no one paragraph shows it (F4 re-review 3, M-3).
+ */
+export function findAlignedParagraphs(paras: readonly Paragraph[]): Set<number> {
+  const keyValue = paras.map((p) => isKeyValueLine(p.text));
+  return new Set(paras.filter((_, i) => keyValue[i] && (keyValue[i - 1] || keyValue[i + 1])).map((p) => p.id));
+}
+
 /** True when `c` collapses a run of spaces between two words, outside locked, table and laid-out text. */
-function collapsesSpaces(c: Candidate, paragraph: Paragraph, locked: Span[] | undefined): boolean {
+function collapsesSpaces(c: Candidate, paragraph: Paragraph, locked: Span[] | undefined, aligned: boolean): boolean {
   if (c.source !== 'rules' || c.replacements.length !== 1 || c.replacements[0] !== ' ' || !SPACE_RUN.test(c.original)) return false;
   const { text } = paragraph;
   // Two code units each side, so a character outside the BMP (a tag) is read whole.
   const before = text.slice(Math.max(0, c.span.start - 2), c.span.start);
   const after = String.fromCodePoint(text.codePointAt(c.span.end) ?? 0x20);
   if (before === '' || NOT_A_WORD_EDGE_AT_END.test(before) || NOT_A_WORD_EDGE.test(after)) return false;
-  if (paragraph.tableCell || looksLaidOut(text)) return false;
+  if (paragraph.tableCell || aligned || looksLaidOut(text)) return false;
   return !overlapsLocked(c, locked);
 }
 
-/** True for a hygiene deletion of one invisible character, or a run of spaces collapsed between two words. */
-export function isZeroClickChange(c: Candidate, paragraph: Paragraph, locked: Span[] | undefined): boolean {
+/**
+ * True for a hygiene deletion of one invisible character, or a run of spaces collapsed between two words.
+ * `aligned`: the paragraph lines up with its neighbours (findAlignedParagraphs), so its spaces are layout.
+ */
+export function isZeroClickChange(c: Candidate, paragraph: Paragraph, locked: Span[] | undefined, aligned: boolean): boolean {
   if (c.source === 'hygiene') return c.replacements.length === 1 && c.replacements[0] === '';
-  return collapsesSpaces(c, paragraph, locked);
+  return collapsesSpaces(c, paragraph, locked, aligned);
 }

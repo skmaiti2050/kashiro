@@ -94,6 +94,15 @@ function fakeLinter(lints: Omit<Candidate, 'id' | 'paraId' | 'source'>[]): Rules
   };
 }
 
+describe('spaces lined up across one-line paragraphs (F4 re-review 3, M-3)', () => {
+  it('stay as they are without a click', async () => {
+    const lines = ['Name      Rahul Sharma', 'City      Pune', 'Amount    500', 'Score: India 250  Australia 245'];
+    const s = await start(lines.map((text, id) => ({ id, text })));
+    expect(autoChanges(s)).toEqual([]);
+    expect(lines.map((_, id) => s.outputText(id))).toEqual(lines);
+  });
+});
+
 describe('the token check behind every change made without a click (Task F4)', () => {
   it('takes back a change that would alter a token and sends it to review', async () => {
     // A rule bug: the flag says "two spaces" but its span covers the letters "ta".

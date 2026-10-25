@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isZeroClickChange } from '@/engine/zeroClick';
+import { findAlignedParagraphs, isZeroClickChange } from '@/engine/zeroClick';
 import { findLockedSpans } from '@/engine/factLock';
 import type { Candidate, Paragraph } from '@/engine/types';
 
@@ -17,7 +17,7 @@ function flag(text: string, original: string, replacement: string, kind = 'Forma
   };
 }
 
-const zeroClick = (c: Candidate, paragraph: Paragraph) => isZeroClickChange(c, paragraph, findLockedSpans(paragraph.text));
+const zeroClick = (c: Candidate, paragraph: Paragraph, aligned = false) => isZeroClickChange(c, paragraph, findLockedSpans(paragraph.text), aligned);
 const para = (text: string, over: Partial<Paragraph> = {}): Paragraph => ({ id: 0, text, ...over });
 
 describe('isZeroClickChange (Task F4: only invisible characters and spaces between words)', () => {
@@ -67,5 +67,24 @@ describe('isZeroClickChange (Task F4: only invisible characters and spaces betwe
     // The last run of spaces: the one between two words.
     const run = [...text.matchAll(/ {2,}/g)].at(-1)!;
     expect(zeroClick(flag(text, run[0], ' ', 'Formatting', run.index), para(text, over))).toBe(false);
+  });
+
+  it('leaves spaces in a paragraph lined up with its neighbours', () => {
+    const text = 'Name      Rahul Sharma';
+    expect(zeroClick(flag(text, '      ', ' '), para(text), true)).toBe(false);
+    expect(zeroClick(flag(text, '      ', ' '), para(text), false)).toBe(true);
+  });
+});
+
+describe('findAlignedParagraphs (F4 re-review 3, M-3)', () => {
+  const paras = (...texts: string[]): Paragraph[] => texts.map((text, id) => ({ id, text }));
+
+  it('finds one-line key–value paragraphs in a row: a block laid out with spaces, a line each', () => {
+    const block = paras('Name      Rahul Sharma', 'City      Pune', 'Amount    500', 'Score: India 250  Australia 245', 'We went home.');
+    expect([...findAlignedParagraphs(block)]).toEqual([0, 1, 2, 3]);
+  });
+
+  it('leaves a lone key–value line, and sentences with a stray double space, to the space rule', () => {
+    expect([...findAlignedParagraphs(paras('We went  home.', 'The hall was  full by ten.', 'Name      Rahul', 'It rained.'))]).toEqual([]);
   });
 });

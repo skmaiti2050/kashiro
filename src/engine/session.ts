@@ -8,7 +8,7 @@ import {
   TERMS_CARD_ID,
   type Decision,
 } from './decisions';
-import { isZeroClickChange } from './zeroClick';
+import { findAlignedParagraphs, isZeroClickChange } from './zeroClick';
 import { editsChangingTokens } from './tokenGuard';
 import { untickedByDefault } from './defaultTicks';
 import { checkTermMinRepeats, DEFAULT_TERM_MIN_REPEATS } from './terms';
@@ -70,6 +70,8 @@ export class CheckSession {
   private readonly words: number;
   /** Simple-fixes card members that are there only because the user added their kind in Settings: never ticked. */
   private readonly optedIn = new Set<string>();
+  /** One-line paragraphs lined up with their neighbours (findAlignedParagraphs): their spaces are layout. */
+  private readonly alignedParas: Set<number>;
 
   private constructor(
     paras: Paragraph[],
@@ -84,6 +86,7 @@ export class CheckSession {
     private readonly termMinRepeats: number,
   ) {
     this.words = paras.reduce((n, p) => n + countWords(p.text), 0);
+    this.alignedParas = findAlignedParagraphs(paras);
     this.ledger = new EditLedger(this.cands, now);
     paras.forEach((p, i) => {
       this.paras.set(p.id, p);
@@ -468,7 +471,8 @@ export class CheckSession {
   private sessionTier(c: Candidate): Tier {
     const tier = tierOf(c, this.ctx);
     if (tier !== 'safe') return tier;
-    if (isZeroClickChange(c, this.paras.get(c.paraId)!, this.ctx.locked.get(c.paraId))) return 'safe';
+    const p = this.paras.get(c.paraId)!;
+    if (isZeroClickChange(c, p, this.ctx.locked.get(c.paraId), this.alignedParas.has(c.paraId))) return 'safe';
     // Safe only because the user added its kind in Settings: on the card, but never ticked (owner, 2026-10-25).
     if (this.ctx.userTierOverrides && tierOf(c, { ...this.ctx, userTierOverrides: undefined }) !== 'safe') this.optedIn.add(c.id);
     return 'batch';
