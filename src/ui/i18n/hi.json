@@ -445,6 +445,7 @@
   "explain.onCall": "अंग्रेज़ी में “on a call” कहते हैं, “in call” नहीं।",
   "explain.copeWith": "“cope with” के साथ “up” नहीं लगता।",
   "explain.invisible": "अदृश्य अक्षर ({code} {name})",
+  "explain.directionKept": "अदृश्य दिशा-चिह्न ({code} {name})। काशिरो इसे नहीं हटाता: इसे अकेले हटाने से आसपास का पाठ अलग दिख सकता है।",
   "explain.rewrite": "वाक्य को दोबारा लिखने का सुझाव। स्वीकार करने से पहले अर्थ जाँच लें।",
   "explain.harper": "{text}",
 

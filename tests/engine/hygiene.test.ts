@@ -71,14 +71,43 @@ describe('findInvisible', () => {
   it('flags direction controls U+202A–U+202E and U+180E in Latin text (review #4)', () => {
     const controls = ['\u{202A}', '\u{202B}', '\u{202C}', '\u{202D}', '\u{202E}', '\u{180E}'];
     const r = findInvisible(p(controls.map((ch) => `a${ch}b`).join(' ')));
+    // U+202B … U+202C is a pair; the other direction controls have no partner, so they stay (F3 re-review, D3).
     expect(r.map((c) => c.message)).toEqual([
-      'Invisible character (U+202A LEFT-TO-RIGHT EMBEDDING)',
+      'Direction character left in place (U+202A LEFT-TO-RIGHT EMBEDDING)',
       'Invisible character (U+202B RIGHT-TO-LEFT EMBEDDING)',
       'Invisible character (U+202C POP DIRECTIONAL FORMATTING)',
-      'Invisible character (U+202D LEFT-TO-RIGHT OVERRIDE)',
-      'Invisible character (U+202E RIGHT-TO-LEFT OVERRIDE)',
+      'Direction character left in place (U+202D LEFT-TO-RIGHT OVERRIDE)',
+      'Direction character left in place (U+202E RIGHT-TO-LEFT OVERRIDE)',
       'Invisible character (U+180E MONGOLIAN VOWEL SEPARATOR)',
     ]);
+  });
+
+  /** Each flagged character's offset and whether hygiene offers to delete it. */
+  const flagged = (text: string, locked?: { start: number; end: number }[]) =>
+    findInvisible(p(text), locked).map((c) => [c.span.start, c.replacements.length === 1 && c.replacements[0] === '']);
+
+  it('deletes direction controls only as balanced pairs (F3 re-review, D3)', () => {
+    // RLO … PDF, and a nested LRE … PDF inside it: both pairs go.
+    expect(flagged('a\u{202E}b\u{202A}c\u{202C}d\u{202C}e')).toEqual([[1, true], [3, true], [5, true], [7, true]]);
+  });
+
+  it('reports an unpaired direction control without deleting it: removing it alone would change what the reader sees', () => {
+    const [rlo] = findInvisible(p('Read the note\u{202E}s first.'));
+    expect(rlo).toMatchObject({ span: { start: 13, end: 14 }, replacements: [], kind: 'Invisible', source: 'hygiene' });
+    expect(rlo.message).toBe('Direction character left in place (U+202E RIGHT-TO-LEFT OVERRIDE)');
+    expect(flagged('a\u{202C}b')).toEqual([[1, false]]); // an end with nothing open
+    expect(flagged('a\u{202D}b\u{202E}c\u{202C}d')).toEqual([[1, false], [3, true], [5, true]]); // the outer one never ends
+  });
+
+  it('keeps both ends of a pair when either is inside a protected span (F3 re-review, D3)', () => {
+    const text = 'He said "\u{202E}sales" today\u{202C} and left.';
+    const quote = { start: 8, end: 16 };
+    expect(flagged(text, [quote])).toEqual([[9, false], [22, false]]);
+    expect(flagged(text)).toEqual([[9, true], [22, true]]);
+  });
+
+  it('never flags a variation selector: emoji need it (F3 re-review, D2)', () => {
+    expect(findInvisible(p('a\u{FE0F}b \u{2764}\u{FE0F} c\u{FE00}d'))).toEqual([]);
   });
 
   it('keeps direction controls in a paragraph with right-to-left text, and U+180E in Mongolian', () => {

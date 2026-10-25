@@ -445,6 +445,7 @@
   "explain.onCall": "ইংরেজিতে বলা হয় “on a call”, “in call” নয়।",
   "explain.copeWith": "“cope with”-এর সঙ্গে “up” লাগে না।",
   "explain.invisible": "অদৃশ্য অক্ষর ({code} {name})",
+  "explain.directionKept": "অদৃশ্য দিক-চিহ্ন ({code} {name})। কাশিরো এটি সরায় না: এটি একা সরালে আশপাশের লেখা অন্যভাবে দেখাতে পারে।",
   "explain.rewrite": "বাক্যটি নতুন করে লেখার প্রস্তাব। মেনে নেওয়ার আগে অর্থ মিলিয়ে নিন।",
   "explain.harper": "{text}",
 

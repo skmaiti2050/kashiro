@@ -1,7 +1,16 @@
 import type { Candidate, Span, Tier, Variant } from './types';
 import type { Preset } from './presets';
 import { followsAbbreviation, isSentenceStart, overlapsLocked } from './factLock';
-import { doubledWord, HAS_DIGIT, isCodeNoiseFlag, isSlipFix, UPPER_START, WORD_REWRITE_KINDS } from './wordFlags';
+import {
+  doubledWord,
+  HAS_DIGIT,
+  holdsDoubledWord,
+  isCodeNoiseFlag,
+  isSlipFix,
+  isWholeWords,
+  UPPER_START,
+  WORD_REWRITE_KINDS,
+} from './wordFlags';
 import { overlaps } from './sessionTypes';
 import { isRomanisedIndic } from './romanised/classifier';
 import type { ModuleSwitches } from './modules';
@@ -34,8 +43,6 @@ export interface TierContext {
   modules?: ModuleSwitches;
   /** Ids of list-item paragraphs (Paragraph.listItem): their first word is not a sentence start. */
   listParagraphs?: ReadonlySet<number>;
-  /** paraId → offsets of the invisible characters hygiene deletes (findInvisible). */
-  invisibleAt?: Map<number, ReadonlySet<number>>;
 }
 
 // Repetition is not here: only isSlipDoubling's words are safe to undouble.
@@ -49,30 +56,42 @@ const SAFE_RULE_KINDS = new Set(['Spelling', 'Typo', 'Punctuation', 'Capitalizat
 const ALWAYS_SLIP_DOUBLINGS = new Set(['the', 'a', 'an', 'of', 'to', 'and', 'for', 'with', 'be']);
 
 /**
- * A Repetition flag that is safe to apply unasked: an ALWAYS_SLIP_DOUBLINGS word written twice (doubledWord),
- * fixed by keeping the first. A capitalised first copy must start a sentence ("The the cat"), not be a name
- * or a label ("Plan A a day").
+ * A Repetition flag that is safe to apply unasked: an ALWAYS_SLIP_DOUBLINGS word written twice (doubledWord)
+ * as two whole words, fixed by keeping the first. "for for-profit" and "to to's" are not whole words: the
+ * second copy starts another word (F3 re-review, D1). A capitalised first copy must start a sentence
+ * ("The the cat"), not be a name or a label ("Plan A a day"). Without the paragraph nothing is a slip.
  */
 function isSlipDoubling(c: Candidate, text: string | undefined): boolean {
   const word = doubledWord(c);
-  if (word === null || !ALWAYS_SLIP_DOUBLINGS.has(word)) return false;
-  return c.original.startsWith(word) || (text !== undefined && isSentenceStart(text, c.span.start));
+  if (word === null || !ALWAYS_SLIP_DOUBLINGS.has(word) || text === undefined) return false;
+  if (!isWholeWords(text, c.span)) return false;
+  return c.original.startsWith(word) || isSentenceStart(text, c.span.start);
 }
 
-/** The next word and the space before it, invisible characters included, without punctuation: " m<U+2060>ean". */
-const NEXT_TOKEN = /^\s*[^\s\p{P}]*/u;
+/**
+ * An invisible or format character: a joiner, a direction mark or isolate, a variation selector, a tag
+ * (U+200B, U+200E, U+2066, U+FE0F, U+E0041). Whether or not hygiene deletes it, it splits what the linter reads.
+ */
+const INVISIBLE_CHARACTER = /[\p{Cf}\p{Default_Ignorable_Code_Point}]/u;
+/** Where a word ends: whitespace or punctuation. */
+const WORD_BREAK = /[\s\p{P}]/u;
+const SPACE = /\s/u;
 
 /**
- * True when an invisible character hygiene deletes sits inside the flag, right before it, or in the word
- * after it. The linter read the text without it, but the paragraph still holds it, so neither the span
- * nor a check of the next word (isArticleSwap) is what the reader sees: "a m<U+2060>ean" (review #4, C3).
+ * True when an invisible character sits inside the flag, in the word before it or in the word after it. The
+ * linter read "a m<U+2060>ean" without a character hygiene deletes, and "a m<U+200E>ean" as "a m" + "ean", so
+ * neither the span nor a check of the next word (isArticleSwap) is what the reader sees (review #4, C3;
+ * F3 re-review, D2). Any such character counts, not a list: lists miss the next one.
  */
-function nearInvisible(c: Candidate, ctx: TierContext): boolean {
-  const at = ctx.invisibleAt?.get(c.paraId);
-  if (!at || at.size === 0) return false;
-  const after = NEXT_TOKEN.exec(ctx.paraText?.get(c.paraId)?.slice(c.span.end) ?? '')![0].length;
-  for (let i = c.span.start - 1; i <= c.span.end + after; i++) if (at.has(i)) return true;
-  return false;
+function nearInvisible(c: Candidate, text: string | undefined): boolean {
+  if (text === undefined) return false;
+  let start = c.span.start;
+  let end = c.span.end;
+  while (start > 0 && SPACE.test(text[start - 1])) start--;
+  while (start > 0 && !WORD_BREAK.test(text[start - 1])) start--;
+  while (end < text.length && SPACE.test(text[end])) end++;
+  while (end < text.length && !WORD_BREAK.test(text[end])) end++;
+  return INVISIBLE_CHARACTER.test(text.slice(start, end));
 }
 
 /** Function words (pronouns, articles, auxiliaries, prepositions…). After one, an a/an swap is likely the wrong fix ("an there was" is a typo of "and there was"); the LLM guard ignores them when comparing content words. */
@@ -212,9 +231,10 @@ export function tierOf(c: Candidate, ctx: TierContext): Tier {
   const override = ctx.userTierOverrides?.[c.kind];
   const tier = override ?? baseTier(c, ctx);
   if (tier !== 'safe') return tier;
-  // Whatever the overrides say: a grammatical doubling, or a flag an invisible character skews, is asked first.
-  if (c.kind === 'Repetition' && !isSlipDoubling(c, paraText)) return 'review';
-  if (c.source !== 'hygiene' && nearInvisible(c, ctx)) return 'review';
+  // Whatever the overrides say: a grammatical doubling, a flag that removes or joins a doubled word ("to to's" →
+  // "toto's"), or a flag an invisible character skews, is asked first.
+  if ((c.kind === 'Repetition' || holdsDoubledWord(c)) && !isSlipDoubling(c, paraText)) return 'review';
+  if (c.source !== 'hygiene' && nearInvisible(c, paraText)) return 'review';
   // "y0u" → "you" is likely right, but a token with a digit may be a code nobody recognised: ask first.
   if (WORD_REWRITE_KINDS.has(c.kind) && HAS_DIGIT.test(c.original)) return 'review';
   if (c.source === 'llm' || isConfusableFlag(c)) return 'review';

@@ -28,6 +28,33 @@ export function doubledWord(c: Candidate): string | null {
   return m[2];
 }
 
+/** A word written twice in a flag, in any case: "to to" in "to to's", "for for" in "for for-profit". */
+const HAS_DOUBLED_WORD = /(?<!\p{L})(\p{L}+)\s+\1(?!\p{L})/iu;
+
+/** True when the flag's text holds a word written twice ("to to's" → "toto's" removes one of them). */
+export function holdsDoubledWord(c: Candidate): boolean {
+  return HAS_DOUBLED_WORD.test(c.original);
+}
+
+/**
+ * A character that carries a word on: a letter, mark or digit, a hyphen or dash, an apostrophe, an underscore,
+ * or an invisible or format character ("-" in "for-profit", "'" in "to's", "_" in "for_loop").
+ */
+const CONTINUES_WORD = /[\p{L}\p{M}\p{N}\p{Pc}\p{Pd}'’ʼ\p{Cf}\p{Default_Ignorable_Code_Point}]/u;
+const CONTINUES_BEFORE = new RegExp(`${CONTINUES_WORD.source}$`, 'u');
+const CONTINUES_AFTER = new RegExp(`^${CONTINUES_WORD.source}`, 'u');
+
+/**
+ * True when `span` of `text` is whole words: the characters on either side don't carry a word on. "for for"
+ * in "for for-profit" is not ("for-profit" is one word), nor is "to to" in "a lean-to to keep dry".
+ */
+export function isWholeWords(text: string, span: Span): boolean {
+  // Two code units each side, so a character outside the BMP (a tag, a variation selector) is read whole.
+  const before = text.slice(Math.max(0, span.start - 2), span.start);
+  const after = text.slice(span.end, span.end + 2);
+  return !CONTINUES_BEFORE.test(before) && !CONTINUES_AFTER.test(after);
+}
+
 /** A capital right after a lowercase letter: "preventDefault", "iPhone", "DevTools". */
 const INNER_CAPITAL = /\p{Ll}\p{Lu}/u;
 /** Characters a code token may hold; the token around a flag grows over them ("et" → "et.reportAllChanges"). */

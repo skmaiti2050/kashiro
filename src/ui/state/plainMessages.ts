@@ -1,5 +1,6 @@
 import type { Candidate } from '@/engine/types';
 import { CONFUSABLE_MESSAGES } from '@/engine/confusables';
+import { DIRECTION_KEPT } from '@/engine/hygiene';
 import type { MessageKey } from '../i18n/catalogues';
 import { msg, type Message } from '../i18n/message';
 
@@ -65,7 +66,10 @@ export function explanation({ message, original, kind, source }: Pick<Candidate,
   if (kind === 'Rewrite' && source === 'llm') return msg('explain.rewrite');
   const invisible = kind === 'Invisible' ? INVISIBLE_MESSAGE.exec(message) : null;
   // The character's Unicode name stays English: it is a standard name, not a sentence.
-  if (invisible) return msg('explain.invisible', { code: invisible[1], name: invisible[2] });
+  if (invisible) {
+    const key = message.startsWith(DIRECTION_KEPT) ? 'explain.directionKept' : 'explain.invisible';
+    return msg(key, { code: invisible[1], name: invisible[2] });
+  }
   for (const [pattern, rewrite] of REWRITES) {
     const match = pattern.exec(message);
     if (match) return rewrite(match.slice(1), original);

@@ -66,15 +66,79 @@ describe('tierOf: safe rules', () => {
     expect(doubling('the the', 'the the end.', everything)).toBe('safe');
   });
 
+  it('Repetition: a doubling is a slip only when both copies are whole words (F3 re-review, D1)', () => {
+    const everything = { userTierOverrides: { Repetition: 'safe' as Tier } };
+    // The second copy starts a hyphenated or apostrophe word: "for for-profit" is ordinary English.
+    for (const text of [
+      'He worked for for-profit colleges.',
+      'Invest with with-profits funds.',
+      'Notes for for-loop code.',
+      'He is an an-ti hero.',
+      'Pick a a\u{2010}la\u{2010}carte meal.',
+      "We went to to's house.",
+      'We went to to’s house.',
+      'Read the the\u{200D}x file.',
+    ]) {
+      const original = text.match(/(\p{L}+) \1/u)![0];
+      expect(doubling(original, text), text).toBe('review');
+      expect(doubling(original, text, everything), text).toBe('review');
+    }
+    // The first copy ends a hyphenated word: "a lean-to to keep dry".
+    expect(doubling('to to', 'He built a lean-to to keep dry.')).toBe('review');
+    // Whole words, before punctuation or a space, are still slips.
+    expect(doubling('the the', 'He saw the the.')).toBe('safe');
+    expect(doubling('for for', 'Thanks for for, the help.')).toBe('safe');
+    // Without the paragraph the next character is unknown.
+    expect(tierOf(cand({ original: 'the the', replacements: ['the'], kind: 'Repetition' }), ctx())).toBe('review');
+  });
+
+  it('any flag over a word written twice is reviewed unless it is a slip doubling: "to to\'s" → "toto\'s" (F3 re-review, I-3)', () => {
+    const text = "We went to to's house.";
+    const join = cand({ original: "to to's", span: { start: 8, end: 15 }, replacements: ["toto's"], kind: 'WordChoice' });
+    expect(tierOf(join, ctx({ paraText: new Map([[0, text]]), userTierOverrides: { WordChoice: 'safe' } }))).toBe('review');
+  });
+
   it('a rules flag at or next to an invisible character hygiene deletes is reviewed (review #4, C3)', () => {
-    const text = 'We saw a m\u{2060}ean value.';
+    const text = 'We saw a m\u{2060}ean and round value.';
     const article = cand({ original: 'a', span: { start: 7, end: 8 }, replacements: ['an'], kind: 'Miscellaneous' });
-    const invisibleAt = new Map([[0, new Set([10])]]);
     const withText = ctx({ paraText: new Map([[0, text]]) });
-    expect(tierOf(article, withText)).toBe('safe'); // "m" alone reads as a word starting with a vowel sound
-    expect(tierOf(article, { ...withText, invisibleAt })).toBe('review');
-    const value = cand({ original: 'value', span: { start: 15, end: 20 }, replacements: ['values'], kind: 'Formatting' });
-    expect(tierOf(value, { ...withText, invisibleAt })).toBe('safe'); // two words away
+    expect(tierOf(article, withText)).toBe('review');
+    const at = text.indexOf('round');
+    const round = cand({ original: 'round', span: { start: at, end: at + 5 }, replacements: ['Round'], kind: 'Capitalization' });
+    expect(tierOf(round, withText)).toBe('safe'); // two words away
+  });
+
+  it.each([
+    ['U+200E LEFT-TO-RIGHT MARK', '\u{200E}'],
+    ['U+200F RIGHT-TO-LEFT MARK', '\u{200F}'],
+    ['U+2066 LEFT-TO-RIGHT ISOLATE', '\u{2066}'],
+    ['U+2069 POP DIRECTIONAL ISOLATE', '\u{2069}'],
+    ['U+061C ARABIC LETTER MARK', '\u{061C}'],
+    ['U+FE0F VARIATION SELECTOR-16', '\u{FE0F}'],
+    ['U+FE00 VARIATION SELECTOR-1', '\u{FE00}'],
+    ['U+180B MONGOLIAN FREE VARIATION SELECTOR ONE', '\u{180B}'],
+    ['U+034F COMBINING GRAPHEME JOINER', '\u{034F}'],
+    ['U+2061 FUNCTION APPLICATION', '\u{2061}'],
+    ['U+E0041 TAG LATIN CAPITAL LETTER A', '\u{E0041}'],
+  ])('any invisible or format character in or next to a flag makes it reviewed, even one hygiene keeps: %s (F3 re-review, D2)', (_name, ch) => {
+    const text = `We saw a m${ch}ean and round value. I think teh${ch} plan works.`;
+    const paraText = new Map([[0, text]]);
+    const article = cand({ original: 'a', span: { start: 7, end: 8 }, replacements: ['an'], kind: 'Miscellaneous' });
+    expect(tierOf(article, ctx({ paraText }))).toBe('review'); // in the next word
+    const tehAt = text.indexOf('teh');
+    const teh = cand({ original: 'teh', span: { start: tehAt, end: tehAt + 3 }, replacements: ['the'] });
+    expect(tierOf(teh, ctx({ paraText }))).toBe('review'); // right after the flag
+    expect(tierOf(teh, ctx({ paraText, userTierOverrides: { Typo: 'safe', Spelling: 'safe' } }))).toBe('review');
+    const at = text.indexOf('round');
+    const round = cand({ original: 'round', span: { start: at, end: at + 5 }, replacements: ['Round'], kind: 'Capitalization' });
+    expect(tierOf(round, ctx({ paraText }))).toBe('safe'); // two words away
+  });
+
+  it('a flag after a word holding an invisible character is reviewed too: its neighbour (F3 re-review, D2)', () => {
+    const text = 'Use th\u{200E}is teh plan.';
+    const tehAt = text.indexOf('teh');
+    const teh = cand({ original: 'teh', span: { start: tehAt, end: tehAt + 3 }, replacements: ['the'] });
+    expect(tierOf(teh, ctx({ paraText: new Map([[0, text]]) }))).toBe('review');
   });
 
   it('teh → the is safe', () => {
@@ -450,7 +514,8 @@ describe('Task 10 budget tuning', () => {
     expect(t('borewell', 'bore well', 'Typo')).toBe('review');
     expect(t('arived', 'a rived', 'Typo')).toBe('review');
     // other safe kinds are unaffected by the distance rule
-    expect(t('the the', 'the', 'Repetition')).toBe('safe');
+    const doubled = cand({ original: 'the the', replacements: ['the'], kind: 'Repetition' });
+    expect(tierOf(doubled, ctx({ paraText: new Map([[0, 'the the end.']]) }))).toBe('safe');
     // joining or splitting words (space or hyphen) is a style choice, not a slip
     expect(t('up stairs', 'upstairs')).toBe('review');
     expect(t('mid-day', 'midday')).toBe('review');

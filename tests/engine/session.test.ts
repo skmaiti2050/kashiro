@@ -53,6 +53,15 @@ describe('CheckSession.start', () => {
     }
   });
 
+  it('a doubling before a word it starts is reviewed, not deleted: "for for-profit" (F3 re-review, D1)', async () => {
+    // The linter flags these only after a paragraph's first sentence.
+    const text = "It rained. He worked for for-profit colleges. Invest with with-profits funds. We went to to's house.";
+    const s = await start([{ id: 0, text }], { tierOverrides: { WordChoice: 'safe' } });
+    expect(byOriginal(s, 'for for').kind).toBe('Repetition');
+    expect(s.outcomes().filter((o) => o.auto)).toEqual([]);
+    expect(s.outputText(0)).toBe(text);
+  });
+
   it('outputText applies the fixes', async () => {
     const s = await start([{ id: 0, text: TEH }]);
     expect(s.outputText(0)).toBe(TEH_FIXED);
@@ -229,6 +238,22 @@ describe('invisible characters (review #4, C3)', () => {
     expect(s.tier(teh.id)).toBe('review');
     s.accept(teh.id);
     expect(s.outputText(0)).toBe('I think the cat sat.');
+  });
+
+  it('one hygiene keeps never lets a flag next to it auto-apply (F3 re-review, D2)', async () => {
+    const texts = ['We saw a m\u{200E}ean value.', 'We saw a m\u{2066}ean\u{2069} value.', 'We saw a m\u{FE0F}ean value.', 'Read the te\u{180B}xt.'];
+    const s = await start(texts.map((text, id) => ({ id, text })));
+    expect(s.outcomes().filter((o) => o.auto)).toEqual([]);
+    expect(texts.map((_, id) => s.outputText(id))).toEqual(texts);
+  });
+
+  it('a direction pair with one end in a quote is left whole and reported (F3 re-review, D3)', async () => {
+    const text = 'He said "\u{202E}sales" today\u{202C} and left. The total \u{202E}₹5,000\u{202C} is due.';
+    const s = await start([{ id: 0, text }]);
+    expect(s.outputText(0)).toBe('He said "\u{202E}sales" today\u{202C} and left. The total ₹5,000 is due.');
+    const kept = s.candidates().filter((c) => c.kind === 'Invisible' && c.replacements.length === 0);
+    expect(kept.map((c) => c.span.start)).toEqual([9, 22]);
+    expect(kept.every((c) => s.tier(c.id) === 'review')).toBe(true);
   });
 
   it('flags after one keep their offsets in the paragraph', async () => {

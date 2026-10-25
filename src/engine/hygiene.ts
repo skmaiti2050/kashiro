@@ -24,6 +24,35 @@ const RTL_SCRIPT = /[\p{Script=Arabic}\p{Script=Hebrew}\p{Script=Syriac}\p{Scrip
 const MONGOLIAN = /\p{Script=Mongolian}/u;
 
 const isDirectionControl = (code: number) => code >= 0x202a && code <= 0x202e;
+/** U+202C POP DIRECTIONAL FORMATTING ends the embedding or override (U+202A, 202B, 202D, 202E) last opened. */
+const DIRECTION_END = 0x202c;
+
+/** The message of a direction control hygiene reports but leaves in place (findInvisible). */
+export const DIRECTION_KEPT = 'Direction character left in place';
+
+/**
+ * Offsets of the direction controls hygiene may delete: an opener and the U+202C that ends it, as a pair, when
+ * neither is inside a `locked` span. Deleting one end alone leaves the other reversing (or ending) the rest of
+ * the paragraph, text the user never touched (F3 re-review, D3).
+ */
+function deletableDirectionPairs(text: string, locked: readonly Span[]): Set<number> {
+  const isLocked = (i: number) => locked.some((s) => s.start <= i && i < s.end);
+  const open: number[] = [];
+  const out = new Set<number>();
+  for (let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i);
+    if (!isDirectionControl(code)) continue;
+    if (code !== DIRECTION_END) {
+      open.push(i);
+      continue;
+    }
+    const opener = open.pop();
+    if (opener === undefined || isLocked(opener) || isLocked(i)) continue;
+    out.add(opener);
+    out.add(i);
+  }
+  return out;
+}
 
 function charBefore(text: string, i: number): string {
   if (i <= 0) return '';
@@ -53,21 +82,27 @@ function isMeaningful(text: string, i: number, code: number): boolean {
   return false;
 }
 
-/** Flags zero-width/invisible junk and stray direction controls; leaves what Indic, Arabic-script, RTL, Mongolian and emoji text rely on. */
-export function findInvisible(p: Paragraph): Candidate[] {
+/**
+ * Flags zero-width/invisible junk and stray direction controls; leaves what Indic, Arabic-script, RTL, Mongolian
+ * and emoji text rely on. A direction control is deleted only with its partner and outside `locked` spans
+ * (deletableDirectionPairs); any other is reported without a fix.
+ */
+export function findInvisible(p: Paragraph, locked: readonly Span[] = []): Candidate[] {
   const out: Candidate[] = [];
   const text = p.text;
+  const deletablePairs = deletableDirectionPairs(text, locked);
   for (let i = 0; i < text.length; i++) {
     const code = text.charCodeAt(i);
     if (!(code in NAMES) || isMeaningful(text, i, code)) continue;
+    const kept = isDirectionControl(code) && !deletablePairs.has(i);
     out.push({
       id: `${p.id}:${i}:${i + 1}:Invisible`,
       paraId: p.id,
       span: { start: i, end: i + 1 },
       original: text[i],
-      replacements: [''],
+      replacements: kept ? [] : [''],
       kind: 'Invisible',
-      message: `Invisible character (U+${code.toString(16).toUpperCase().padStart(4, '0')} ${NAMES[code]})`,
+      message: `${kept ? DIRECTION_KEPT : 'Invisible character'} (U+${code.toString(16).toUpperCase().padStart(4, '0')} ${NAMES[code]})`,
       source: 'hygiene',
     });
   }

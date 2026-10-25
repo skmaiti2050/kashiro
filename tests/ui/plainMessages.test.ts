@@ -4,6 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import { sentenceSpans } from '@/engine/sentences';
 import { CONFUSABLE_MESSAGES } from '@/engine/confusables';
+import { DIRECTION_KEPT } from '@/engine/hygiene';
 import type { Candidate } from '@/engine/types';
 import { englishOnly, explanation } from '@/ui/state/plainMessages';
 import { createTranslator } from '@/ui/i18n/translator';
@@ -68,6 +69,18 @@ describe('explanation', () => {
     const invisible = explanation(flag('Invisible character (U+200B ZERO WIDTH SPACE)', '​', 'Invisible', 'hygiene'));
     expect(en.format(invisible)).toBe('Invisible character (U+200B ZERO WIDTH SPACE)');
     expect(hi.format(invisible)).toBe('अदृश्य अक्षर (U+200B ZERO WIDTH SPACE)');
+  });
+
+  it('a direction character hygiene leaves in place says why, in every language (F3 re-review, D3)', () => {
+    const kept = explanation(flag(`${DIRECTION_KEPT} (U+202E RIGHT-TO-LEFT OVERRIDE)`, '\u{202E}', 'Invisible', 'hygiene'));
+    expect(en.format(kept)).toBe(
+      'Invisible direction character (U+202E RIGHT-TO-LEFT OVERRIDE). Kashiro leaves it in place: removing it on its own could change how the text around it is shown.',
+    );
+    for (const locale of ['hi', 'bn'] as const) {
+      const text = createTranslator(locale, [`${locale}-IN`]).format(kept);
+      expect(text).toContain('U+202E RIGHT-TO-LEFT OVERRIDE');
+      expect(text.replace('RIGHT-TO-LEFT OVERRIDE', '')).not.toMatch(/[A-Za-z]{3}/);
+    }
   });
 
   it.each(Object.entries(CONFUSABLE_MESSAGES))('the confusables rule’s "%s" line is translated', (_, message) => {

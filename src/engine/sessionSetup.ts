@@ -40,8 +40,10 @@ export async function prepareCheck(
   const linter = deps.linter ?? (await createLinter(opts.variant ?? opts.fallbackVariant, opts.dictionary));
   if (deps.linter && opts.dictionary.length) await syncDictionary(linter, opts.dictionary);
 
+  const locked = new Map<number, Span[]>();
+  for (const p of paras) locked.set(p.id, [...findLockedSpans(p.text), ...(p.locked ?? [])]);
   // The linter reads each paragraph without its invisible junk; its spans are mapped back below.
-  const invisible = new Map(paras.map((p) => [p.id, findInvisible(p)]));
+  const invisible = new Map(paras.map((p) => [p.id, findInvisible(p, locked.get(p.id))]));
   const visible = new Map(paras.map((p) => [p.id, visibleText(p, invisible.get(p.id)!)]));
   const asSeen = paras.map((p) => ({ ...p, text: visible.get(p.id)!.text }));
 
@@ -52,8 +54,6 @@ export async function prepareCheck(
   });
   if (linter.variant !== variant) await linter.setVariant(variant);
 
-  const locked = new Map<number, Span[]>();
-  for (const p of paras) locked.set(p.id, [...findLockedSpans(p.text), ...(p.locked ?? [])]);
   const preset = PRESETS[opts.preset];
   const paraText = new Map(paras.map((p) => [p.id, p.text]));
   const modules = resolveModules(opts.modules);
@@ -88,7 +88,6 @@ export async function prepareCheck(
     foreignSentences,
     romanisedSentences,
     listParagraphs: new Set(paras.filter((p) => p.listItem).map((p) => p.id)),
-    invisibleAt: new Map([...invisible].map(([id, cs]) => [id, new Set(cs.map((c) => c.span.start))])),
   };
   return { linter, variant, mixedVariant: mixed, variantFromFallback: fromFallback, ctx, found };
 }

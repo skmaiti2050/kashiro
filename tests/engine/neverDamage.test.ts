@@ -5,10 +5,11 @@
  * the approved list fails:
  *   - deleting an invisible character the generator planted (never a joiner Indic text needs);
  *   - the one approved fix of a planted error ("teh" → "the", "a apple" → "an apple", "the the" → "the");
- *   - whitespace and punctuation only, away from every trap;
+ *   - whitespace and punctuation only, between words it leaves as they were (no join or split), away from every trap;
  *   - a kind the user moved to auto-apply in Settings, away from every trap.
- * Every edit must also start and end on grapheme-cluster boundaries, and the saved file must equal the
- * paragraphs with the edits applied, without U+FFFD. The seed is fixed, so a failure is reproducible.
+ * Every edit must also start and end on grapheme-cluster boundaries, no direction-control pair may lose one
+ * end, and the saved file must equal the paragraphs with the edits applied, without U+FFFD. The seed is
+ * fixed, so a failure is reproducible.
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import { CheckSession, type Outcome } from '@/engine/session';
@@ -33,6 +34,47 @@ const EVERYTHING_AUTO: Partial<Record<string, Tier>> = Object.fromEntries(AUTO_A
 
 /** What a whitespace-and-punctuation change may touch: "  " → " ", " ," → ",". */
 const SPACE_OR_PUNCTUATION = /[\s\p{P}]/gu;
+/** A word as the spacing check counts them: "to" and "s" in "to's". */
+const WORD = /[\p{L}\p{M}\p{N}]+/gu;
+
+/**
+ * True when the change only adds or removes whitespace and punctuation between words it leaves as they were:
+ * the paragraph's word sequence is the same after it. "to to's" → "toto's" and "file name" → "filename" join
+ * words, so they are not spacing (F3 re-review, I-3).
+ */
+function isSpacingOnly(p: StressParagraph, span: { start: number; end: number }, original: string, replacement: string): boolean {
+  if (original.replace(SPACE_OR_PUNCTUATION, '') !== replacement.replace(SPACE_OR_PUNCTUATION, '')) return false;
+  const before = p.text.match(WORD) ?? [];
+  const after = (p.text.slice(0, span.start) + replacement + p.text.slice(span.end)).match(WORD) ?? [];
+  return before.length === after.length && before.every((word, i) => word === after[i]);
+}
+
+/** Direction embeddings and overrides (U+202A, U+202B, U+202D, U+202E) and their end, U+202C. */
+const DIRECTION_OPEN = /[\u{202A}\u{202B}\u{202D}\u{202E}]/u;
+const DIRECTION_END = '\u{202C}';
+
+/** Direction controls without a partner: an opener never ended, or an end with nothing open. */
+function unpairedDirectionControls(text: string): number {
+  let open = 0;
+  let unpaired = 0;
+  for (const ch of text) {
+    if (DIRECTION_OPEN.test(ch)) open++;
+    else if (ch === DIRECTION_END) {
+      if (open > 0) open--;
+      else unpaired++;
+    }
+  }
+  return unpaired + open;
+}
+
+/** A paragraph whose saved text has a direction control its original paired: half a pair was deleted (F3 re-review, D3). */
+function splitDirectionPairs(session: CheckSession, document: StressParagraph[]): string[] {
+  return document.flatMap((p, id) =>
+    unpairedDirectionControls(session.outputText(id)) > unpairedDirectionControls(p.text)
+      ? [`¶${id} "${shown(session.outputText(id))}": half of a direction-control pair was deleted`]
+      : [],
+  );
+}
 
 const graphemes = new Intl.Segmenter('en', { granularity: 'grapheme' });
 
@@ -57,18 +99,18 @@ function judge(o: Outcome, p: StressParagraph): { approved: Approved } | { probl
   if (planted) return planted.right === replacement ? { approved: 'planted' } : { problem: `planted error fixed as "${replacement}"` };
   const trap = p.traps.find((t) => touches(span, t));
   if (trap) return { problem: `touches the trap "${shown(p.text.slice(trap.start, trap.end))}"` };
-  if (original.replace(SPACE_OR_PUNCTUATION, '') === replacement.replace(SPACE_OR_PUNCTUATION, '')) return { approved: 'spacing' };
+  if (isSpacingOnly(p, span, original, replacement)) return { approved: 'spacing' };
   // The user asked for these kinds to be applied; the traps above still bind them.
   if (AUTO_APPLY_KINDS.includes(o.candidate.kind)) return { approved: 'opted in' };
   return { problem: 'not on the approved list' };
 }
 
-/** Invisible and direction characters, to print as <U+…>. */
-const INVISIBLE = /[\u{AD}\u{180E}\u{200B}-\u{200F}\u{202A}-\u{202E}\u{2060}-\u{2064}\u{FEFF}]/gu;
+/** Invisible, direction and variation characters, to print as <U+…>. */
+const INVISIBLE = /[\p{Cf}\p{Default_Ignorable_Code_Point}]/gu;
 
 /** A printable view of a change, with invisible characters as <U+…>. */
 function shown(text: string): string {
-  return text.replace(INVISIBLE, (ch) => `<U+${ch.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0')}>`);
+  return text.replace(INVISIBLE, (ch) => `<U+${ch.codePointAt(0)!.toString(16).toUpperCase().padStart(4, '0')}>`);
 }
 
 const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
@@ -80,6 +122,24 @@ describe('never damage: generated traps, every auto-apply setting on', () => {
     expect(stressDocument(SEED, PARAGRAPHS).map((p) => p.text)).toEqual(document.map((p) => p.text));
     expect(sentenceCount(document)).toBeGreaterThan(300);
     expect(document.reduce((n, p) => n + p.traps.length, 0)).toBeGreaterThan(200);
+  });
+
+  it('the judge: spacing keeps every word, and a half-deleted direction pair is caught', () => {
+    const paragraph = (text: string): StressParagraph => ({ text, traps: [], fixes: [], junk: new Set() });
+    const auto = (p: StressParagraph, original: string, replacement: string, kind = 'Typo'): Outcome => {
+      const start = p.text.indexOf(original);
+      const candidate = { id: 'x', paraId: 0, span: { start, end: start + original.length }, original, replacements: [replacement], kind, message: '', source: 'rules' as const };
+      return { candidate, paragraphNumber: 1, status: 'applied', auto: true, replacement };
+    };
+    const verdict = (text: string, original: string, replacement: string) => judge(auto(paragraph(text), original, replacement), paragraph(text));
+    expect(verdict('We went  home.', '  ', ' ')).toEqual({ approved: 'spacing' });
+    expect(verdict('We went home .', ' .', '.')).toEqual({ approved: 'spacing' });
+    expect(verdict("We went to to's house.", "to to's", "toto's")).toEqual({ problem: 'not on the approved list' });
+    expect(verdict('Send the file name.', 'file name', 'filename')).toEqual({ problem: 'not on the approved list' });
+    expect(verdict('Send the filename.', 'filename', 'file name')).toEqual({ problem: 'not on the approved list' });
+    expect(unpairedDirectionControls('a\u{202E}b\u{202C}c')).toBe(0);
+    expect(unpairedDirectionControls('a\u{202E}bc')).toBe(1);
+    expect(unpairedDirectionControls('a\u{202C}b\u{202D}c\u{202C}')).toBe(1);
   });
 
   it.each([
@@ -118,6 +178,7 @@ describe('never damage: generated traps, every auto-apply setting on', () => {
         problems.push(`¶${e.paraId} edit ${e.span.start}-${e.span.end} splits a grapheme cluster`);
       }
     }
+    problems.push(...splitDirectionPairs(session, document));
     expect(problems).toEqual([]);
     // The approved fixes still happen: the test can't pass by the engine changing nothing.
     expect(approved.get('invisible')).toBeGreaterThan(50);
@@ -151,6 +212,7 @@ describe('never damage: generated traps, every auto-apply setting on', () => {
       if (onWordCards.has(id)) problems.push(`${change}: replaces a word the user answers on a card`);
       if (splitsWord(p, span.start - 1) || splitsWord(p, span.end)) problems.push(`${change}: cuts a word at an invisible character`);
     }
+    problems.push(...splitDirectionPairs(session, document));
     expect(problems).toEqual([]);
   }, 60_000);
 });

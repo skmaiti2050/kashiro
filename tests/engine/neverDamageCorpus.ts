@@ -47,6 +47,26 @@ const TRAPS = [
   'They served [[hot hot]] pakoras at the stall.',
   'He typed "[[is is]]" by mistake.',
   '“He [[had had]] enough,” she said.',
+  // A slip-list word before a word it starts: a hyphen or apostrophe continues it (F3 re-review, D1). The linter
+  // flags these only after a paragraph's first sentence, hence the short sentence before each.
+  'It rained. He worked [[for for-profit]] colleges.',
+  'It rained. Invest [[with with-profits]] funds.',
+  'It rained. Notes [[for for-loop]] code.',
+  'It rained. They wrote [[and and-gate]] logic.',
+  'It rained. Pick [[a a-la-carte]] meal.',
+  'It rained. We went [[to to’s]] house.',
+  "It rained. We went [[to to's]] house.",
+  'It rained. He built [[a lean-to to]] keep dry.',
+  // Invisible characters hygiene leaves in place, inside a word after an article (F3 re-review, D2).
+  'We saw [[a m\u{200E}ean]] value.',
+  'We saw [[a m\u{2066}ean\u{2069}]] value.',
+  'We saw [[a m\u{FE0F}ean]] value.',
+  'It was [[a m\u{034F}ean]] trick.',
+  'It is [[a m\u{2061}ean]] score.',
+  'Read [[the te\u{180B}xt]] now.',
+  // A direction-control pair with one end in a quote or code span (F3 re-review, D3).
+  'He said "[[{{202E}}sales]]" today{{202C}} and left.',
+  'Run [[`ls{{202E}} -la`]] now{{202C}} please.',
   // Invisible and bidi characters inside and next to words (review #4, C3).
   'We saw [[a m{{2060}}ean]] value.',
   'We trained the [[mod{{200B}}els]] well.',
@@ -89,6 +109,7 @@ const TRAPS = [
   'See [[https://example.org/path_to/file?id=12&x=y]] for details.',
   'Visit [[www.example.co.in]] today.',
   'Email [[ops@example.in]] for help.',
+  'Copy it to [[\\\\localhost\\C$\\Reports]] first.',
   'Run [[`npm run build`]] before you push.',
   'Use [[`total = total + 1`]] in the loop.',
 ];
