@@ -524,13 +524,19 @@ export class CheckSession {
       const auto = [...this.ledger.autoApplied].map((id) => this.cands.get(id)!).filter((c) => c.paraId === paraId);
       if (auto.length === 0) continue;
       const edits = auto.map((c) => ({ paraId, span: c.span, replacement: this.ledger.replacement.get(c.id)! }));
-      for (const i of editsChangingTokens(p.text, edits)) {
+      for (const i of editsChangingTokens(p.text, edits, this.hygieneRemovable(paraId))) {
         const c = auto[i];
         this.ledger.autoApplied.delete(c.id);
         this.ledger.record(c.id, 'pending', false, HELD_BACK_REASON);
         this.tiers.set(c.id, 'review');
       }
     }
+  }
+
+  /** Offsets in the paragraph of the invisible characters hygiene flagged with a deletion: all the backstop lets go. */
+  private hygieneRemovable(paraId: number): Set<number> {
+    const flagged = [...this.cands.values()].filter((c) => c.paraId === paraId && c.source === 'hygiene' && c.replacements[0] === '');
+    return new Set(flagged.map((c) => c.span.start));
   }
 
   private members(decisionId: string): Candidate[] {
