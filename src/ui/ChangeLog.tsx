@@ -107,7 +107,12 @@ function BatchRow({ controller, batch, outcomes }: { controller: SessionControll
   return (
     <li className="applied batch">
       <span className="where">{paragraphs}</span>
-      <Change o={outcomes[0]} />
+      {/* Every change the batch made, not only the first: they are undone together (F4 re-review 3, M-7). */}
+      <span className="changes">
+        {outcomes.map((o) => (
+          <Change key={o.candidate.id} o={o} />
+        ))}
+      </span>
       <span className="status">{t.t('log.batchStatus', { count: outcomes.length, kind: kinds })}</span>
       <button onClick={() => controller.undoBatch(batch)}>{t.t('log.undoAll', { count: outcomes.length })}</button>
     </li>

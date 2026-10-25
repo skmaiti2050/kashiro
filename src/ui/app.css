@@ -1013,6 +1013,14 @@ button.link {
   color: var(--muted);
 }
 
+/* A batch row lists each change it made, wrapping inside the row's text column. */
+.changelog .changes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 16px;
+  min-width: 0;
+}
+
 /* Dialogs */
 .dialog-backdrop {
   position: fixed;

@@ -23,4 +23,16 @@ describe('ChangeLog: one row for the simple-fixes card (Task F4)', () => {
     );
     expect(screen.getByText('3 fixes (Typos, Repeated words, Other) applied together')).toBeTruthy();
   });
+
+  it('lists every change the card made, not only the first (F4 re-review 3, M-7)', () => {
+    const outcomes = [applied('t', 'teh', 'the', 'Typo'), applied('o', 'of of', 'of', 'Repetition'), applied('a', 'a', 'an', 'Miscellaneous')];
+    const state = { session: { outcomes: () => outcomes } as unknown as CheckSession } as ControllerState;
+    const { container } = render(
+      <TranslatorProvider translator={createTranslator('en', ['en-IN'])}>
+        <ChangeLog controller={{} as SessionController} state={state} open onToggle={() => {}} />
+      </TranslatorProvider>,
+    );
+    const changes = [...container.querySelectorAll('li.batch .change')].map((c) => c.textContent);
+    expect(changes).toEqual(['teh → the', 'of of → of', 'a → an']);
+  });
 });
