@@ -10,13 +10,18 @@
  * end on grapheme-cluster boundaries, no direction control may lose its partner (isolates included), and the
  * saved file must equal the paragraphs with the edits applied, without U+FFFD. The planted errors are still
  * found: each waits in a decision with its one right fix. The seed is fixed, so a failure is reproducible.
+ * Then "Review and apply all" on the simple-fixes card with its default ticks, one click and nothing inspected,
+ * is judged too (Task F5): each change starts and ends on word boundaries, keeps the case except at a sentence
+ * start (never after an abbreviation's dot), swaps an article only before a lowercase dictionary word that is no
+ * initialism, and leaves the layout of the traps alone; the planted errors are still fixed by it.
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import { CheckSession, type Outcome } from '@/engine/session';
+import { SIMPLE_FIXES_ID } from '@/engine/decisions';
 import { createLinter, type RulesLinter } from '@/engine/linter';
 import { DEFAULT_MODULES } from '@/engine/modules';
 import { PRESETS, type PresetId } from '@/engine/presets';
-import type { Tier } from '@/engine/types';
+import type { Tier, Variant } from '@/engine/types';
 import { markdownAdapter, plaintextAdapter } from '@/formats/text';
 import { AUTO_APPLY_KINDS } from '@/ui/state/settings';
 import { acceptAllRules } from '../../cli/run';
@@ -49,12 +54,35 @@ const sameTokens = (a: string, b: string) => {
 };
 
 /**
- * True when replacing `span` of `text` changes only whitespace (and invisible characters) between tokens it
- * leaves exactly as they were: "  " → " ". Case, punctuation, hyphens, apostrophes and slashes are all part of
- * a token, so "?" → ".", "e-mail" → "e mail" and "to to's" → "toto's" are not spacing (F3 re-review 2, I-5).
+ * True when replacing `span` of `text` changes only whitespace between tokens it leaves exactly as they were:
+ * "  " → " ". Case, punctuation, hyphens, apostrophes and slashes are all part of a token, so "?" → ".",
+ * "e-mail" → "e mail" and "to to's" → "toto's" are not spacing (F3 re-review 2, I-5). An invisible character
+ * may go only when it was planted (`junk`): a joiner or direction mark the text needs is not spacing (F4
+ * re-review 3, M-1).
  */
-function isSpacingOnly(text: string, span: { start: number; end: number }, replacement: string): boolean {
-  return sameTokens(text, text.slice(0, span.start) + replacement + text.slice(span.end));
+function isSpacingOnly(text: string, span: { start: number; end: number }, replacement: string, junk: ReadonlySet<number> = new Set()): boolean {
+  if (!sameTokens(text, text.slice(0, span.start) + replacement + text.slice(span.end))) return false;
+  let kept = '';
+  for (let i = span.start; i < span.end; i++) if (!junk.has(i) && /[\p{Cf}\p{Default_Ignorable_Code_Point}]/u.test(text[i])) kept += text[i];
+  return (replacement.match(INVISIBLE) ?? []).join('') === kept;
+}
+
+/**
+ * True when `after` holds the paragraph's invisible characters in order, less only planted ones: none added,
+ * swapped, or removed that the text needs (F4 re-review 3, M-1).
+ */
+function keepsUnplantedInvisibles(p: StressParagraph, after: string): boolean {
+  const kept = after.match(INVISIBLE) ?? [];
+  let k = 0;
+  let i = 0;
+  for (const ch of p.text) {
+    if (ch.match(INVISIBLE)) {
+      if (kept[k] === ch) k++;
+      else if (!p.junk.has(i)) return false;
+    }
+    i += ch.length;
+  }
+  return k === kept.length;
 }
 
 /** Embeddings and overrides (U+202A, U+202B, U+202D, U+202E), their end U+202C, isolates U+2066–2068 and their end U+2069. */
@@ -115,8 +143,88 @@ function judge(o: Outcome, p: StressParagraph): { approved: Approved } | { probl
   if (span.end - span.start === 1 && replacement === '' && p.junk.has(span.start)) return { approved: 'invisible' };
   const trap = p.traps.find((t) => touches(span, t));
   if (trap) return { problem: `touches the trap "${shown(p.text.slice(trap.start, trap.end))}"` };
-  if (isSpacingOnly(p.text, span, replacement)) return { approved: 'spacing' };
+  if (isSpacingOnly(p.text, span, replacement, p.junk)) return { approved: 'spacing' };
   return { problem: 'changes a word, a case or a punctuation mark without a click' };
+}
+
+/** Letters, digits and combining marks: a word goes on over them. */
+const WORD_CHARACTER = /[\p{L}\p{N}\p{M}]/u;
+/** Characters that join two words into one token: "for-profit", "to's", "and/or", "a+", "with#hash", "R&D". */
+const WORD_JOINER = /[-'’/+#&_@]/u;
+
+/** True when a word goes on across `outside` (the character next to the span) and `beyond` (the one past it). */
+const continuesWord = (outside: string, beyond: string) =>
+  WORD_CHARACTER.test(outside) || WORD_JOINER.test(outside) || (outside === '.' && WORD_CHARACTER.test(beyond));
+
+/** True when `span` of `text` starts and ends on word boundaries: "Ph" in "Ph.D." does not end one. */
+function onWordBoundaries(text: string, { start, end }: { start: number; end: number }): boolean {
+  if (WORD_CHARACTER.test(text[start] ?? '') && continuesWord(text[start - 1] ?? '', text[start - 2] ?? '')) return false;
+  return !(WORD_CHARACTER.test(text[end - 1] ?? '') && continuesWord(text[end] ?? '', text[end + 1] ?? ''));
+}
+
+type CaseShape = 'none' | 'lower' | 'title' | 'upper' | 'mixed';
+
+/** "apple" lower, "A" and "Apple" title, "AN" upper, "iPhone" mixed, "," none. */
+function caseShape(text: string): CaseShape {
+  const letters = [...text].filter((ch) => /\p{L}/u.test(ch));
+  const upper = (ch: string) => ch !== ch.toLowerCase();
+  if (letters.length === 0) return 'none';
+  if (!letters.some(upper)) return 'lower';
+  if (upper(letters[0]) && !letters.slice(1).some(upper)) return 'title';
+  return letters.every(upper) ? 'upper' : 'mixed';
+}
+
+/**
+ * True when the word at `i` starts a sentence: the paragraph's start, or after "?" or "!", or after a full stop
+ * whose token is long, lowercase and undotted. "pm.", "Jan.", "Engg.", "Qty." and "Ph.D." end no sentence.
+ */
+function startsSentence(text: string, i: number): boolean {
+  let j = i;
+  while (j > 0 && /[\s"“‘(\[\p{Cf}\p{Default_Ignorable_Code_Point}]/u.test(text[j - 1])) j--;
+  if (j === 0 || text[j - 1] === '?' || text[j - 1] === '!') return true;
+  if (text[j - 1] !== '.') return false;
+  let k = j - 1;
+  while (k > 0 && !/\s/u.test(text[k - 1])) k--;
+  const token = text.slice(k, j - 1).replace(INVISIBLE, '');
+  return token.length > 4 && !/^\p{Lu}/u.test(token) && !token.includes('.');
+}
+
+/** The word right after `end`: "lpg" in "an lpg cylinder". */
+const NEXT_WORD = /^\s+([\p{L}\p{N}'’-]+)/u;
+const VOWEL = /[aeiou]/i;
+
+/** Why a change "Review and apply all" made with the default ticks is wrong, or null when it is not. */
+function cardProblem(o: Outcome, p: StressParagraph, dictionary: ReadonlySet<string>): string | null {
+  const { span, original } = o.candidate;
+  const replacement = o.replacement ?? '';
+  const { text } = p;
+  if (text.slice(span.start, span.end) !== original) return 'its offsets do not match the paragraph';
+  if (!onWordBoundaries(text, span)) return 'does not start and end on word boundaries';
+  if (replacement !== original && replacement.toLowerCase() === original.toLowerCase()) {
+    const letters = [...original].filter((ch) => /\p{L}/u.test(ch)).length;
+    const initialism = replacement === original.toUpperCase() && (letters >= 2 || original === 'i');
+    const capitalised = caseShape(original) === 'lower' && replacement === original[0].toUpperCase() + original.slice(1);
+    if (!initialism && !(capitalised && startsSentence(text, span.start))) return 'changes the case outside a sentence start';
+  } else if (caseShape(original) !== caseShape(replacement)) {
+    return `does not keep the case (${caseShape(original)} → ${caseShape(replacement)})`;
+  }
+  const article = new Set([original.toLowerCase(), replacement.toLowerCase()]);
+  if (article.size === 2 && article.has('a') && article.has('an')) {
+    const next = NEXT_WORD.exec(text.slice(span.end))?.[1] ?? '';
+    if (!dictionary.has(next) || !VOWEL.test(next) || caseShape(next) !== 'lower') return `swaps the article before "${next}", not a dictionary word`;
+  }
+  const trap = p.traps.find((t) => touches(span, t));
+  if (trap && isSpacingOnly(text, span, replacement, p.junk)) return `changes the layout of "${shown(text.slice(trap.start, trap.end))}"`;
+  return null;
+}
+
+/** The lowercase words after the article swaps in `outcomes` that the spell checker knows. */
+async function dictionaryWordsAfterArticles(outcomes: Outcome[], document: StressParagraph[], variant: Variant): Promise<Set<string>> {
+  const words = [
+    ...new Set(outcomes.flatMap((o) => NEXT_WORD.exec(document[o.candidate.paraId].text.slice(o.candidate.span.end))?.[1] ?? [])),
+  ];
+  const flagged = await linter.lintSpelling(words.map((text, id) => ({ id, text })), variant);
+  return new Set(words.filter((_, id) => !flagged.some((f) => f.paraId === id)));
 }
 
 /** A printable view of a change, with invisible characters as <U+…>. */
@@ -124,7 +232,13 @@ function shown(text: string): string {
   return text.replace(INVISIBLE, (ch) => `<U+${ch.codePointAt(0)!.toString(16).toUpperCase().padStart(4, '0')}>`);
 }
 
-const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
+/** An applied outcome replacing `original` (at `at`, by default its first place) in `text` with `replacement`. */
+function outcomeAt(text: string, original: string, replacement: string, at = text.indexOf(original)): Outcome {
+  const candidate = { id: 'x', paraId: 0, span: { start: at, end: at + original.length }, original, replacements: [replacement], kind: 'Typo', message: '', source: 'rules' as const };
+  return { candidate, paragraphNumber: 1, status: 'applied', auto: true, replacement };
+}
+
+const LONE_SURROGATE =/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
 
 /** Every preset, with default settings and with every auto-apply kind on, in both text formats. */
 const RUNS = (Object.keys(PRESETS) as PresetId[]).flatMap((preset) =>
@@ -143,16 +257,17 @@ describe('never damage: generated traps, under every preset and setting', () => 
   });
 
   it('the judge: only whitespace between unchanged tokens is spacing, and isolates pair as UAX #9 says', () => {
-    const paragraph = (text: string): StressParagraph => ({ text, traps: [], fixes: [], junk: new Set() });
-    const verdict = (text: string, original: string, replacement: string) => {
-      const p = paragraph(text);
-      const start = text.indexOf(original);
-      const candidate = { id: 'x', paraId: 0, span: { start, end: start + original.length }, original, replacements: [replacement], kind: 'Typo', message: '', source: 'rules' as const };
-      return judge({ candidate, paragraphNumber: 1, status: 'applied', auto: true, replacement }, p);
+    const verdict = (text: string, original: string, replacement: string, junk: number[] = []) => {
+      const p: StressParagraph = { text, traps: [], fixes: [], junk: new Set(junk) };
+      return judge(outcomeAt(text, original, replacement), p);
     };
     const notSpacing = { problem: 'changes a word, a case or a punctuation mark without a click' };
     expect(verdict('We went  home.', '  ', ' ')).toEqual({ approved: 'spacing' });
-    expect(verdict('We went \u{200B} home.', ' \u{200B} ', ' ')).toEqual({ approved: 'spacing' });
+    // A planted invisible character may go with the spaces; one the text needs may not (F4 re-review 3, M-1).
+    expect(verdict('We went \u{200B} home.', ' \u{200B} ', ' ', [8])).toEqual({ approved: 'spacing' });
+    expect(verdict('We went \u{200B} home.', ' \u{200B} ', ' ')).toEqual(notSpacing);
+    expect(verdict('क्\u{200D} ष', '\u{200D} ', ' ')).toEqual(notSpacing);
+    expect(verdict('We went  home.', '  ', ' \u{202E}')).toEqual(notSpacing);
     expect(verdict('We went home .', ' .', '.')).toEqual(notSpacing);
     expect(verdict('Is it done?', '?', '.')).toEqual(notSpacing);
     expect(verdict('Is it done?', '?', '!')).toEqual(notSpacing);
@@ -175,6 +290,28 @@ describe('never damage: generated traps, under every preset and setting', () => 
     expect(unpairedDirectionControls('\u{202E}abc \u{2066}x\u{202B}y\u{2069} z\u{202C} rest')).toBe(0);
     expect(unpairedDirectionControls('\u{202E}abc \u{2066}xy\u{2069} z rest')).toBe(1);
     expect(unpairedDirectionControls('a\u{2066}b\u{202C}c\u{2069}')).toBe(1);
+  });
+
+  it('the card judge: whole words, the case kept outside a sentence start, articles only before dictionary words', () => {
+    const dictionary = new Set(['apple', 'elephant', 'ewe']);
+    const problem = (text: string, original: string, replacement: string, at = text.indexOf(original), traps: [number, number][] = []) => {
+      const p: StressParagraph = { text, traps: traps.map(([start, end]) => ({ start, end })), fixes: [], junk: new Set() };
+      return cardProblem(outcomeAt(text, original, replacement, at), p, dictionary);
+    };
+    expect(problem('I think teh plan works.', 'teh', 'the')).toBeNull();
+    expect(problem('He ate a apple.', 'a', 'an', 7)).toBeNull();
+    expect(problem('A apple fell.', 'A', 'An')).toBeNull();
+    expect(problem('We went to the the market.', 'the the', 'the')).toBeNull();
+    expect(problem('It rained today. we left.', 'we', 'We')).toBeNull();
+    expect(problem('Plug in a usb drive.', 'usb', 'USB')).toBeNull();
+    expect(problem('A apple fell.', 'A', 'AN')).toBe('does not keep the case (title → upper)');
+    expect(problem('It rained today. Ph.D. students came.', 'Ph', 'pH')).toBe('does not start and end on word boundaries');
+    for (const [text, word] of [['Meet at 5 pm. tomorrow please.', 'tomorrow'], ['Jan. was cold.', 'was'], ['It rained. Engg. college is near.', 'college'], ['Sold. Qty. ten is fine.', 'ten']]) {
+      expect(problem(text, word, word[0].toUpperCase() + word.slice(1))).toBe('changes the case outside a sentence start');
+    }
+    expect(problem('Buy an lpg cylinder.', 'an', 'a')).toBe('swaps the article before "lpg", not a dictionary word');
+    expect(problem('He got an sms today.', 'an', 'a')).toBe('swaps the article before "sms", not a dictionary word');
+    expect(problem('Pens    10 and more.', '    ', ' ', 4, [[0, 10]])).toBe('changes the layout of "Pens    10"');
   });
 
   it.each(RUNS)('$format, $preset preset, $setting: every change made without a click is approved', async ({ preset, setting, adapter }) => {
@@ -203,9 +340,11 @@ describe('never damage: generated traps, under every preset and setting', () => 
       if ('approved' in verdict) approved.set(verdict.approved, (approved.get(verdict.approved) ?? 0) + 1);
       else problems.push(`¶${o.candidate.paraId} ${o.candidate.kind} "${shown(o.candidate.original)}" → "${shown(o.replacement ?? '')}": ${verdict.problem}`);
     }
-    // Every edit at session start was made without a click: together they keep every token too.
+    // Every edit at session start was made without a click: together they keep every token, and every invisible
+    // character nobody planted, too.
     document.forEach((p, id) => {
       if (!sameTokens(p.text, session.outputText(id))) problems.push(`¶${id} "${shown(session.outputText(id))}": a token changed`);
+      if (!keepsUnplantedInvisibles(p, session.outputText(id))) problems.push(`¶${id} "${shown(session.outputText(id))}": an invisible character changed`);
     });
     for (const e of session.acceptedEdits()) {
       const at = boundaries(document[e.paraId].text);
@@ -215,7 +354,8 @@ describe('never damage: generated traps, under every preset and setting', () => 
       }
     }
     problems.push(...splitDirectionPairs(session, document));
-    expect(problems).toEqual([]);
+    // Soft, so the card below is judged too and a failure lists both.
+    expect.soft(problems).toEqual([]);
     // The approved changes still happen: the test can't pass by the engine changing nothing.
     expect(approved.get('invisible')).toBeGreaterThan(50);
     expect(approved.get('spacing')).toBeGreaterThan(0);
@@ -234,6 +374,27 @@ describe('never damage: generated traps, under every preset and setting', () => 
     expect(saved).toBe(document.map((_, id) => session.outputText(id)).join('\n\n') + '\n');
     expect(saved).not.toContain('\u{FFFD}');
     expect(LONE_SURROGATE.test(saved)).toBe(false);
+
+    // "Review and apply all" on the simple-fixes card with its default ticks: one click, nothing inspected
+    // (F4 re-review 3), so each change it makes is judged too.
+    const card = [...top, ...more].find((d) => d.id === SIMPLE_FIXES_ID);
+    expect(card).toBeDefined();
+    const startUnticked = new Set(card!.startUnticked ?? []);
+    session.applyBatch(SIMPLE_FIXES_ID, card!.candidateIds.filter((id) => !startUnticked.has(id)));
+    const byCard = session.outcomes().filter((o) => o.status === 'applied' && o.batch !== undefined);
+    const dictionary = await dictionaryWordsAfterArticles(byCard, document, session.variant);
+    const cardProblems = byCard.flatMap((o) => {
+      const why = cardProblem(o, document[o.candidate.paraId], dictionary);
+      return why === null ? [] : [`¶${o.candidate.paraId} ${o.candidate.kind} "${shown(o.candidate.original)}" → "${shown(o.replacement ?? '')}": ${why}`];
+    });
+    cardProblems.push(...splitDirectionPairs(session, document));
+    expect(cardProblems).toEqual([]);
+    // The judge saw the card's changes, and the planted errors are still fixed by the one click.
+    expect(byCard.length).toBeGreaterThan(10);
+    const plantedFixed = byCard.filter((o) =>
+      document[o.candidate.paraId].fixes.some((f) => f.start === o.candidate.span.start && f.end === o.candidate.span.end && f.right === o.replacement),
+    );
+    expect(plantedFixed.length).toBeGreaterThan(10);
   }, 60_000);
 
   it('accepting every suggestion never replaces a word-card word, cuts a word an invisible character split, or splits a direction pair', async () => {

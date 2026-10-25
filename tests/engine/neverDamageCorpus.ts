@@ -140,7 +140,38 @@ const TRAPS = [
   'Use [[`total = total + 1`]] in the loop.',
   // Columns lined up with spaces: preformatted text, whose spaces are layout.
   'Stock today:\n[[Pens    10]]\n[[Ink     25]]',
+  // The simple-fixes card's default ticks (F4 re-review 3): "apply all" must not make these.
+  // A capital after an abbreviation's dot that no list names (I-2), and "Ph" → "pH" inside "Ph.D.".
+  'Meet at 5 [[pm. tomorrow]] please.',
+  '[[Jan. was]] cold.',
+  '[[Bros. came]] home.',
+  '[[Hon. minister]] came.',
+  '[[Wt. and]] ht. noted.',
+  '[[Qty. ten]] is fine.',
+  '[[Amt. due]] is ten.',
+  '[[Ave. road]] is long.',
+  'It rained today. [[Engg. college]] is near.',
+  'It rained today. [[Ph.D.]] students came.',
+  'The proof went to the HoD. [[Ph.D.]] scholars wait.',
+  'She has a [[Ph.D.]] in physics.',
+  // An article before an initialism or a "you" sound (I-3), and two fixes that combine into a wrong pair ("a SMS").
+  'It is [[a ewe]] lamb.',
+  'Buy [[an lpg]] cylinder.',
+  'He is [[an rss]] member.',
+  'He got [[an sms]] today.',
+  'See [[an hr]] manager.',
+  'He is [[an mla]] now.',
+  'He is [[an nri]] now.',
+  'File [[an fir]] today.',
+  // Spaces the zero-click rule refuses as layout are not ticked on the card either (M-4).
+  'Use [[tabs\t\there]] please.',
 ];
+
+/**
+ * A key–value block whose lines are paragraphs of their own (F4 re-review 3, M-3): its spaces are layout,
+ * like the columns above, even though no one paragraph shows it.
+ */
+const KEY_VALUE_BLOCK = ['[[Name      Rahul Sharma]]', '[[City      Pune]]', '[[Amount    500]]', '[[Score: India 250  Australia 245]]'];
 
 /** Paragraph openers: list labels the format does not draw itself. */
 const LIST_LABELS = ['[[a.]] ', '[[(iv)]] ', '[[1.]] ', '[[b)]] '];
@@ -159,6 +190,8 @@ const PLANTED = [
   'I think <<teh|the>> plan works.',
   'He ate <<a|an>> apple.',
   'We went to <<the the|the>> market.',
+  // Harper writes "AN" after a capital "A" (F4 re-review 3, I-1): the one right fix keeps the case.
+  '<<A|An>> elephant came.',
 ];
 
 /** Invisible characters sprinkled at random between ASCII characters. */
@@ -250,8 +283,9 @@ function toParagraph(chars: Char[]): StressParagraph {
 }
 
 /**
- * `count` paragraphs, the same for the same seed: mostly 3–6 sentences mixing traps, fillers and planted
- * errors, some starting with a list label, some wholly Hindi or Bengali. Every trap template is used once
+ * `count` slots of paragraphs, the same for the same seed: mostly 3–6 sentences mixing traps, fillers and planted
+ * errors, some starting with a list label, some wholly Hindi or Bengali, and every 20th a key–value block of
+ * one-line paragraphs. Every trap template is used once
  * before any is used twice. About a third of the sentences get a random invisible character.
  */
 export function stressDocument(seed: number, count: number): StressParagraph[] {
@@ -265,6 +299,10 @@ export function stressDocument(seed: number, count: number): StressParagraph[] {
   };
   const paragraphs: StressParagraph[] = [];
   for (let p = 0; p < count; p++) {
+    if (p % 20 === 10) {
+      paragraphs.push(...KEY_VALUE_BLOCK.map((line) => toParagraph(parseTemplate(line))));
+      continue;
+    }
     if (random() < 0.1) {
       paragraphs.push(toParagraph(parseTemplate(pick(INDIC))));
       continue;
