@@ -107,23 +107,41 @@ export const FUNCTION_WORDS = new Set(
   ).split(' '),
 );
 
-/** The word right after an article, e.g. "apple" in "a apple fell". */
-const NEXT_WORD = /^\s+([\p{L}\p{N}'’-]+)/u;
+/** The word right after an article and the character after it, e.g. "apple" and " " in "a apple fell". */
+const NEXT_WORD = /^\s+([\p{L}\p{N}'’-]+)(.?)/u;
 /** A lowercase word without apostrophes ("apple", "well-known"; not "isn't", "Rao", "8"). */
 const LOWERCASE_PLAIN_WORD = /^\p{Ll}[\p{Ll}-]*$/u;
+/** What may stand right before an article: the start, whitespace, or an opening bracket or quote ("(a apple"). */
+const BEFORE_ARTICLE = /(?:^|[\s(\[{“‘"])$/u;
+/**
+ * Word starts where "an" may be wrong though the letter is a vowel: a "you" sound ("usb", "upsc", "user",
+ * "European") or a "w" sound ("one", "once"). Harper knows the dictionary words, but guesses lowercase
+ * initialisms by their letters ("a usb" → "an USB": F3 re-review 2, C-3), so a swap to "an" before them is asked.
+ */
+const MAY_NOT_TAKE_AN = /^(?:u|eu|one|once)/;
+/**
+ * Words with a silent "h", or one silent in some variants ("an herb" is American, "a herb" British): a swap to "a"
+ * before them is asked. A small list on purpose: "an huge" → "a huge" is a real fix.
+ */
+const MAY_TAKE_AN = /^(?:herb|homage|honest|hono|hour|heir)/;
 
 /**
- * a ↔ an, only when the next word is a lowercase content word ("a apple"). Before a function word,
- * a contraction, punctuation, the end of the text, a capitalised name, an acronym or a number the
- * "fix" is often wrong ("an they" means "and they"), so it is not an article swap for safety purposes.
+ * a ↔ an, only when the article is a word of its own and the next word is a lowercase content word ("a apple").
+ * Joined to the word before ("a/an" → "a/a"), before a slash-joined word, a function word, a contraction,
+ * punctuation, the end of the text, a capitalised name, an acronym, a number or a word whose sound its spelling
+ * does not tell (MAY_NOT_TAKE_AN, MAY_TAKE_AN), the "fix" is often wrong ("an they" means "and they"), so it is
+ * not an article swap for safety purposes.
  */
 function isArticleSwap(c: Candidate, text: string | undefined): boolean {
   if (c.kind !== 'Miscellaneous' || c.replacements.length !== 1 || text === undefined) return false;
   const o = c.original.toLowerCase();
   const r = c.replacements[0].toLowerCase();
-  if (!((o === 'a' && r === 'an') || (o === 'an' && r === 'a'))) return false;
-  const next = NEXT_WORD.exec(text.slice(c.span.end))?.[1];
-  if (!next || !LOWERCASE_PLAIN_WORD.test(next)) return false;
+  const toAn = o === 'a' && r === 'an';
+  if (!toAn && !(o === 'an' && r === 'a')) return false;
+  if (!BEFORE_ARTICLE.test(text.slice(Math.max(0, c.span.start - 1), c.span.start))) return false;
+  const [, next, after] = NEXT_WORD.exec(text.slice(c.span.end)) ?? [];
+  if (!next || !LOWERCASE_PLAIN_WORD.test(next) || after === '/') return false;
+  if ((toAn ? MAY_NOT_TAKE_AN : MAY_TAKE_AN).test(next)) return false;
   return !FUNCTION_WORDS.has(next);
 }
 
@@ -233,7 +251,7 @@ export function tierOf(c: Candidate, ctx: TierContext): Tier {
   if (tier !== 'safe') return tier;
   // Whatever the overrides say: a grammatical doubling, a flag that removes or joins a doubled word ("to to's" →
   // "toto's"), or a flag an invisible character skews, is asked first.
-  if ((c.kind === 'Repetition' || holdsDoubledWord(c)) && !isSlipDoubling(c, paraText)) return 'review';
+  if ((c.kind === 'Repetition' || holdsDoubledWord(c, paraText)) && !isSlipDoubling(c, paraText)) return 'review';
   if (c.source !== 'hygiene' && nearInvisible(c, paraText)) return 'review';
   // "y0u" → "you" is likely right, but a token with a digit may be a code nobody recognised: ask first.
   if (WORD_REWRITE_KINDS.has(c.kind) && HAS_DIGIT.test(c.original)) return 'review';

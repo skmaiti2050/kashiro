@@ -60,6 +60,9 @@ describe('tierOf: safe rules', () => {
     expect(tierOf(cand({ original: 'the the', replacements: ['The'], kind: 'Repetition' }), ctx())).toBe('review');
   });
 
+  /** A word written twice, starting at a word start: "the the" in "Count the votes for for/against". */
+  const WHOLE_DOUBLING = /(?<!\p{L})(\p{L}+) \1/u;
+
   it('Repetition: a user override cannot make a grammatical doubling auto-applied', () => {
     const everything = { userTierOverrides: { Repetition: 'safe' as Tier } };
     expect(doubling('had had', 'had had enough.', everything)).toBe('review');
@@ -90,6 +93,39 @@ describe('tierOf: safe rules', () => {
     expect(doubling('for for', 'Thanks for for, the help.')).toBe('safe');
     // Without the paragraph the next character is unknown.
     expect(tierOf(cand({ original: 'the the', replacements: ['the'], kind: 'Repetition' }), ctx())).toBe('review');
+  });
+
+  it('a doubling is whole words only before a space, the end, closing punctuation or a full stop ending the word (Task F4, F3 re-review 2 C-1)', () => {
+    const everything = { userTierOverrides: { Repetition: 'safe' as Tier } };
+    for (const text of [
+      'Avoid mixing and and/or in one clause.',
+      'Count the votes for for/against motions.',
+      'Serve tea with with/without sugar.',
+      'Write the the/a choice down.',
+      'Pick a a+ grade.',
+      'We code for for.NET users.',
+      'Tag it with with#hash now.',
+      'Note it for for(the record).',
+      'Mark the the′ prime.',
+      'Tilde the the~ end.',
+      'Star the the* note.',
+      'Tick the the` mark.',
+      'Join the the&co deal.',
+    ]) {
+      const original = text.match(WHOLE_DOUBLING)![0];
+      expect(original.split(' ')[0], text).toMatch(/^(and|for|with|the|a)$/);
+      expect(doubling(original, text), text).toBe('review');
+      expect(doubling(original, text, everything), text).toBe('review');
+    }
+    for (const text of ['He saw the the.', 'He saw the the', 'Thanks for for, the help.', 'He said "the the" twice.', 'Use (the the) here.', 'Was it the the?']) {
+      expect(doubling(text.match(WHOLE_DOUBLING)![0], text), text).toBe('safe');
+    }
+  });
+
+  it('a flag that removes a word next to its twin is reviewed, whatever the kind: "be be-bop" (Task F4, F3 re-review 2 I-3)', () => {
+    const text = 'Let it be be-bop music.';
+    const grammar = cand({ original: ' be', span: { start: 9, end: 12 }, replacements: [''], kind: 'Grammar' });
+    expect(tierOf(grammar, ctx({ paraText: new Map([[0, text]]), userTierOverrides: { Grammar: 'safe' } }))).toBe('review');
   });
 
   it('any flag over a word written twice is reviewed unless it is a slip doubling: "to to\'s" → "toto\'s" (F3 re-review, I-3)', () => {
@@ -176,6 +212,41 @@ describe('tierOf: safe rules', () => {
     "isn't", 'don’t', "o'clock",
   ])('a/an before the function word or contraction "%s" is review', (word) => {
     expect(article(`an ${word} more`)).toBe('review');
+  });
+
+  it('a/an joined to the word before it is not an article: "a/an" is never made "a/a" (Task F4, F3 re-review 2 C-2)', () => {
+    /** The article flag at `marked`'s "|" (the marker is not part of the text). */
+    const at = (marked: string, original: string, replacement: string) => {
+      const start = marked.indexOf('|');
+      const text = marked.replace('|', '');
+      const c = cand({ original, span: { start, end: start + original.length }, replacements: [replacement], kind: 'Miscellaneous' });
+      return tierOf(c, ctx({ paraText: new Map([[0, text]]) }));
+    };
+    expect(at('Use a/|an correctly in every sentence.', 'an', 'a')).toBe('review');
+    expect(at('The pre-|a apple test.', 'a', 'an')).toBe('review');
+    expect(at('Pick |a apple/orange now.', 'a', 'an')).toBe('review'); // the next word is slash-joined
+    expect(at('He said (|a apple) twice.', 'a', 'an')).toBe('safe'); // after an opening bracket it is a word
+    expect(at('He ate |a apple.', 'a', 'an')).toBe('safe');
+  });
+
+  // Spelling does not tell the sound: "a usb", "a upsc", "a user", "a one-off", "a European".
+  it.each(['usb', 'upsc', 'ui', 'uae', 'ussd', 'ufo', 'user', 'one', 'once', 'european', 'eulogy'])(
+    'a → an before "%s" (it may start with a "you" or "w" sound) is review (Task F4, F3 re-review 2 C-3)',
+    (word) => {
+      expect(article(`a ${word} here`)).toBe('review');
+    },
+  );
+
+  // "an herb" is American English, "a herb" British: the "h" may be silent.
+  it.each(['herb', 'herbal', 'homage', 'honest', 'honour', 'honor', 'hour', 'heir'])('an → a before "%s" is review (Task F4, F3 re-review 2 C-3)', (word) => {
+    expect(article(`an ${word} here`)).toBe('review');
+  });
+
+  it('otherwise the linter reads the sound right, so the swap stays safe: "an useful" → "a useful", "an huge" → "a huge"', () => {
+    expect(article('an useful setting')).toBe('safe');
+    expect(article('an huge difference')).toBe('safe');
+    expect(article('a hour later')).toBe('safe');
+    expect(article('a orange fell')).toBe('safe');
   });
 
   it('a/an without paragraph text is review', () => {

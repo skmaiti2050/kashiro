@@ -28,31 +28,43 @@ export function doubledWord(c: Candidate): string | null {
   return m[2];
 }
 
-/** A word written twice in a flag, in any case: "to to" in "to to's", "for for" in "for for-profit". */
+/** A word written twice, in any case: "to to" in "to to's", "for for" in "for for-profit", "be be" in "be be-bop". */
 const HAS_DOUBLED_WORD = /(?<!\p{L})(\p{L}+)\s+\1(?!\p{L})/iu;
+const LETTER = /\p{L}/u;
+const SPACE = /\s/u;
 
-/** True when the flag's text holds a word written twice ("to to's" → "toto's" removes one of them). */
-export function holdsDoubledWord(c: Candidate): boolean {
-  return HAS_DOUBLED_WORD.test(c.original);
+/**
+ * True when the flag's text, widened by a word on each side when the paragraph is given, holds a word written
+ * twice: "to to's" → "toto's" removes one of them, and so does a Grammar " be" → "" in "be be-bop", whose span
+ * holds only one copy (F3 re-review 2, I-3).
+ */
+export function holdsDoubledWord(c: Candidate, text?: string): boolean {
+  if (text === undefined) return HAS_DOUBLED_WORD.test(c.original);
+  let start = c.span.start;
+  let end = c.span.end;
+  while (start > 0 && SPACE.test(text[start - 1])) start--;
+  while (start > 0 && LETTER.test(text[start - 1])) start--;
+  while (end < text.length && SPACE.test(text[end])) end++;
+  while (end < text.length && LETTER.test(text[end])) end++;
+  return HAS_DOUBLED_WORD.test(text.slice(start, end));
 }
 
 /**
- * A character that carries a word on: a letter, mark or digit, a hyphen or dash, an apostrophe, an underscore,
- * or an invisible or format character ("-" in "for-profit", "'" in "to's", "_" in "for_loop").
+ * What may come right after a whole word: whitespace, the end, closing punctuation followed by whitespace or the
+ * end, or a full stop that does not run into a letter or digit ("the the." but not "for for.NET"). Anything else
+ * carries the word on: "for-profit", "to's", "and/or", "a+", "with#hash" (F3 re-review 2, C-1).
  */
-const CONTINUES_WORD = /[\p{L}\p{M}\p{N}\p{Pc}\p{Pd}'’ʼ\p{Cf}\p{Default_Ignorable_Code_Point}]/u;
-const CONTINUES_BEFORE = new RegExp(`${CONTINUES_WORD.source}$`, 'u');
-const CONTINUES_AFTER = new RegExp(`^${CONTINUES_WORD.source}`, 'u');
+const ENDS_WORD = /^(?:$|\s|[,;:!?)\]}”’"](?:$|\s)|\.(?![\p{L}\p{N}]))/u;
+/** What may come right before a whole word: the start, whitespace, or an opening bracket or quote after either. */
+const STARTS_WORD = /(?:^|\s|(?:^|\s)[(\[{“‘"])$/u;
 
 /**
- * True when `span` of `text` is whole words: the characters on either side don't carry a word on. "for for"
- * in "for for-profit" is not ("for-profit" is one word), nor is "to to" in "a lean-to to keep dry".
+ * True when `span` of `text` is whole words: a word start before it (STARTS_WORD) and a word end after it
+ * (ENDS_WORD). "for for" in "for for-profit" or "and and/or" is not, nor is "to to" in "a lean-to to keep dry".
  */
 export function isWholeWords(text: string, span: Span): boolean {
-  // Two code units each side, so a character outside the BMP (a tag, a variation selector) is read whole.
-  const before = text.slice(Math.max(0, span.start - 2), span.start);
-  const after = text.slice(span.end, span.end + 2);
-  return !CONTINUES_BEFORE.test(before) && !CONTINUES_AFTER.test(after);
+  // Two characters before and three after are all either pattern reads (three: a letter outside the BMP).
+  return STARTS_WORD.test(text.slice(Math.max(0, span.start - 2), span.start)) && ENDS_WORD.test(text.slice(span.end, span.end + 3));
 }
 
 /** A capital right after a lowercase letter: "preventDefault", "iPhone", "DevTools". */

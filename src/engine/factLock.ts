@@ -114,21 +114,32 @@ const CAPITALISED = /(?<![\p{L}\p{N}'’])\p{Lu}(?:['’]\p{Lu})?\p{Ll}[\p{L}'�
 /** An opening quote or bracket, e.g. "(" in "(Joshi, 2020)". */
 export const OPENERS = /["'(\[{“‘«]/;
 
-/** Abbreviations whose period does not end a sentence (lowercased, without the final period). "No." is special-cased. */
+/**
+ * Abbreviations whose period does not end a sentence (lowercased, without the final period), common Indian
+ * forms included ("Govt. of India", "Pvt. Ltd.", "500 sq. ft.": F3 re-review 2, C-4). "No." is special-cased.
+ */
 const ABBREVIATIONS = new Set([
   'dr', 'mr', 'mrs', 'ms', 'prof', 'st', 'mt', 'jr', 'sr', 'e.g', 'i.e', 'etc', 'vs', 'fig', 'approx',
+  'govt', 'pvt', 'ltd', 'inc', 'co', 'corp', 'dept', 'rd', 'viz', 'cf', 'sq', 'ft', 'hr', 'hrs', 'min', 'mins',
+  'nos', 'rs', 'al', 'vol', 'ch', 'pp', 'est', 'misc', 'a.m', 'p.m',
 ]);
+
+/** Invisible and format characters: a mark typed before an abbreviation's full stop ("etc<U+200E>."). */
+const INVISIBLE = /[\p{Cf}\p{Default_Ignorable_Code_Point}]/gu;
+/** A character of an abbreviation as written: a letter, its dots, or an invisible mark among them. */
+const ABBREVIATION_CHAR = /[\p{L}.\p{Cf}\p{Default_Ignorable_Code_Point}]/u;
 
 /**
  * True when the '.' at `dot` closes an abbreviation, given the next word starts at `next`:
  * one of ABBREVIATIONS ("Dr.", not "hello."); "No." (case-sensitive) only before a digit ("No. 5");
  * a single capital initial ("K.") only before a capitalised word ("R. K. Narayan", not "Plan B. the"),
- * and not right after a digit or degree sign ("234C. The", "26 °C. My").
+ * and not right after a digit or degree sign ("234C. The", "26 °C. My"). Invisible characters in the
+ * abbreviation are read through (F3 re-review 2, I-1).
  */
 function endsAbbreviation(text: string, dot: number, next: number): boolean {
   let k = dot;
-  while (k > 0 && /[\p{L}.]/u.test(text[k - 1])) k--;
-  const token = text.slice(k, dot);
+  while (k > 0 && ABBREVIATION_CHAR.test(text[k - 1])) k--;
+  const token = text.slice(k, dot).replace(INVISIBLE, '');
   const after = text[next] ?? '';
   if (token === 'No') return /\d/.test(after);
   // A capital glued to a number or degree sign is a code or unit ("234C.", "26 °C."), not an initial.
@@ -136,11 +147,22 @@ function endsAbbreviation(text: string, dot: number, next: number): boolean {
   return ABBREVIATIONS.has(token.toLowerCase());
 }
 
-/** True when `text` before index `i` (ignoring spaces) ends with an abbreviation or initial, e.g. "Mr. |and". */
+/** Whitespace or an invisible character between an abbreviation's full stop and the next word. */
+const GAP = /[\s\p{Cf}\p{Default_Ignorable_Code_Point}]/u;
+/** The word "no" (lowercase) right before a full stop: "the no." */
+const LOWERCASE_NO = /(?<![\p{L}.])no$/u;
+
+/**
+ * True when `text` before index `i` (ignoring spaces) ends with an abbreviation or initial, e.g. "Mr. |and".
+ * A lowercase "no." counts too: it may be "number" ("the no. of students"), so a capital after it is asked,
+ * though it can also end a sentence ("I said no. the end") and isSentenceStart still reads it so.
+ */
 export function followsAbbreviation(text: string, i: number): boolean {
   let j = i;
-  while (j > 0 && /\s/.test(text[j - 1])) j--;
-  return j > 0 && text[j - 1] === '.' && endsAbbreviation(text, j - 1, i);
+  while (j > 0 && GAP.test(text[j - 1])) j--;
+  if (j === 0 || text[j - 1] !== '.') return false;
+  // A few characters before the dot are enough to see "no", and keep this cheap on a long paragraph.
+  return endsAbbreviation(text, j - 1, i) || LOWERCASE_NO.test(text.slice(Math.max(0, j - 9), j - 1).replace(INVISIBLE, ''));
 }
 
 /** The start of a Markdown heading, list item or quote line, up to its first word ("## ", "- ", "1. ", "> "). */

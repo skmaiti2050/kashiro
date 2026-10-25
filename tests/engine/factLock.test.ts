@@ -169,7 +169,34 @@ describe('abbreviation edge cases', () => {
     expect(unlocked('He said No. Then he left.', 'Then')).toBe(true);
     expect(unlocked('I said no. Then he left.', 'Then')).toBe(true);
     expect(followsAbbreviation('see No. 5 here', 8)).toBe(true);
-    expect(followsAbbreviation('I said no. the end', 11)).toBe(false);
+    // A lowercase "no." may be "number" ("the no. of students"): a capital after it is asked first (Task F4).
+    expect(followsAbbreviation('I said no. the end', 11)).toBe(true);
+    expect(isSentenceStart('I said no. the end', 11)).toBe(true);
+  });
+
+  it.each([
+    ['The Govt. of India said so.', 'of'],
+    ['He joined Infosys Pvt. Ltd. last year.', 'Ltd.'],
+    ['He joined Infosys Pvt. Ltd. last year.', 'last'],
+    ['Apple Inc. and Google agreed.', 'and'],
+    ['It is 500 sq. ft. in size.', 'ft.'],
+    ['It is 500 sq. ft. in size.', 'in'],
+    ['The Dept. of Posts, viz. the post office.', 'of'],
+    ['The Dept. of Posts, viz. the post office.', 'the'],
+    ['It took 3 hrs. and 20 mins. in all.', 'and'],
+    ['It took 3 hrs. and 20 mins. in all.', 'in'],
+    ['See cf. the note, Co. and Rd. too.', 'the'],
+    ['Pay Rs. five hundred, approx. half.', 'five'],
+    ['The no. of students rose.', 'of'],
+  ])('a word after a common abbreviation is not a sentence start: "%s" before "%s" (Task F4, F3 re-review 2 C-4)', (text, word) => {
+    expect(followsAbbreviation(text, text.indexOf(` ${word}`) + 1)).toBe(true);
+  });
+
+  it('a mark between an abbreviation and its full stop is looked through: "etc<U+200E>. and" (Task F4, F3 re-review 2 I-1)', () => {
+    for (const text of ['Bring pens, books etc\u{200E}. and the rest.', 'Use one, i.e\u{200E}. the best.', 'Compare A vs\u{FE0F}. the rest.', 'Mr\u{200E}. and Mrs. Rao came.']) {
+      const next = text.search(/\. \p{Ll}/u) + 2;
+      expect(followsAbbreviation(text, next), text).toBe(true);
+    }
   });
 
   it('a single capital initial counts only before a capitalised word', () => {
