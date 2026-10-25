@@ -1,5 +1,15 @@
 import { overlapsLocked } from './factLock';
-import { buildDecisions, foldsUnderMore, NAMES_CARD_ID, OTHER_LANGUAGE_CARD_ID, TERMS_CARD_ID, type Decision } from './decisions';
+import {
+  buildDecisions,
+  foldsUnderMore,
+  NAMES_CARD_ID,
+  OTHER_LANGUAGE_CARD_ID,
+  SIMPLE_FIXES_ID,
+  TERMS_CARD_ID,
+  type Decision,
+} from './decisions';
+import { isZeroClickChange } from './zeroClick';
+import { editsChangingTokens } from './tokenGuard';
 import { checkTermMinRepeats, DEFAULT_TERM_MIN_REPEATS } from './terms';
 import { tierOf, type TierContext } from './tiers';
 import { EditLedger } from './editLedger';
@@ -29,6 +39,9 @@ import type { Candidate, Paragraph, Span, Tier, Variant } from './types';
 export { TRACKED_CHANGE_REASON, type CheckOptions, type Edit, type LogEntry, type Outcome, type SessionDeps, type Status };
 
 export { REWRITE_OUT_OF_DATE } from './sessionRewrites';
+
+/** Why a change made without a click was taken back by the token check (holdBackChangedTokens). */
+const HELD_BACK_REASON = 'held back: it would change a word';
 
 /** The cards answered by their own method, never by accept: card id → its name and method. */
 const CARD_ACCEPT_METHODS = new Map([
@@ -104,6 +117,7 @@ export class CheckSession {
     const session = new CheckSession(paras, variant, mixedVariant, variantFromFallback, ctx, now, linter, depth, termMinRepeats);
     session.addCandidates(found);
     session.autoApply();
+    session.holdBackChangedTokens();
     return session;
   }
 
@@ -294,9 +308,10 @@ export class CheckSession {
       }
     }
     const texts = new Set(members.map((c) => c.replacements[replacementIndex].toLowerCase()));
-    // Doubled words share one fix, keeping the first copy, whatever the word ("had had", "the the").
+    // Doubled words share one fix, keeping the first copy, whatever the word ("had had", "the the"); the
+    // simple-fixes card lists each place with its own one fix.
     const allDoubled = members.every((c) => doubledWord(c) !== null);
-    if (texts.size > 1 && !allDoubled) {
+    if (texts.size > 1 && !allDoubled && decisionId !== SIMPLE_FIXES_ID) {
       throw new Error(
         `${decisionId}: members have different replacements at index ${replacementIndex} (${[...texts].join(' / ')}); accept them one by one`,
       );
@@ -425,15 +440,26 @@ export class CheckSession {
     for (const c of cs) {
       if (this.cands.has(c.id)) continue;
       this.cands.set(c.id, c);
-      this.tiers.set(c.id, tierOf(c, this.ctx));
+      this.tiers.set(c.id, this.sessionTier(c));
       this.ledger.status.set(c.id, 'pending');
       const adapterLocked = this.paras.get(c.paraId)?.locked;
       if (adapterLocked?.some((s) => overlaps(c.span, s))) {
         this.ledger.inTrackedChange.add(c.id);
         this.ledger.reasons.set(c.id, TRACKED_CHANGE_REASON);
-        if (this.tiers.get(c.id) === 'safe') this.tiers.set(c.id, 'review');
+        if (this.tiers.get(c.id) !== 'hidden') this.tiers.set(c.id, 'review');
       }
     }
+  }
+
+  /**
+   * tierOf, with its 'safe' split in two (owner decision, Task F4): only a zero-click change (isZeroClickChange:
+   * an invisible character, or spaces between words) stays 'safe' and is applied without a click; any other safe
+   * fix is 'batch', for the simple-fixes card. No setting changes this split.
+   */
+  private sessionTier(c: Candidate): Tier {
+    const tier = tierOf(c, this.ctx);
+    if (tier !== 'safe') return tier;
+    return isZeroClickChange(c, this.paras.get(c.paraId)!, this.ctx.locked.get(c.paraId)) ? 'safe' : 'batch';
   }
 
   /** The helper's answer for a sentence, through the meaning-drift guard; 'stale' when the sentence changed (see HelperRewrites.add). */
@@ -470,6 +496,24 @@ export class CheckSession {
         continue;
       }
       this.ledger.apply(c, c.replacements[0], true);
+    }
+  }
+
+  /**
+   * The backstop after autoApply (Task F4), independent of the tiers: in each paragraph, a change made without a
+   * click that alters a token (keepsTokens) is taken back and offered for review instead.
+   */
+  private holdBackChangedTokens(): void {
+    for (const [paraId, p] of this.paras) {
+      const auto = [...this.ledger.autoApplied].map((id) => this.cands.get(id)!).filter((c) => c.paraId === paraId);
+      if (auto.length === 0) continue;
+      const edits = auto.map((c) => ({ paraId, span: c.span, replacement: this.ledger.replacement.get(c.id)! }));
+      for (const i of editsChangingTokens(p.text, edits)) {
+        const c = auto[i];
+        this.ledger.autoApplied.delete(c.id);
+        this.ledger.record(c.id, 'pending', false, HELD_BACK_REASON);
+        this.tiers.set(c.id, 'review');
+      }
     }
   }
 

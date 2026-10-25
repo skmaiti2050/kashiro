@@ -2,7 +2,7 @@
 export const SAMPLE_NAME = 'Sample.txt';
 
 /**
- * A short sample with one of each card: a safe fix ("teh", applied on its own), single reviews ("could of"),
+ * A short sample with one of each card: simple fixes ("teh", on the one-click card), single reviews ("could of"),
  * batches ("recieve" and "alot", twice each), a names card (Priya Deshmukh, Wadgaon) and a terms card
  * ("ferrocement", three times). "colour" and "lakh" give the English-variant chip something to show.
  * The controller test checks that it keeps producing each card.

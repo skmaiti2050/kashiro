@@ -1,20 +1,21 @@
 /**
- * Never-damage stress test (CLAUDE.md rule #1, external review #4): several hundred generated sentences full
- * of traps (legitimate doublings, invisible and bidi characters, list labels, acronyms, names, amounts, Hindi
- * and Bengali, quotes, URLs, code), checked with every auto-apply setting on. Any automatic change outside
- * the approved list fails:
- *   - deleting an invisible character the generator planted (never a joiner Indic text needs);
- *   - the one approved fix of a planted error ("teh" → "the", "a apple" → "an apple", "the the" → "the");
- *   - whitespace and punctuation only, between words it leaves as they were (no join or split), away from every trap;
- *   - a kind the user moved to auto-apply in Settings, away from every trap.
- * Every edit must also start and end on grapheme-cluster boundaries, no direction-control pair may lose one
- * end, and the saved file must equal the paragraphs with the edits applied, without U+FFFD. The seed is
- * fixed, so a failure is reproducible.
+ * Never-damage stress test (CLAUDE.md rule #1, external review #4, owner decision in Task F4): several hundred
+ * generated sentences full of traps (legitimate doublings, invisible and bidi characters, list labels, acronyms,
+ * names, amounts, Hindi and Bengali, quotes, URLs, code, abbreviations, slash compounds), checked under every
+ * preset, with default settings and with every auto-apply setting on. Without a click the session may only:
+ *   - delete an invisible character the generator planted (never a joiner Indic text needs);
+ *   - change whitespace between tokens it leaves exactly as they were, away from every trap.
+ * A token is a run of characters that are neither whitespace nor invisible, so a case change, "?" → ".",
+ * "e-mail" → "e mail", "Don't" → "Don t" or "home ." → "home." is not spacing. Every edit must also start and
+ * end on grapheme-cluster boundaries, no direction control may lose its partner (isolates included), and the
+ * saved file must equal the paragraphs with the edits applied, without U+FFFD. The planted errors are still
+ * found: each waits in a decision with its one right fix. The seed is fixed, so a failure is reproducible.
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import { CheckSession, type Outcome } from '@/engine/session';
 import { createLinter, type RulesLinter } from '@/engine/linter';
 import { DEFAULT_MODULES } from '@/engine/modules';
+import { PRESETS, type PresetId } from '@/engine/presets';
 import type { Tier } from '@/engine/types';
 import { markdownAdapter, plaintextAdapter } from '@/formats/text';
 import { AUTO_APPLY_KINDS } from '@/ui/state/settings';
@@ -29,42 +30,59 @@ beforeAll(async () => {
   linter = await createLinter('Indian');
 });
 
-/** Every kind the Settings panel can move to auto-apply, moved. */
+/** Every kind the Settings panel offers, switched on. */
 const EVERYTHING_AUTO: Partial<Record<string, Tier>> = Object.fromEntries(AUTO_APPLY_KINDS.map((k) => [k, 'safe']));
 
-/** What a whitespace-and-punctuation change may touch: "  " → " ", " ," → ",". */
-const SPACE_OR_PUNCTUATION = /[\s\p{P}]/gu;
-/** A word as the spacing check counts them: "to" and "s" in "to's". */
-const WORD = /[\p{L}\p{M}\p{N}]+/gu;
+/** Invisible, direction and variation characters: removed before tokens are compared, and printed as <U+…>. */
+const INVISIBLE = /[\p{Cf}\p{Default_Ignorable_Code_Point}]/gu;
+const WHITESPACE = /\s+/u;
 
-/**
- * True when the change only adds or removes whitespace and punctuation between words it leaves as they were:
- * the paragraph's word sequence is the same after it. "to to's" → "toto's" and "file name" → "filename" join
- * words, so they are not spacing (F3 re-review, I-3).
- */
-function isSpacingOnly(p: StressParagraph, span: { start: number; end: number }, original: string, replacement: string): boolean {
-  if (original.replace(SPACE_OR_PUNCTUATION, '') !== replacement.replace(SPACE_OR_PUNCTUATION, '')) return false;
-  const before = p.text.match(WORD) ?? [];
-  const after = (p.text.slice(0, span.start) + replacement + p.text.slice(span.end)).match(WORD) ?? [];
-  return before.length === after.length && before.every((word, i) => word === after[i]);
+/** The text's tokens: maximal runs of characters that are neither whitespace nor invisible. */
+function tokens(text: string): string[] {
+  return text.replace(INVISIBLE, '').split(WHITESPACE).filter((t) => t !== '');
 }
 
-/** Direction embeddings and overrides (U+202A, U+202B, U+202D, U+202E) and their end, U+202C. */
+const sameTokens = (a: string, b: string) => {
+  const x = tokens(a);
+  const y = tokens(b);
+  return x.length === y.length && x.every((t, i) => t === y[i]);
+};
+
+/**
+ * True when replacing `span` of `text` changes only whitespace (and invisible characters) between tokens it
+ * leaves exactly as they were: "  " → " ". Case, punctuation, hyphens, apostrophes and slashes are all part of
+ * a token, so "?" → ".", "e-mail" → "e mail" and "to to's" → "toto's" are not spacing (F3 re-review 2, I-5).
+ */
+function isSpacingOnly(text: string, span: { start: number; end: number }, replacement: string): boolean {
+  return sameTokens(text, text.slice(0, span.start) + replacement + text.slice(span.end));
+}
+
+/** Embeddings and overrides (U+202A, U+202B, U+202D, U+202E), their end U+202C, isolates U+2066–2068 and their end U+2069. */
 const DIRECTION_OPEN = /[\u{202A}\u{202B}\u{202D}\u{202E}]/u;
 const DIRECTION_END = '\u{202C}';
+const ISOLATE_OPEN = /[\u{2066}\u{2067}\u{2068}]/u;
+const ISOLATE_END = '\u{2069}';
 
-/** Direction controls without a partner: an opener never ended, or an end with nothing open. */
+/**
+ * Direction controls without a partner, as UAX #9 matches them: an embedding or isolate never ended, a U+202C
+ * with no embedding open inside the current isolate, or a U+2069 with no isolate open. A U+2069 also ends every
+ * embedding opened inside its isolate (F3 re-review 2, I-2).
+ */
 function unpairedDirectionControls(text: string): number {
-  let open = 0;
+  const open: ('embedding' | 'isolate')[] = [];
   let unpaired = 0;
   for (const ch of text) {
-    if (DIRECTION_OPEN.test(ch)) open++;
+    if (DIRECTION_OPEN.test(ch)) open.push('embedding');
+    else if (ISOLATE_OPEN.test(ch)) open.push('isolate');
     else if (ch === DIRECTION_END) {
-      if (open > 0) open--;
+      if (open.at(-1) === 'embedding') open.pop();
       else unpaired++;
+    } else if (ch === ISOLATE_END) {
+      if (!open.includes('isolate')) unpaired++;
+      else while (open.pop() !== 'isolate');
     }
   }
-  return unpaired + open;
+  return unpaired + open.length;
 }
 
 /** A paragraph whose saved text has a direction control its original paired: half a pair was deleted (F3 re-review, D3). */
@@ -87,26 +105,19 @@ function boundaries(text: string): Set<number> {
 const touches = (span: { start: number; end: number }, trap: { start: number; end: number }) =>
   span.start === span.end ? trap.start < span.start && span.start < trap.end : span.start < trap.end && trap.start < span.end;
 
-type Approved = 'invisible' | 'planted' | 'spacing' | 'opted in';
+type Approved = 'invisible' | 'spacing';
 
-/** The approved-list entry this automatic change falls under, or why it falls under none. */
+/** The approved-list entry this change made without a click falls under, or why it falls under none. */
 function judge(o: Outcome, p: StressParagraph): { approved: Approved } | { problem: string } {
   const { span, original } = o.candidate;
   const replacement = o.replacement ?? '';
   if (p.text.slice(span.start, span.end) !== original) return { problem: 'its offsets do not match the paragraph' };
   if (span.end - span.start === 1 && replacement === '' && p.junk.has(span.start)) return { approved: 'invisible' };
-  const planted = p.fixes.find((f) => f.start === span.start && f.end === span.end);
-  if (planted) return planted.right === replacement ? { approved: 'planted' } : { problem: `planted error fixed as "${replacement}"` };
   const trap = p.traps.find((t) => touches(span, t));
   if (trap) return { problem: `touches the trap "${shown(p.text.slice(trap.start, trap.end))}"` };
-  if (isSpacingOnly(p, span, original, replacement)) return { approved: 'spacing' };
-  // The user asked for these kinds to be applied; the traps above still bind them.
-  if (AUTO_APPLY_KINDS.includes(o.candidate.kind)) return { approved: 'opted in' };
-  return { problem: 'not on the approved list' };
+  if (isSpacingOnly(p.text, span, replacement)) return { approved: 'spacing' };
+  return { problem: 'changes a word, a case or a punctuation mark without a click' };
 }
-
-/** Invisible, direction and variation characters, to print as <U+…>. */
-const INVISIBLE = /[\p{Cf}\p{Default_Ignorable_Code_Point}]/gu;
 
 /** A printable view of a change, with invisible characters as <U+…>. */
 function shown(text: string): string {
@@ -115,7 +126,14 @@ function shown(text: string): string {
 
 const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
 
-describe('never damage: generated traps, every auto-apply setting on', () => {
+/** Every preset, with default settings and with every auto-apply kind on, in both text formats. */
+const RUNS = (Object.keys(PRESETS) as PresetId[]).flatMap((preset) =>
+  (['default settings', 'every auto-apply kind on'] as const).flatMap((setting) =>
+    ([['plain text', plaintextAdapter], ['Markdown', markdownAdapter]] as const).map(([format, adapter]) => ({ preset, setting, format, adapter })),
+  ),
+);
+
+describe('never damage: generated traps, under every preset and setting', () => {
   const document = stressDocument(SEED, PARAGRAPHS);
 
   it('the generator is deterministic and big enough', () => {
@@ -124,28 +142,42 @@ describe('never damage: generated traps, every auto-apply setting on', () => {
     expect(document.reduce((n, p) => n + p.traps.length, 0)).toBeGreaterThan(200);
   });
 
-  it('the judge: spacing keeps every word, and a half-deleted direction pair is caught', () => {
+  it('the judge: only whitespace between unchanged tokens is spacing, and isolates pair as UAX #9 says', () => {
     const paragraph = (text: string): StressParagraph => ({ text, traps: [], fixes: [], junk: new Set() });
-    const auto = (p: StressParagraph, original: string, replacement: string, kind = 'Typo'): Outcome => {
-      const start = p.text.indexOf(original);
-      const candidate = { id: 'x', paraId: 0, span: { start, end: start + original.length }, original, replacements: [replacement], kind, message: '', source: 'rules' as const };
-      return { candidate, paragraphNumber: 1, status: 'applied', auto: true, replacement };
+    const verdict = (text: string, original: string, replacement: string) => {
+      const p = paragraph(text);
+      const start = text.indexOf(original);
+      const candidate = { id: 'x', paraId: 0, span: { start, end: start + original.length }, original, replacements: [replacement], kind: 'Typo', message: '', source: 'rules' as const };
+      return judge({ candidate, paragraphNumber: 1, status: 'applied', auto: true, replacement }, p);
     };
-    const verdict = (text: string, original: string, replacement: string) => judge(auto(paragraph(text), original, replacement), paragraph(text));
+    const notSpacing = { problem: 'changes a word, a case or a punctuation mark without a click' };
     expect(verdict('We went  home.', '  ', ' ')).toEqual({ approved: 'spacing' });
-    expect(verdict('We went home .', ' .', '.')).toEqual({ approved: 'spacing' });
-    expect(verdict("We went to to's house.", "to to's", "toto's")).toEqual({ problem: 'not on the approved list' });
-    expect(verdict('Send the file name.', 'file name', 'filename')).toEqual({ problem: 'not on the approved list' });
-    expect(verdict('Send the filename.', 'filename', 'file name')).toEqual({ problem: 'not on the approved list' });
+    expect(verdict('We went \u{200B} home.', ' \u{200B} ', ' ')).toEqual({ approved: 'spacing' });
+    expect(verdict('We went home .', ' .', '.')).toEqual(notSpacing);
+    expect(verdict('Is it done?', '?', '.')).toEqual(notSpacing);
+    expect(verdict('Is it done?', '?', '!')).toEqual(notSpacing);
+    expect(verdict('Send an e-mail.', 'e-mail', 'e mail')).toEqual(notSpacing);
+    expect(verdict('A well-known fact.', 'well-known', 'well known')).toEqual(notSpacing);
+    expect(verdict("Don't go.", "Don't", 'Don t')).toEqual(notSpacing);
+    expect(verdict('Use and/or here.', 'and/or', 'and or')).toEqual(notSpacing);
+    expect(verdict('The R&D team.', 'R&D', 'R D')).toEqual(notSpacing);
+    expect(verdict('It was (not she) then.', '(not she)', 'not she')).toEqual(notSpacing);
+    expect(verdict('Wait...', '...', '.')).toEqual(notSpacing);
+    expect(verdict('It fell 50% today.', '50%', '50')).toEqual(notSpacing);
+    expect(verdict('The Govt. of India.', 'of', 'Of')).toEqual(notSpacing);
+    expect(verdict("We went to to's house.", "to to's", "toto's")).toEqual(notSpacing);
+    expect(verdict('Send the file name.', 'file name', 'filename')).toEqual(notSpacing);
+    expect(verdict('Send the filename.', 'filename', 'file name')).toEqual(notSpacing);
     expect(unpairedDirectionControls('a\u{202E}b\u{202C}c')).toBe(0);
     expect(unpairedDirectionControls('a\u{202E}bc')).toBe(1);
     expect(unpairedDirectionControls('a\u{202C}b\u{202D}c\u{202C}')).toBe(1);
+    // The PDI ends the RLE opened inside its isolate, so the last PDF ends the RLO; without it the RLO stays open.
+    expect(unpairedDirectionControls('\u{202E}abc \u{2066}x\u{202B}y\u{2069} z\u{202C} rest')).toBe(0);
+    expect(unpairedDirectionControls('\u{202E}abc \u{2066}xy\u{2069} z rest')).toBe(1);
+    expect(unpairedDirectionControls('a\u{2066}b\u{202C}c\u{2069}')).toBe(1);
   });
 
-  it.each([
-    ['plain text', plaintextAdapter],
-    ['Markdown', markdownAdapter],
-  ] as const)('%s: every automatic change is approved and lands cleanly', async (_name, adapter) => {
+  it.each(RUNS)('$format, $preset preset, $setting: every change made without a click is approved', async ({ preset, setting, adapter }) => {
     const file = document.map((p) => p.text).join('\n\n') + '\n';
     const { paras, handle } = await adapter.read(new TextEncoder().encode(file));
     expect(paras.map((p) => p.text)).toEqual(document.map((p) => p.text));
@@ -153,12 +185,12 @@ describe('never damage: generated traps, every auto-apply setting on', () => {
     const session = await CheckSession.start(
       paras,
       {
-        preset: 'academic', // nothing hidden, and the contractions check on
+        preset,
         fallbackVariant: 'Indian',
         language: adapter.language,
         dictionary: [],
         modules: DEFAULT_MODULES,
-        tierOverrides: EVERYTHING_AUTO,
+        tierOverrides: setting === 'default settings' ? undefined : EVERYTHING_AUTO,
       },
       { linter },
     );
@@ -171,6 +203,10 @@ describe('never damage: generated traps, every auto-apply setting on', () => {
       if ('approved' in verdict) approved.set(verdict.approved, (approved.get(verdict.approved) ?? 0) + 1);
       else problems.push(`¶${o.candidate.paraId} ${o.candidate.kind} "${shown(o.candidate.original)}" → "${shown(o.replacement ?? '')}": ${verdict.problem}`);
     }
+    // Every edit at session start was made without a click: together they keep every token too.
+    document.forEach((p, id) => {
+      if (!sameTokens(p.text, session.outputText(id))) problems.push(`¶${id} "${shown(session.outputText(id))}": a token changed`);
+    });
     for (const e of session.acceptedEdits()) {
       const at = boundaries(document[e.paraId].text);
       const oneCharacter = e.span.end - e.span.start === 1 && e.replacement === '';
@@ -180,9 +216,17 @@ describe('never damage: generated traps, every auto-apply setting on', () => {
     }
     problems.push(...splitDirectionPairs(session, document));
     expect(problems).toEqual([]);
-    // The approved fixes still happen: the test can't pass by the engine changing nothing.
+    // The approved changes still happen: the test can't pass by the engine changing nothing.
     expect(approved.get('invisible')).toBeGreaterThan(50);
-    expect(approved.get('planted')).toBeGreaterThan(10);
+    expect(approved.get('spacing')).toBeGreaterThan(0);
+
+    // The planted errors are still found: each waits in a decision with its one right fix.
+    const { top, more } = session.decisions();
+    const offered = new Set([...top, ...more].flatMap((d) => d.candidateIds));
+    const plantedOffered = session
+      .candidates()
+      .filter((c) => offered.has(c.id) && document[c.paraId].fixes.some((f) => f.start === c.span.start && f.end === c.span.end && f.right === c.replacements[0]));
+    expect(plantedOffered.length).toBeGreaterThan(10);
 
     const { bytes, unplaceable } = await adapter.write(handle, session.acceptedEdits(), 'clean');
     expect(unplaceable).toEqual([]);
@@ -192,7 +236,7 @@ describe('never damage: generated traps, every auto-apply setting on', () => {
     expect(LONE_SURROGATE.test(saved)).toBe(false);
   }, 60_000);
 
-  it('accepting every suggestion never replaces a word-card word or cuts a word an invisible character split', async () => {
+  it('accepting every suggestion never replaces a word-card word, cuts a word an invisible character split, or splits a direction pair', async () => {
     const paras = document.map((p, id) => ({ id, text: p.text }));
     const session = await CheckSession.start(
       paras,

@@ -13,6 +13,8 @@ export interface Paragraph {
   locked?: Span[];
   /** Adapter-supplied: an item of a list whose label ("a.", "1.") the format draws itself, so its first word is not a sentence start. */
   listItem?: boolean;
+  /** Adapter-supplied: a table cell (Markdown) or a paragraph inside a Word table, where spaces may be layout. */
+  tableCell?: boolean;
 }
 
 export type Source = 'rules' | 'hygiene' | 'llm' | 'preset';

@@ -25,6 +25,11 @@ interface Recorded {
 }
 const { rewrites } = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'fixtures/llm-rewrites.json'), 'utf8')) as { rewrites: Recorded[] };
 const files = [...new Set(rewrites.map((r) => r.doc))];
+/**
+ * The depth test's documents: the fixture's, and three whose recorded "ok" answers left the fixture in Task F4.
+ * Their former auto-fixes are now one simple-fixes decision, which fills the review room: no sentence is sent.
+ */
+const DEPTH_FILES = [...files, 'business/board-update-fy25.md', 'business/hybrid-work-policy.md', 'blog/freelancer-taxes.docx'];
 
 const BUDGET = 10;
 const PER_WORDS = 1500;
@@ -87,7 +92,7 @@ describe('"Check how it reads" at every review depth (Task 13 UI)', () => {
     return helper;
   };
 
-  it.each((['light', 'standard', 'thorough', 'everything'] as const).flatMap((depth) => files.map((file) => [depth, file] as const)))(
+  it.each((['light', 'standard', 'thorough', 'everything'] as const).flatMap((depth) => DEPTH_FILES.map((file) => [depth, file] as const)))(
     '%s: %s stays within the depth’s decision budget with the AI suggestions added',
     async (depth, file) => {
       const doc = docs.find((d) => d.file === file)!;

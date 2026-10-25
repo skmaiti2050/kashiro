@@ -106,6 +106,22 @@ describe('findInvisible', () => {
     expect(flagged(text)).toEqual([[9, true], [22, true]]);
   });
 
+  it('matches pairs across isolates as UAX #9 does, deleting none an isolate ends (F3 re-review 2, I-2)', () => {
+    // The PDI closes the RLE opened inside its isolate, so the last PDF ends the RLO: that pair goes, the RLE stays.
+    expect(flagged('Total \u{202E}abc \u{2066}x\u{202B}y\u{2069} z\u{202C} rest')).toEqual([[6, true], [13, false], [18, true]]);
+    expect(flagged('Total \u{202E}abc \u{2068}x\u{202D}y\u{2069} z\u{202C} rest')).toEqual([[6, true], [13, false], [18, true]]);
+    // A PDF never ends an embedding opened outside its isolate.
+    expect(flagged('a\u{202E}b\u{2066}c\u{202C}d\u{2069}e')).toEqual([[1, false], [5, false]]);
+    // An isolate that never ends still keeps a PDF inside it from pairing with an opener outside.
+    expect(flagged('a\u{202E}b\u{2067}c\u{202C}d')).toEqual([[1, false], [5, false]]);
+  });
+
+  it('keeps ZWJ/ZWNJ in the words of any script that uses them, not only Indic and Arabic (Task F4)', () => {
+    expect(findInvisible(p('\u{1000}\u{103A}\u{200C}\u{1001}'))).toEqual([]); // Myanmar
+    expect(findInvisible(p('\u{1780}\u{200D}\u{17D2}'))).toEqual([]); // Khmer
+    expect(findInvisible(p('\u{0F40}\u{200C}\u{0F41}'))).toEqual([]); // Tibetan
+  });
+
   it('never flags a variation selector: emoji need it (F3 re-review, D2)', () => {
     expect(findInvisible(p('a\u{FE0F}b \u{2764}\u{FE0F} c\u{FE00}d'))).toEqual([]);
   });

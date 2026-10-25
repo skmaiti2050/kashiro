@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { CheckSession, type CheckOptions } from '@/engine/session';
 import { exportReport } from '@/engine/report';
 import { carryDecisions, userDecisions } from '@/engine/carryDecisions';
+import { SIMPLE_FIXES_ID } from '@/engine/decisions';
 import { createLinter, type RulesLinter } from '@/engine/linter';
 import type { Candidate, Paragraph } from '@/engine/types';
 
@@ -27,9 +28,16 @@ const byOriginal = (s: CheckSession, original: string, paraId = 0) =>
 
 const lastLog = (s: CheckSession, id: string) => s.log().filter((e) => e.candidateId === id).at(-1);
 
-// "of of" is a doubling that is always a slip, so it is auto-applied ("is is" can be grammar: "What it is is…").
+// "of of" is a doubling that is always a slip, so it is a simple fix ("is is" can be grammar: "What it is is…").
 const TEH = 'I think teh cat of of mine is here.';
 const TEH_FIXED = 'I think the cat of mine is here.';
+
+/** A check whose simple-fixes card the user then applied with one click (Task F4: nothing changes a word unasked). */
+const startFixed = async (paras: Paragraph[], over: Partial<CheckOptions> = {}, now?: () => Date) => {
+  const s = await start(paras, over, now);
+  s.applyBatch(SIMPLE_FIXES_ID);
+  return s;
+};
 
 describe('CheckSession.start', () => {
   it('ranks spelling suggestions by likelihood and never offers an offensive word (spec §5)', async () => {
@@ -41,15 +49,17 @@ describe('CheckSession.start', () => {
     expect(s.tier(arived.id)).toBe('review');
   });
 
-  it('auto-applies safe candidates and logs them as auto', async () => {
+  it('puts safe word fixes on the simple-fixes card, applied with one click and logged as accepted (Task F4)', async () => {
     const s = await start([{ id: 0, text: TEH }]);
     const teh = byOriginal(s, 'teh');
     const ofof = byOriginal(s, 'of of');
-    expect(s.tier(teh.id)).toBe('safe');
+    expect([s.tier(teh.id), s.tier(ofof.id)]).toEqual(['batch', 'batch']);
+    expect(s.log()).toEqual([]);
+    s.applyBatch(SIMPLE_FIXES_ID);
     for (const c of [teh, ofof]) {
       const e = lastLog(s, c.id)!;
       expect(e.status).toBe('applied');
-      expect(e.auto).toBe(true);
+      expect(e.auto).toBe(false);
     }
   });
 
@@ -63,13 +73,13 @@ describe('CheckSession.start', () => {
   });
 
   it('outputText applies the fixes', async () => {
-    const s = await start([{ id: 0, text: TEH }]);
+    const s = await startFixed([{ id: 0, text: TEH }]);
     expect(s.outputText(0)).toBe(TEH_FIXED);
   });
 
   it('uses the given variant without detection, and the injected clock', async () => {
     const at = new Date('2026-10-20T10:00:00.000Z');
-    const s = await start([{ id: 0, text: TEH }], { variant: 'British' }, () => at);
+    const s = await startFixed([{ id: 0, text: TEH }], { variant: 'British' }, () => at);
     expect(s.variant).toBe('British');
     expect(s.mixedVariant).toBe(false);
     expect(s.log()[0].at).toBe(at.toISOString());
@@ -121,11 +131,11 @@ describe('decisions, accept, undo', () => {
 
   it('applyBatch without a list applies every member; a member of another decision is refused', async () => {
     const s = await start([{ id: 0, text: "I can't go. You can't stay. I think teh cat is here." }], { preset: 'academic' });
-    const batch = s.decisions().top.find((d) => d.kind === 'batch')!;
+    const batch = s.decisions().top.find((d) => d.kind === 'batch' && d.id !== SIMPLE_FIXES_ID)!;
     expect(() => s.applyBatch(batch.id, ['not-a-member'])).toThrow(/not part of/);
     expect(() => s.applyBatch(batch.id, [])).toThrow(/at least one/);
     s.applyBatch(batch.id);
-    expect(s.outputText(0)).toBe('I cannot go. You cannot stay. I think the cat is here.');
+    expect(s.outputText(0)).toBe('I cannot go. You cannot stay. I think teh cat is here.');
     expect(() => s.undoBatch('batch-99')).toThrow(/unknown batch/);
   });
 
@@ -152,7 +162,7 @@ describe('decisions, accept, undo', () => {
   });
 
   it('a newer accept over an applied edit supersedes the older one', async () => {
-    const s = await start([{ id: 0, text: TEH }]);
+    const s = await startFixed([{ id: 0, text: TEH }]);
     const teh = byOriginal(s, 'teh');
     const llm: Candidate = {
       id: 'llm:1',
@@ -258,7 +268,7 @@ describe('invisible characters (review #4, C3)', () => {
 
   it('flags after one keep their offsets in the paragraph', async () => {
     const text = '\u{200B}I think teh cat sat.';
-    const s = await start([{ id: 0, text }]);
+    const s = await startFixed([{ id: 0, text }]);
     expect(s.candidates().find((c) => c.kind === 'Typo')).toMatchObject({ span: { start: 9, end: 12 }, original: 'teh' });
     expect(s.outputText(0)).toBe('I think the cat sat.');
   });
@@ -277,7 +287,7 @@ describe('supersede chain', () => {
   };
 
   it('undoing the superseding edit restores the older one', async () => {
-    const s = await start([{ id: 0, text: TEH }]);
+    const s = await startFixed([{ id: 0, text: TEH }]);
     const teh = byOriginal(s, 'teh');
     s.addCandidates([rewrite]);
     s.accept('llm:1');
@@ -287,7 +297,7 @@ describe('supersede chain', () => {
   });
 
   it('marking the superseding edit unplaceable restores the older one', async () => {
-    const s = await start([{ id: 0, text: TEH }]);
+    const s = await startFixed([{ id: 0, text: TEH }]);
     const teh = byOriginal(s, 'teh');
     s.addCandidates([rewrite]);
     s.accept('llm:1');
@@ -297,8 +307,8 @@ describe('supersede chain', () => {
   });
 
   it('restores to pending when another applied edit now clashes', async () => {
-    const s = await start([{ id: 0, text: TEH }]);
-    const ofof = byOriginal(s, 'of of'); // 16..21, auto-applied
+    const s = await startFixed([{ id: 0, text: TEH }]);
+    const ofof = byOriginal(s, 'of of'); // 16..21, applied with the simple-fixes card
     const llm = (id: string, start: number, end: number, r: string): Candidate => ({
       ...rewrite,
       id,
@@ -366,9 +376,11 @@ describe('exportReport', () => {
         { id: 0, text: TEH },
         { id: 1, text: "I can't go." },
         { id: 2, text: 'Use a|b here.' },
+        { id: 3, text: 'We went  home.' },
       ],
       { preset: 'academic' },
     );
+    s.applyBatch(SIMPLE_FIXES_ID);
     const teh = byOriginal(s, 'teh');
     s.markUnplaceable(teh.id, 'run split across a hyperlink');
     const cant = byOriginal(s, "can't", 1);
@@ -393,7 +405,8 @@ describe('exportReport', () => {
     const rows = md.split('\n').filter((l) => l.startsWith('| ') && !l.startsWith('| #'));
     const row = (needle: string) => rows.find((r) => r.includes(needle))!;
 
-    expect(row('of of')).toMatch(/\| 1 \| of of \| of \| Repetition \| auto \|/);
+    expect(row('of of')).toMatch(/\| 1 \| of of \| of \| Repetition \| accepted \|/);
+    expect(row('Formatting')).toMatch(/\| 4 \| {4}\| {3}\| Formatting \| auto \|/);
     expect(row('teh')).toMatch(/\| 1 \| teh \| the \| Typo \| unplaceable: run split across a hyperlink \|/);
     expect(row("can't")).toMatch(/\| 2 \| can't \| cannot \| Contraction \| rejected \|/);
     expect(row('a or b')).toMatch(/\| 3 \| a\\\|b \| a or b \| Rewrite \| accepted \|/);
@@ -458,7 +471,7 @@ describe('word batches (round 2)', () => {
 
   it('ignoreAll rejects every member', async () => {
     const s = await start(paras3);
-    s.addCandidates([word('a', 0, 'word', ['ward']), word('b', 1, 'word', ['ward', 'wired'])]);
+    s.addCandidates([word('a', 0, 'word', ['ward', 'wad']), word('b', 1, 'word', ['ward', 'wired'])]);
     const d = batchOf(s, 'a');
     s.ignoreAll(d.id);
     for (const id of ['a', 'b']) expect(lastLog(s, id)!.status).toBe('rejected');

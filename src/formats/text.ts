@@ -71,8 +71,8 @@ function split(text: string, markdown: boolean): { paras: Paragraph[]; offsets: 
   const paras: Paragraph[] = [];
   const offsets: number[] = [];
   const lengths: number[] = [];
-  const add = (start: number, end: number) => {
-    paras.push({ id: paras.length, text: text.slice(start, end) });
+  const add = (start: number, end: number, tableCell = false) => {
+    paras.push({ id: paras.length, text: text.slice(start, end), ...(tableCell ? { tableCell } : {}) });
     offsets.push(start);
     lengths.push(end - start);
   };
@@ -91,9 +91,9 @@ function split(text: string, markdown: boolean): { paras: Paragraph[]; offsets: 
     const line = lineText(i);
     const blank = BLANK.test(line);
     if (markdown && fence === null && start < 0 && !blank && startsTable(i)) {
-      tableCells(text, lines[i]).forEach((c) => add(c.start, c.end));
+      tableCells(text, lines[i]).forEach((c) => add(c.start, c.end, true));
       for (i += 2; i < lines.length && hasCellBorder(lineText(i)); i++) {
-        tableCells(text, lines[i]).forEach((c) => add(c.start, c.end));
+        tableCells(text, lines[i]).forEach((c) => add(c.start, c.end, true));
       }
       i--; // the line that ended the table is read as usual
       continue;

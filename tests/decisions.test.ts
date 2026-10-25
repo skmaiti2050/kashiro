@@ -13,6 +13,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { CheckSession, TRACKED_CHANGE_REASON } from '@/engine/session';
 import type { Decision } from '@/engine/tiers';
+import { SIMPLE_FIXES_ID } from '@/engine/decisions';
 import { createLinter, type RulesLinter } from '@/engine/linter';
 import { DEFAULT_MODULES } from '@/engine/modules';
 import type { PresetId } from '@/engine/presets';
@@ -61,6 +62,12 @@ const KNOWN_OVER_BUDGET = new Set<string>([
   'script/gst-explainer-video.docx',
   'script/short-film-chai-stall.docx',
   'script/wedding-toast.md',
+  // Task F4 (2026-10-25, owner decision): nothing that changes a word is applied without a click, so each document's
+  // former auto-fixes become one "simple fixes" decision (+1 per document, accepted by the owner). It puts these
+  // three 0.2–0.7 over. See the F4 report.
+  'blog/sunday-market-pune.md',
+  'script/podcast-founders-ep12.md',
+  'script/product-launch-keynote.md',
 ]);
 
 interface Measure {
@@ -93,6 +100,7 @@ const overlaps = (c: Candidate, a: Answer) =>
 
 /** What a ranked decision is "about", for the drivers column: a card, likely typos, unknown words, or the lint kind. */
 function driverOf(d: Decision, c: Candidate): string {
+  if (d.id === SIMPLE_FIXES_ID) return 'simple fixes';
   if (d.kind === 'names' || d.kind === 'terms') return d.kind;
   if (d.kind === 'otherLanguage') return 'other languages';
   if (c.kind === 'Spelling' || c.kind === 'Typo') return /^\p{Lu}/u.test(c.original) ? 'likely typos' : 'unknown words';

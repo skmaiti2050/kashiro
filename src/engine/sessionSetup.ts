@@ -31,6 +31,16 @@ function inParagraph(c: Candidate, visible: VisibleText, paragraph: string): Can
   return { ...c, id: `${c.paraId}:${span.start}:${span.end}:${c.kind}`, span, original: paragraph.slice(span.start, span.end) };
 }
 
+/**
+ * A flag whose span covers a character hygiene keeps (`kept`: a direction control it leaves in place) offers no
+ * fix: its replacement was made without that character, so applying it would delete a control the card never
+ * showed (Task F4 item 4, F3 re-review 2 I-4).
+ */
+function withoutFixOverKept(c: Candidate, kept: readonly number[]): Candidate {
+  if (!kept.some((i) => c.span.start <= i && i < c.span.end)) return c;
+  return { ...c, replacements: [], linterReplacements: undefined };
+}
+
 /** Everything a session needs before it takes over: the linter, variant, tier context and the sorted candidates. */
 export async function prepareCheck(
   paras: Paragraph[],
@@ -58,11 +68,13 @@ export async function prepareCheck(
   const paraText = new Map(paras.map((p) => [p.id, p.text]));
   const modules = resolveModules(opts.modules);
 
+  const kept = new Map(paras.map((p) => [p.id, invisible.get(p.id)!.filter((c) => c.replacements.length === 0).map((c) => c.span.start)]));
   const linted: Candidate[] = (await linter.lintParagraphs(asSeen, opts.language))
     .map((c) => inParagraph(c, visible.get(c.paraId)!, paraText.get(c.paraId)!))
     .map((c) =>
       modules.betterSuggestions ? improveSuggestions(c, paraText.get(c.paraId), locked.get(c.paraId)) : withoutOffensiveSuggestions(c),
-    );
+    )
+    .map((c) => withoutFixOverKept(c, kept.get(c.paraId)!));
   const confusables = paras.flatMap((p) => findConfusables(p, locked.get(p.id)));
   // The curated rule knows these words better than the linter ("intercast" → "inter cast"): its flag replaces the linter's word flag there.
   const found = linted.filter((c) => !confusables.some((x) => replacesLinterFlag(x, c)));

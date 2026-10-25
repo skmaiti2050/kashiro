@@ -119,6 +119,20 @@ function singleLabel(c: Candidate): string {
 const REPEATED_WORDS_KEY = 'repeated-words';
 
 /**
+ * Id of the simple-fixes card: every fix of the 'batch' tier (the safe rules, and the kinds the user put on
+ * auto-apply in Settings) as one decision, "N simple fixes: review and apply all". Nothing that changes a word is
+ * applied without a click (owner decision, Task F4); this card keeps those fixes to one click.
+ */
+export const SIMPLE_FIXES_ID = 'batch:simple-fixes';
+
+function simpleFixesCard(fixes: Candidate[]): Decision {
+  const n = fixes.length;
+  const label = n === 1 ? '1 simple fix: review and apply' : `${n} simple fixes: review and apply all`;
+  // Above every weight: buildDecisions puts the card first.
+  return { id: SIMPLE_FIXES_ID, kind: 'batch', candidateIds: fixes.map((c) => c.id), label, score: 10 };
+}
+
+/**
  * The batch key of a review candidate (spec §5: "the same correction repeated → one decision"):
  * - Spelling/Typo: kind + lowercased word, whatever the suggestions. One decision per flagged word
  *   ("Sujit (12 places)"), resolved by adding it to the dictionary, ignoring all, or one replacement for all.
@@ -186,9 +200,9 @@ class DecisionGroups {
 }
 
 /**
- * Safe candidates become auto-applied ids; review-tier candidates become decisions, batched by
- * `batchKey` (members in input order). Hidden candidates are dropped. Decisions are sorted by score
- * desc, ties in input order.
+ * Safe candidates become auto-applied ids; 'batch'-tier candidates become the one simple-fixes card, ranked
+ * first; review-tier candidates become decisions, batched by `batchKey` (members in input order). Hidden
+ * candidates are dropped. Decisions are sorted by score desc, ties in input order.
  * Demoted (never dropped): candidates matching `fold` (fact-locked spans) and Spelling/Typo flags of a
  * word that `fold` matched elsewhere (a name everywhere). They batch among themselves, get score 0 and
  * rank after every other decision, so they only reach the top when there is room. `demoted` lists
@@ -237,11 +251,16 @@ export function buildDecisions(
   const names: Candidate[] = [];
   const termFlags: Candidate[] = [];
   const otherLanguageFlags: Candidate[] = [];
+  const simpleFixes: Candidate[] = [];
   for (const c of cands) {
     const t = tiers.get(c.id) ?? 'review';
     if (t === 'hidden') continue;
     if (t === 'safe') {
       safe.push(c.id);
+      continue;
+    }
+    if (t === 'batch' && !blocked(c)) {
+      simpleFixes.push(c);
       continue;
     }
     const asWord = rankedAsWord(c);
@@ -258,7 +277,8 @@ export function buildDecisions(
     rankedAsWord(c) ? (WEIGHTS[c.kind] ?? DEFAULT_WEIGHT) + (batch ? 1 : 0) : scoreOf(c, batch);
   // Array.prototype.sort is stable, so equal scores keep first-appearance order.
   const byScore = (a: Decision, b: Decision) => b.score - a.score;
-  const decisions = normal.toDecisions(scoreFor).sort(byScore);
+  // The simple-fixes card leads: one click clears the most changes.
+  const decisions = [...(simpleFixes.length ? [simpleFixesCard(simpleFixes)] : []), ...normal.toDecisions(scoreFor).sort(byScore)];
   const demotedDecisions = demoted.toDecisions(() => 0);
   const cards: Decision[] = [];
   if (termFlags.length) cards.push(termsCard(termFlags, terms));

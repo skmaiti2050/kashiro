@@ -21,11 +21,11 @@ function capture() {
 }
 
 describe('check-file CLI', () => {
-  it('runs with the network blocked, fixes teh, prints JSON, writes report', async () => {
+  it('runs with the network blocked, collapses spaces but leaves "teh" for a click (Task F4), prints JSON, writes report', async () => {
     const input = path.join(dir, 'in.txt');
     const output = path.join(dir, 'out.txt');
     const report = path.join(dir, 'report.md');
-    fs.writeFileSync(input, Buffer.from('\ufeffI think teh cat sat.\r\n\r\nSecond paragraph here.\r\n'));
+    fs.writeFileSync(input, Buffer.from('\ufeffI think teh  cat sat.\r\n\r\nSecond paragraph here.\r\n'));
 
     const boom = () => {
       throw new Error('network access attempted');
@@ -70,7 +70,7 @@ describe('check-file CLI', () => {
     expect(Object.keys(json).sort()).toEqual(['decisions', 'mixedVariant', 'safe', 'unplaceable', 'variant']);
     expect(json.safe).toBeGreaterThanOrEqual(1);
     const bytes = fs.readFileSync(output);
-    expect(bytes.toString('utf8')).toBe('\ufeffI think the cat sat.\r\n\r\nSecond paragraph here.\r\n');
+    expect(bytes.toString('utf8')).toBe('\ufeffI think teh cat sat.\r\n\r\nSecond paragraph here.\r\n');
     expect(fs.readFileSync(report, 'utf8')).toContain('# Kashiro report');
   });
 

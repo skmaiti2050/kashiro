@@ -101,6 +101,19 @@ describe('extractDocx', () => {
     expect(out.map((d) => d.para.id)).toEqual([10, 11, 12, 13]);
   });
 
+  it('marks the paragraphs of a table, nested ones too, so their spaces are never collapsed unasked (Task F4)', () => {
+    const cell = (inner: string) => `<w:tc><w:tcPr/>${inner}</w:tc>`;
+    const nested = `<w:tbl><w:tr>${cell(p(r(t('inner'))))}</w:tr></w:tbl>`;
+    const out = ex(p(r(t('before'))) + `<w:tbl><w:tr>${cell(p(r(t('A'))))}${cell(nested + p(r(t('B'))))}</w:tr></w:tbl>` + p(r(t('after'))));
+    expect(out.map((d) => [d.para.text, d.para.tableCell ?? false])).toEqual([
+      ['before', false],
+      ['A', true],
+      ['inner', true],
+      ['B', true],
+      ['after', false],
+    ]);
+  });
+
   it('turns specials into locked length-1 pieces; pPr tabs are ignored', () => {
     const body = p(
       '<w:pPr><w:tabs><w:tab w:val="left" w:pos="720"/></w:tabs></w:pPr>' +

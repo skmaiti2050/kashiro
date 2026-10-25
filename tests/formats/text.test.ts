@@ -136,6 +136,19 @@ describe('text adapter', () => {
     expect(dec(bytes)).toBe(src.replace('teh', 'the'));
   });
 
+  it('markdown: table cells are marked as such, so their spaces are never collapsed unasked (Task F4)', async () => {
+    const md = adapterFor('a.md')!;
+    const { paras } = await md.read(enc('Intro  text.\n\n| Name | Notes |\n|---|---|\n| alpha  one | b |\n\nAfter.'));
+    expect(paras.map((p) => [p.text, p.tableCell ?? false])).toEqual([
+      ['Intro  text.', false],
+      ['Name', true],
+      ['Notes', true],
+      ['alpha  one', true],
+      ['b', true],
+      ['After.', false],
+    ]);
+  });
+
   it('markdown: a table needs its delimiter row and ends at a blank line or a line without a pipe', async () => {
     const md = adapterFor('a.md')!;
     const read = async (src: string) => (await md.read(enc(src))).paras.map((p) => p.text);

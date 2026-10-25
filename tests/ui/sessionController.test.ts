@@ -12,6 +12,7 @@ import { highlightRanges, locateCandidate } from '@/ui/state/highlights';
 import { progressOf } from '@/ui/state/progress';
 import { buildDocx } from '../fixtures/make_docx';
 import { DEFAULT_MODULES } from '@/engine/modules';
+import { SIMPLE_FIXES_ID } from '@/engine/decisions';
 import { english } from './english';
 
 let shared: RulesLinter;
@@ -928,13 +929,14 @@ describe('SessionController: U1 review flow', () => {
     expect(controller.getState().session!.decisionCount()).toBe(1);
   });
 
-  it('the sample paragraph shows each kind of card: a safe fix, a review, a batch, names and terms', async () => {
+  it('the sample paragraph shows each kind of card: simple fixes, a review, a batch, names and terms', async () => {
     const { controller } = makeController({ settings: { preset: 'business' } });
     await controller.openSample();
     const { document, session } = controller.getState();
     expect(document!.name).toBe('Sample.txt');
     expect(document!.editable).toBe(true);
-    expect(session!.outcomes().some((o) => o.auto && o.status === 'applied')).toBe(true);
+    // "teh" waits on the simple-fixes card (Task F4): nothing that changes a word is applied without a click.
+    expect(session!.decisions().top.map((d) => d.id)).toContain(SIMPLE_FIXES_ID);
     const kinds = session!.decisions().top.map((d) => d.kind);
     expect(kinds).toEqual(expect.arrayContaining(['single', 'batch', 'names', 'terms']));
     expect(controller.hasUnsavedWork()).toBe(false);

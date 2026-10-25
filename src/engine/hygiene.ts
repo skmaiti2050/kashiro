@@ -15,9 +15,11 @@ const NAMES: Record<number, string> = {
   0x202e: 'RIGHT-TO-LEFT OVERRIDE',
 };
 
-// Scripts where ZWJ/ZWNJ (and soft hyphen) are meaningful or common.
-const JOINER_SCRIPT =
-  /[\p{Script=Devanagari}\p{Script=Bengali}\p{Script=Gurmukhi}\p{Script=Gujarati}\p{Script=Oriya}\p{Script=Tamil}\p{Script=Telugu}\p{Script=Kannada}\p{Script=Malayalam}\p{Script=Sinhala}\p{Script=Arabic}]/u;
+/**
+ * A letter or mark of a script where ZWJ/ZWNJ (and soft hyphen) can be meaningful: any script but Latin, Greek
+ * and Cyrillic: Indic conjuncts, Persian, Myanmar, Khmer (Task F4: never remove them there).
+ */
+const JOINER_SCRIPT = /(?![\p{Script=Latin}\p{Script=Greek}\p{Script=Cyrillic}\p{Script=Common}\p{Script=Inherited}])[\p{L}\p{M}]/u;
 const EMOJI = /[\p{Extended_Pictographic}\p{Emoji_Modifier}\u{FE0F}\u{20E3}]/u;
 /** Right-to-left letters, e.g. Hebrew "ש" or Arabic "ب": a paragraph with them may need its direction controls. */
 const RTL_SCRIPT = /[\p{Script=Arabic}\p{Script=Hebrew}\p{Script=Syriac}\p{Script=Thaana}\p{Script=Nko}]/u;
@@ -26,6 +28,9 @@ const MONGOLIAN = /\p{Script=Mongolian}/u;
 const isDirectionControl = (code: number) => code >= 0x202a && code <= 0x202e;
 /** U+202C POP DIRECTIONAL FORMATTING ends the embedding or override (U+202A, 202B, 202D, 202E) last opened. */
 const DIRECTION_END = 0x202c;
+/** U+2066–2068 start an isolate; U+2069 POP DIRECTIONAL ISOLATE ends it and every embedding opened inside it. */
+const isIsolateStart = (code: number) => code >= 0x2066 && code <= 0x2068;
+const ISOLATE_END = 0x2069;
 
 /** The message of a direction control hygiene reports but leaves in place (findInvisible). */
 export const DIRECTION_KEPT = 'Direction character left in place';
@@ -33,23 +38,28 @@ export const DIRECTION_KEPT = 'Direction character left in place';
 /**
  * Offsets of the direction controls hygiene may delete: an opener and the U+202C that ends it, as a pair, when
  * neither is inside a `locked` span. Deleting one end alone leaves the other reversing (or ending) the rest of
- * the paragraph, text the user never touched (F3 re-review, D3).
+ * the paragraph, text the user never touched (F3 re-review, D3). Pairs are matched as UAX #9 does: a U+202C ends
+ * only an embedding opened inside the current isolate, and a U+2069 ends the embeddings left open inside its
+ * isolate, which then have no U+202C partner (F3 re-review 2, I-2). Isolates themselves are never deleted.
  */
 function deletableDirectionPairs(text: string, locked: readonly Span[]): Set<number> {
   const isLocked = (i: number) => locked.some((s) => s.start <= i && i < s.end);
-  const open: number[] = [];
+  const open: { at: number; isolate: boolean }[] = [];
   const out = new Set<number>();
   for (let i = 0; i < text.length; i++) {
     const code = text.charCodeAt(i);
-    if (!isDirectionControl(code)) continue;
-    if (code !== DIRECTION_END) {
-      open.push(i);
-      continue;
+    if (isIsolateStart(code) || (isDirectionControl(code) && code !== DIRECTION_END)) {
+      open.push({ at: i, isolate: isIsolateStart(code) });
+    } else if (code === ISOLATE_END) {
+      if (open.some((o) => o.isolate)) while (!open.pop()!.isolate);
+    } else if (code === DIRECTION_END) {
+      const opener = open.at(-1);
+      if (opener === undefined || opener.isolate) continue;
+      open.pop();
+      if (isLocked(opener.at) || isLocked(i)) continue;
+      out.add(opener.at);
+      out.add(i);
     }
-    const opener = open.pop();
-    if (opener === undefined || isLocked(opener) || isLocked(i)) continue;
-    out.add(opener);
-    out.add(i);
   }
   return out;
 }

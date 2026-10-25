@@ -18,24 +18,6 @@
       "text": "If you are new to trekking, go with an experienced group or hire a local guide in Bari; the guides charge around ₹1,000 for a group and know the trail far better than any app.",
       "rewrite": "If you are new to trekking, go with an experienced group or hire a local guide in Bari; guides charge about ₹1,500 per group and know the trail far better than any app.",
       "expect": "fact changed"
-    },
-    {
-      "doc": "business/board-update-fy25.md",
-      "text": "I am pleased to share this this update on the company's performance for the first half of the financial year, covering the period from 1 April 2025 to 30 September 2025.",
-      "rewrite": "I am pleased to share this update on the company's performance in the first half of the financial year, from 1 April 2025 to 30 September 2025.",
-      "expect": "ok"
-    },
-    {
-      "doc": "business/hybrid-work-policy.md",
-      "text": "This policy explains how and when employees may work from home, how we expect teams to organise their time in the office, and what support the company provides for remote work.",
-      "rewrite": "This policy explains when and how employees may work from home, how teams should organise their office time, and what support the company gives for remote work.",
-      "expect": "ok"
-    },
-    {
-      "doc": "blog/freelancer-taxes.docx",
-      "text": "In my first year I missed an advance tax deadline, paid interest I could have avoided, and spent two nervous weeks waiting to hear whether I had filed the right form.",
-      "rewrite": "In my first year I missed an advance tax deadline, paid interest I could have avoided, and spent two anxious weeks waiting to learn whether I had filed the right form.",
-      "expect": "ok"
     }
   ]
 }

@@ -131,7 +131,7 @@ describe('setDepth', () => {
 describe('depth never changes what is applied', () => {
   it('tiers, auto-applied edits and acceptedEdits are the same at all four depths', async () => {
     const text =
-      'I think teh cat is is here. We recieve the money tommorow and it dont matter. ' +
+      'I think teh cat is is here. We recieve the  money tommorow and it dont matter. ' +
       'Anjali Kulkarni visited Nashik in 2019, and the the report was late. ' +
       'The committee has decided that the proposal which was submitted by the team will be reviewed.';
     const snapshots = [];

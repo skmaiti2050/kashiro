@@ -32,6 +32,8 @@ const FILLERS = [
   'The rain stopped just before noon.',
   'We need two more chairs for the hall.',
   'The children walked home after school.',
+  // Two spaces between words: collapsing them is one of the two changes made without a click.
+  'The hall was  full by ten.',
 ];
 
 /** Sentences with traps: legitimate text a careless rule would "fix". */
@@ -73,6 +75,30 @@ const TRAPS = [
   'The [[re{{00AD}}port]] is ready.',
   'The [[{{FEFF}}draft]] is attached.',
   'Read the [[note{{202E}}s]] first.',
+  // Any other character after a doubling continues the word too: a slash, plus, dot or hash (F3 re-review 2, C-1).
+  'It rained. Avoid mixing [[and and/or]] in one clause.',
+  'It rained. Count the votes [[for for/against]] motions.',
+  'It rained. Serve tea [[with with/without]] sugar.',
+  'It rained. Write [[the the/a]] choice down.',
+  'It rained. Pick [[a a+]] grade.',
+  'It rained. We code [[for for.NET]] users.',
+  'It rained. Tag it [[with with#hash]] now.',
+  // A doubling only a Grammar flag touches (F3 re-review 2, I-3).
+  'It rained. Let it [[be be-bop]] music.',
+  // Articles the user wrote right: joined by a slash, or before a word said with a "you" sound (C-2, C-3).
+  'It rained. Use [[a/an]] correctly in every sentence.',
+  'It rained. Plug in [[a usb]] drive.',
+  'It rained. She is preparing for [[a upsc]] exam.',
+  // An abbreviation's full stop is not a sentence end, with or without a mark before it (C-4, I-1).
+  'It rained. The [[Govt. of]] India said so.',
+  'It rained. He joined Infosys [[Pvt. Ltd. last]] year.',
+  'It rained. Bring pens, books [[etc\u{200E}. and]] the rest.',
+  'It rained. Use one, [[i.e\u{200E}. the]] best.',
+  // Direction pairs around an isolate: the PDI closes the inner embedding, so the last PDF ends the RLO (I-2).
+  'Total [[{{202E}}abc \u{2066}x\u{202B}y\u{2069} z{{202C}}]] and the rest is plain.',
+  'Total [[{{202E}}abc \u{2068}x\u{202D}y\u{2069} z{{202C}}]] and the rest is plain.',
+  // Spaces around a direction control hygiene keeps: a spacing fix must not take the control with it (I-4).
+  'He said "[[{{202E}}sales]]" today  {{202C}}  and left.',
   'The [[cost{{180E}}s]] went up.',
   'The [[{{202B}}sales]] rose this year.',
   'The [[sum{{200C}}mary]] is short.',
@@ -112,6 +138,8 @@ const TRAPS = [
   'Copy it to [[\\\\localhost\\C$\\Reports]] first.',
   'Run [[`npm run build`]] before you push.',
   'Use [[`total = total + 1`]] in the loop.',
+  // Columns lined up with spaces: preformatted text, whose spaces are layout.
+  'Stock today:\n[[Pens    10]]\n[[Ink     25]]',
 ];
 
 /** Paragraph openers: list labels the format does not draw itself. */
@@ -223,12 +251,18 @@ function toParagraph(chars: Char[]): StressParagraph {
 
 /**
  * `count` paragraphs, the same for the same seed: mostly 3–6 sentences mixing traps, fillers and planted
- * errors, some starting with a list label, some wholly Hindi or Bengali. About a third of the sentences
- * get a random invisible character.
+ * errors, some starting with a list label, some wholly Hindi or Bengali. Every trap template is used once
+ * before any is used twice. About a third of the sentences get a random invisible character.
  */
 export function stressDocument(seed: number, count: number): StressParagraph[] {
   const random = seeded(seed);
   const pick = <T>(list: readonly T[]) => list[Math.floor(random() * list.length)];
+  // Traps are dealt like cards, so every one appears before any appears twice.
+  let trapDeck: string[] = [];
+  const nextTrap = () => {
+    if (trapDeck.length === 0) trapDeck = [...TRAPS];
+    return trapDeck.splice(Math.floor(random() * trapDeck.length), 1)[0];
+  };
   const paragraphs: StressParagraph[] = [];
   for (let p = 0; p < count; p++) {
     if (random() < 0.1) {
@@ -239,7 +273,7 @@ export function stressDocument(seed: number, count: number): StressParagraph[] {
     const sentences = 3 + Math.floor(random() * 4);
     for (let s = 0; s < sentences; s++) {
       const r = random();
-      const sentence = parseTemplate(r < 0.6 ? pick(TRAPS) : r < 0.85 ? pick(FILLERS) : pick(PLANTED));
+      const sentence = parseTemplate(r < 0.6 ? nextTrap() : r < 0.85 ? pick(FILLERS) : pick(PLANTED));
       if (random() < 0.35) sprinkleJunk(sentence, random);
       if (chars.length > 0 && !/\s$/.test(chars[chars.length - 1].ch)) chars.push({ ch: ' ' });
       chars.push(...sentence);

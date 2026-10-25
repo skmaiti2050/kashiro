@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { CheckSession } from '@/engine/session';
+import { SIMPLE_FIXES_ID } from '@/engine/decisions';
 import { createLinter, type RulesLinter } from '@/engine/linter';
 import { firstRunBudget, pickSentences, rewriteBudget, sentenceAt } from '@/engine/llm/select';
 import type { Candidate, Paragraph, Span } from '@/engine/types';
@@ -105,6 +106,7 @@ describe('pickSentences', () => {
   it('the text sent has the accepted rule edits applied; the span is the original sentence', async () => {
     const text = 'I think teh cat of of here. It sleeps.';
     const s = await start([{ id: 0, text }]);
+    s.applyBatch(SIMPLE_FIXES_ID);
     s.addCandidates([lint(0, { start: 0, end: 1 }, 'Readability')]);
     expect(s.outputText(0)).toBe('I think the cat of here. It sleeps.');
     expect(pickSentences(s, 3)).toEqual([{ paraId: 0, span: { start: 0, end: 27 }, text: 'I think the cat of here.' }]);
@@ -124,6 +126,7 @@ describe('sentenceAt ("Improve this sentence")', () => {
   it('the sentence at an offset, with its accepted edits applied, whether or not it has a lint', async () => {
     const text = 'I think teh cat of of here. It sleeps.';
     const s = await start([{ id: 0, text }]);
+    s.applyBatch(SIMPLE_FIXES_ID);
     expect(sentenceAt(s, 0, 3)).toEqual({ paraId: 0, span: { start: 0, end: 27 }, text: 'I think the cat of here.' });
     expect(sentenceAt(s, 0, 30)).toEqual({ paraId: 0, span: { start: 28, end: 38 }, text: 'It sleeps.' });
   });

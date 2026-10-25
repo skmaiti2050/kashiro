@@ -100,7 +100,7 @@ interface Frame {
   start: number;
   /** End of the open tag. */
   openEnd: number;
-  role?: 'para' | 'run' | 'rPr' | 't' | 'special' | 'placeholder' | 'excluded' | 'fallback' | 'hyperlink' | 'ins' | 'fldSimple';
+  role?: 'para' | 'run' | 'rPr' | 't' | 'special' | 'placeholder' | 'excluded' | 'fallback' | 'hyperlink' | 'ins' | 'fldSimple' | 'table';
 }
 
 /** Merge a span into a sorted list, coalescing touching/overlapping spans. Spans arrive in order. */
@@ -121,6 +121,7 @@ export function extractDocx(documentXml: string, firstId: number): DocxPara[] {
   let hyperlink = 0;
   let ins = 0;
   let fldSimple = 0;
+  let table = 0; // inside w:tbl: its paragraphs are table cells (Paragraph.tableCell)
   /**
    * Complex fields, outermost first. Fields may span paragraphs and nest. Text is visible only when every
    * open field is in its result phase: text in an instruction phase (including a nested field's result that
@@ -225,7 +226,7 @@ export function extractDocx(documentXml: string, firstId: number): DocxPara[] {
     }
     switch (name) {
       case 'w:p': {
-        const dp: DocxPara = { para: { id: firstId + out.length, text: '' }, pieces: [] };
+        const dp: DocxPara = { para: { id: firstId + out.length, text: '', ...(table > 0 ? { tableCell: true } : {}) }, pieces: [] };
         out.push(dp);
         paras.push({ dp, text: '', locked: [], listItem: false });
         return 'para';
@@ -251,6 +252,9 @@ export function extractDocx(documentXml: string, firstId: number): DocxPara[] {
       case 'w:fldSimple':
         fldSimple++;
         return 'fldSimple';
+      case 'w:tbl':
+        table++;
+        return 'table';
     }
     if (name in SPECIAL && parent === 'w:r') {
       if (tok.selfClosing) emitInRun('special', SPECIAL[name], tok.start, tok.end);
@@ -308,6 +312,9 @@ export function extractDocx(documentXml: string, firstId: number): DocxPara[] {
         break;
       case 'fldSimple':
         fldSimple--;
+        break;
+      case 'table':
+        table--;
         break;
     }
   }

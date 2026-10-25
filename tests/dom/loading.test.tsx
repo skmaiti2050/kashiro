@@ -69,7 +69,7 @@ describe('opening and checking', () => {
     renderShell(controller);
     let opened: Promise<void> = Promise.resolve();
     await act(async () => {
-      opened = controller.openText('I think teh cat is here.');
+      opened = controller.openText('I think the  cat is here.');
     });
     const documentArea = screen.getByRole('region', { name: 'Untitled.txt' });
     expect(within(documentArea).getByText('Checking…')).toBeTruthy();
@@ -82,7 +82,7 @@ describe('opening and checking', () => {
     });
     await waitFor(() => expect(controller.getState().phase).toBe('ready'));
     expect(within(documentArea).queryByText('Checking…')).toBeNull();
-    // "teh" is fixed automatically, so nothing is left to decide.
+    // The two spaces are collapsed without a click (Task F4), so nothing is left to decide.
     expect(announcements()).toContain('Check finished: nothing to decide.');
   });
 

@@ -156,7 +156,10 @@ describe('core protections stay on with every module off', () => {
     expect(off.candidates().some((c) => c.source === 'hygiene')).toBe(true);
     const code = off.candidates().filter((c) => c.original === 'preventDefault');
     for (const c of code) expect(off.tier(c.id)).toBe('hidden');
-    expect(off.outputText(0)).toContain('I think the cat of here.');
+    // Hygiene applies without a click; the word fixes wait on the simple-fixes card (Task F4).
+    expect(off.outputText(0)).toContain('I think teh cat of of here. He');
+    const teh = off.candidates().find((c) => c.original === 'teh')!;
+    expect(off.tier(teh.id)).toBe('batch');
   });
 
   it('the romanised never-auto-fix guard still applies', async () => {

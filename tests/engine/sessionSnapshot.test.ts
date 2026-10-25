@@ -18,7 +18,8 @@ const start = (paras: Paragraph[]) => CheckSession.start(paras, opts, { linter }
 const VIEW = { preset: 'business' as const, variantOverride: null, documentIgnoredRules: [] };
 
 const PARAS: Paragraph[] = [
-  { id: 0, text: 'I think teh cat is here.' },
+  // Two spaces: the one change here made without a click (Task F4); "teh" waits on the simple-fixes card.
+  { id: 0, text: 'I think teh cat is  here.' },
   { id: 1, text: 'She recieved the letter.' },
   { id: 2, text: 'We was late again.' },
 ];
@@ -69,7 +70,7 @@ describe('snapshot', () => {
     for (const hash of snap.paragraphs) expect(hash).toMatch(/^[0-9a-f]{64}$/);
     // No words at all: a flag is its paragraph, kind and offsets; an accepted fix is a short hash of its replacement.
     expect(snap.decisions).toEqual([
-      { paragraph: 0, kind: 'Typo', start: 8, end: 11, status: 'rejected' },
+      { paragraph: 0, kind: 'Formatting', start: 18, end: 20, status: 'rejected' },
       { paragraph: 1, kind: 'Spelling', start: 4, end: 12, status: 'applied', replacementHash: (await sha256Hex('received')).slice(0, 16) },
       { paragraph: 2, kind: 'Agreement', start: 3, end: 6, status: 'rejected' },
     ]);
@@ -143,14 +144,14 @@ describe('restore', () => {
     const snap = await snapshot(before, VIEW);
     const changed: Paragraph[] = [
       { id: 0, text: 'A new first paragraph.' },
-      { id: 1, text: 'I think teh cat is here.' },
+      { id: 1, text: 'I think teh cat is  here.' },
       { id: 2, text: 'She recieved the letter.' },
       { id: 3, text: 'We was very late again.' },
     ];
     const { session, restored, rechecked } = await restore(changed, snap, opts, { linter });
     const status = (original: string) => session.outcomes().find((o) => o.candidate.original === original)!.status;
     expect(status('recieved')).toBe('applied');
-    expect(status('teh')).toBe('rejected'); // the undone auto-fix stays undone
+    expect(status('  ')).toBe('rejected'); // the undone auto-fix stays undone
     expect(status('was')).toBe('pending'); // its paragraph changed
     expect(restored).toBe(2);
     expect(rechecked).toBe(2);

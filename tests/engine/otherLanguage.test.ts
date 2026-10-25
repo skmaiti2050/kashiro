@@ -273,8 +273,12 @@ describe('romanised words are never auto-fixed (Harper)', () => {
     linter = await createLinter('American');
   });
   const opts: CheckOptions = { preset: 'blog', variant: 'Indian', fallbackVariant: 'Indian', language: 'plaintext', dictionary: [] };
+  // A safe fix: applied without a click, or (Task F4) offered on the simple-fixes card.
   const autoFixedIn = (s: CheckSession) =>
-    s.outcomes().filter((o) => o.auto && o.status === 'applied').map((o) => `${o.candidate.original} → ${o.replacement}`);
+    s
+      .candidates()
+      .filter((c) => s.tier(c.id) === 'safe' || s.tier(c.id) === 'batch')
+      .map((c) => `${c.original} → ${c.replacements[0]}`);
   const autoFixed = async (text: string) => autoFixedIn(await CheckSession.start([{ id: 0, text }], opts, { linter }));
 
   it.each([

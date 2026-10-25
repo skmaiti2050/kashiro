@@ -19,7 +19,8 @@ afterEach(() => {
 });
 
 const encode = (s: string) => new TextEncoder().encode(s);
-const TEXT = 'I think teh cat is here.\n\nShe recieved the letter.\n\nWe was late again.';
+// The two spaces are the one change made without a click (Task F4).
+const TEXT = 'I think the  cat is here.\n\nShe recieved the letter.\n\nWe was late again.';
 const FILE: OpenedFile = { name: 'note.txt', path: '/docs/note.txt', bytes: encode(TEXT) };
 
 interface SaveCall {
@@ -62,9 +63,9 @@ const decisionOn = (c: SessionController, original: string) => {
   const id = s.candidates().find((x) => x.original === original)!.id;
   return [...s.decisions().top, ...s.decisions().more].find((d) => d.candidateIds.includes(id))!.id;
 };
-/** Undoes the "teh" auto-fix: a change of the review, and one that never fails. */
+/** Undoes the two-spaces auto-fix: a change of the review, and one that never fails. */
 const undoAutoFix = (c: SessionController) => {
-  c.undo(c.getState().session!.candidates().find((x) => x.original === 'teh')!.id);
+  c.undo(c.getState().session!.candidates().find((x) => x.original === '  ')!.id);
   expect(c.getState().error).toBeNull();
 };
 const statusOf = (c: SessionController, original: string) =>
@@ -224,7 +225,7 @@ describe('saved reviews: resume', () => {
   it('a changed file (same path): resume restores unchanged paragraphs and re-checks the rest', async () => {
     const { disk } = await reviewed();
     const oldKey = [...disk.stored.keys()][0];
-    const changed: OpenedFile = { ...FILE, bytes: encode('I think teh cat is here.\n\nShe recieved the letter.\n\nWe was very late again.') };
+    const changed: OpenedFile = { ...FILE, bytes: encode('I think the  cat is here.\n\nShe recieved the letter.\n\nWe was very late again.') };
     const { controller } = run(disk);
     await controller.openFile(changed);
     expect(controller.getState().resumeOffer).toMatchObject({ made: 2, changed: true });

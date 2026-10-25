@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { CheckSession } from '@/engine/session';
+import { SIMPLE_FIXES_ID } from '@/engine/decisions';
 import { createLinter, type RulesLinter } from '@/engine/linter';
 import { onlyPunctuationChanged, runBudget, suggestRewrites, type Rewriter } from '@/engine/llm/suggest';
 import type { Candidate, Paragraph, Span } from '@/engine/types';
@@ -50,6 +51,7 @@ const FILLER = 'The cat sat on the mat. '.repeat(126).trim();
 
 async function tehSession() {
   const s = await start([{ id: 0, text: TEH }, { id: 1, text: FILLER }]);
+  s.applyBatch(SIMPLE_FIXES_ID); // the user applies "teh" and "of of" with one click (Task F4)
   s.addCandidates([styleLint(0, { start: 0, end: 1 }), styleLint(0, { start: 28, end: 38 })]);
   return s;
 }

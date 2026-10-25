@@ -96,7 +96,8 @@ describe('done state', () => {
   it('nothing left: one calm line with the fixes applied, and no review-depth controls', async () => {
     const { controller } = makeController();
     renderShell(controller);
-    await openAndWait(controller, () => controller.openText('I think teh cat sat on the mat.'));
+    // Two spaces: collapsed without a click (Task F4), so nothing is left to decide.
+    await openAndWait(controller, () => controller.openText('I think the  cat sat on the mat.'));
     expect(controller.getState().session!.rankedDecisionCount()).toBe(0);
     expect(within(reviewPanel()).getByText('All clear: 1 fix applied, nothing left to decide.')).toBeTruthy();
     expect(within(reviewPanel()).queryByRole('group', { name: /Review depth/ })).toBeNull();
@@ -124,7 +125,7 @@ describe('done state', () => {
   it('a mostly English document with a Hindi paragraph is all clear, with the same notice under it', async () => {
     const { controller } = makeController();
     renderShell(controller);
-    await openAndWait(controller, () => controller.openText('I think teh cat sat on the mat. We will meet again next week.\n\nयह एक परीक्षण है।'));
+    await openAndWait(controller, () => controller.openText('I think the  cat sat on the mat. We will meet again next week.\n\nयह एक परीक्षण है।'));
     expect(within(reviewPanel()).getByText('All clear: 1 fix applied, nothing left to decide.')).toBeTruthy();
     expect(within(reviewPanel()).getByText(UNCHECKED)).toBeTruthy();
   });

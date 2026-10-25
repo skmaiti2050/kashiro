@@ -84,7 +84,7 @@ describe('list labels are never capitalised (4b)', () => {
     const s = await start([{ id: 0, text: 'We left early. the bus was late.' }]);
     const the = s.candidates().find((c) => c.original === 'the')!;
     expect(the.kind).toBe('Capitalization');
-    expect(s.tier(the.id)).toBe('safe');
+    expect(s.tier(the.id)).toBe('batch'); // a simple fix, one click (Task F4)
   });
 });
 
