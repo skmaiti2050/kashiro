@@ -43,6 +43,8 @@ export interface TierContext {
   modules?: ModuleSwitches;
   /** Ids of list-item paragraphs (Paragraph.listItem): their first word is not a sentence start. */
   listParagraphs?: ReadonlySet<number>;
+  /** Words after an article fix that the spell checker knows: an article swap starts ticked only before one (defaultTicks). */
+  dictionaryWords?: ReadonlySet<string>;
 }
 
 // Repetition is not here: only isSlipDoubling's words are safe to undouble.

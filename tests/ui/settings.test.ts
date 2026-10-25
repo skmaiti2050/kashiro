@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { DEFAULT_MODULES } from '@/engine/modules';
+import { CheckSession } from '@/engine/session';
+import { SIMPLE_FIXES_ID } from '@/engine/decisions';
+import { createLinter } from '@/engine/linter';
+import { createTranslator } from '@/ui/i18n/translator';
+import type { UiLocale } from '@/ui/i18n/catalogues';
 import { DEFAULT_READING } from '@/ui/state/readingSettings';
 import { defaultSettings, markDeliberateFallback, modulesFor, variantForLocale, withSavedSettings, type Settings } from '@/ui/state/settings';
 
@@ -125,6 +130,23 @@ describe('withSavedSettings', () => {
     expect(withSavedSettings(defaults, saved as unknown as Partial<Settings>).tierOverrides).toEqual({ Grammar: 'safe' });
     for (const damaged of [null, 'safe', ['Grammar'], 7]) {
       expect(withSavedSettings(defaults, { tierOverrides: damaged } as unknown as Partial<Settings>).tierOverrides).toEqual({});
+    }
+  });
+
+  it('a saved kind lists its fixes on the simple-fixes card unticked, and Settings says so (owner decision 2026-10-25, Task F5)', async () => {
+    // Saved before Task F4 as "auto-apply", or in F4 as "pre-ticked": the stored shape is the same, the meaning is now "listed, unticked".
+    const { tierOverrides } = withSavedSettings(defaults, { tierOverrides: { Agreement: 'safe' } });
+    const linter = await createLinter('American');
+    const s = await CheckSession.start(
+      [{ id: 0, text: 'He go there.' }],
+      { preset: 'business', variant: 'American', fallbackVariant: 'American', language: 'plaintext', dictionary: [], tierOverrides },
+      { linter },
+    );
+    const card = s.decisions().top.find((d) => d.id === SIMPLE_FIXES_ID)!;
+    expect(card.candidateIds).toHaveLength(1);
+    expect(card.startUnticked).toEqual(card.candidateIds);
+    for (const [language, unticked] of [['en', 'unticked'], ['hi', 'बिना निशान'], ['bn', 'টিক ছাড়া']]) {
+      expect(createTranslator(language as UiLocale, []).t('settings.autoApplyHint')).toContain(unticked);
     }
   });
 

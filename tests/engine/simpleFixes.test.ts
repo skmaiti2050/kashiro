@@ -62,14 +62,17 @@ describe('changes made without a click (Task F4)', () => {
     expect(s.decisions().top.find((d) => d.id === SIMPLE_FIXES_ID)?.candidateIds).toEqual([teh]);
   });
 
-  it('a kind the user put on auto-apply joins the simple-fixes card instead of being applied', async () => {
-    const text = 'He go there.';
+  it('a kind the user put on auto-apply joins the simple-fixes card, unticked, instead of being applied (owner, 2026-10-25)', async () => {
+    const text = 'He go there. I think teh plan works.';
     const before = await start([{ id: 0, text }]);
     const after = await start([{ id: 0, text }], { tierOverrides: EVERYTHING_AUTO });
-    const go = (s: CheckSession) => s.candidates().find((c) => c.original === 'go')!;
-    expect(go(after).kind).toBe('Agreement');
-    expect(before.decisions().top.find((d) => d.id === SIMPLE_FIXES_ID)).toBeUndefined();
-    expect(after.decisions().top.find((d) => d.id === SIMPLE_FIXES_ID)?.candidateIds).toEqual([go(after).id]);
+    const id = (s: CheckSession, original: string) => s.candidates().find((c) => c.original === original)!.id;
+    expect(after.candidates().find((c) => c.original === 'go')!.kind).toBe('Agreement');
+    expect(before.decisions().top.find((d) => d.id === SIMPLE_FIXES_ID)?.candidateIds).toEqual([id(before, 'teh')]);
+    const card = after.decisions().top.find((d) => d.id === SIMPLE_FIXES_ID)!;
+    expect(card.candidateIds).toEqual([id(after, 'go'), id(after, 'teh')]);
+    // Only the built-in fix starts ticked: "apply all" with the default ticks leaves "go" for the user to tick.
+    expect(card.startUnticked).toEqual([id(after, 'go')]);
     expect(autoChanges(after)).toEqual([]);
   });
 });

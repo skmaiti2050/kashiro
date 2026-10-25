@@ -10,6 +10,7 @@ import { findForeignSentences, findRomanisedSentences, loadModelIfNeeded } from 
 import { byPosition, type CheckOptions, type SessionDeps } from './sessionTypes';
 import { findConfusables, replacesLinterFlag } from './confusables';
 import type { TierContext } from './tiers';
+import { isArticleFix, nextWord } from './defaultTicks';
 import type { Candidate, Paragraph, Span, Variant } from './types';
 
 /** Words already added to a reused linter, so a second session does not add them again. */
@@ -39,6 +40,17 @@ function inParagraph(c: Candidate, visible: VisibleText, paragraph: string): Can
 function withoutFixOverKept(c: Candidate, kept: readonly number[]): Candidate {
   if (!kept.some((i) => c.span.start <= i && i < c.span.end)) return c;
   return { ...c, replacements: [], linterReplacements: undefined };
+}
+
+/**
+ * The words right after an article fix (a ↔ an) that the spell checker knows under `variant`: Harper's own
+ * dictionary, the bundled word lists and the user's words. defaultTicks ticks a swap only before one.
+ */
+async function knownWordsAfterArticles(linter: RulesLinter, found: Candidate[], paraText: Map<number, string>, variant: Variant): Promise<Set<string>> {
+  const words = [...new Set(found.filter(isArticleFix).map((c) => nextWord(paraText.get(c.paraId)!, c.span.end)))].filter((w) => w !== '');
+  if (words.length === 0) return new Set();
+  const unknown = new Set((await linter.lintSpelling(words.map((text, id) => ({ id, text })), variant)).map((c) => c.paraId));
+  return new Set(words.filter((_, id) => !unknown.has(id)));
 }
 
 /** Everything a session needs before it takes over: the linter, variant, tier context and the sorted candidates. */
@@ -100,6 +112,7 @@ export async function prepareCheck(
     foreignSentences,
     romanisedSentences,
     listParagraphs: new Set(paras.filter((p) => p.listItem).map((p) => p.id)),
+    dictionaryWords: await knownWordsAfterArticles(linter, found, paraText, variant),
   };
   return { linter, variant, mixedVariant: mixed, variantFromFallback: fromFallback, ctx, found };
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createLinter } from '@/engine/linter';
+import { createLinter, withArticleCase } from '@/engine/linter';
 
 const para = (text: string, id = 0) => ({ id, text });
 
@@ -13,6 +13,15 @@ describe('createLinter', () => {
     expect(agr?.replacements).toEqual(['have']);
     expect(gra?.original).toBe('went');
     expect(gra?.replacements).toEqual(['gone']);
+  });
+
+  it('writes an a/an fix in the case of the article it replaces: "A apple" → "An", not "AN" (F4 re-review 3, I-1)', async () => {
+    const l = await createLinter('American');
+    const fixes = async (text: string) => (await l.lintParagraphs([para(text)], 'plaintext')).filter((c) => c.kind === 'Miscellaneous').map((c) => c.replacements);
+    expect(await fixes('A apple fell.')).toEqual([['An']]);
+    expect(await fixes('It rained. An banana fell.')).toEqual([['A']]);
+    expect(await fixes('We ate a apple.')).toEqual([['an']]);
+    expect([withArticleCase('AN', 'a'), withArticleCase('An', 'A'), withArticleCase('an', 'A'), withArticleCase('the', 'THE')]).toEqual(['A', 'A', 'a', 'THE']);
   });
 
   it('keeps UTF-16 offsets correct after an emoji', async () => {

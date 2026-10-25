@@ -87,6 +87,7 @@ export function DecisionCard({ controller, decision, candidates, paraText, touch
           members={members}
           replacementIndex={preview}
           paraText={paraText}
+          startUnticked={decision.startUnticked}
           onApply={(ids) => {
             // Unticked places stay as a smaller batch under the same id: show its card, not the preview.
             setPreview(null);

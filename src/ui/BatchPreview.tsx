@@ -12,15 +12,18 @@ interface Props {
   onCancel(): void;
   /** Enter applies and Backspace cancels (the card slot's review keys); false where those keys act elsewhere. Default true. */
   reviewKeys?: boolean;
+  /** Members that start unticked (the simple-fixes card's Decision.startUnticked); default none. */
+  startUnticked?: readonly string[];
 }
 
 /**
  * The checklist shown before "Apply all" (UI/UX research §3, GitHub's batched suggestions): every place
- * as a one-line diff, all ticked. The ticked ones are applied as one change, undone together in the log.
+ * as a one-line diff, ticked unless `startUnticked` names it. The ticked ones are applied as one change, undone
+ * together in the log.
  */
-export function BatchPreview({ members, replacementIndex, paraText, onApply, onCancel, reviewKeys = true }: Props) {
+export function BatchPreview({ members, replacementIndex, paraText, onApply, onCancel, reviewKeys = true, startUnticked = [] }: Props) {
   const t = useT();
-  const [unticked, setUnticked] = useState<ReadonlySet<string>>(new Set());
+  const [unticked, setUnticked] = useState<ReadonlySet<string>>(() => new Set(startUnticked));
   const chosen = members.filter((c) => !unticked.has(c.id)).map((c) => c.id);
   const toggle = (id: string) =>
     setUnticked((prev) => {

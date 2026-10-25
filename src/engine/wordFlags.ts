@@ -63,8 +63,18 @@ const STARTS_WORD = /(?:^|\s|(?:^|\s)[(\[{“‘"])$/u;
  * (ENDS_WORD). "for for" in "for for-profit" or "and and/or" is not, nor is "to to" in "a lean-to to keep dry".
  */
 export function isWholeWords(text: string, span: Span): boolean {
+  return startsWord(text, span.start) && endsWord(text, span.end);
+}
+
+/** True when a word may start at `i` of `text` (STARTS_WORD): "teh" in "I think teh", not "D" in "Ph.D.". */
+export function startsWord(text: string, i: number): boolean {
   // Two characters before and three after are all either pattern reads (three: a letter outside the BMP).
-  return STARTS_WORD.test(text.slice(Math.max(0, span.start - 2), span.start)) && ENDS_WORD.test(text.slice(span.end, span.end + 3));
+  return STARTS_WORD.test(text.slice(Math.max(0, i - 2), i));
+}
+
+/** True when a word may end at `i` of `text` (ENDS_WORD): "teh" in "teh cat", not "Ph" in "Ph.D.". */
+export function endsWord(text: string, i: number): boolean {
+  return ENDS_WORD.test(text.slice(i, i + 3));
 }
 
 /** A capital right after a lowercase letter: "preventDefault", "iPhone", "DevTools". */

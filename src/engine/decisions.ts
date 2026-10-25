@@ -25,6 +25,11 @@ export interface Decision {
    * acceptOtherLanguage adds it only when ticked explicitly.
    */
   likelyTypos?: [string, string][];
+  /**
+   * Simple-fixes card only: the members that start unticked in its preview (defaultTicks), in card order. "Review
+   * and apply all" applies the others with one click (Task F5).
+   */
+  startUnticked?: string[];
 }
 
 const WEIGHTS: Record<string, number> = {
@@ -119,17 +124,18 @@ function singleLabel(c: Candidate): string {
 const REPEATED_WORDS_KEY = 'repeated-words';
 
 /**
- * Id of the simple-fixes card: every fix of the 'batch' tier (the safe rules, and the kinds the user put on
- * auto-apply in Settings) as one decision, "N simple fixes: review and apply all". Nothing that changes a word is
- * applied without a click (owner decision, Task F4); this card keeps those fixes to one click.
+ * Id of the simple-fixes card: every fix of the 'batch' tier (the safe rules, and the kinds the user listed on it
+ * in Settings) as one decision, "N simple fixes: review and apply all". Nothing that changes a word is applied
+ * without a click (owner decision, Task F4); this card keeps those fixes to one click, for the ones it ticks
+ * (Decision.startUnticked, Task F5).
  */
 export const SIMPLE_FIXES_ID = 'batch:simple-fixes';
 
-function simpleFixesCard(fixes: Candidate[]): Decision {
+function simpleFixesCard(fixes: Candidate[], startUnticked: string[]): Decision {
   const n = fixes.length;
   const label = n === 1 ? '1 simple fix: review and apply' : `${n} simple fixes: review and apply all`;
   // Above every weight: buildDecisions puts the card first.
-  return { id: SIMPLE_FIXES_ID, kind: 'batch', candidateIds: fixes.map((c) => c.id), label, score: 10 };
+  return { id: SIMPLE_FIXES_ID, kind: 'batch', candidateIds: fixes.map((c) => c.id), label, score: 10, startUnticked };
 }
 
 /**
@@ -175,6 +181,8 @@ interface DecisionOptions {
   foreignSentences?: ReadonlyMap<number, Span[]>;
   /** Which cards to build (default DEFAULT_MODULES): a card switched off leaves its flags as per-word decisions. */
   modules?: ModuleSwitches;
+  /** The simple-fixes card's members that start unticked (defaultTicks); default none. */
+  untickedOnCard?: (fixes: Candidate[]) => string[];
 }
 
 /** Decisions grouped by batch key, in first-appearance order. */
@@ -227,6 +235,7 @@ export function buildDecisions(
     termMinRepeats = DEFAULT_TERM_MIN_REPEATS,
     foreignSentences,
     modules = DEFAULT_MODULES,
+    untickedOnCard = () => [],
   }: DecisionOptions = {},
 ): { safe: string[]; decisions: Decision[]; demoted: string[]; blocked: Decision[] } {
   const reviewFlags = cands.filter((c) => (tiers.get(c.id) ?? 'review') === 'review');
@@ -278,7 +287,8 @@ export function buildDecisions(
   // Array.prototype.sort is stable, so equal scores keep first-appearance order.
   const byScore = (a: Decision, b: Decision) => b.score - a.score;
   // The simple-fixes card leads: one click clears the most changes.
-  const decisions = [...(simpleFixes.length ? [simpleFixesCard(simpleFixes)] : []), ...normal.toDecisions(scoreFor).sort(byScore)];
+  const card = simpleFixes.length ? [simpleFixesCard(simpleFixes, untickedOnCard(simpleFixes))] : [];
+  const decisions = [...card, ...normal.toDecisions(scoreFor).sort(byScore)];
   const demotedDecisions = demoted.toDecisions(() => 0);
   const cards: Decision[] = [];
   if (termFlags.length) cards.push(termsCard(termFlags, terms));

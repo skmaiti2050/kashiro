@@ -82,6 +82,14 @@ describe('BatchPreview', () => {
     expect(onApply).toHaveBeenCalledWith(['a']);
   });
 
+  it('starts the simple-fixes card\'s unticked members unticked, and applies only the ticked ones (Task F5)', () => {
+    const onApply = vi.fn();
+    render(<BatchPreview members={members} replacementIndex={0} paraText={new Map([[0, para]])} onApply={onApply} onCancel={() => {}} startUnticked={['b']} />);
+    expect(screen.getAllByRole<HTMLInputElement>('checkbox').map((b) => b.checked)).toEqual([true, false]);
+    fireEvent.click(screen.getByRole('button', { name: /^Apply 1 of 2/ }));
+    expect(onApply).toHaveBeenCalledWith(['a']);
+  });
+
   it('with nothing ticked, Apply is disabled; Cancel cancels', () => {
     const onCancel = vi.fn();
     render(<BatchPreview members={members} replacementIndex={0} paraText={new Map([[0, para]])} onApply={() => {}} onCancel={onCancel} />);

@@ -10,6 +10,7 @@ import {
 } from './decisions';
 import { isZeroClickChange } from './zeroClick';
 import { editsChangingTokens } from './tokenGuard';
+import { untickedByDefault } from './defaultTicks';
 import { checkTermMinRepeats, DEFAULT_TERM_MIN_REPEATS } from './terms';
 import { tierOf, type TierContext } from './tiers';
 import { EditLedger } from './editLedger';
@@ -67,6 +68,8 @@ export class CheckSession {
   private readonly batchOf = new Map<string, string>();
   private batchCount = 0;
   private readonly words: number;
+  /** Simple-fixes card members that are there only because the user added their kind in Settings: never ticked. */
+  private readonly optedIn = new Set<string>();
 
   private constructor(
     paras: Paragraph[],
@@ -166,6 +169,12 @@ export class CheckSession {
       termMinRepeats: this.termMinRepeats,
       foreignSentences: this.ctx.foreignSentences,
       modules: this.modules,
+      untickedOnCard: (fixes) =>
+        untickedByDefault(fixes, {
+          paraText: this.ctx.paraText ?? new Map(),
+          optedIn: (c) => this.optedIn.has(c.id),
+          dictionaryWords: this.ctx.dictionaryWords ?? new Set(),
+        }),
     });
     const topSize = upFrontCount(this.reviewDepth, this.words);
     return { top: decisions.slice(0, topSize), more: [...decisions.slice(topSize), ...blocked] };
@@ -459,7 +468,10 @@ export class CheckSession {
   private sessionTier(c: Candidate): Tier {
     const tier = tierOf(c, this.ctx);
     if (tier !== 'safe') return tier;
-    return isZeroClickChange(c, this.paras.get(c.paraId)!, this.ctx.locked.get(c.paraId)) ? 'safe' : 'batch';
+    if (isZeroClickChange(c, this.paras.get(c.paraId)!, this.ctx.locked.get(c.paraId))) return 'safe';
+    // Safe only because the user added its kind in Settings: on the card, but never ticked (owner, 2026-10-25).
+    if (this.ctx.userTierOverrides && tierOf(c, { ...this.ctx, userTierOverrides: undefined }) !== 'safe') this.optedIn.add(c.id);
+    return 'batch';
   }
 
   /** The helper's answer for a sentence, through the meaning-drift guard; 'stale' when the sentence changed (see HelperRewrites.add). */

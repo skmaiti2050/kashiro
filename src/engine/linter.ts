@@ -19,6 +19,19 @@ export interface RulesLinter {
 /** One of Harper's lints, copied out of WASM: a candidate without its paragraph. */
 type LintCopy = Omit<Candidate, 'id' | 'paraId' | 'source'>;
 
+const ARTICLE = /^an?$/i;
+
+/**
+ * An a ↔ an replacement in the original article's case. Harper upper-cases the whole replacement after a capital
+ * "A" ("A apple" → "AN apple", F4 re-review 3, I-1): "A" and "An" are title case, "AN" is upper case.
+ */
+export function withArticleCase(original: string, replacement: string): string {
+  if (!ARTICLE.test(original) || !ARTICLE.test(replacement)) return replacement;
+  const lower = replacement.toLowerCase();
+  if (original.length > 1 && original === original.toUpperCase()) return lower.toUpperCase();
+  return original[0] === 'A' ? 'A' + lower.slice(1) : lower;
+}
+
 async function lintText(linter: LocalLinter, text: string, language: 'plaintext' | 'markdown'): Promise<LintCopy[]> {
   const out: LintCopy[] = [];
   for (const lint of await linter.lint(text, { language })) {
@@ -38,7 +51,8 @@ async function lintText(linter: LocalLinter, text: string, language: 'plaintext'
           s.free();
         }
       }
-      out.push({ span: { start, end }, original, replacements, kind: lint.lint_kind(), message: lint.message() });
+      const fixes = replacements.map((r) => withArticleCase(original, r));
+      out.push({ span: { start, end }, original, replacements: fixes, kind: lint.lint_kind(), message: lint.message() });
     } finally {
       lint.free();
     }

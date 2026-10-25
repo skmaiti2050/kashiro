@@ -22,8 +22,9 @@ export interface Settings {
   /** The personal dictionary. */
   dictionary: string[];
   /**
-   * "Add these to the simple fixes": kinds (AUTO_APPLY_KINDS) moved to the safe tier. Since Task F4 that puts
-   * their fixes on the simple-fixes card, ticked; nothing that changes a word is applied without a click.
+   * "Also list these on the simple fixes": kinds (AUTO_APPLY_KINDS) moved to the safe tier. Since Task F5 that
+   * lists their fixes on the simple-fixes card, unticked (owner decision 2026-10-25); nothing that changes a word
+   * is applied without a click (Task F4).
    */
   tierOverrides: Partial<Record<string, Tier>>;
   /** The writing helper's model file (.gguf), chosen in Settings › Modules; AI rewrites stay off without one. */
@@ -55,7 +56,7 @@ export interface Settings {
 export const DEFAULT_RETENTION_DAYS = 30;
 
 /**
- * Kinds the user may add to the simple-fixes card in Settings (spec §5; before Task F4, "auto-apply"). LLM
+ * Kinds the user may list on the simple-fixes card, unticked, in Settings (spec §5; before Task F4, "auto-apply"). LLM
  * rewrites and fact-locked spans are never offered (the engine keeps them in review whatever the setting), and
  * neither is Variant: the app never converts between English variants on its own. The never-damage stress test
  * switches all of them on.
@@ -111,8 +112,9 @@ function resolveModel(path: unknown, sha256: unknown): Pick<Settings, 'modelPath
 
 /**
  * The saved per-kind overrides the Settings panel can write: an AUTO_APPLY_KINDS kind set to 'safe'. Settings
- * saved before Task F4 keep these (they now mean "on the simple-fixes card, ticked"); anything else, from a
- * hand-edited or damaged file, is dropped.
+ * saved before Task F4 ("auto-apply") or in F4 ("on the card, ticked") keep these in the same shape; since Task F5
+ * they mean "listed on the simple-fixes card, unticked". Anything else, from a hand-edited or damaged file, is
+ * dropped.
  */
 function resolveTierOverrides(saved: unknown): Settings['tierOverrides'] {
   if (!isRecord(saved)) return {};
