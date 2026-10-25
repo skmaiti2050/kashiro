@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Decision } from '@/engine/decisions';
+import { SIMPLE_FIXES_ID, type Decision } from '@/engine/decisions';
 import type { Candidate } from '@/engine/types';
 import { WORD_REWRITE_KINDS } from '@/engine/wordFlags';
 import { BatchPreview } from './BatchPreview';
@@ -9,6 +9,7 @@ import { DismissMenu } from './DismissMenu';
 import { Kbd } from './Kbd';
 import type { Translator } from './i18n/translator';
 import { useT } from './i18n/useT';
+import { msg } from './i18n/message';
 import { categoryOf } from './state/categories';
 import { DecisionTitle } from './DecisionTitle';
 import { batchApplyLabel, excerpt } from './state/labels';
@@ -50,16 +51,18 @@ export function DecisionCard({ controller, decision, candidates, paraText, touch
   const first = members[0];
   const shown = members[place % members.length];
   const isBatch = decision.kind === 'batch';
-  const isWordFlag = WORD_REWRITE_KINDS.has(first.kind);
+  // The simple-fixes card mixes kinds and words: the first member's word or rule is not the card's (Task F4).
+  const isSimpleFixes = decision.id === SIMPLE_FIXES_ID;
+  const isWordFlag = WORD_REWRITE_KINDS.has(first.kind) && !isSimpleFixes;
   const flagOnly = first.replacements.length === 0;
-  const category = categoryOf(first, decision.kind);
-  const explained = explanation(first);
+  const category = isSimpleFixes ? 'correctness' : categoryOf(first, decision.kind);
+  const explained = isSimpleFixes ? msg('explain.simpleFixes') : explanation(first);
   // The engine never hides word flags, AI rewrites, hygiene fixes or flags on protected text, so don't offer it.
-  const canIgnoreRule = !isWordFlag && first.source !== 'llm' && first.source !== 'hygiene' && !touchesLocked;
+  const canIgnoreRule = !isWordFlag && !isSimpleFixes && first.source !== 'llm' && first.source !== 'hygiene' && !touchesLocked;
   const accept = (i: number) => (isBatch ? setPreview(i) : controller.accept(decision.id, i));
   const rejectLabel = flagOnly ? (isBatch ? 'card.dismissAll' : 'card.dismiss') : isBatch ? 'card.rejectAll' : 'card.reject';
   // Only for a word: a phrase or sentence to rewrite has nothing to look up.
-  const lookUpWords = onLookUp ? wordsToCompare(first.original, first.replacements[0]) : null;
+  const lookUpWords = onLookUp && !isSimpleFixes ? wordsToCompare(first.original, first.replacements[0]) : null;
   const isAi = first.source === 'llm';
 
   return (
@@ -101,7 +104,7 @@ export function DecisionCard({ controller, decision, candidates, paraText, touch
               aria-keyshortcuts={i === 0 ? 'Enter' : undefined}
               onClick={() => accept(i)}
             >
-              {acceptLabel(t, first, r, isBatch, members.length)}
+              {isSimpleFixes ? t.t('card.reviewSimpleFixes', { count: members.length }) : acceptLabel(t, first, r, isBatch, members.length)}
               {i === 0 && <Kbd>Enter</Kbd>}
             </button>
           ))}

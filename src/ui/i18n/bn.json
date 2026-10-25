@@ -169,6 +169,8 @@
   "card.namesTitle": "{count, plural, =1 {#টি নাম বা জায়গা} other {#টি নাম ও জায়গা}}",
   "card.termsTitle": "এই ডকুমেন্টে ব্যবহৃত {count, plural, other {#টি বিশেষ শব্দ}}",
   "card.otherLanguageTitle": "{count, plural, other {ভারতীয় ভাষার #টি শব্দ}}",
+  "card.simpleFixesTitle": "{count, plural, =1 {#টি সহজ সংশোধন: দেখে বসান} other {#টি সহজ সংশোধন: দেখে সব বসান}}",
+  "card.reviewSimpleFixes": "{count, plural, =1 {দেখে বসান} other {দেখে #টিই বসান}}",
 
   "dismiss.menu": "এড়িয়ে যান",
   "dismiss.button": "এড়িয়ে যান ▾",
@@ -350,8 +352,8 @@
   "settings.depth": "রিভিউয়ের গভীরতা",
   "settings.termRepeats": "ছোট হাতের অজানা শব্দকে বিশেষ শব্দ ধরুন, যখন সেটা এতবার আসে",
   "settings.times": "{count, plural, other {# বার}}",
-  "settings.autoApply": "এগুলোও নিজে থেকে বসান",
-  "settings.autoApplyHint": "নাম, সংখ্যা, উদ্ধৃতি বা অন্য সুরক্ষিত লেখা কখনো বদলানো হয় না।",
+  "settings.autoApply": "এগুলোও সহজ সংশোধনে যোগ করুন",
+  "settings.autoApplyHint": "এগুলো সহজ সংশোধনের কার্ডে টিক দেওয়া অবস্থায় আসে; আপনি না বসানো পর্যন্ত কিছুই বদলায় না। নাম, সংখ্যা, উদ্ধৃতি বা অন্য সুরক্ষিত লেখা কখনো বদলানো হয় না।",
   "settings.ignored": "উপেক্ষা করা নিয়ম ({count, number})",
   "settings.ignoredEmpty": "এড়িয়ে যান ▾ › “সব জায়গায় …-এর সব পরামর্শ” দিয়ে এড়িয়ে যাওয়া পরামর্শের ধরন এখানে দেখাবে।",
   "settings.restore": "ফিরিয়ে আনুন",
@@ -446,6 +448,7 @@
   "explain.copeWith": "“cope with”-এর সঙ্গে “up” লাগে না।",
   "explain.invisible": "অদৃশ্য অক্ষর ({code} {name})",
   "explain.directionKept": "অদৃশ্য দিক-চিহ্ন ({code} {name})। কাশিরো এটি সরায় না: এটি একা সরালে আশপাশের লেখা অন্যভাবে দেখাতে পারে।",
+  "explain.simpleFixes": "ছোট সংশোধন, যেগুলো নিয়ে কাশিরো নিশ্চিত, আর সেটিংসে আপনার বেছে নেওয়া ধরনগুলো। আপনি না বসানো পর্যন্ত কিছুই বদলায় না; যে লেখা যেমন আছে তেমন রাখতে চান, তার টিক তুলে দিন।",
   "explain.rewrite": "বাক্যটি নতুন করে লেখার প্রস্তাব। মেনে নেওয়ার আগে অর্থ মিলিয়ে নিন।",
   "explain.harper": "{text}",
 

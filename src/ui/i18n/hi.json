@@ -169,6 +169,8 @@
   "card.namesTitle": "{count, plural, one {# नाम या जगह} other {# नाम और जगहें}}",
   "card.termsTitle": "इस दस्तावेज़ में इस्तेमाल {count, plural, one {# ख़ास शब्द} other {# ख़ास शब्द}}",
   "card.otherLanguageTitle": "{count, plural, one {भारतीय भाषा का # शब्द} other {भारतीय भाषाओं के # शब्द}}",
+  "card.simpleFixesTitle": "{count, plural, one {# आसान सुधार: देखें और लागू करें} other {# आसान सुधार: देखें और सभी लागू करें}}",
+  "card.reviewSimpleFixes": "{count, plural, one {देखें और लागू करें} other {देखें और सभी # लागू करें}}",
 
   "dismiss.menu": "नज़रअंदाज़ करें",
   "dismiss.button": "नज़रअंदाज़ ▾",
@@ -350,8 +352,8 @@
   "settings.depth": "समीक्षा की गहराई",
   "settings.termRepeats": "छोटे अक्षरों वाले अनजान शब्द को ख़ास शब्द मानें, जब वह इतनी बार आए",
   "settings.times": "{count, plural, one {# बार} other {# बार}}",
-  "settings.autoApply": "इन्हें भी अपने-आप लागू करें",
-  "settings.autoApplyHint": "नाम, संख्याएँ, उद्धरण या दूसरा सुरक्षित टेक्स्ट कभी नहीं बदला जाता।",
+  "settings.autoApply": "इन्हें भी आसान सुधारों में जोड़ें",
+  "settings.autoApplyHint": "ये आसान सुधारों के कार्ड पर पहले से चुने हुए आते हैं; आपके लागू करने तक कुछ नहीं बदलता। नाम, संख्याएँ, उद्धरण या दूसरा सुरक्षित टेक्स्ट कभी नहीं बदला जाता।",
   "settings.ignored": "नज़रअंदाज़ किए गए नियम ({count, number})",
   "settings.ignoredEmpty": "नज़रअंदाज़ ▾ › “हर जगह … के सभी सुझाव” से हटाए गए सुझावों के प्रकार यहाँ दिखेंगे।",
   "settings.restore": "वापस लाएँ",
@@ -446,6 +448,7 @@
   "explain.copeWith": "“cope with” के साथ “up” नहीं लगता।",
   "explain.invisible": "अदृश्य अक्षर ({code} {name})",
   "explain.directionKept": "अदृश्य दिशा-चिह्न ({code} {name})। काशिरो इसे नहीं हटाता: इसे अकेले हटाने से आसपास का पाठ अलग दिख सकता है।",
+  "explain.simpleFixes": "छोटे सुधार, जिन पर काशिरो को भरोसा है, और सेटिंग्स में आपके चुने हुए प्रकार। आपके लागू करने तक कुछ नहीं बदलता; जो जैसा लिखा है वैसा ही रखना हो, उसका निशान हटा दें।",
   "explain.rewrite": "वाक्य को दोबारा लिखने का सुझाव। स्वीकार करने से पहले अर्थ जाँच लें।",
   "explain.harper": "{text}",
 

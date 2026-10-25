@@ -119,6 +119,15 @@ describe('withSavedSettings', () => {
     }
   });
 
+  it('a saved "auto-apply these too" kind now joins the simple fixes; any other override is dropped (Task F4)', () => {
+    // Saved before Task F4, or edited by hand: "Grammar" was ticked in Settings; the rest the Settings panel never wrote.
+    const saved = { tierOverrides: { Grammar: 'safe', WordChoice: 'review', Spelling: 'hidden', Variant: 'safe', Invisible: 'review', Rewrite: 'safe' } };
+    expect(withSavedSettings(defaults, saved as unknown as Partial<Settings>).tierOverrides).toEqual({ Grammar: 'safe' });
+    for (const damaged of [null, 'safe', ['Grammar'], 7]) {
+      expect(withSavedSettings(defaults, { tierOverrides: damaged } as unknown as Partial<Settings>).tierOverrides).toEqual({});
+    }
+  });
+
   it('settings saved before modules existed get the default modules', () => {
     const saved: Partial<Settings> = { preset: 'blog', dictionary: ['Sujit'] };
     expect(withSavedSettings(defaults, saved)).toEqual({ ...defaults, preset: 'blog', dictionary: ['Sujit'] });

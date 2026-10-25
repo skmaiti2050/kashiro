@@ -1,4 +1,4 @@
-import type { Decision } from '@/engine/decisions';
+import { SIMPLE_FIXES_ID, type Decision } from '@/engine/decisions';
 import type { Candidate } from '@/engine/types';
 import type { Translator } from '../i18n/translator';
 import { kindLabel } from './kindLabels';
@@ -67,6 +67,8 @@ export function decisionTitleParts(t: Translator, decision: Decision, candidates
   const ui = (text: string): TitlePart => ({ text, document: false });
   const doc = (text: string): TitlePart => ({ text, document: true });
   if (isWordCard(decision)) return [ui(wordCardTitle(t, decision, candidates))];
+  // Different fixes of different kinds: the card names itself, each place shows its own fix (Task F4).
+  if (decision.id === SIMPLE_FIXES_ID) return [ui(t.t('card.simpleFixesTitle', { count: decision.candidateIds.length }))];
   const first = candidates.get(decision.candidateIds[0])!;
   const places = decision.kind === 'batch' ? [ui(` ${t.t('card.places', { count: decision.candidateIds.length })}`)] : [];
   // A batch of different doubled words ("had had", "the the"): its kind names it, each place shows its own fix.

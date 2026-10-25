@@ -102,11 +102,13 @@ function ChangeRow({ controller, o }: { controller: SessionController; o: Outcom
 function BatchRow({ controller, batch, outcomes }: { controller: SessionController; batch: string; outcomes: Outcome[] }) {
   const t = useT();
   const paragraphs = [...new Set(outcomes.map((o) => t.t('log.paragraph', { number: o.paragraphNumber })))].join(' ');
+  // The simple-fixes card applies several kinds at once: name each (Task F4).
+  const kinds = [...new Set(outcomes.map((o) => kindLabel(t, o.candidate.kind)))].join(', ');
   return (
     <li className="applied batch">
       <span className="where">{paragraphs}</span>
       <Change o={outcomes[0]} />
-      <span className="status">{t.t('log.batchStatus', { count: outcomes.length, kind: kindLabel(t, outcomes[0].candidate.kind) })}</span>
+      <span className="status">{t.t('log.batchStatus', { count: outcomes.length, kind: kinds })}</span>
       <button onClick={() => controller.undoBatch(batch)}>{t.t('log.undoAll', { count: outcomes.length })}</button>
     </li>
   );

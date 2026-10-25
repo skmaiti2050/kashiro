@@ -21,7 +21,10 @@ export interface Settings {
   overwrite: boolean;
   /** The personal dictionary. */
   dictionary: string[];
-  /** "Auto-apply these too": kinds moved to the safe tier. */
+  /**
+   * "Add these to the simple fixes": kinds (AUTO_APPLY_KINDS) moved to the safe tier. Since Task F4 that puts
+   * their fixes on the simple-fixes card, ticked; nothing that changes a word is applied without a click.
+   */
   tierOverrides: Partial<Record<string, Tier>>;
   /** The writing helper's model file (.gguf), chosen in Settings › Modules; AI rewrites stay off without one. */
   modelPath: string | null;
@@ -52,9 +55,10 @@ export interface Settings {
 export const DEFAULT_RETENTION_DAYS = 30;
 
 /**
- * Kinds the user may move to auto-apply in Settings (spec §5). LLM rewrites and fact-locked spans are never
- * offered (the engine keeps them in review whatever the setting), and neither is Variant: the app never
- * converts between English variants on its own. The never-damage stress test switches all of them on.
+ * Kinds the user may add to the simple-fixes card in Settings (spec §5; before Task F4, "auto-apply"). LLM
+ * rewrites and fact-locked spans are never offered (the engine keeps them in review whatever the setting), and
+ * neither is Variant: the app never converts between English variants on its own. The never-damage stress test
+ * switches all of them on.
  */
 export const AUTO_APPLY_KINDS = ['Agreement', 'Grammar', 'Usage', 'WordChoice', 'Redundancy', 'Style', 'Readability', 'Contraction'];
 
@@ -105,6 +109,16 @@ function resolveModel(path: unknown, sha256: unknown): Pick<Settings, 'modelPath
   return { modelPath: path, modelSha256: typeof sha256 === 'string' && SHA256_HEX.test(sha256) ? sha256.toLowerCase() : null };
 }
 
+/**
+ * The saved per-kind overrides the Settings panel can write: an AUTO_APPLY_KINDS kind set to 'safe'. Settings
+ * saved before Task F4 keep these (they now mean "on the simple-fixes card, ticked"); anything else, from a
+ * hand-edited or damaged file, is dropped.
+ */
+function resolveTierOverrides(saved: unknown): Settings['tierOverrides'] {
+  if (!isRecord(saved)) return {};
+  return Object.fromEntries(AUTO_APPLY_KINDS.filter((kind) => saved[kind] === 'safe').map((kind) => [kind, 'safe']));
+}
+
 /** Ten years: a longer retention in a hand-edited file is cut to this. */
 const MAX_RETENTION_DAYS = 3650;
 
@@ -143,6 +157,7 @@ export function withSavedSettings(defaults: Settings, saved: Partial<Settings> |
     ...saved,
     fallbackVariant: chosen && saved.fallbackVariant ? saved.fallbackVariant : defaults.fallbackVariant,
     fallbackVariantChosen: chosen,
+    tierOverrides: resolveTierOverrides(saved.tierOverrides),
     ...resolveModel(saved.modelPath, saved.modelSha256),
     helperSpeed: resolveHelperSpeed(saved.helperSpeed),
     modules: resolveModules(saved.modules ?? defaults.modules),
