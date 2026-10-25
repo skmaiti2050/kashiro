@@ -27,6 +27,13 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # Hashes model files (Task 12); already in Cargo.lock through Tauri.
 sha2 = "=0.10.9"
+# "Is this the open document?" by file identity (volume and file index), so `\\localhost\C$\…` and hard links
+# count too; already in Cargo.lock through walkdir. Unlicense/MIT.
+same-file = "=1.0.6"
+
+[dev-dependencies]
+# Tauri's mock runtime, to call the commands in tests; the feature adds no crate.
+tauri = { version = "2", features = ["test"] }
 
 # Hashing a 2.5 GB model in a debug build would take about a minute unoptimised.
 [profile.dev.package.sha2]

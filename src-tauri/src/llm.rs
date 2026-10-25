@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
-use tauri::Manager;
+use tauri::{AppHandle, Manager, Runtime};
 use tauri_plugin_fs::FsExt;
 
 /// The server loads the model before /health answers 200; a 2.5 GB model from a slow disk can take a minute.
@@ -410,7 +410,7 @@ impl LlmState {
 
 /// The bundled builds to try, in order: Vulkan when it lists a GPU, then CPU. The bundled server is the only
 /// program the app ever starts.
-fn builds_to_try(app: &tauri::AppHandle) -> Result<Vec<Build>, String> {
+fn builds_to_try<R: Runtime>(app: &AppHandle<R>) -> Result<Vec<Build>, String> {
     let resources = app.path().resource_dir().map_err(|e| format!("could not find the app's folder: {e}"))?;
     let exe = server_exe(&resources);
     let vulkan = Build::vulkan(exe.clone(), resources.join("llama").join("vulkan").join("ggml-vulkan.dll"));
@@ -447,7 +447,7 @@ pub fn sha256_of(path: &Path) -> io::Result<String> {
 /// the open dialog's fs scope no longer holds the model, so llm_start also accepts this one.
 const CHOSEN_MODEL_RECORD: &str = "chosen-model.txt";
 
-fn chosen_model_record(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+fn chosen_model_record<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, String> {
     let data = app.path().app_data_dir().map_err(|e| format!("could not find the app's data folder: {e}"))?;
     Ok(data.join(CHOSEN_MODEL_RECORD))
 }
@@ -491,9 +491,9 @@ pub async fn sha256_file(app: tauri::AppHandle, path: String) -> Result<String, 
 }
 
 /// Starts the writing helper with the model file at `model_path`, one the user chose (require_chosen_model),
-/// and returns its port, key and build.
+/// and returns its port, key and build. Generic over the runtime so a test can call it on a mock app.
 #[tauri::command]
-pub async fn llm_start(app: tauri::AppHandle, model_path: String) -> Result<HelperInfo, String> {
+pub async fn llm_start<R: Runtime>(app: AppHandle<R>, model_path: String) -> Result<HelperInfo, String> {
     let model = PathBuf::from(&model_path);
     let remembered = remembered_model(&chosen_model_record(&app)?);
     require_chosen_model(&model, app.fs_scope().is_allowed(&model), remembered.as_deref())?;

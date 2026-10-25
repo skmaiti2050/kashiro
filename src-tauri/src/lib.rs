@@ -12,6 +12,9 @@ mod locale;
 mod migrate;
 mod sessions;
 
+// For tests/llm_start.rs, which calls the command on a mock app.
+pub use llm::{llm_start, LlmState};
+
 /// Opens the first free name from `names` with `create_new`, so an existing file, or a link planted
 /// under that name, is never written through.
 fn create_first_free(names: impl Iterator<Item = PathBuf>) -> io::Result<(PathBuf, File)> {
@@ -136,9 +139,10 @@ fn header_path(request: &Request<'_>, name: &str) -> Result<Option<String>, Stri
     percent_decode(text).map(Some).ok_or_else(|| format!("the save request's {name} is not valid"))
 }
 
-/// True when `a` and `b` name the same existing file (case, `..` and links resolved).
+/// True when `a` and `b` name the same existing file, by its identity rather than its path: case, `..`, links,
+/// `\\localhost\C$\…` and hard links all count (F3 re-review, M4).
 fn is_same_file(a: &Path, b: &Path) -> bool {
-    matches!((fs::canonicalize(a), fs::canonicalize(b)), (Ok(x), Ok(y)) if x == y)
+    same_file::is_same_file(a, b).unwrap_or(false)
 }
 
 /// Writes a new copy at `path` through a temporary sibling renamed into place, so a failure never leaves a
@@ -259,6 +263,34 @@ mod tests {
         assert!(e.to_string().contains("the document you opened"), "{e}");
         assert_eq!(fs::read(&original).unwrap(), b"original");
         assert_eq!(temp_files(&dir), 0);
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// `\\localhost\C$\…` (the admin share) and a hard link reach the open document by a path canonicalize
+    /// can't match; the file's identity (volume and file index) does (F3 re-review, M4).
+    #[cfg(windows)]
+    #[test]
+    fn a_copy_never_replaces_the_original_through_a_loopback_share_or_a_hard_link() {
+        let dir = scratch("save-copy-loopback");
+        let original = dir.join("essay.txt");
+        fs::write(&original, b"original").unwrap();
+
+        let link = dir.join("essay-link.txt");
+        fs::hard_link(&original, &link).unwrap();
+        let e = save_copy_at(&link, Some(&original), b"checked").unwrap_err();
+        assert!(e.to_string().contains("the document you opened"), "{e}");
+
+        let local = fs::canonicalize(&original).unwrap().to_string_lossy().into_owned();
+        // "\\?\C:\Users\…" → "\\localhost\C$\Users\…"
+        let drive = local.trim_start_matches(r"\\?\");
+        let share = PathBuf::from(format!(r"\\localhost\{}${}", &drive[..1], &drive[2..]));
+        if fs::metadata(&share).is_ok() {
+            let e = save_copy_at(&share, Some(&original), b"checked").unwrap_err();
+            assert!(e.to_string().contains("the document you opened"), "{e}");
+        } else {
+            eprintln!("the admin share {} is not reachable here; only the hard link was checked", share.display());
+        }
+        assert_eq!(fs::read(&original).unwrap(), b"original");
         fs::remove_dir_all(&dir).unwrap();
     }
 
