@@ -98,7 +98,8 @@ function contextOf(text: string, { start, end }: Span): { before: string; after:
     if (!SPACE.test(text[to])) after = after.replace(PARTIAL_WORD_AT_END, '');
     after = `${after.trimEnd()}…`;
   }
-  return { before: before.replace(SPACES, ' '), after: after.replace(SPACES, ' ') };
+  // Named before spaces are collapsed: "\s" also matches U+FEFF.
+  return { before: named(before).replace(SPACES, ' '), after: named(after).replace(SPACES, ' ') };
 }
 
 /** How whitespace at a change's edge is drawn, so a spacing fix isn't blank: "··" → "·", " ," → ", ". */
@@ -108,35 +109,59 @@ const EDGE_WHITESPACE = /^\s+|\s+$/gu;
 const ONLY_WHITESPACE = /^\s+$/u;
 const INVISIBLE = /[\p{Cf}\p{Default_Ignorable_Code_Point}]/gu;
 
-/** `text` with invisible characters named ("‹U+200B›") and the whitespace at its edges drawn as signs. */
-function drawn(text: string): string {
-  const named = text.replace(INVISIBLE, (ch) => `‹U+${ch.codePointAt(0)!.toString(16).toUpperCase().padStart(4, '0')}›`);
-  return named.replace(EDGE_WHITESPACE, (run) => [...run].map((ch) => WHITESPACE_SIGNS[ch] ?? '·').join(''));
+/** `text` with invisible and direction characters named ("‹U+200B›", "‹U+202E›"), so none acts unseen. */
+function named(text: string): string {
+  return text.replace(INVISIBLE, (ch) => `‹U+${ch.codePointAt(0)!.toString(16).toUpperCase().padStart(4, '0')}›`);
 }
 
-/** Changed text as drawn; a run of only whitespace is also named for screen readers ("2 spaces"). */
+/** `text` named, and the whitespace at its edges drawn as signs. */
+function drawn(text: string): string {
+  return named(text).replace(EDGE_WHITESPACE, (run) => [...run].map((ch) => WHITESPACE_SIGNS[ch] ?? '·').join(''));
+}
+
+const DEVANAGARI = /\p{Script=Devanagari}/u;
+const BENGALI = /\p{Script=Bengali}/u;
+const LATIN = /\p{Script=Latin}/u;
+
+/**
+ * The language a piece of the document is read in by a screen reader: Hindi for Devanagari, Bengali for Bengali
+ * script (the Indian languages Kashiro knows), English for Latin letters, and none for the rest (F6 re-review 5, M-5).
+ */
+function languageOf(text: string): 'hi' | 'bn' | 'en' | undefined {
+  if (DEVANAGARI.test(text)) return 'hi';
+  if (BENGALI.test(text)) return 'bn';
+  return LATIN.test(text) ? 'en' : undefined;
+}
+
+/**
+ * Changed text as drawn, isolated (<bdi>) so a right-to-left letter can't reorder the row; a run of only whitespace
+ * is also named for screen readers ("2 spaces").
+ */
 function Drawn({ text }: { text: string }) {
   const t = useT();
-  if (!ONLY_WHITESPACE.test(text)) return <span lang="en">{drawn(text)}</span>;
+  if (!ONLY_WHITESPACE.test(text)) return <bdi lang={languageOf(text)}>{drawn(text)}</bdi>;
   return (
     <>
-      <span aria-hidden="true">{drawn(text)}</span>
+      <bdi aria-hidden="true">{drawn(text)}</bdi>
       <span className="visually-hidden">{t.t('log.spaces', { count: [...text].length })}</span>
     </>
   );
 }
 
-/** The change itself in a few words of its paragraph: the document's English text, struck through and inserted. */
+/**
+ * The change itself in a few words of its paragraph, struck through and inserted. Each piece is isolated (<bdi>),
+ * so a direction character or right-to-left letter in the context can't reorder the row (F6 re-review 5, M-5).
+ */
 function Change({ o, text }: { o: Outcome; text: string | undefined }) {
   const t = useT();
   const { before, after } = text === undefined ? { before: '', after: '' } : contextOf(text, o.candidate.span);
   return (
     <span className="change">
-      <span className="context" lang="en">{before}</span>
+      <bdi className="context" lang={languageOf(before)}>{before}</bdi>
       {/* "‸": nothing was there, the fix inserts. */}
-      <del>{o.candidate.original === '' ? '‸' : <Drawn text={o.candidate.original} />}</del> →{' '}
-      <ins>{o.replacement === '' ? t.t('log.deleted') : <Drawn text={o.replacement ?? ''} />}</ins>
-      <span className="context" lang="en">{after}</span>
+      <del>{o.candidate.original === '' ? <bdi>‸</bdi> : <Drawn text={o.candidate.original} />}</del> →{' '}
+      <ins>{o.replacement === '' ? <bdi>{t.t('log.deleted')}</bdi> : <Drawn text={o.replacement ?? ''} />}</ins>
+      <bdi className="context" lang={languageOf(after)}>{after}</bdi>
     </span>
   );
 }

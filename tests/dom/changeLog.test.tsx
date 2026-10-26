@@ -64,6 +64,34 @@ describe('ChangeLog: one row for the simple-fixes card (Task F4)', () => {
     expect(container.querySelector('.change del .visually-hidden')!.textContent).toBe(said);
   });
 
+  it('names invisible and direction characters in the context, as in the change (F6 re-review 5, M-5)', () => {
+    const text = 'We saw\u{200B} it, \u{202E}so the the cat ran.';
+    const { container } = renderLog([applied('d', 'the the', 'the', 'Repetition', text)], text);
+    const context = [...container.querySelectorAll('.change .context')].map((c) => c.textContent).join(' | ');
+    expect(context).toBe('…it, ‹U+202E›so  |  cat ran.');
+    const zwsp = 'mod\u{200B}els the the cat';
+    const { container: other } = renderLog([applied('d', 'the the', 'the', 'Repetition', zwsp)], zwsp);
+    expect(other.querySelector('.change .context')!.textContent).toBe('mod‹U+200B›els ');
+  });
+
+  it('isolates the context and the change, so a direction character cannot reorder the row (F6 re-review 5, M-5)', () => {
+    const { container } = renderLog(CARD);
+    const pieces = [...container.querySelectorAll('.change .context, .change del > *, .change ins > *')];
+    expect(pieces.length).toBeGreaterThan(0);
+    expect(pieces.filter((p) => p.tagName !== 'BDI')).toEqual([]);
+  });
+
+  it.each([
+    ['हम the the बाजार गए।', 'hi'],
+    ['আমরা the the বাজারে গেলাম।', 'bn'],
+    ['We saw the the cat.', 'en'],
+  ])('marks the context of "%s" as lang="%s", and the English change as "en" (F6 re-review 5, M-5)', (text, lang) => {
+    const { container } = renderLog([applied('d', 'the the', 'the', 'Repetition', text)], text);
+    const contexts = [...container.querySelectorAll('.change .context')];
+    expect(contexts.map((c) => c.getAttribute('lang'))).toEqual([lang, lang]);
+    expect(container.querySelector('.change del > *')!.getAttribute('lang')).toBe('en');
+  });
+
   it('names an invisible character it deleted', () => {
     const text = 'mod\u{200B}els here';
     const { container } = renderLog([{ ...applied('z', '\u{200B}', '', 'Invisible', text), auto: true, batch: undefined }], text);
