@@ -15,6 +15,27 @@ const VOWEL_LETTER_TAKES_A = [
 const CONSONANT_LETTER_TAKES_AN = ['heir', 'heiress', 'honest', 'honor', 'honorable', 'honorary', 'honour', 'honourable', 'hour', 'hourly'];
 const VOWEL_LETTER = /^[aeiou]/;
 
+/**
+ * The spellings whose first sound is hardest to tell ("a union" but "an uncle", "a one-off" but "an only child",
+ * "a house" but "an hour"): every such word in the table, checked by ear and listed here in full, so a wrong new
+ * one ("an urinal", "an utopia", "an eunuch", "a herbal") fails until someone checks it (F6 re-review 5, M-1).
+ */
+const HARD_TO_TELL = /^(?:u|eu|ew|on|h)/;
+const HARD_TO_TELL_TAKES_A = [
+  'eulogy', 'euro', 'european', 'hair', 'half', 'hall', 'hammer', 'hand', 'happy', 'hard', 'hat', 'head', 'headcount',
+  'heart', 'heavy', 'height', 'high', 'hill', 'hint', 'hobby', 'hole', 'holiday', 'home', 'horse', 'house', 'huge',
+  'human', 'hundred', 'husband', 'once', 'one', 'unanimous', 'unicorn', 'uniform', 'union', 'unique', 'unit', 'united',
+  'universal', 'universe', 'university', 'usage', 'useful', 'useless', 'user', 'usual', 'utensil', 'utility',
+];
+const HARD_TO_TELL_TAKES_AN = [
+  'heir', 'heiress', 'honest', 'honorable', 'honorary', 'honourable', 'hour', 'hourly', 'onion', 'online', 'only',
+  'ugly', 'umbrella', 'unclear', 'uncle', 'underdog', 'underground', 'understanding', 'undertaking', 'unexpected',
+  'unfair', 'unfinished', 'unfortunate', 'unhappy', 'unhealthy', 'unidentified', 'unknown', 'unlikely', 'unofficial',
+  'unpaid', 'unpleasant', 'unpopular', 'unsafe', 'unusual', 'unwanted', 'uphill', 'upper', 'upward', 'urchin',
+  'urgent', 'utmost',
+];
+const sorted = (words: readonly string[]) => [...words].sort();
+
 describe('the vetted a/an table', () => {
   it.each([
     ['apple', 'an'], ['book', 'a'], ['elephant', 'an'], ['idea', 'an'], ['hour', 'an'], ['honest', 'an'], ['honourable', 'an'],
@@ -56,5 +77,10 @@ describe('the vetted a/an table', () => {
     expect(all.filter((w) => !/^[a-z]+$/.test(w))).toEqual([]);
     expect(TAKES_A.filter((w) => VOWEL_LETTER.test(w) && !VOWEL_LETTER_TAKES_A.includes(w))).toEqual([]);
     expect(TAKES_AN.filter((w) => !VOWEL_LETTER.test(w) && !CONSONANT_LETTER_TAKES_AN.includes(w))).toEqual([]);
+  });
+
+  it('lists exactly the u-, eu-, ew-, on-, once- and h- words checked by ear, in each list (F6 re-review 5, M-1)', () => {
+    expect(sorted(TAKES_A.filter((w) => HARD_TO_TELL.test(w)))).toEqual(sorted(HARD_TO_TELL_TAKES_A));
+    expect(sorted(TAKES_AN.filter((w) => HARD_TO_TELL.test(w)))).toEqual(sorted(HARD_TO_TELL_TAKES_AN));
   });
 });

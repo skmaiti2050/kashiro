@@ -8,8 +8,9 @@
  * and Indian English alike. Leave it out when you aren't certain of its first sound in all three: most u-, eu-,
  * ew-, on- and h- words need that thought ("herb", "historic", "homage", "humble", "hotel" are left out on
  * purpose), and no abbreviation or initialism belongs here ("usb", "mla", "fir", "hr"). A word for TAKES_AN must
- * not also be a common verb (see TAKES_AN). tests/engine/articles.test.ts checks a sample and that each
- * vowel-letter word in TAKES_A, or consonant-letter word in TAKES_AN, is one it knows.
+ * not also be a common verb (see TAKES_AN). tests/engine/articles.test.ts checks a sample, that each
+ * vowel-letter word in TAKES_A, or consonant-letter word in TAKES_AN, is one it knows, and lists every u-, eu-,
+ * ew-, on- and h- word of both lists in full, so a new one needs adding there too, after checking it by ear.
  */
 
 /** Words said with a consonant sound first: "a" goes before them. */
