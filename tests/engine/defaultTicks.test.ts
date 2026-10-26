@@ -99,6 +99,21 @@ describe('the simple-fixes card ticks only a closed set of fixes (Task F6, owner
     expect(await outputOf(text)).toBe(text);
   });
 
+  it.each([
+    // After a Spanish, Portuguese or Italian function word ("fui a", "que a").
+    'Fui a animal planet y luego a idea nueva.',
+    'Le dije que a idea era mala.',
+    // In a sentence mostly in another language.
+    'Tenemos a idea muy buena para mañana.',
+    'Ela comprou a apple para o almoço.',
+  ])('ticks an article swap only in English: "%s" (F6 re-review 5, M-2)', async (text) => {
+    expect(await outputOf(text)).toBe(text);
+  });
+
+  it('still ticks an article swap after an English word, in a sentence with a word of another language', async () => {
+    expect(await outputOf('We had chai with a apple at the dhaba.')).toBe('We had chai with an apple at the dhaba.');
+  });
+
   it('still ticks a capital article at a sentence start, after a colon or on a list line (F6 re-review 5, I-1)', async () => {
     expect(await outputOf('Note: A apple is red. We left. An useful tip followed.')).toBe('Note: An apple is red. We left. A useful tip followed.');
   });

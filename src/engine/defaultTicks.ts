@@ -1,5 +1,6 @@
 import type { Candidate, Span } from './types';
 import { isSentenceStart } from './factLock';
+import { sentenceSpans } from './sentences';
 import { isSlipDoubling } from './tiers';
 import { startsWord } from './wordFlags';
 import { VETTED_ARTICLES } from './wordlists/articles';
@@ -8,7 +9,8 @@ import { VETTED_ARTICLES } from './wordlists/articles';
  * Which fixes on the simple-fixes card start unticked (Task F6, owner decision 2026-10-26). "Review and apply all"
  * applies every ticked fix with one click, so a fix starts ticked only when it belongs to a closed, listed set:
  *   (a) a doubled word on the slip allowlist (isSlipDoubling), one copy and the space between removed;
- *   (b) an a/an swap before a word in the vetted table (wordlists/articles.ts), toward the article listed there.
+ *   (b) an a/an swap before a word in the vetted table (wordlists/articles.ts), toward the article listed there,
+ *       where the article is one: a capital only at a sentence start, and only in a sentence that reads as English.
  * Everything else starts unticked, however safe its shape looks: capitals, "i" → "I", punctuation spacing, dot
  * runs, other formatting, whitespace, spelling slips and the kinds the user opted into. Guessing from a fix's
  * shape missed new cases in every review (F5 re-review 4), so nothing here is inferred from one.
@@ -19,6 +21,8 @@ export interface TickContext {
   paraText: ReadonlyMap<number, string>;
   /** A fix of a kind the user added in Settings, not a built-in simple fix: never ticked (owner decision 2026-10-25). */
   optedIn(c: Candidate): boolean;
+  /** paraId → the sentences mostly in another language (findForeignSentences). */
+  foreignSentences?: ReadonlyMap<number, readonly Span[]>;
 }
 
 /** The ids of `fixes` (the card's members) that start unticked, in card order. */
@@ -31,7 +35,29 @@ function startsTicked(c: Candidate, ctx: TickContext): boolean {
   const text = ctx.paraText.get(c.paraId);
   if (text === undefined || c.replacements.length !== 1 || ctx.optedIn(c)) return false;
   if (text.slice(c.span.start, c.span.end) !== c.original) return false;
-  return isSlipDoubling(c, text) || isVettedArticleSwap(c, text);
+  if (isSlipDoubling(c, text)) return true;
+  return isVettedArticleSwap(c, text) && readsAsEnglish(c, text, ctx.foreignSentences?.get(c.paraId) ?? []);
+}
+
+/**
+ * Spanish, Portuguese and Italian words that come right before their own "a" (a preposition or an article):
+ * "Fui a", "Voy a", "Vou a", "que a", "de a" (F6 re-review 5, M-2).
+ */
+const ROMANCE_WORDS_BEFORE_A = new Set(['a', 'de', 'que', 'fui', 'voy', 'vou', 'e', 'o', 'la', 'el', 'di', 'da']);
+/** A word, then spaces and a lowercase "a" of its own: "Fui a" in "Fui a animal". */
+const WORD_THEN_A = /(?<!\p{L})(\p{L}+)\s+a(?!\p{L})/gu;
+
+/**
+ * True when the sentence holding `c` reads as English, so its "a" is the English article: not a sentence mostly
+ * in another language, and none with an "a" right after a Spanish, Portuguese or Italian word ("Fui a animal
+ * planet y luego a idea nueva" is Spanish throughout).
+ */
+function readsAsEnglish(c: Candidate, text: string, foreign: readonly Span[]): boolean {
+  const holds = (s: Span) => s.start <= c.span.start && c.span.end <= s.end;
+  if (foreign.some(holds)) return false;
+  const sentence = sentenceSpans(text).find(holds);
+  const words = sentence ? text.slice(sentence.start, sentence.end) : text;
+  return ![...words.matchAll(WORD_THEN_A)].some((m) => ROMANCE_WORDS_BEFORE_A.has(m[1].toLowerCase()));
 }
 
 /** The article swaps that may be ticked, in the original's case: "a" → "an", "A" → "An", and back. */

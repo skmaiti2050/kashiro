@@ -362,6 +362,13 @@ export const TICK_TRUTH: readonly TickTruth[] = [
   { input: 'If x and a increase together, the sum rises.', mayTick: [] },
   { input: 'Then a must exceed b, so a only grows.', mayTick: [] },
   { input: 'Let *a* equal 5, and let a equal b.', mayTick: [], markdown: true },
+  // F6 re-review 5, M-2: "a" in Spanish, Portuguese or Italian is a preposition or an article, not English "a".
+  { input: 'Fui a animal planet y luego a idea nueva.', mayTick: [] },
+  { input: 'Voy a ir mañana.', mayTick: [] },
+  { input: 'Vou a escola amanhã.', mayTick: [] },
+  { input: 'Le dije que a idea era mala.', mayTick: [] },
+  { input: 'Tenemos a idea muy buena para mañana.', mayTick: [] },
+  { input: 'Ela comprou a apple para o almoço.', mayTick: [] },
 ];
 
 /** Invisible characters sprinkled at random between ASCII characters. */
