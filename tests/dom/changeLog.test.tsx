@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import type { CheckSession, Outcome } from '@/engine/session';
 import type { Candidate } from '@/engine/types';
@@ -125,5 +126,28 @@ describe('ChangeLog: one row for the simple-fixes card (Task F4)', () => {
     const text = 'mod\u{200B}els here';
     const { container } = renderLog([{ ...applied('z', '\u{200B}', '', 'Invisible', text), auto: true, batch: undefined }], text);
     expect(container.querySelector('.change del')!.textContent).toBe('‹U+200B›');
+  });
+});
+
+/** The column sizes of a grid ("48px minmax(0, 1fr) auto" → ["48px", "minmax(0, 1fr)", "auto"]). */
+const gridTracks = (template: string) => template.match(/[\w.-]+\([^)]*\)|\S+/g) ?? [];
+
+describe('ChangeLog: a long change or context wraps inside its row (F7 re-review 6, M-4)', () => {
+  // jsdom has no layout, so the check is on the app's real CSS: what lets the row wrap instead of widen.
+  const style = document.createElement('style');
+  beforeAll(() => {
+    style.textContent = readFileSync('src/ui/app.css', 'utf8') + readFileSync('src/ui/a11y.css', 'utf8');
+    document.head.append(style);
+  });
+  afterAll(() => style.remove());
+
+  it.each([
+    ['a run of named invisible characters', `${'\u{200B}'.repeat(12)}the the cat`],
+    ['one long unbroken word', `${'x'.repeat(200)} the the cat`],
+  ])('%s may break anywhere, and the text column may shrink below its content', (_name, text) => {
+    const { container } = renderLog([{ ...applied('d', 'the the', 'the', 'Repetition', text), batch: undefined }], text);
+    for (const piece of container.querySelectorAll('.change, .change .context')) expect(getComputedStyle(piece).overflowWrap).toBe('anywhere');
+    const row = container.querySelector('.entries li')!;
+    expect(gridTracks(getComputedStyle(row).gridTemplateColumns)[1]).toBe('minmax(0, 1fr)');
   });
 });

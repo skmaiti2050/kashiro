@@ -994,9 +994,10 @@ button.link {
   overflow-y: auto;
 }
 
+/* minmax(0, 1fr): a long change can't widen the text column past the row and push Undo off-screen (F7 re-review 6, M-4). */
 .changelog .entries li {
   display: grid;
-  grid-template-columns: 48px 1fr auto auto;
+  grid-template-columns: 48px minmax(0, 1fr) auto auto;
   gap: 12px;
   align-items: center;
   padding: 4px 0;
@@ -1019,6 +1020,14 @@ button.link {
   flex-wrap: wrap;
   gap: 2px 16px;
   min-width: 0;
+}
+
+/*
+ * A change and its context break anywhere: a run of named characters ("‹U+200B›‹U+200B›…") or a long word has no
+ * break opportunity of its own, and would otherwise scroll the drawer sideways (F7 re-review 6, M-4).
+ */
+.changelog .change {
+  overflow-wrap: anywhere;
 }
 
 /* The words around a change: there to find it by, quieter than the change itself (F5 re-review 4, M-6). */
