@@ -101,6 +101,22 @@ describe('spaces lined up across one-line paragraphs (F4 re-review 3, M-3)', () 
     expect(autoChanges(s)).toEqual([]);
     expect(lines.map((_, id) => s.outputText(id))).toEqual(lines);
   });
+
+  it.each([
+    ['keys with a colon', ['Name:      Rahul Sharma', 'City:      Pune']],
+    ['lines ending with a full stop', ['Company     Acme Pvt. Ltd.', 'Address     12 MG Road, Pune.']],
+    ['a lone key and value between sentences', ['We went home.', 'Total      500', 'It rained.']],
+  ])('stay as they are without a click: %s (F5 re-review 4, M-3)', async (_name, lines) => {
+    const s = await start(lines.map((text, id) => ({ id, text })));
+    expect(autoChanges(s)).toEqual([]);
+    expect(lines.map((_, id) => s.outputText(id))).toEqual(lines);
+  });
+
+  it('a sentence with a double space after a full stop or a word still collapses without a click', async () => {
+    const s = await start([{ id: 0, text: 'The end.  Next one came.' }, { id: 1, text: 'We went  home.' }]);
+    expect(s.outputText(0)).toBe('The end. Next one came.');
+    expect(s.outputText(1)).toBe('We went home.');
+  });
 });
 
 describe('the token check behind every change made without a click (Task F4)', () => {

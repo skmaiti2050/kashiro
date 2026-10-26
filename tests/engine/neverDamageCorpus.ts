@@ -205,7 +205,16 @@ const TRAPS = [
  * A key–value block whose lines are paragraphs of their own (F4 re-review 3, M-3): its spaces are layout,
  * like the columns above, even though no one paragraph shows it.
  */
-const KEY_VALUE_BLOCK = ['[[Name      Rahul Sharma]]', '[[City      Pune]]', '[[Amount    500]]', '[[Score: India 250  Australia 245]]'];
+const KEY_VALUE_BLOCK = [
+  '[[Name      Rahul Sharma]]',
+  '[[City      Pune]]',
+  '[[Amount    500]]',
+  '[[Score: India 250  Australia 245]]',
+  // A colon key, and lines ending with a full stop (F5 re-review 4, M-3).
+  '[[Guardian:      Mr. Anil Sharma]]',
+  '[[Company     Acme Pvt. Ltd.]]',
+  '[[Address     12 MG Road, Pune.]]',
+];
 
 /** Paragraph openers: list labels the format does not draw itself. */
 const LIST_LABELS = ['[[a.]] ', '[[(iv)]] ', '[[1.]] ', '[[b)]] '];

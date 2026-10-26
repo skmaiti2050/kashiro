@@ -32,20 +32,35 @@ function looksLaidOut(text: string): boolean {
 
 /** A sentence's end at the end of a line: "home.", "done?" (with a closing quote or bracket after it). */
 const ENDS_SENTENCE = /[.?!]["”’)]*\s*$/u;
+/** A gap of three or more spaces after a word or a key's colon: "Name:   Rahul", "Company     Acme Pvt. Ltd.". */
+const WIDE_GAP = /(?<=[^\s.?!;,]) {3,}(?=\S)/;
+/** One to three words, then a gap of two or more spaces: "Total      500", "Date of birth:   1 May". */
+const SHORT_KEY_THEN_GAP = /^\S+(?: \S+){0,2} {2,}\S/;
 
-/** A one-line paragraph with a column gap and no sentence end: "Name      Rahul Sharma", "Score: India 250  Australia 245". */
+/**
+ * A one-line paragraph laid out as a key and a value: a gap of three or more spaces, even when the line ends with
+ * a full stop ("Company     Acme Pvt. Ltd."), or a column gap and no sentence end ("Score: India 250  Australia 245").
+ */
 function isKeyValueLine(text: string): boolean {
+  if (LINE_BREAK.test(text)) return false;
   // search, not test: COLUMN_GAP is global, and test would carry its lastIndex from one call to the next.
-  return !LINE_BREAK.test(text) && text.search(COLUMN_GAP) !== -1 && !ENDS_SENTENCE.test(text);
+  return WIDE_GAP.test(text) || (text.search(COLUMN_GAP) !== -1 && !ENDS_SENTENCE.test(text));
+}
+
+/** A key–value line that stands alone: a short key, a gap, no sentence end ("Total      500" between sentences). */
+function isShortKeyValueLine(text: string): boolean {
+  return !LINE_BREAK.test(text) && SHORT_KEY_THEN_GAP.test(text) && !ENDS_SENTENCE.test(text);
 }
 
 /**
- * Ids of one-line paragraphs lined up with a neighbour: two or more key–value lines in a row (isKeyValueLine),
- * each its own paragraph. Their spaces are layout though no one paragraph shows it (F4 re-review 3, M-3).
+ * Ids of one-line paragraphs whose spaces are layout though no one paragraph shows it: two or more key–value lines
+ * in a row (isKeyValueLine), each its own paragraph (F4 re-review 3, M-3), or a short one alone (F5 re-review 4,
+ * M-3). A sentence with a stray double space ends with its full stop, so it still collapses.
  */
 export function findAlignedParagraphs(paras: readonly Paragraph[]): Set<number> {
   const keyValue = paras.map((p) => isKeyValueLine(p.text));
-  return new Set(paras.filter((_, i) => keyValue[i] && (keyValue[i - 1] || keyValue[i + 1])).map((p) => p.id));
+  const aligned = paras.filter((p, i) => (keyValue[i] && (keyValue[i - 1] || keyValue[i + 1])) || isShortKeyValueLine(p.text));
+  return new Set(aligned.map((p) => p.id));
 }
 
 /** True when `c` collapses a run of spaces between two words, outside locked, table and laid-out text. */

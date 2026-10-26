@@ -84,7 +84,17 @@ describe('findAlignedParagraphs (F4 re-review 3, M-3)', () => {
     expect([...findAlignedParagraphs(block)]).toEqual([0, 1, 2, 3]);
   });
 
-  it('leaves a lone key–value line, and sentences with a stray double space, to the space rule', () => {
-    expect([...findAlignedParagraphs(paras('We went  home.', 'The hall was  full by ten.', 'Name      Rahul', 'It rained.'))]).toEqual([]);
+  it('leaves sentences with a stray double space to the space rule, after a word or a full stop', () => {
+    expect([...findAlignedParagraphs(paras('We went  home.', 'The hall was  full by ten.', 'It rained.', 'The end.  Next one.', 'The end.   Next one.'))]).toEqual([]);
+  });
+
+  it.each([
+    ['keys with a colon', ['Name:      Rahul Sharma', 'City:      Pune'], [0, 1]],
+    ['lines ending with a full stop', ['Company     Acme Pvt. Ltd.', 'Address     12 MG Road, Pune.'], [0, 1]],
+    ['a block with one line ending with a full stop', ['Name      Rahul', 'Role      Engg. Lead.', 'City      Pune'], [0, 1, 2]],
+    ['a lone line with a short key, between sentences', ['We went home.', 'Total      500', 'It rained.'], [1]],
+    ['a lone line with a colon key', ['It rained.', 'Name:   Rahul Sharma', 'It rained.'], [1]],
+  ] as const)('finds %s (F5 re-review 4, M-3)', (_name, texts, aligned) => {
+    expect([...findAlignedParagraphs(paras(...texts))]).toEqual(aligned);
   });
 });
