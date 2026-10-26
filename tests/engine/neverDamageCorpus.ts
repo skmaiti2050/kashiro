@@ -233,6 +233,8 @@ const PLANTED = [
   'I think <<teh|the>> plan works.',
   'He ate <<a|an>> apple.',
   'We went to <<the the|the>> market.',
+  // A second doubling, so "Review and apply all" (doublings only since Task F8) still has enough to fix.
+  'It is part <<of of|of>> the plan.',
   // Harper writes "AN" after a capital "A" (F4 re-review 3, I-1): the one right fix keeps the case.
   '<<A|An>> elephant came.',
 ];
@@ -255,13 +257,24 @@ export interface TickTruth {
 }
 
 export const TICK_TRUTH: readonly TickTruth[] = [
-  // The closed set: a doubled word on the allowlist, an a/an swap before a word in the vetted table.
+  // The closed set: a doubled word on the allowlist.
   { input: 'We went to the the market.', mayTick: ['the the → the @ 11'], ticked: true },
   { input: 'It is part of of the plan.', mayTick: ['of of → of @ 11'], ticked: true },
-  { input: 'He ate a apple.', mayTick: ['a → an @ 7'], ticked: true },
-  { input: 'A apple fell. A elephant came.', mayTick: ['A → An @ 0', 'A → An @ 14'], ticked: true },
-  { input: 'It is an useful tool.', mayTick: ['an → a @ 6'], ticked: true },
-  { input: 'Wait a hour please.', mayTick: ['a → an @ 5'], ticked: true },
+  // Task F8 (owner decision 2026-10-26): no a/an swap starts ticked, however right it is.
+  { input: 'He ate a apple.', mayTick: [] },
+  { input: 'A apple fell. A elephant came.', mayTick: [] },
+  { input: 'It is an useful tool.', mayTick: [] },
+  { input: 'Wait a hour please.', mayTick: [] },
+  { input: 'a apple', mayTick: [] },
+  { input: 'A apple', mayTick: [] },
+  { input: 'He ate a apple and the the cake.', mayTick: ['the the → the @ 19'], ticked: true },
+  // F7 re-review 6, I-1: "an" or "a" typed for "and"; M-1: a letter label; M-2: Spanish "a".
+  { input: 'My mother an father came to the school.', mayTick: [] },
+  { input: 'Bring a pen an paper to the exam.', mayTick: [] },
+  { input: 'Fill the form an hand it over.', mayTick: [] },
+  { input: 'I like apple a orange.', mayTick: [] },
+  { input: 'Grades: A excellent, B good, C average.', mayTick: [] },
+  { input: 'Vamos a animal planet mañana.', mayTick: [] },
   // Right fixes outside the closed set: they may start ticked, but need not.
   { input: 'I think teh plan works.', mayTick: ['teh → the @ 8'] },
   { input: 'It rained today. we left early.', mayTick: ['we → We @ 17'] },
@@ -336,7 +349,7 @@ export const TICK_TRUTH: readonly TickTruth[] = [
   { input: 'Call foo(a ,b) and x = y ,z today.', mayTick: [] },
   { input: '| a ,b | c |\n|---|---|\n| d | e |', mayTick: [], markdown: true },
   // F6 re-review 5, I-1: a capital "A" mid-sentence is a letter label or an initial, not an article.
-  { input: 'Note: A apple is red.', mayTick: ['A → An @ 6'], ticked: true },
+  { input: 'Note: A apple is red.', mayTick: [] },
   { input: 'We leased a Class A office in Pune last year.', mayTick: [] },
   { input: 'Burglary is a Category A offence in that county.', mayTick: [] },
   { input: 'He was treated for a Hepatitis A infection last spring.', mayTick: [] },
@@ -354,7 +367,7 @@ export const TICK_TRUTH: readonly TickTruth[] = [
   { input: 'We stayed with the An family in Seoul.', mayTick: [] },
   { input: 'Dr. An home visits are on Fridays.', mayTick: [] },
   // F6 re-review 5, I-2: a lowercase "a" as a variable before a word that is also a verb.
-  { input: 'He ate a apple, so why does a equal b?', mayTick: ['a → an @ 7'], ticked: true },
+  { input: 'He ate a apple, so why does a equal b?', mayTick: [] },
   { input: 'Why does a equal b in this proof?', mayTick: [] },
   { input: 'Will a increase if b falls?', mayTick: [] },
   { input: 'Can a end before b starts?', mayTick: [] },

@@ -1,5 +1,5 @@
 /**
- * The vetted a/an table (Task F6): the only words before which the simple-fixes card ticks an article swap.
+ * The vetted a/an table (Task F6), kept unused since Task F8 for the v1.1 decision on ticking article swaps.
  * A word's article follows its first sound, so a vowel letter taking "a", or a consonant letter taking "an", must
  * be one of the words below, each checked by ear; a new one needs the same check before it joins this list.
  */

@@ -1,8 +1,9 @@
 /**
- * The vetted a/an table (Task F6, owner decision 2026-10-26). The simple-fixes card ticks an article swap by
- * default only before one of these words, and only toward the article listed here; every other swap is still
- * offered, unticked. The article follows the word's first *sound*, which its spelling doesn't always tell ("a
- * union", "an uncle", "an hour", "a house", "a one-off"), so the words are listed by hand rather than guessed.
+ * The vetted a/an table (Task F6). Unused since Task F8 (no a/an swap starts ticked in v1.0); kept, with its by-ear
+ * tests, for the v1.1 decision on ticking article swaps before these words again.
+ *
+ * The article follows the word's first *sound*, which its spelling doesn't always tell ("a union", "an uncle",
+ * "an hour", "a house", "a one-off"), so the words are listed by hand rather than guessed.
  *
  * To add a word: put it in TAKES_A or TAKES_AN, in lowercase letters only, by how it is said in British, American
  * and Indian English alike. Leave it out when you aren't certain of its first sound in all three: most u-, eu-,

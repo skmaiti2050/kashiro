@@ -312,12 +312,13 @@ describe('never damage: generated traps, under every preset and setting', () => 
     });
     cardProblems.push(...splitDirectionPairs(session, document));
     expect(cardProblems).toEqual([]);
-    // The judge saw the card's changes, and the planted errors are still fixed by the one click.
-    expect(byCard.length).toBeGreaterThan(10);
+    // The judge saw the card's changes, and the planted doublings are still fixed by the one click (since Task F8
+    // only doublings start ticked: 10 in this document).
+    expect(byCard.length).toBeGreaterThan(5);
     const plantedFixed = byCard.filter((o) =>
       document[o.candidate.paraId].fixes.some((f) => f.start === o.candidate.span.start && f.end === o.candidate.span.end && f.right === o.replacement),
     );
-    expect(plantedFixed.length).toBeGreaterThan(10);
+    expect(plantedFixed.length).toBeGreaterThan(5);
   }, 60_000);
 
   it('accepting every suggestion never replaces a word-card word, cuts a word an invisible character split, or splits a direction pair', async () => {

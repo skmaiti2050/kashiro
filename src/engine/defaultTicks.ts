@@ -1,19 +1,15 @@
 import type { Candidate, Span } from './types';
-import { isSentenceStart } from './factLock';
-import { sentenceSpans } from './sentences';
 import { isSlipDoubling } from './tiers';
-import { startsWord } from './wordFlags';
-import { VETTED_ARTICLES } from './wordlists/articles';
 
 /**
- * Which fixes on the simple-fixes card start unticked (Task F6, owner decision 2026-10-26). "Review and apply all"
- * applies every ticked fix with one click, so a fix starts ticked only when it belongs to a closed, listed set:
- *   (a) a doubled word on the slip allowlist (isSlipDoubling), one copy and the space between removed;
- *   (b) an a/an swap before a word in the vetted table (wordlists/articles.ts), toward the article listed there,
- *       where the article is one: a capital only at a sentence start, and only in a sentence that reads as English.
- * Everything else starts unticked, however safe its shape looks: capitals, "i" → "I", punctuation spacing, dot
- * runs, other formatting, whitespace, spelling slips and the kinds the user opted into. Guessing from a fix's
- * shape missed new cases in every review (F5 re-review 4), so nothing here is inferred from one.
+ * Which fixes on the simple-fixes card start unticked (Tasks F6 and F8, owner decisions 2026-10-26). "Review and
+ * apply all" applies every ticked fix with one click, so a fix starts ticked only when it belongs to a closed,
+ * listed set: a doubled word on the slip allowlist (isSlipDoubling), one copy and the space between removed.
+ * Everything else starts unticked, however safe its shape looks. That includes every a/an swap: re-reviews 4 to 6
+ * each found a new way a ticked one was wrong ("Class A office", "a equal b", "mother an father" for "and").
+ * Capitals, "i" → "I", punctuation spacing, dot runs, other formatting, whitespace, spelling slips and the kinds
+ * the user opted into start unticked too. Guessing from a fix's shape missed new cases in every review (F5
+ * re-review 4), so nothing here is inferred from one.
  */
 
 export interface TickContext {
@@ -21,8 +17,6 @@ export interface TickContext {
   paraText: ReadonlyMap<number, string>;
   /** A fix of a kind the user added in Settings, not a built-in simple fix: never ticked (owner decision 2026-10-25). */
   optedIn(c: Candidate): boolean;
-  /** paraId → the sentences mostly in another language (findForeignSentences). */
-  foreignSentences?: ReadonlyMap<number, readonly Span[]>;
 }
 
 /** The ids of `fixes` (the card's members) that start unticked, in card order. */
@@ -34,61 +28,7 @@ export function untickedByDefault(fixes: readonly Candidate[], ctx: TickContext)
 function startsTicked(c: Candidate, ctx: TickContext): boolean {
   const text = ctx.paraText.get(c.paraId);
   if (text === undefined || c.replacements.length !== 1 || ctx.optedIn(c)) return false;
-  if (text.slice(c.span.start, c.span.end) !== c.original) return false;
-  if (isSlipDoubling(c, text)) return true;
-  return isVettedArticleSwap(c, text) && readsAsEnglish(c, text, ctx.foreignSentences?.get(c.paraId) ?? []);
-}
-
-/**
- * Spanish, Portuguese and Italian words that come right before their own "a" (a preposition or an article):
- * "Fui a", "Voy a", "Vou a", "que a", "de a" (F6 re-review 5, M-2).
- */
-const ROMANCE_WORDS_BEFORE_A = new Set(['a', 'de', 'que', 'fui', 'voy', 'vou', 'e', 'o', 'la', 'el', 'di', 'da']);
-/** A word, then spaces and a lowercase "a" of its own: "Fui a" in "Fui a animal". */
-const WORD_THEN_A = /(?<!\p{L})(\p{L}+)\s+a(?!\p{L})/gu;
-
-/**
- * True when the sentence holding `c` reads as English, so its "a" is the English article: not a sentence mostly
- * in another language, and none with an "a" right after a Spanish, Portuguese or Italian word ("Fui a animal
- * planet y luego a idea nueva" is Spanish throughout).
- */
-function readsAsEnglish(c: Candidate, text: string, foreign: readonly Span[]): boolean {
-  const holds = (s: Span) => s.start <= c.span.start && c.span.end <= s.end;
-  if (foreign.some(holds)) return false;
-  const sentence = sentenceSpans(text).find(holds);
-  const words = sentence ? text.slice(sentence.start, sentence.end) : text;
-  return ![...words.matchAll(WORD_THEN_A)].some((m) => ROMANCE_WORDS_BEFORE_A.has(m[1].toLowerCase()));
-}
-
-/** The article swaps that may be ticked, in the original's case: "a" → "an", "A" → "An", and back. */
-const ARTICLE_SWAPS = new Map([
-  ['a', 'an'],
-  ['an', 'a'],
-  ['A', 'An'],
-  ['An', 'A'],
-]);
-/**
- * The word after an article: one space or line break, then letters ending at a space, the end, a hyphen,
- * an apostrophe or punctuation ("apple" in "an apple.", "one" in "a one-off"; not "apple" in "a apple2" or
- * "a m<U+200E>ean", nor "apple" after "a *").
- */
-const NEXT_WORD = /^[ \n](\p{L}+)(?=$|[\s.,;:!?)\]}"”’'-])/u;
-/** A lowercase or capitalised word ("apple", "European"), not an initialism ("USB", "HR") or "iPhone". */
-const PLAIN_OR_CAPITALISED = /^\p{Lu}?\p{Ll}+$/u;
-
-/**
- * An a ↔ an swap, as a word of its own, whose next word is in the vetted table (compared in lowercase) and takes
- * the article the swap writes: "a apple" → "an", "an useful" → "a". "an unidentified" → "a" is not ticked: the
- * table says "an" (F5 re-review 4, I-1). A capital "A" or "An" counts only at a sentence start: mid-sentence it is
- * a letter label or an initial ("Class A office", "Priya A officer"), not an article (F6 re-review 5, I-1).
- */
-function isVettedArticleSwap(c: Candidate, text: string): boolean {
-  const [replacement] = c.replacements;
-  if (c.kind !== 'Miscellaneous' || ARTICLE_SWAPS.get(c.original) !== replacement) return false;
-  if (!startsWord(text, c.span.start)) return false;
-  if (c.original.startsWith('A') && !isSentenceStart(text, c.span.start)) return false;
-  const next = NEXT_WORD.exec(text.slice(c.span.end))?.[1] ?? '';
-  return PLAIN_OR_CAPITALISED.test(next) && VETTED_ARTICLES.get(next.toLowerCase()) === replacement.toLowerCase();
+  return text.slice(c.span.start, c.span.end) === c.original && isSlipDoubling(c, text);
 }
 
 /** Whitespace-separated tokens: "a SMS" is two. */

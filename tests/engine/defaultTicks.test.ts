@@ -1,8 +1,8 @@
 /**
  * "Review and apply all" on the simple-fixes card applies its ticked fixes with one click, so a fix starts ticked
- * only when it belongs to a closed, listed set (Task F6): a doubled word on the allowlist, or an a/an swap before a
- * word in the vetted table, toward the article it lists, and never two fixes on neighbouring words. Everything else
- * is listed unticked (Task F5's repros stay unticked).
+ * only when it belongs to a closed, listed set: a doubled word on the allowlist, never next to another fix (Task
+ * F6). Every a/an swap stays on the card unticked (Task F8, owner decision 2026-10-26): reviews #4 to #6 each found
+ * a new way a ticked one was wrong. Everything else is listed unticked (Task F5's repros stay unticked).
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import { CheckSession, type CheckOptions } from '@/engine/session';
@@ -40,24 +40,39 @@ const outputOf = async (text: string, over: Partial<CheckOptions> = {}) =>
   (await applyAllWithDefaultTicks([{ id: 0, text }], over)).session.outputText(0);
 
 describe('the simple-fixes card ticks only a closed set of fixes (Task F6, owner decision 2026-10-26)', () => {
-  it('ticks a doubled word on the allowlist and an article before a vetted word; lists the rest unticked', async () => {
+  it('ticks a doubled word on the allowlist; lists the rest unticked, the article swap included (Task F8)', async () => {
     const { session, ticked, unticked } = await applyAllWithDefaultTicks([
       { id: 0, text: 'I think teh cat of of mine ate a apple. It rained today. we left early.' },
     ]);
-    expect(ticked).toEqual(['of of → of', 'a → an']);
-    expect(unticked).toEqual(['teh → the', 'we → We']);
-    expect(session.outputText(0)).toBe('I think teh cat of mine ate an apple. It rained today. we left early.');
+    expect(ticked).toEqual(['of of → of']);
+    expect(unticked).toEqual(['teh → the', 'a → an', 'we → We']);
+    expect(session.outputText(0)).toBe('I think teh cat of mine ate a apple. It rained today. we left early.');
   });
 
   it.each([
-    ['He is an useful man.', 'He is a useful man.'],
-    ['Wait a hour please.', 'Wait an hour please.'],
-    ['He is a honest man.', 'He is an honest man.'],
-    ['It was an one-time deal.', 'It was a one-time deal.'],
-    ['He joined an union.', 'He joined a union.'],
-    ['She found an unique stone.', 'She found a unique stone.'],
-  ])('ticks an article swap the vetted table confirms: "%s"', async (text, after) => {
-    expect(await outputOf(text)).toBe(after);
+    // Right swaps the vetted table confirms: still offered, unticked (owner decision 2026-10-26).
+    ['He is an useful man.', 'an → a'],
+    ['Wait a hour please.', 'a → an'],
+    ['He is a honest man.', 'a → an'],
+    ['It was an one-time deal.', 'an → a'],
+    ['He joined an union.', 'an → a'],
+    ['She found an unique stone.', 'an → a'],
+    ['A apple fell.', 'A → An'],
+    ['a apple', 'a → an'],
+    ['A apple', 'A → An'],
+    ['We had chai with a apple at the dhaba.', 'a → an'],
+    // "an" or "a" typed for "and" (F7 re-review 6, I-1), a letter label (M-1), Spanish "a" (M-2).
+    ['My mother an father came to the school.', 'an → a'],
+    ['Bring a pen an paper to the exam.', 'an → a'],
+    ['Fill the form an hand it over.', 'an → a'],
+    ['I like apple a orange.', 'a → an'],
+    ['Grades: A excellent, B good, C average.', 'A → An'],
+    ['Vamos a animal planet mañana.', 'a → an'],
+  ])('starts no article swap ticked, but offers it on the card: "%s" (Task F8)', async (text, swap) => {
+    const { session, ticked, unticked } = await applyAllWithDefaultTicks([{ id: 0, text }]);
+    expect(ticked).toEqual([]);
+    expect(unticked).toContain(swap);
+    expect(session.outputText(0)).toBe(text);
   });
 
   it.each([
@@ -82,40 +97,29 @@ describe('the simple-fixes card ticks only a closed set of fixes (Task F6, owner
     expect(await outputOf(text)).toBe(text);
   });
 
-  it('keeps the article\'s case: "A apple" becomes "An apple", not "AN apple" (I-1)', async () => {
-    expect(await outputOf('A apple fell. A elephant came.')).toBe('An apple fell. An elephant came.');
-    expect(await outputOf('It rained today. A elephant came.')).toBe('It rained today. An elephant came.');
-    const { paras } = await markdownAdapter.read(new TextEncoder().encode('- A apple fell.\n- An banana.\n'));
-    const { session } = await applyAllWithDefaultTicks(paras, { language: 'markdown' });
-    expect(paras.map((p) => session.outputText(p.id))).toEqual(['- An apple fell.\n- A banana.']);
-  });
-
   it.each([
+    // A letter label or an initial (F6 re-review 5, I-1).
     'We leased a Class A office in Pune last year.',
     'He was treated for a Hepatitis A infection last spring.',
     'Approved by Priya A officer in charge.',
     'How To Become A Engineer In India',
-  ])('ticks no capital "A" → "An" mid-sentence, where "A" is a letter label or an initial: "%s" (F6 re-review 5, I-1)', async (text) => {
-    expect(await outputOf(text)).toBe(text);
-  });
-
-  it.each([
-    // After a Spanish, Portuguese or Italian function word ("fui a", "que a").
+    // Spanish or Portuguese "a" (F6 re-review 5, M-2).
     'Fui a animal planet y luego a idea nueva.',
     'Le dije que a idea era mala.',
-    // In a sentence mostly in another language.
     'Tenemos a idea muy buena para mañana.',
     'Ela comprou a apple para o almoço.',
-  ])('ticks an article swap only in English: "%s" (F6 re-review 5, M-2)', async (text) => {
+    // Right swaps at a sentence start, after a colon or after a full stop.
+    'A apple fell. A elephant came.',
+    'Note: A apple is red. We left. An useful tip followed.',
+  ])('ticks no article swap: "%s" (Task F8)', async (text) => {
     expect(await outputOf(text)).toBe(text);
   });
 
-  it('still ticks an article swap after an English word, in a sentence with a word of another language', async () => {
-    expect(await outputOf('We had chai with a apple at the dhaba.')).toBe('We had chai with an apple at the dhaba.');
-  });
-
-  it('still ticks a capital article at a sentence start, after a colon or on a list line (F6 re-review 5, I-1)', async () => {
-    expect(await outputOf('Note: A apple is red. We left. An useful tip followed.')).toBe('Note: An apple is red. We left. A useful tip followed.');
+  it('ticks no article swap on a Markdown list line, and still ticks a doubled word there (Task F8)', async () => {
+    const { paras } = await markdownAdapter.read(new TextEncoder().encode('- A apple fell.\n- Bring a pen an paper to the the exam.\n'));
+    const { session, ticked } = await applyAllWithDefaultTicks(paras, { language: 'markdown' });
+    expect(ticked).toEqual(['the the → the']);
+    expect(paras.map((p) => session.outputText(p.id))).toEqual(['- A apple fell.\n- Bring a pen an paper to the exam.']);
   });
 
   it.each([
