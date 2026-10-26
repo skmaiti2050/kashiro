@@ -115,6 +115,13 @@ describe('the token check behind every change made without a click (Task F4)', (
     expect(s.tier(c.id)).toBe('review');
     expect(s.outcomes()[0]).toMatchObject({ status: 'pending', reason: 'held back: it would change a word' });
   });
+
+  it('lets hygiene delete a removable joiner while an identical one that Indic text needs stays (F5 re-review 4, M-2)', async () => {
+    const s = await start([{ id: 0, text: 'a\u{200D}b and क्\u{200D}ष here.' }]);
+    expect(autoChanges(s)).toEqual(['Invisible: "\u{200D}" → ""']);
+    expect(s.outputText(0)).toBe('ab and क्\u{200D}ष here.');
+    expect(s.outcomes().filter((o) => o.reason?.startsWith('held back'))).toEqual([]);
+  });
 });
 
 describe('a card changes only what it shows (Task F4 item 4, F3 re-review 2 I-4)', () => {

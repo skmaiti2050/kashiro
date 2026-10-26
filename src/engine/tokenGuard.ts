@@ -18,32 +18,29 @@ function tokens(text: string): string[] {
 }
 
 /**
- * True when `after` holds `before`'s invisible characters in order, less some whose offsets are in `removable`:
- * none added ("100" → "1<U+202E>00"), none swapped (ZWJ → ZWNJ, another conjunct) and none removed that hygiene
- * keeps (the ZWJ in "क्<U+200D>ष") (F4 re-review 3, M-1).
+ * True when `edit` adds no invisible character ("100" → "1<U+202E>00", ZWJ → ZWNJ) and removes only those at
+ * offsets in `removable`, not one hygiene keeps (the ZWJ in "क्<U+200D>ष") (F4 re-review 3, M-1). Matched by
+ * offset, not by character: of two identical joiners only the removable one may go (F5 re-review 4, M-2).
  */
-function keepsInvisibles(before: string, after: string, removable: ReadonlySet<number>): boolean {
-  const kept = [...after].filter((ch) => INVISIBLE.test(ch));
-  let k = 0;
-  let i = 0;
-  for (const ch of before) {
-    if (INVISIBLE.test(ch)) {
-      if (kept[k] === ch) k++;
-      else if (!removable.has(i)) return false;
-    }
+function keepsInvisibles(text: string, edit: Edit, removable: ReadonlySet<number>): boolean {
+  if (INVISIBLE.test(edit.replacement)) return false;
+  for (let i = edit.span.start; i < edit.span.end; ) {
+    const ch = String.fromCodePoint(text.codePointAt(i)!);
+    if (INVISIBLE.test(ch) && !removable.has(i)) return false;
     i += ch.length;
   }
-  return k === kept.length;
+  return true;
 }
 
 /**
- * True when `after` has exactly the tokens of `before`, in order, and its invisible characters less only those at
- * offsets in `removable` (what hygiene may delete): "went  home" → "went home", not "Govt. of" → "Govt. Of".
+ * True when `text` with `edits` applied has exactly its tokens, in order, and the edits touch its invisible
+ * characters only by deleting those at offsets in `removable` (what hygiene may delete): "went  home" → "went
+ * home", not "Govt. of" → "Govt. Of".
  */
-export function keepsTokens(before: string, after: string, removable: ReadonlySet<number>): boolean {
-  const a = tokens(before);
-  const b = tokens(after);
-  return a.length === b.length && a.every((token, i) => token === b[i]) && keepsInvisibles(before, after, removable);
+export function keepsTokens(text: string, edits: readonly Edit[], removable: ReadonlySet<number>): boolean {
+  const a = tokens(text);
+  const b = tokens(withEdits(text, edits));
+  return a.length === b.length && a.every((token, i) => token === b[i]) && edits.every((e) => keepsInvisibles(text, e, removable));
 }
 
 /** `text` with `edits` (spans of `text`, not overlapping) applied. */
@@ -61,7 +58,7 @@ function withEdits(text: string, edits: readonly Edit[]): string {
  * `removable`: offsets of the invisible characters hygiene may delete.
  */
 export function editsChangingTokens(text: string, edits: readonly Edit[], removable: ReadonlySet<number>): number[] {
-  const keeps = (some: readonly Edit[]) => keepsTokens(text, withEdits(text, some), removable);
+  const keeps = (some: readonly Edit[]) => keepsTokens(text, some, removable);
   if (keeps(edits)) return [];
   const bad = edits.flatMap((e, i) => (keeps([e]) ? [] : [i]));
   const rest = edits.filter((_, i) => !bad.includes(i));
