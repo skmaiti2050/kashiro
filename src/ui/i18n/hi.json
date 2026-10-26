@@ -235,6 +235,7 @@
   "log.empty": "अभी कोई बदलाव नहीं।",
   "log.paragraph": "¶{number, number}",
   "log.deleted": "(हटाया गया)",
+  "log.spaces": "{count, plural, one {# स्पेस} other {# स्पेस}}",
   "log.undo": "वापस लें",
   "log.undoAll": "सभी {count, number} वापस लें",
   "log.reviewAgain": "फिर से देखें",

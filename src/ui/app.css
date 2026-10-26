@@ -1021,6 +1021,11 @@ button.link {
   min-width: 0;
 }
 
+/* The words around a change: there to find it by, quieter than the change itself (F5 re-review 4, M-6). */
+.changelog .change .context {
+  color: var(--muted);
+}
+
 /* Dialogs */
 .dialog-backdrop {
   position: fixed;

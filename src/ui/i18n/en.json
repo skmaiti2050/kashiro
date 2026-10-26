@@ -234,6 +234,7 @@
   "log.empty": "No changes yet.",
   "log.paragraph": "¶{number, number}",
   "log.deleted": "(deleted)",
+  "log.spaces": "{count, plural, one {# space} other {# spaces}}",
   "log.undo": "Undo",
   "log.undoAll": "Undo all {count, number}",
   "log.reviewAgain": "Review again",

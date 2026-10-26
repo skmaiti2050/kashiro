@@ -1,4 +1,5 @@
 import type { Outcome } from '@/engine/session';
+import type { Span } from '@/engine/types';
 import type { Translator } from './i18n/translator';
 import { useT } from './i18n/useT';
 import { reasonMessage, unplaceableMessage } from './state/engineReasons';
@@ -46,6 +47,8 @@ export function ChangeLog({ controller, state, open, onToggle }: Props) {
   const session = state.session;
   const entries = session ? session.outcomes().filter((o) => o.status === 'applied' || o.status === 'rejected') : [];
   const applied = entries.filter((o) => o.status === 'applied').length;
+  // The paragraphs as read: every change's span is in their offsets.
+  const paraText = new Map(open && session ? session.paragraphs().map((p) => [p.id, p.text]) : []);
 
   return (
     <section className={open ? 'changelog open' : 'changelog'} aria-label={t.t('log.label')}>
@@ -61,7 +64,11 @@ export function ChangeLog({ controller, state, open, onToggle }: Props) {
         <ol className="entries">
           {entries.length === 0 && <li className="hint">{t.t('log.empty')}</li>}
           {rowsOf(entries).map((row) =>
-            'batch' in row ? <BatchRow key={row.batch} controller={controller} batch={row.batch} outcomes={row.outcomes} /> : <ChangeRow key={row.outcome.candidate.id} controller={controller} o={row.outcome} />,
+            'batch' in row ? (
+              <BatchRow key={row.batch} controller={controller} batch={row.batch} outcomes={row.outcomes} paraText={paraText} />
+            ) : (
+              <ChangeRow key={row.outcome.candidate.id} controller={controller} o={row.outcome} text={paraText.get(row.outcome.candidate.paraId)} />
+            ),
           )}
         </ol>
       )}
@@ -69,22 +76,77 @@ export function ChangeLog({ controller, state, open, onToggle }: Props) {
   );
 }
 
-/** The change itself: the document's English text, struck through and inserted. */
-function Change({ o }: { o: Outcome }) {
+/** Characters of the paragraph shown on each side of a change, before cutting to whole words (F5 re-review 4, M-6). */
+const CONTEXT_CHARS = 12;
+const SPACE = /\s/u;
+const SPACES = /\s+/gu;
+/** The rest of a word the cut started inside ("ks" of "works"), and the start of one it ended inside. */
+const PARTIAL_WORD_AT_START = /^\S*/u;
+const PARTIAL_WORD_AT_END = /\S*$/u;
+
+/** A few words of `text` on each side of `span`, cut at whole words, with "…" where cut, on one line. */
+function contextOf(text: string, { start, end }: Span): { before: string; after: string } {
+  const from = Math.max(0, start - CONTEXT_CHARS);
+  const to = Math.min(text.length, end + CONTEXT_CHARS);
+  let before = text.slice(from, start);
+  let after = text.slice(end, to);
+  if (from > 0) {
+    if (!SPACE.test(text[from - 1])) before = before.replace(PARTIAL_WORD_AT_START, '');
+    before = `…${before.trimStart()}`;
+  }
+  if (to < text.length) {
+    if (!SPACE.test(text[to])) after = after.replace(PARTIAL_WORD_AT_END, '');
+    after = `${after.trimEnd()}…`;
+  }
+  return { before: before.replace(SPACES, ' '), after: after.replace(SPACES, ' ') };
+}
+
+/** How whitespace at a change's edge is drawn, so a spacing fix isn't blank: "··" → "·", " ," → ", ". */
+const WHITESPACE_SIGNS: Record<string, string> = { ' ': '·', '\t': '⇥', '\n': '↵' };
+/** Whitespace at the start or end: "  " in "  ", " " in " ,"; not the space in "of of". */
+const EDGE_WHITESPACE = /^\s+|\s+$/gu;
+const ONLY_WHITESPACE = /^\s+$/u;
+const INVISIBLE = /[\p{Cf}\p{Default_Ignorable_Code_Point}]/gu;
+
+/** `text` with invisible characters named ("‹U+200B›") and the whitespace at its edges drawn as signs. */
+function drawn(text: string): string {
+  const named = text.replace(INVISIBLE, (ch) => `‹U+${ch.codePointAt(0)!.toString(16).toUpperCase().padStart(4, '0')}›`);
+  return named.replace(EDGE_WHITESPACE, (run) => [...run].map((ch) => WHITESPACE_SIGNS[ch] ?? '·').join(''));
+}
+
+/** Changed text as drawn; a run of only whitespace is also named for screen readers ("2 spaces"). */
+function Drawn({ text }: { text: string }) {
   const t = useT();
+  if (!ONLY_WHITESPACE.test(text)) return <span lang="en">{drawn(text)}</span>;
+  return (
+    <>
+      <span aria-hidden="true">{drawn(text)}</span>
+      <span className="visually-hidden">{t.t('log.spaces', { count: [...text].length })}</span>
+    </>
+  );
+}
+
+/** The change itself in a few words of its paragraph: the document's English text, struck through and inserted. */
+function Change({ o, text }: { o: Outcome; text: string | undefined }) {
+  const t = useT();
+  const { before, after } = text === undefined ? { before: '', after: '' } : contextOf(text, o.candidate.span);
   return (
     <span className="change">
-      <del lang="en">{o.candidate.original || '·'}</del> → {o.replacement === '' ? <ins>{t.t('log.deleted')}</ins> : <ins lang="en">{o.replacement}</ins>}
+      <span className="context" lang="en">{before}</span>
+      {/* "‸": nothing was there, the fix inserts. */}
+      <del>{o.candidate.original === '' ? '‸' : <Drawn text={o.candidate.original} />}</del> →{' '}
+      <ins>{o.replacement === '' ? t.t('log.deleted') : <Drawn text={o.replacement ?? ''} />}</ins>
+      <span className="context" lang="en">{after}</span>
     </span>
   );
 }
 
-function ChangeRow({ controller, o }: { controller: SessionController; o: Outcome }) {
+function ChangeRow({ controller, o, text }: { controller: SessionController; o: Outcome; text: string | undefined }) {
   const t = useT();
   return (
     <li className={o.status}>
       <span className="where">{t.t('log.paragraph', { number: o.paragraphNumber })}</span>
-      <Change o={o} />
+      <Change o={o} text={text} />
       <span className="status">
         {kindLabel(t, o.candidate.kind)} · {statusLabel(t, o)}
       </span>
@@ -99,7 +161,7 @@ function ChangeRow({ controller, o }: { controller: SessionController; o: Outcom
   );
 }
 
-function BatchRow({ controller, batch, outcomes }: { controller: SessionController; batch: string; outcomes: Outcome[] }) {
+function BatchRow({ controller, batch, outcomes, paraText }: { controller: SessionController; batch: string; outcomes: Outcome[]; paraText: ReadonlyMap<number, string> }) {
   const t = useT();
   const paragraphs = [...new Set(outcomes.map((o) => t.t('log.paragraph', { number: o.paragraphNumber })))].join(' ');
   // The simple-fixes card applies several kinds at once: name each (Task F4).
@@ -110,7 +172,7 @@ function BatchRow({ controller, batch, outcomes }: { controller: SessionControll
       {/* Every change the batch made, not only the first: they are undone together (F4 re-review 3, M-7). */}
       <span className="changes">
         {outcomes.map((o) => (
-          <Change key={o.candidate.id} o={o} />
+          <Change key={o.candidate.id} o={o} text={paraText.get(o.candidate.paraId)} />
         ))}
       </span>
       <span className="status">{t.t('log.batchStatus', { count: outcomes.length, kind: kinds })}</span>
