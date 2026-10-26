@@ -448,7 +448,7 @@
   "explain.copeWith": "“Cope with” needs no “up”.",
   "explain.invisible": "Invisible character ({code} {name})",
   "explain.directionKept": "Invisible direction character ({code} {name}). Kashiro leaves it in place: removing it on its own could change how the text around it is shown.",
-  "explain.simpleFixes": "Only repeated words and a/an fixes Kashiro has checked start ticked. Every other fix, including the kinds you chose in Settings, starts unticked: tick the ones you want. Nothing changes until you apply them.",
+  "explain.simpleFixes": "Only repeated words start ticked. Every other fix, including the kinds you chose in Settings, starts unticked: tick the ones you want. Nothing changes until you apply them.",
   "explain.rewrite": "Suggested rewrite of the sentence. Check the meaning before accepting.",
   "explain.harper": "{text}",
 

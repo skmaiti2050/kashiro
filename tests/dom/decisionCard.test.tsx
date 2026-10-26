@@ -63,14 +63,15 @@ describe('DecisionCard: the simple-fixes card (Task F4)', () => {
   }
 
   it.each([
-    // What starts ticked: only the closed set (Task F6).
-    ['en', '3 simple fixes: review and apply all', 'Review and apply all 3', 'Only repeated words and a/an fixes'],
-    ['hi', '3 आसान सुधार: देखें और सभी लागू करें', 'देखें और सभी 3 लागू करें', 'सिर्फ़ दोहराए गए शब्द'],
-    ['bn', '3টি সহজ সংশোধন: দেখে সব বসান', 'দেখে 3টিই বসান', 'শুধু পুনরাবৃত্ত শব্দ'],
+    // What starts ticked: only repeated words (Task F8), and no mention of a/an.
+    ['en', '3 simple fixes: review and apply all', 'Review and apply all 3', 'Only repeated words start ticked.'],
+    ['hi', '3 आसान सुधार: देखें और सभी लागू करें', 'देखें और सभी 3 लागू करें', 'सिर्फ़ दोहराए गए शब्दों के सुधार पहले से निशान के साथ आते हैं।'],
+    ['bn', '3টি সহজ সংশোধন: দেখে সব বসান', 'দেখে 3টিই বসান', 'শুধু পুনরাবৃত্ত শব্দের সংশোধনগুলোয় আগে থেকেই টিক দেওয়া থাকে।'],
   ] as const)('%s: names itself, explains itself and opens the preview, with no word or rule actions', (language, title, apply, explained) => {
     renderSimple(language);
     expect(screen.getByRole('heading').textContent).toBe(title);
     expect(document.querySelector('.kind')!.textContent).toContain(explained);
+    expect(document.querySelector('.kind')!.textContent).not.toContain('a/an');
     const names = screen.getAllByRole('button').map((b) => b.textContent ?? '');
     expect(names.some((name) => name.startsWith(apply))).toBe(true);
     // The first member's word is not the card's: no dictionary, ignore-all, look-up or dismiss-rule action.
