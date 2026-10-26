@@ -165,30 +165,6 @@ export function followsAbbreviation(text: string, i: number): boolean {
   return endsAbbreviation(text, j - 1, i) || LOWERCASE_NO.test(text.slice(Math.max(0, j - 9), j - 1).replace(INVISIBLE, ''));
 }
 
-/** What may sit between a sentence's end and the next word: spaces, an opening quote or bracket, an invisible mark. */
-const BEFORE_SENTENCE = /[\s"“‘(\[\p{Cf}\p{Default_Ignorable_Code_Point}]/u;
-/**
- * A token before a full stop that may be an abbreviation rather than a sentence's last word: short ("pm", "Wt",
- * "Qty"), capitalised ("Jan", "Engg", "Bros") or dotted ("Ph.D", "U.S").
- */
-const MAY_ABBREVIATE = /^(?:.{1,4}|\p{Lu}.*|.*\..*)$/su;
-
-/**
- * True when the word at `i` surely starts a sentence: it starts the paragraph, or follows "?" or "!", or a full
- * stop after a token that cannot be an abbreviation (MAY_ABBREVIATE, followsAbbreviation). "it rained. we left"
- * qualifies; "5 pm. tomorrow", "Jan. was", "Hon. minister" and "Ph.D. students" do not (F4 re-review 3, I-2).
- * Stricter than isSentenceStart on purpose: a capital it misses is still offered, just not ticked.
- */
-export function followsClearSentenceEnd(text: string, i: number): boolean {
-  let j = i;
-  while (j > 0 && BEFORE_SENTENCE.test(text[j - 1])) j--;
-  if (j === 0 || text[j - 1] === '?' || text[j - 1] === '!') return true;
-  if (text[j - 1] !== '.' || followsAbbreviation(text, i)) return false;
-  let k = j - 1;
-  while (k > 0 && !/\s/u.test(text[k - 1])) k--;
-  return !MAY_ABBREVIATE.test(text.slice(k, j - 1).replace(INVISIBLE, ''));
-}
-
 /** The start of a Markdown heading, list item or quote line, up to its first word ("## ", "- ", "1. ", "> "). */
 const MARKDOWN_LINE_START = /^[ \t]*(?:#{1,6}|[-*+]|\d+[.)]|>)[ \t]+$/;
 

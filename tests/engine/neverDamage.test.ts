@@ -11,9 +11,9 @@
  * saved file must equal the paragraphs with the edits applied, without U+FFFD. The planted errors are still
  * found: each waits in a decision with its one right fix. The seed is fixed, so a failure is reproducible.
  * Then "Review and apply all" on the simple-fixes card with its default ticks, one click and nothing inspected,
- * is judged too (Task F5): each change starts and ends on word boundaries, keeps the case except at a sentence
- * start (never after an abbreviation's dot), swaps an article only before a lowercase dictionary word that is no
- * initialism, and leaves the layout of the traps alone; the planted errors are still fixed by it.
+ * is judged too (Task F5), against truth tables written by hand rather than the gate's own rules (Task F6): each
+ * change must be a planted error's one approved fix, and each fix ticked on a TICK_TRUTH input must be one its row
+ * allows. The planted errors are still fixed by the click.
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import { CheckSession, type Outcome } from '@/engine/session';
@@ -21,11 +21,11 @@ import { SIMPLE_FIXES_ID } from '@/engine/decisions';
 import { createLinter, type RulesLinter } from '@/engine/linter';
 import { DEFAULT_MODULES } from '@/engine/modules';
 import { PRESETS, type PresetId } from '@/engine/presets';
-import type { Tier, Variant } from '@/engine/types';
+import type { Tier } from '@/engine/types';
 import { markdownAdapter, plaintextAdapter } from '@/formats/text';
 import { AUTO_APPLY_KINDS } from '@/ui/state/settings';
 import { acceptAllRules } from '../../cli/run';
-import { sentenceCount, stressDocument, type StressParagraph } from './neverDamageCorpus';
+import { sentenceCount, stressDocument, TICK_TRUTH, type StressParagraph, type TickTruth } from './neverDamageCorpus';
 
 const SEED = 20261024;
 const PARAGRAPHS = 80;
@@ -147,84 +147,16 @@ function judge(o: Outcome, p: StressParagraph): { approved: Approved } | { probl
   return { problem: 'changes a word, a case or a punctuation mark without a click' };
 }
 
-/** Letters, digits and combining marks: a word goes on over them. */
-const WORD_CHARACTER = /[\p{L}\p{N}\p{M}]/u;
-/** Characters that join two words into one token: "for-profit", "to's", "and/or", "a+", "with#hash", "R&D". */
-const WORD_JOINER = /[-'’/+#&_@]/u;
-
-/** True when a word goes on across `outside` (the character next to the span) and `beyond` (the one past it). */
-const continuesWord = (outside: string, beyond: string) =>
-  WORD_CHARACTER.test(outside) || WORD_JOINER.test(outside) || (outside === '.' && WORD_CHARACTER.test(beyond));
-
-/** True when `span` of `text` starts and ends on word boundaries: "Ph" in "Ph.D." does not end one. */
-function onWordBoundaries(text: string, { start, end }: { start: number; end: number }): boolean {
-  if (WORD_CHARACTER.test(text[start] ?? '') && continuesWord(text[start - 1] ?? '', text[start - 2] ?? '')) return false;
-  return !(WORD_CHARACTER.test(text[end - 1] ?? '') && continuesWord(text[end] ?? '', text[end + 1] ?? ''));
-}
-
-type CaseShape = 'none' | 'lower' | 'title' | 'upper' | 'mixed';
-
-/** "apple" lower, "A" and "Apple" title, "AN" upper, "iPhone" mixed, "," none. */
-function caseShape(text: string): CaseShape {
-  const letters = [...text].filter((ch) => /\p{L}/u.test(ch));
-  const upper = (ch: string) => ch !== ch.toLowerCase();
-  if (letters.length === 0) return 'none';
-  if (!letters.some(upper)) return 'lower';
-  if (upper(letters[0]) && !letters.slice(1).some(upper)) return 'title';
-  return letters.every(upper) ? 'upper' : 'mixed';
-}
-
 /**
- * True when the word at `i` starts a sentence: the paragraph's start, or after "?" or "!", or after a full stop
- * whose token is long, lowercase and undotted. "pm.", "Jan.", "Engg.", "Qty." and "Ph.D." end no sentence.
+ * Why a change "Review and apply all" made with the default ticks is wrong, or null when it is a planted error's
+ * one approved fix. The planted fixes are the corpus's truth table (Task F6, F5 re-review 4 M-1): the judge shares
+ * no rule with the engine's tick gate, so a gate that ticks anything else fails, however it reasons.
  */
-function startsSentence(text: string, i: number): boolean {
-  let j = i;
-  while (j > 0 && /[\s"“‘(\[\p{Cf}\p{Default_Ignorable_Code_Point}]/u.test(text[j - 1])) j--;
-  if (j === 0 || text[j - 1] === '?' || text[j - 1] === '!') return true;
-  if (text[j - 1] !== '.') return false;
-  let k = j - 1;
-  while (k > 0 && !/\s/u.test(text[k - 1])) k--;
-  const token = text.slice(k, j - 1).replace(INVISIBLE, '');
-  return token.length > 4 && !/^\p{Lu}/u.test(token) && !token.includes('.');
-}
-
-/** The word right after `end`: "lpg" in "an lpg cylinder". */
-const NEXT_WORD = /^\s+([\p{L}\p{N}'’-]+)/u;
-const VOWEL = /[aeiou]/i;
-
-/** Why a change "Review and apply all" made with the default ticks is wrong, or null when it is not. */
-function cardProblem(o: Outcome, p: StressParagraph, dictionary: ReadonlySet<string>): string | null {
+function cardProblem(o: Outcome, p: StressParagraph): string | null {
   const { span, original } = o.candidate;
-  const replacement = o.replacement ?? '';
-  const { text } = p;
-  if (text.slice(span.start, span.end) !== original) return 'its offsets do not match the paragraph';
-  if (!onWordBoundaries(text, span)) return 'does not start and end on word boundaries';
-  if (replacement !== original && replacement.toLowerCase() === original.toLowerCase()) {
-    const letters = [...original].filter((ch) => /\p{L}/u.test(ch)).length;
-    const initialism = replacement === original.toUpperCase() && (letters >= 2 || original === 'i');
-    const capitalised = caseShape(original) === 'lower' && replacement === original[0].toUpperCase() + original.slice(1);
-    if (!initialism && !(capitalised && startsSentence(text, span.start))) return 'changes the case outside a sentence start';
-  } else if (caseShape(original) !== caseShape(replacement)) {
-    return `does not keep the case (${caseShape(original)} → ${caseShape(replacement)})`;
-  }
-  const article = new Set([original.toLowerCase(), replacement.toLowerCase()]);
-  if (article.size === 2 && article.has('a') && article.has('an')) {
-    const next = NEXT_WORD.exec(text.slice(span.end))?.[1] ?? '';
-    if (!dictionary.has(next) || !VOWEL.test(next) || caseShape(next) !== 'lower') return `swaps the article before "${next}", not a dictionary word`;
-  }
-  const trap = p.traps.find((t) => touches(span, t));
-  if (trap && isSpacingOnly(text, span, replacement, p.junk)) return `changes the layout of "${shown(text.slice(trap.start, trap.end))}"`;
-  return null;
-}
-
-/** The lowercase words after the article swaps in `outcomes` that the spell checker knows. */
-async function dictionaryWordsAfterArticles(outcomes: Outcome[], document: StressParagraph[], variant: Variant): Promise<Set<string>> {
-  const words = [
-    ...new Set(outcomes.flatMap((o) => NEXT_WORD.exec(document[o.candidate.paraId].text.slice(o.candidate.span.end))?.[1] ?? [])),
-  ];
-  const flagged = await linter.lintSpelling(words.map((text, id) => ({ id, text })), variant);
-  return new Set(words.filter((_, id) => !flagged.some((f) => f.paraId === id)));
+  if (p.text.slice(span.start, span.end) !== original) return 'its offsets do not match the paragraph';
+  const planted = p.fixes.some((f) => f.start === span.start && f.end === span.end && f.right === o.replacement);
+  return planted ? null : 'starts ticked, but is no planted error\'s fix';
 }
 
 /** A printable view of a change, with invisible characters as <U+…>. */
@@ -292,26 +224,18 @@ describe('never damage: generated traps, under every preset and setting', () => 
     expect(unpairedDirectionControls('a\u{2066}b\u{202C}c\u{2069}')).toBe(1);
   });
 
-  it('the card judge: whole words, the case kept outside a sentence start, articles only before dictionary words', () => {
-    const dictionary = new Set(['apple', 'elephant', 'ewe']);
-    const problem = (text: string, original: string, replacement: string, at = text.indexOf(original), traps: [number, number][] = []) => {
-      const p: StressParagraph = { text, traps: traps.map(([start, end]) => ({ start, end })), fixes: [], junk: new Set() };
-      return cardProblem(outcomeAt(text, original, replacement, at), p, dictionary);
-    };
-    expect(problem('I think teh plan works.', 'teh', 'the')).toBeNull();
-    expect(problem('He ate a apple.', 'a', 'an', 7)).toBeNull();
-    expect(problem('A apple fell.', 'A', 'An')).toBeNull();
-    expect(problem('We went to the the market.', 'the the', 'the')).toBeNull();
-    expect(problem('It rained today. we left.', 'we', 'We')).toBeNull();
-    expect(problem('Plug in a usb drive.', 'usb', 'USB')).toBeNull();
-    expect(problem('A apple fell.', 'A', 'AN')).toBe('does not keep the case (title → upper)');
-    expect(problem('It rained today. Ph.D. students came.', 'Ph', 'pH')).toBe('does not start and end on word boundaries');
-    for (const [text, word] of [['Meet at 5 pm. tomorrow please.', 'tomorrow'], ['Jan. was cold.', 'was'], ['It rained. Engg. college is near.', 'college'], ['Sold. Qty. ten is fine.', 'ten']]) {
-      expect(problem(text, word, word[0].toUpperCase() + word.slice(1))).toBe('changes the case outside a sentence start');
-    }
-    expect(problem('Buy an lpg cylinder.', 'an', 'a')).toBe('swaps the article before "lpg", not a dictionary word');
-    expect(problem('He got an sms today.', 'an', 'a')).toBe('swaps the article before "sms", not a dictionary word');
-    expect(problem('Pens    10 and more.', '    ', ' ', 4, [[0, 10]])).toBe('changes the layout of "Pens    10"');
+  it('the card judge: only a planted error\'s one approved fix may start ticked (the truth table, Task F6)', () => {
+    // "He ate a apple. It rained. we left." with "a" → "an" planted; nothing else is.
+    const text = 'He ate a apple. It rained. we left.';
+    const p: StressParagraph = { text, traps: [], fixes: [{ start: 7, end: 8, right: 'an' }], junk: new Set() };
+    const problem = (original: string, replacement: string, at = text.indexOf(original)) => cardProblem(outcomeAt(text, original, replacement, at), p);
+    const notPlanted = 'starts ticked, but is no planted error\'s fix';
+    expect(problem('a', 'an', 7)).toBeNull();
+    expect(problem('a', 'AN', 7)).toBe(notPlanted);
+    expect(problem('a apple', 'an apple')).toBe(notPlanted);
+    expect(problem('we', 'We')).toBe(notPlanted);
+    expect(problem('apple', 'Apple')).toBe(notPlanted);
+    expect(problem('a', 'an', 8)).toBe('its offsets do not match the paragraph');
   });
 
   it.each(RUNS)('$format, $preset preset, $setting: every change made without a click is approved', async ({ preset, setting, adapter }) => {
@@ -382,9 +306,8 @@ describe('never damage: generated traps, under every preset and setting', () => 
     const startUnticked = new Set(card!.startUnticked ?? []);
     session.applyBatch(SIMPLE_FIXES_ID, card!.candidateIds.filter((id) => !startUnticked.has(id)));
     const byCard = session.outcomes().filter((o) => o.status === 'applied' && o.batch !== undefined);
-    const dictionary = await dictionaryWordsAfterArticles(byCard, document, session.variant);
     const cardProblems = byCard.flatMap((o) => {
-      const why = cardProblem(o, document[o.candidate.paraId], dictionary);
+      const why = cardProblem(o, document[o.candidate.paraId]);
       return why === null ? [] : [`¶${o.candidate.paraId} ${o.candidate.kind} "${shown(o.candidate.original)}" → "${shown(o.replacement ?? '')}": ${why}`];
     });
     cardProblems.push(...splitDirectionPairs(session, document));
@@ -419,6 +342,53 @@ describe('never damage: generated traps, under every preset and setting', () => 
     }
     problems.push(...splitDirectionPairs(session, document));
     expect(problems).toEqual([]);
+  }, 60_000);
+});
+
+/** Every preset, with default settings and with every auto-apply kind on. */
+const TRUTH_RUNS = (Object.keys(PRESETS) as PresetId[]).flatMap((preset) =>
+  (['default settings', 'every auto-apply kind on'] as const).map((setting) => ({ preset, setting })),
+);
+
+describe('the simple-fixes card ticks only what the truth table allows (Task F6, F5 re-review 4)', () => {
+  it.each(TRUTH_RUNS)('$preset preset, $setting', async ({ preset, setting }) => {
+    const problems: string[] = [];
+    const tickedOn = new Map<TickTruth, string[]>();
+    for (const markdown of [false, true]) {
+      const rows = TICK_TRUTH.filter((r) => (r.markdown ?? false) === markdown);
+      const adapter = markdown ? markdownAdapter : plaintextAdapter;
+      const { paras } = await adapter.read(new TextEncoder().encode(rows.map((r) => r.input).join('\n\n') + '\n'));
+      const session = await CheckSession.start(
+        paras,
+        {
+          preset,
+          fallbackVariant: 'Indian',
+          language: adapter.language,
+          dictionary: [],
+          modules: DEFAULT_MODULES,
+          tierOverrides: setting === 'default settings' ? undefined : EVERYTHING_AUTO,
+        },
+        { linter },
+      );
+      const { top, more } = session.decisions();
+      const card = [...top, ...more].find((d) => d.id === SIMPLE_FIXES_ID);
+      const unticked = new Set(card?.startUnticked ?? []);
+      const byId = new Map(session.candidates().map((c) => [c.id, c]));
+      for (const id of (card?.candidateIds ?? []).filter((m) => !unticked.has(m))) {
+        const c = byId.get(id)!;
+        const text = paras.find((p) => p.id === c.paraId)!.text;
+        const fix = `${c.original} → ${c.replacements[0]}`;
+        // A paragraph is one row's input, or part of it (a Markdown table cell).
+        const row = rows.find((r) => r.input.includes(text));
+        if (row) tickedOn.set(row, [...(tickedOn.get(row) ?? []), fix]);
+        if (!row?.mayTick.includes(fix)) problems.push(`"${shown(text)}": "${shown(fix)}" starts ticked; the table allows ${JSON.stringify(row?.mayTick ?? [])}`);
+      }
+    }
+    expect(problems).toEqual([]);
+    // The closed set still ticks: the table can't pass by the card ticking nothing.
+    if (setting === 'default settings') {
+      for (const row of TICK_TRUTH.filter((r) => r.ticked)) expect(tickedOn.get(row), row.input).toEqual(row.mayTick);
+    }
   }, 60_000);
 });
 

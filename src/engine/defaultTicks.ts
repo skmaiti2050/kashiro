@@ -1,12 +1,16 @@
 import type { Candidate, Span } from './types';
-import { followsClearSentenceEnd } from './factLock';
-import { endsWord, startsWord } from './wordFlags';
+import { isSlipDoubling } from './tiers';
+import { startsWord } from './wordFlags';
+import { VETTED_ARTICLES } from './wordlists/articles';
 
 /**
- * Which fixes on the simple-fixes card start unticked (Task F5, F4 re-review 3). "Review and apply all" applies
- * every ticked fix with one click, so a fix starts ticked only when it passes every check below, whatever rule
- * made it; the others are listed unticked, for the user to read and tick. Like zeroClick.ts, this is a gate on
- * the shape of the change, not a list of the shapes that went wrong before.
+ * Which fixes on the simple-fixes card start unticked (Task F6, owner decision 2026-10-26). "Review and apply all"
+ * applies every ticked fix with one click, so a fix starts ticked only when it belongs to a closed, listed set:
+ *   (a) a doubled word on the slip allowlist (isSlipDoubling), one copy and the space between removed;
+ *   (b) an a/an swap before a word in the vetted table (wordlists/articles.ts), toward the article listed there.
+ * Everything else starts unticked, however safe its shape looks: capitals, "i" → "I", punctuation spacing, dot
+ * runs, other formatting, whitespace, spelling slips and the kinds the user opted into. Guessing from a fix's
+ * shape missed new cases in every review (F5 re-review 4), so nothing here is inferred from one.
  */
 
 export interface TickContext {
@@ -14,8 +18,6 @@ export interface TickContext {
   paraText: ReadonlyMap<number, string>;
   /** A fix of a kind the user added in Settings, not a built-in simple fix: never ticked (owner decision 2026-10-25). */
   optedIn(c: Candidate): boolean;
-  /** Lowercased words after an article fix that the spell checker knows (sessionSetup's articleNextWords). */
-  dictionaryWords: ReadonlySet<string>;
 }
 
 /** The ids of `fixes` (the card's members) that start unticked, in card order. */
@@ -27,75 +29,37 @@ export function untickedByDefault(fixes: readonly Candidate[], ctx: TickContext)
 function startsTicked(c: Candidate, ctx: TickContext): boolean {
   const text = ctx.paraText.get(c.paraId);
   if (text === undefined || c.replacements.length !== 1 || ctx.optedIn(c)) return false;
+  if (text.slice(c.span.start, c.span.end) !== c.original) return false;
+  return isSlipDoubling(c, text) || isVettedArticleSwap(c, text);
+}
+
+/** The article swaps that may be ticked, in the original's case: "a" → "an", "A" → "An", and back. */
+const ARTICLE_SWAPS = new Map([
+  ['a', 'an'],
+  ['an', 'a'],
+  ['A', 'An'],
+  ['An', 'A'],
+]);
+/**
+ * The word after an article: one space or line break, then letters ending at a space, the end, a hyphen,
+ * an apostrophe or punctuation ("apple" in "an apple.", "one" in "a one-off"; not "apple" in "a apple2" or
+ * "a m<U+200E>ean", nor "apple" after "a *").
+ */
+const NEXT_WORD = /^[ \n](\p{L}+)(?=$|[\s.,;:!?)\]}"”’'-])/u;
+/** A lowercase or capitalised word ("apple", "European"), not an initialism ("USB", "HR") or "iPhone". */
+const PLAIN_OR_CAPITALISED = /^\p{Lu}?\p{Ll}+$/u;
+
+/**
+ * An a ↔ an swap, as a word of its own, whose next word is in the vetted table (compared in lowercase) and takes
+ * the article the swap writes: "a apple" → "an", "an useful" → "a". "an unidentified" → "a" is not ticked: the
+ * table says "an" (F5 re-review 4, I-1).
+ */
+function isVettedArticleSwap(c: Candidate, text: string): boolean {
   const [replacement] = c.replacements;
-  // Spaces the zero-click rule left alone are layout (a table cell, columns, an indent, a tab), or next to an
-  // invisible character: they are why the fix is on the card at all (F4 re-review 3, M-4).
-  if (ONLY_WHITESPACE.test(c.original) && ONLY_WHITESPACE.test(replacement)) return false;
-  if (!isWholeWordFix(text, c.span)) return false;
-  if (!keepsCase(c.original, replacement, text, c.span.start)) return false;
-  return !isArticleFix(c) || isPlainDictionaryWord(nextWord(text, c.span.end), ctx.dictionaryWords);
-}
-
-const ONLY_WHITESPACE = /^\s*$/u;
-/** A letter, digit or mark: an edge of the fix that holds one must be a word boundary. */
-const WORD_CHARACTER = /[\p{L}\p{N}\p{M}]/u;
-
-/**
- * True when the fix starts and ends on word boundaries, by the doubling rule's own check (isWholeWords): "Ph" →
- * "pH" in "Ph.D." does not end one. An edge that is a space or punctuation mark is a boundary already.
- */
-function isWholeWordFix(text: string, { start, end }: Span): boolean {
-  const startsOk = !WORD_CHARACTER.test(text[start] ?? '') || startsWord(text, start);
-  return startsOk && (!WORD_CHARACTER.test(text[end - 1] ?? '') || endsWord(text, end));
-}
-
-type CaseShape = 'none' | 'lower' | 'title' | 'upper' | 'mixed';
-
-/** "apple" lower; "A", "I" and "Apple" title; "AN" upper; "iPhone" mixed; "," none (no letter has case). */
-export function caseShape(text: string): CaseShape {
-  const letters = [...text].filter((ch) => ch.toLowerCase() !== ch.toUpperCase());
-  const upper = (ch: string) => ch !== ch.toLowerCase();
-  if (letters.length === 0) return 'none';
-  if (!letters.some(upper)) return 'lower';
-  if (upper(letters[0]) && !letters.slice(1).some(upper)) return 'title';
-  return letters.every(upper) ? 'upper' : 'mixed';
-}
-
-/**
- * True when the replacement keeps the original's case ("teh" → "the", "A" → "An"; not "A" → "AN"). A fix of the
- * case alone is a deliberate capitalisation, ticked in two shapes only: a whole word upper-cased ("usb" → "USB",
- * "i" → "I"), or a first letter capitalised where a sentence surely starts (followsClearSentenceEnd).
- */
-function keepsCase(original: string, replacement: string, text: string, at: number): boolean {
-  if (original.toLowerCase() !== replacement.toLowerCase()) return caseShape(original) === caseShape(replacement);
-  if (replacement === original.toUpperCase() && (original.length >= 2 || original === 'i')) return true;
-  const capitalised = caseShape(original) === 'lower' && replacement === original[0].toUpperCase() + original.slice(1);
-  return capitalised && followsClearSentenceEnd(text, at);
-}
-
-/** An a ↔ an swap, in any case. */
-export function isArticleFix(c: Candidate): boolean {
-  const pair = [c.original.toLowerCase(), (c.replacements[0] ?? '').toLowerCase()].sort().join(' ');
-  return c.kind === 'Miscellaneous' && c.replacements.length === 1 && pair === 'a an';
-}
-
-/** The word after an article: "lpg" in "an lpg cylinder". */
-const NEXT_WORD = /^\s+([\p{L}\p{N}'’-]+)/u;
-const VOWEL = /[aeiou]/u;
-
-/** The word right after `end` in `text`, or ''. */
-export function nextWord(text: string, end: number): string {
-  return NEXT_WORD.exec(text.slice(end))?.[1] ?? '';
-}
-
-/**
- * True for a lowercase word of four or more letters with a vowel that the spell checker knows: what an article
- * swap can be ticked before. A shorter or vowelless word may be an initialism read letter by letter ("an lpg",
- * "an sms", "an hr", "an fir"), or a word whose sound its spelling doesn't tell ("a ewe"); Harper guesses both by
- * their letters (F4 re-review 3, I-3). Unticked, they are still offered.
- */
-function isPlainDictionaryWord(word: string, dictionary: ReadonlySet<string>): boolean {
-  return word.length >= 4 && caseShape(word) === 'lower' && VOWEL.test(word) && dictionary.has(word);
+  if (c.kind !== 'Miscellaneous' || ARTICLE_SWAPS.get(c.original) !== replacement) return false;
+  if (!startsWord(text, c.span.start)) return false;
+  const next = NEXT_WORD.exec(text.slice(c.span.end))?.[1] ?? '';
+  return PLAIN_OR_CAPITALISED.test(next) && VETTED_ARTICLES.get(next.toLowerCase()) === replacement.toLowerCase();
 }
 
 /** Whitespace-separated tokens: "a SMS" is two. */

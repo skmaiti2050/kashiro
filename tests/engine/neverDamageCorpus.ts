@@ -165,6 +165,40 @@ const TRAPS = [
   'File [[an fir]] today.',
   // Spaces the zero-click rule refuses as layout are not ticked on the card either (M-4).
   'Use [[tabs\t\there]] please.',
+  // F5 re-review 4: shapes the F5 tick gate guessed wrong. Only the closed tick set (Task F6) may start ticked.
+  // An article before a word whose sound its spelling doesn't tell (I-1).
+  'Police found [[an unidentified]] man near the gate.',
+  '[[An unidentified]] caller rang twice.',
+  'It was [[an unidentifiable]] object.',
+  'The sea urchin is [[an urchin]] of the reef.',
+  'It was done with [[an utmost]] care.',
+  'He has [[an urticaria]] rash.',
+  'The new rules are [[an onerous]] burden.',
+  'She filled [[a ewer]] with water.',
+  // A capital after a long lowercase abbreviation or a spaced ellipsis (I-2).
+  'See page four, [[contd. from]] the last issue.',
+  'He works in the [[deptt. of]] physics.',
+  'Ask the [[admin. team]] about it.',
+  'See the [[illus. below]] for details.',
+  'Use the [[abbrev. form]] here.',
+  '[[Hmm . . . yes]], we can.',
+  '[[Wait . . . then]] go.',
+  // A capital after "!" inside a sentence, or on an inline list label (I-3).
+  'I use [[Yahoo! mail]] every day.',
+  'He won on [[Jeopardy! last]] night.',
+  'We played [[Yahtzee! and]] Boggle! today.',
+  'We use [[Yahoo! for]] search.',
+  '[[a) the]] first point. [[b) the]] second point.',
+  // "i" → "I" in a list label, maths or code (I-4).
+  'Options: [[(i)]] first, [[(ii)]] second.',
+  'Part [[i]] and part [[ii]] are done.',
+  'Let [[i]] be an index and x = [[i]] + 1.',
+  'Run [[for i in range(10): print(i)]] now.',
+  // Dot runs, and punctuation spacing in code-like text (M-4, M-5).
+  'It is [[fine.. done]] now.',
+  '[[Wait.... there]] it is.',
+  'Use [[...]] here please.',
+  'Call [[foo(a ,b)]] and [[x = y ,z]] today.',
 ];
 
 /**
@@ -192,6 +226,104 @@ const PLANTED = [
   'We went to <<the the|the>> market.',
   // Harper writes "AN" after a capital "A" (F4 re-review 3, I-1): the one right fix keeps the case.
   '<<A|An>> elephant came.',
+];
+
+/**
+ * The truth table for the simple-fixes card's default ticks (Task F6, F5 re-review 4 M-1): each input with the
+ * exact fixes ("original → replacement") that may start ticked. It is written by hand, not derived from the
+ * engine's rules, so a gate that ticks anything else fails whatever its own definitions say.
+ * - `ticked`: the closed tick set covers every fix in `mayTick`, so with default settings they all start ticked
+ *   (the table can't pass by the card ticking nothing);
+ * - `markdown`: the input is read as Markdown (a table cell), otherwise as plain text.
+ */
+export interface TickTruth {
+  input: string;
+  mayTick: readonly string[];
+  ticked?: boolean;
+  markdown?: boolean;
+}
+
+export const TICK_TRUTH: readonly TickTruth[] = [
+  // The closed set: a doubled word on the allowlist, an a/an swap before a word in the vetted table.
+  { input: 'We went to the the market.', mayTick: ['the the → the'], ticked: true },
+  { input: 'It is part of of the plan.', mayTick: ['of of → of'], ticked: true },
+  { input: 'He ate a apple.', mayTick: ['a → an'], ticked: true },
+  { input: 'A apple fell. A elephant came.', mayTick: ['A → An', 'A → An'], ticked: true },
+  { input: 'It is an useful tool.', mayTick: ['an → a'], ticked: true },
+  { input: 'Wait a hour please.', mayTick: ['a → an'], ticked: true },
+  // Right fixes outside the closed set: they may start ticked, but need not.
+  { input: 'I think teh plan works.', mayTick: ['teh → the'] },
+  { input: 'It rained today. we left early.', mayTick: ['we → We'] },
+  // F4 re-review 3, I-1 to I-3: an abbreviation's dot, part of a word, an initialism, a short word.
+  { input: 'Meet at 5 pm. tomorrow please.', mayTick: [] },
+  { input: 'Jan. was cold.', mayTick: [] },
+  { input: 'Bros. came home.', mayTick: [] },
+  { input: 'Hon. minister came.', mayTick: [] },
+  { input: 'Wt. and ht. noted.', mayTick: [] },
+  { input: 'Qty. ten is fine.', mayTick: [] },
+  { input: 'Amt. due is ten.', mayTick: [] },
+  { input: 'Ave. road is long.', mayTick: [] },
+  { input: 'He studied at an Engg. college.', mayTick: [] },
+  { input: 'It rained today. Engg. college is near.', mayTick: [] },
+  { input: 'It rained today. Ph.D. students came.', mayTick: [] },
+  { input: 'The proof went to the HoD. Ph.D. scholars wait.', mayTick: [] },
+  { input: 'She has a Ph.D. in physics.', mayTick: [] },
+  { input: 'It is a ewe lamb.', mayTick: [] },
+  { input: 'Buy an lpg cylinder.', mayTick: [] },
+  { input: 'He is an rss member.', mayTick: [] },
+  { input: 'He got an sms today.', mayTick: [] },
+  { input: 'See an hr manager.', mayTick: [] },
+  { input: 'He is an mla now.', mayTick: [] },
+  { input: 'He is an nri now.', mayTick: [] },
+  { input: 'File an fir today.', mayTick: [] },
+  { input: 'The variable i is set.', mayTick: [] },
+  { input: 'Use tabs\t\there please.', mayTick: [] },
+  // F4 re-review 3: kinds the user opted into in Settings (they start unticked, owner decision 2026-10-25).
+  { input: 'We expect price competition to increase.', mayTick: [] },
+  { input: 'Error rates return to normal.', mayTick: [] },
+  { input: 'Small things added up to nearly ₹4,00,000.', mayTick: [] },
+  { input: 'We tried to identify how people described heat.', mayTick: [] },
+  { input: 'It has longer-term effects such as kidney damage.', mayTick: [] },
+  { input: 'Please adjust timeout values.', mayTick: [] },
+  { input: 'Add chopped green chillies.', mayTick: [] },
+  { input: 'Forty per cent of payments were late.', mayTick: [] },
+  { input: 'When Rohan first introduced us, we laughed.', mayTick: [] },
+  { input: 'They grow soybean, cotton and pigeon pea.', mayTick: [] },
+  // F5 re-review 4, I-1: an article before a word whose sound its spelling doesn't tell.
+  { input: 'Police found an unidentified man near the gate.', mayTick: [] },
+  { input: 'An unidentified caller rang twice.', mayTick: [] },
+  { input: 'It was an unidentifiable object.', mayTick: [] },
+  { input: 'The sea urchin is an urchin of the reef.', mayTick: [] },
+  { input: 'It was done with an utmost care.', mayTick: [] },
+  { input: 'He has an urticaria rash.', mayTick: [] },
+  { input: 'The new rules are an onerous burden.', mayTick: [] },
+  { input: 'She filled a ewer with water. He keeps a ewes flock.', mayTick: [] },
+  // I-2: a capital after a long lowercase abbreviation or a spaced ellipsis.
+  { input: 'See page four, contd. from the last issue.', mayTick: [] },
+  { input: 'He works in the deptt. of physics.', mayTick: [] },
+  { input: 'Ask the admin. team about it.', mayTick: [] },
+  { input: 'See the illus. below for details.', mayTick: [] },
+  { input: 'Use the abbrev. form here.', mayTick: [] },
+  { input: 'Hmm . . . yes, we can.', mayTick: [] },
+  { input: 'Wait . . . then go.', mayTick: [] },
+  // I-3: a capital after "!" inside a sentence, or on an inline list label.
+  { input: 'I use Yahoo! mail every day.', mayTick: [] },
+  { input: 'He won on Jeopardy! last night.', mayTick: [] },
+  { input: 'We played Yahtzee! and Boggle! today.', mayTick: [] },
+  { input: 'We use Yahoo! for search.', mayTick: [] },
+  { input: 'a) the first point. b) the second point.', mayTick: [] },
+  // I-4: "i" → "I" in a list label, maths or code.
+  { input: 'Options: (i) first, (ii) second.', mayTick: [] },
+  { input: 'Part i and part ii are done.', mayTick: [] },
+  { input: 'Let i be an index and x = i + 1.', mayTick: [] },
+  { input: 'for i in range(10): print(i)', mayTick: [] },
+  // M-4: dot runs.
+  { input: 'It is fine.. done now.', mayTick: [] },
+  { input: 'Wait.... there it is.', mayTick: [] },
+  { input: 'Use ... here please.', mayTick: [] },
+  // M-5: punctuation spacing in code-like text and in a Markdown table cell.
+  { input: 'Call foo(a ,b) and x = y ,z today.', mayTick: [] },
+  { input: '| a ,b | c |\n|---|---|\n| d | e |', mayTick: [], markdown: true },
 ];
 
 /** Invisible characters sprinkled at random between ASCII characters. */

@@ -1,8 +1,8 @@
 /**
- * Task F5 (F4 re-review 3): "Review and apply all" on the simple-fixes card applies its ticked fixes with one click,
- * so a fix starts ticked only when it passes a gate on the shape of the change: whole words, the case kept, no two
- * fixes on neighbouring words, an article only before a plain dictionary word, a capital only where a sentence
- * surely starts, and no layout spaces. The rest are listed unticked.
+ * "Review and apply all" on the simple-fixes card applies its ticked fixes with one click, so a fix starts ticked
+ * only when it belongs to a closed, listed set (Task F6): a doubled word on the allowlist, or an a/an swap before a
+ * word in the vetted table, toward the article it lists, and never two fixes on neighbouring words. Everything else
+ * is listed unticked (Task F5's repros stay unticked).
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import { CheckSession, type CheckOptions } from '@/engine/session';
@@ -39,11 +39,47 @@ async function applyAllWithDefaultTicks(paras: Paragraph[], over: Partial<CheckO
 const outputOf = async (text: string, over: Partial<CheckOptions> = {}) =>
   (await applyAllWithDefaultTicks([{ id: 0, text }], over)).session.outputText(0);
 
-describe('the simple-fixes card ticks a fix only when its shape is safe (Task F5)', () => {
-  it('ticks the plain fixes: a slip, a doubled word, an article before a dictionary word, a real sentence start', async () => {
-    expect(await outputOf('I think teh cat of of mine ate a apple. It rained today. we left early.')).toBe(
-      'I think the cat of mine ate an apple. It rained today. We left early.',
-    );
+describe('the simple-fixes card ticks only a closed set of fixes (Task F6, owner decision 2026-10-26)', () => {
+  it('ticks a doubled word on the allowlist and an article before a vetted word; lists the rest unticked', async () => {
+    const { session, ticked, unticked } = await applyAllWithDefaultTicks([
+      { id: 0, text: 'I think teh cat of of mine ate a apple. It rained today. we left early.' },
+    ]);
+    expect(ticked).toEqual(['of of → of', 'a → an']);
+    expect(unticked).toEqual(['teh → the', 'we → We']);
+    expect(session.outputText(0)).toBe('I think teh cat of mine ate an apple. It rained today. we left early.');
+  });
+
+  it.each([
+    ['He is an useful man.', 'He is a useful man.'],
+    ['Wait a hour please.', 'Wait an hour please.'],
+    ['He is a honest man.', 'He is an honest man.'],
+    ['It was an one-time deal.', 'It was a one-time deal.'],
+    ['He joined an union.', 'He joined a union.'],
+    ['She found an unique stone.', 'She found a unique stone.'],
+  ])('ticks an article swap the vetted table confirms: "%s"', async (text, after) => {
+    expect(await outputOf(text)).toBe(after);
+  });
+
+  it.each([
+    // The table says the other article, or doesn't list the word (F5 re-review 4, I-1).
+    'Police found an unidentified man near the gate.',
+    'He has an urticaria rash.',
+    'The new rules are an onerous burden.',
+    'She filled a ewer with water.',
+    'It was an historic day.',
+    'He ate a APPLE.',
+    'He ate a *apple* today.',
+    // Outside the closed set: capitals, "i" → "I", punctuation spacing and dot runs (I-2 to I-4, M-4, M-5).
+    'See page four, contd. from the last issue.',
+    'Hmm . . . yes, we can.',
+    'I use Yahoo! mail every day.',
+    'a) the first point. b) the second point.',
+    'Options: (i) first, (ii) second.',
+    'Let i be an index and x = i + 1.',
+    'It is fine.. done now.',
+    'Call foo(a ,b) and x = y ,z today.',
+  ])('ticks nothing outside the closed set: "%s"', async (text) => {
+    expect(await outputOf(text)).toBe(text);
   });
 
   it('keeps the article\'s case: "A apple" becomes "An apple", not "AN apple" (I-1)', async () => {

@@ -176,7 +176,6 @@ export class CheckSession {
         untickedByDefault(fixes, {
           paraText: this.ctx.paraText ?? new Map(),
           optedIn: (c) => this.optedIn.has(c.id),
-          dictionaryWords: this.ctx.dictionaryWords ?? new Set(),
         }),
     });
     const topSize = upFrontCount(this.reviewDepth, this.words);

@@ -63,9 +63,10 @@ describe('DecisionCard: the simple-fixes card (Task F4)', () => {
   }
 
   it.each([
-    ['en', '3 simple fixes: review and apply all', 'Review and apply all 3', 'Small fixes Kashiro is sure of'],
-    ['hi', '3 आसान सुधार: देखें और सभी लागू करें', 'देखें और सभी 3 लागू करें', 'छोटे सुधार'],
-    ['bn', '3টি সহজ সংশোধন: দেখে সব বসান', 'দেখে 3টিই বসান', 'ছোট সংশোধন'],
+    // What starts ticked: only the closed set (Task F6).
+    ['en', '3 simple fixes: review and apply all', 'Review and apply all 3', 'Only repeated words and a/an fixes'],
+    ['hi', '3 आसान सुधार: देखें और सभी लागू करें', 'देखें और सभी 3 लागू करें', 'सिर्फ़ दोहराए गए शब्द'],
+    ['bn', '3টি সহজ সংশোধন: দেখে সব বসান', 'দেখে 3টিই বসান', 'শুধু পুনরাবৃত্ত শব্দ'],
   ] as const)('%s: names itself, explains itself and opens the preview, with no word or rule actions', (language, title, apply, explained) => {
     renderSimple(language);
     expect(screen.getByRole('heading').textContent).toBe(title);

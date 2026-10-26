@@ -43,8 +43,6 @@ export interface TierContext {
   modules?: ModuleSwitches;
   /** Ids of list-item paragraphs (Paragraph.listItem): their first word is not a sentence start. */
   listParagraphs?: ReadonlySet<number>;
-  /** Words after an article fix that the spell checker knows: an article swap starts ticked only before one (defaultTicks). */
-  dictionaryWords?: ReadonlySet<string>;
 }
 
 // Repetition is not here: only isSlipDoubling's words are safe to undouble.
@@ -63,7 +61,7 @@ const ALWAYS_SLIP_DOUBLINGS = new Set(['the', 'a', 'an', 'of', 'to', 'and', 'for
  * second copy starts another word (F3 re-review, D1). A capitalised first copy must start a sentence
  * ("The the cat"), not be a name or a label ("Plan A a day"). Without the paragraph nothing is a slip.
  */
-function isSlipDoubling(c: Candidate, text: string | undefined): boolean {
+export function isSlipDoubling(c: Candidate, text: string | undefined): boolean {
   const word = doubledWord(c);
   if (word === null || !ALWAYS_SLIP_DOUBLINGS.has(word) || text === undefined) return false;
   if (!isWholeWords(text, c.span)) return false;
