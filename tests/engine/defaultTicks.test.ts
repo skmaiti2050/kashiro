@@ -91,6 +91,19 @@ describe('the simple-fixes card ticks only a closed set of fixes (Task F6, owner
   });
 
   it.each([
+    'We leased a Class A office in Pune last year.',
+    'He was treated for a Hepatitis A infection last spring.',
+    'Approved by Priya A officer in charge.',
+    'How To Become A Engineer In India',
+  ])('ticks no capital "A" → "An" mid-sentence, where "A" is a letter label or an initial: "%s" (F6 re-review 5, I-1)', async (text) => {
+    expect(await outputOf(text)).toBe(text);
+  });
+
+  it('still ticks a capital article at a sentence start, after a colon or on a list line (F6 re-review 5, I-1)', async () => {
+    expect(await outputOf('Note: A apple is red. We left. An useful tip followed.')).toBe('Note: An apple is red. We left. A useful tip followed.');
+  });
+
+  it.each([
     'Meet at 5 pm. tomorrow please.',
     'Jan. was cold.',
     'Bros. came home.',

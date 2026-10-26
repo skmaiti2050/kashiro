@@ -1,4 +1,5 @@
 import type { Candidate, Span } from './types';
+import { isSentenceStart } from './factLock';
 import { isSlipDoubling } from './tiers';
 import { startsWord } from './wordFlags';
 import { VETTED_ARTICLES } from './wordlists/articles';
@@ -52,12 +53,14 @@ const PLAIN_OR_CAPITALISED = /^\p{Lu}?\p{Ll}+$/u;
 /**
  * An a ↔ an swap, as a word of its own, whose next word is in the vetted table (compared in lowercase) and takes
  * the article the swap writes: "a apple" → "an", "an useful" → "a". "an unidentified" → "a" is not ticked: the
- * table says "an" (F5 re-review 4, I-1).
+ * table says "an" (F5 re-review 4, I-1). A capital "A" or "An" counts only at a sentence start: mid-sentence it is
+ * a letter label or an initial ("Class A office", "Priya A officer"), not an article (F6 re-review 5, I-1).
  */
 function isVettedArticleSwap(c: Candidate, text: string): boolean {
   const [replacement] = c.replacements;
   if (c.kind !== 'Miscellaneous' || ARTICLE_SWAPS.get(c.original) !== replacement) return false;
   if (!startsWord(text, c.span.start)) return false;
+  if (c.original.startsWith('A') && !isSentenceStart(text, c.span.start)) return false;
   const next = NEXT_WORD.exec(text.slice(c.span.end))?.[1] ?? '';
   return PLAIN_OR_CAPITALISED.test(next) && VETTED_ARTICLES.get(next.toLowerCase()) === replacement.toLowerCase();
 }

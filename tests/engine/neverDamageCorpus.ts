@@ -335,6 +335,24 @@ export const TICK_TRUTH: readonly TickTruth[] = [
   // M-5: punctuation spacing in code-like text and in a Markdown table cell.
   { input: 'Call foo(a ,b) and x = y ,z today.', mayTick: [] },
   { input: '| a ,b | c |\n|---|---|\n| d | e |', mayTick: [], markdown: true },
+  // F6 re-review 5, I-1: a capital "A" mid-sentence is a letter label or an initial, not an article.
+  { input: 'Note: A apple is red.', mayTick: ['A → An @ 6'], ticked: true },
+  { input: 'We leased a Class A office in Pune last year.', mayTick: [] },
+  { input: 'Burglary is a Category A offence in that county.', mayTick: [] },
+  { input: 'He was treated for a Hepatitis A infection last spring.', mayTick: [] },
+  { input: 'She is a Type A individual who plans everything.', mayTick: [] },
+  { input: 'Report any Schedule A income on page two.', mayTick: [] },
+  { input: 'Meet me at the Terminal A exit near gate 4.', mayTick: [] },
+  { input: 'We discussed the Plan A option at length.', mayTick: [] },
+  { input: 'Use the Block A entry after six.', mayTick: [] },
+  { input: 'Every Grade A item ships today.', mayTick: [] },
+  { input: 'Room A order forms are here.', mayTick: [] },
+  { input: 'Approved by Priya A officer in charge.', mayTick: [] },
+  { input: 'Submitted by Kavya A Assistant Professor of Physics.', mayTick: [] },
+  { input: 'Reviewed by Arun A Engineer on 2 May.', mayTick: [] },
+  { input: 'How To Become A Engineer In India', mayTick: [] },
+  { input: 'We stayed with the An family in Seoul.', mayTick: [] },
+  { input: 'Dr. An home visits are on Fridays.', mayTick: [] },
 ];
 
 /** Invisible characters sprinkled at random between ASCII characters. */
