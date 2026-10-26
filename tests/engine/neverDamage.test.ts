@@ -350,7 +350,36 @@ const TRUTH_RUNS = (Object.keys(PRESETS) as PresetId[]).flatMap((preset) =>
   (['default settings', 'every auto-apply kind on'] as const).map((setting) => ({ preset, setting })),
 );
 
+/** A truth-table fix: "a → an @ 7". */
+const TRUTH_FIX = /^(.*) → (.*) @ (\d+)$/su;
+/** A Markdown table cell's text, between its pipes ("a ,b" in "| a ,b | c |"). */
+const TABLE_CELL = /(?<=\|[ \t]*)[^|\s][^|\n]*?(?=[ \t]*\|)/gu;
+
+/**
+ * The row a paragraph of the truth-table session came from, and where the paragraph starts in its input: a plain
+ * text paragraph is a whole input, a Markdown paragraph is one table cell. Matched by equality, never by substring
+ * (F6 re-review 5, M-6).
+ */
+function truthRowOf(rows: readonly TickTruth[], text: string): { row: TickTruth; offset: number } | undefined {
+  for (const row of rows) {
+    if (!row.markdown && row.input === text) return { row, offset: 0 };
+    const cell = row.markdown ? [...row.input.matchAll(TABLE_CELL)].find((m) => m[0] === text) : undefined;
+    if (cell) return { row, offset: cell.index! };
+  }
+  return undefined;
+}
+
 describe('the simple-fixes card ticks only what the truth table allows (Task F6, F5 re-review 4)', () => {
+  it('each allowed fix names the original at its offset in the input', () => {
+    const wrong = TICK_TRUTH.flatMap((row) =>
+      row.mayTick.filter((fix) => {
+        const [, original, , at] = TRUTH_FIX.exec(fix) ?? [];
+        return original === undefined || row.input.slice(Number(at), Number(at) + original.length) !== original;
+      }),
+    );
+    expect(wrong).toEqual([]);
+  });
+
   it.each(TRUTH_RUNS)('$preset preset, $setting', async ({ preset, setting }) => {
     const problems: string[] = [];
     const tickedOn = new Map<TickTruth, string[]>();
@@ -377,17 +406,16 @@ describe('the simple-fixes card ticks only what the truth table allows (Task F6,
       for (const id of (card?.candidateIds ?? []).filter((m) => !unticked.has(m))) {
         const c = byId.get(id)!;
         const text = paras.find((p) => p.id === c.paraId)!.text;
-        const fix = `${c.original} → ${c.replacements[0]}`;
-        // A paragraph is one row's input, or part of it (a Markdown table cell).
-        const row = rows.find((r) => r.input.includes(text));
-        if (row) tickedOn.set(row, [...(tickedOn.get(row) ?? []), fix]);
-        if (!row?.mayTick.includes(fix)) problems.push(`"${shown(text)}": "${shown(fix)}" starts ticked; the table allows ${JSON.stringify(row?.mayTick ?? [])}`);
+        const match = truthRowOf(rows, text);
+        const fix = `${c.original} → ${c.replacements[0]} @ ${(match?.offset ?? 0) + c.span.start}`;
+        if (match) tickedOn.set(match.row, [...(tickedOn.get(match.row) ?? []), fix]);
+        if (!match?.row.mayTick.includes(fix)) problems.push(`"${shown(text)}": "${shown(fix)}" starts ticked; the table allows ${JSON.stringify(match?.row.mayTick ?? [])}`);
       }
     }
     expect(problems).toEqual([]);
     // The closed set still ticks: the table can't pass by the card ticking nothing.
     if (setting === 'default settings') {
-      for (const row of TICK_TRUTH.filter((r) => r.ticked)) expect(tickedOn.get(row), row.input).toEqual(row.mayTick);
+      for (const row of TICK_TRUTH.filter((r) => r.ticked)) expect([...(tickedOn.get(row) ?? [])].sort(), row.input).toEqual([...row.mayTick].sort());
     }
   }, 60_000);
 });

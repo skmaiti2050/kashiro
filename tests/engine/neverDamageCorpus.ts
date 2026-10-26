@@ -239,8 +239,10 @@ const PLANTED = [
 
 /**
  * The truth table for the simple-fixes card's default ticks (Task F6, F5 re-review 4 M-1): each input with the
- * exact fixes ("original → replacement") that may start ticked. It is written by hand, not derived from the
- * engine's rules, so a gate that ticks anything else fails whatever its own definitions say.
+ * exact fixes that may start ticked, as "original → replacement @ offset" (the offset of the original in `input`).
+ * It is written by hand, not derived from the engine's rules, so a gate that ticks anything else fails whatever its
+ * own definitions say. A fix matches only at its offset, so a second, wrong "a → an" in a row that allows one
+ * fails (F6 re-review 5, M-6).
  * - `ticked`: the closed tick set covers every fix in `mayTick`, so with default settings they all start ticked
  *   (the table can't pass by the card ticking nothing);
  * - `markdown`: the input is read as Markdown (a table cell), otherwise as plain text.
@@ -254,15 +256,15 @@ export interface TickTruth {
 
 export const TICK_TRUTH: readonly TickTruth[] = [
   // The closed set: a doubled word on the allowlist, an a/an swap before a word in the vetted table.
-  { input: 'We went to the the market.', mayTick: ['the the → the'], ticked: true },
-  { input: 'It is part of of the plan.', mayTick: ['of of → of'], ticked: true },
-  { input: 'He ate a apple.', mayTick: ['a → an'], ticked: true },
-  { input: 'A apple fell. A elephant came.', mayTick: ['A → An', 'A → An'], ticked: true },
-  { input: 'It is an useful tool.', mayTick: ['an → a'], ticked: true },
-  { input: 'Wait a hour please.', mayTick: ['a → an'], ticked: true },
+  { input: 'We went to the the market.', mayTick: ['the the → the @ 11'], ticked: true },
+  { input: 'It is part of of the plan.', mayTick: ['of of → of @ 11'], ticked: true },
+  { input: 'He ate a apple.', mayTick: ['a → an @ 7'], ticked: true },
+  { input: 'A apple fell. A elephant came.', mayTick: ['A → An @ 0', 'A → An @ 14'], ticked: true },
+  { input: 'It is an useful tool.', mayTick: ['an → a @ 6'], ticked: true },
+  { input: 'Wait a hour please.', mayTick: ['a → an @ 5'], ticked: true },
   // Right fixes outside the closed set: they may start ticked, but need not.
-  { input: 'I think teh plan works.', mayTick: ['teh → the'] },
-  { input: 'It rained today. we left early.', mayTick: ['we → We'] },
+  { input: 'I think teh plan works.', mayTick: ['teh → the @ 8'] },
+  { input: 'It rained today. we left early.', mayTick: ['we → We @ 17'] },
   // F4 re-review 3, I-1 to I-3: an abbreviation's dot, part of a word, an initialism, a short word.
   { input: 'Meet at 5 pm. tomorrow please.', mayTick: [] },
   { input: 'Jan. was cold.', mayTick: [] },
