@@ -17,7 +17,7 @@ const VOWEL_LETTER = /^[aeiou]/;
 
 describe('the vetted a/an table', () => {
   it.each([
-    ['apple', 'an'], ['book', 'a'], ['elephant', 'an'], ['idea', 'an'], ['hour', 'an'], ['honest', 'an'], ['honour', 'an'],
+    ['apple', 'an'], ['book', 'a'], ['elephant', 'an'], ['idea', 'an'], ['hour', 'an'], ['honest', 'an'], ['honourable', 'an'],
     ['heir', 'an'], ['union', 'a'], ['unique', 'a'], ['useful', 'a'], ['university', 'a'], ['european', 'a'], ['one', 'a'],
     ['once', 'a'], ['umbrella', 'an'], ['uncle', 'an'], ['understanding', 'an'], ['house', 'a'], ['huge', 'a'],
     ['unidentified', 'an'], ['utmost', 'an'], ['urchin', 'an'], ['online', 'an'], ['only', 'an'], ['year', 'a'],
@@ -31,6 +31,21 @@ describe('the vetted a/an table', () => {
     // Abbreviations and initialisms, read letter by letter.
     'usb', 'mla', 'fir', 'hr', 'lpg', 'sms', 'nri', 'upsc', 'mba', 'ufo',
   ])('leaves out "%s"', (word) => {
+    expect(VETTED_ARTICLES.has(word)).toBe(false);
+  });
+
+  it.each([
+    // Also a verb right after a subject: after a one-letter variable the verb is meant ("Why does a equal b?",
+    // "Will a increase?"), so "a" → "an" must not start ticked (F6 re-review 5, I-2).
+    'honor', 'honour', 'umpire', 'update', 'upgrade', 'upset', 'usher', 'utter',
+    'abstract', 'access', 'account', 'act', 'action', 'address', 'aim', 'alarm', 'alert', 'amount', 'angle', 'answer',
+    'approach', 'architect', 'arm', 'attack', 'attempt', 'audit', 'audition', 'author', 'average', 'award', 'axe',
+    'echo', 'edge', 'effect', 'egg', 'elbow', 'email', 'empty', 'end', 'engineer', 'equal', 'error', 'escape', 'estimate',
+    'excuse', 'exercise', 'exit', 'eye',
+    'image', 'impact', 'inch', 'increase', 'index', 'influence', 'initial', 'ink', 'institute', 'insult', 'interest',
+    'interview', 'iron', 'issue',
+    'object', 'offer', 'oil', 'open', 'order', 'outline',
+  ])('leaves out the verb "%s"', (word) => {
     expect(VETTED_ARTICLES.has(word)).toBe(false);
   });
 

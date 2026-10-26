@@ -7,8 +7,9 @@
  * To add a word: put it in TAKES_A or TAKES_AN, in lowercase letters only, by how it is said in British, American
  * and Indian English alike. Leave it out when you aren't certain of its first sound in all three: most u-, eu-,
  * ew-, on- and h- words need that thought ("herb", "historic", "homage", "humble", "hotel" are left out on
- * purpose), and no abbreviation or initialism belongs here ("usb", "mla", "fir", "hr"). tests/engine/articles.test.ts
- * checks a sample and that each vowel-letter word in TAKES_A, or consonant-letter word in TAKES_AN, is one it knows.
+ * purpose), and no abbreviation or initialism belongs here ("usb", "mla", "fir", "hr"). A word for TAKES_AN must
+ * not also be a common verb (see TAKES_AN). tests/engine/articles.test.ts checks a sample and that each
+ * vowel-letter word in TAKES_A, or consonant-letter word in TAKES_AN, is one it knows.
  */
 
 /** Words said with a consonant sound first: "a" goes before them. */
@@ -36,40 +37,39 @@ export const TAKES_A = [
   'world', 'writer', 'yard', 'year', 'young', 'youth', 'zone', 'zoo',
 ];
 
-/** Words said with a vowel sound first: "an" goes before them. */
+/**
+ * Words said with a vowel sound first: "an" goes before them. No word here is also a common verb ("equal",
+ * "increase", "end", "open"): after a one-letter variable the verb is meant ("Why does a equal b?"), so "a" there
+ * is not an article (F6 re-review 5, I-2). TAKES_A keeps its verbs: its swaps start from "an", never a variable.
+ */
 export const TAKES_AN = [
   // A silent "h".
-  'heir', 'heiress', 'honest', 'honor', 'honorable', 'honorary', 'honour', 'honourable', 'hour', 'hourly',
+  'heir', 'heiress', 'honest', 'honorable', 'honorary', 'honourable', 'hour', 'hourly',
   // A "u" said as in "up" or "urge", not "you".
-  'ugly', 'umbrella', 'umpire', 'unclear', 'uncle', 'underdog', 'underground', 'understanding', 'undertaking',
-  'unexpected', 'unfair', 'unfinished', 'unfortunate', 'unhappy', 'unhealthy', 'unidentified', 'unknown',
-  'unlikely', 'unofficial', 'unpaid', 'unpleasant', 'unpopular', 'unsafe', 'unusual', 'unwanted', 'update',
-  'upgrade', 'uphill', 'upper', 'upset', 'upward', 'urchin', 'urgent', 'usher', 'utmost', 'utter',
+  'ugly', 'umbrella', 'unclear', 'uncle', 'underdog', 'underground', 'understanding', 'undertaking', 'unexpected',
+  'unfair', 'unfinished', 'unfortunate', 'unhappy', 'unhealthy', 'unidentified', 'unknown', 'unlikely', 'unofficial',
+  'unpaid', 'unpleasant', 'unpopular', 'unsafe', 'unusual', 'unwanted', 'uphill', 'upper', 'upward', 'urchin',
+  'urgent', 'utmost',
   // Other vowels.
-  'able', 'absence', 'absolute', 'abstract', 'academic', 'academy', 'accent', 'access', 'accident', 'account',
-  'accountant', 'achievement', 'acid', 'act', 'action', 'active', 'activity', 'actor', 'actress', 'address', 'adult',
-  'advantage', 'adventure', 'advertisement', 'affair', 'agency', 'agent', 'agreement', 'aim', 'airline', 'airport',
-  'alarm', 'album', 'alert', 'alien', 'alley', 'alliance', 'amount', 'analysis', 'ancient', 'angel', 'angle',
-  'angry', 'animal', 'ankle', 'announcement', 'answer', 'ant', 'apartment', 'apology', 'app', 'apple', 'application',
-  'appointment', 'approach', 'apron', 'architect', 'area', 'argument', 'arm', 'army', 'arrangement', 'arrow', 'art',
-  'article', 'artist', 'aspect', 'assembly', 'assessment', 'asset', 'assignment', 'assistant', 'athlete',
-  'attack', 'attempt', 'attitude', 'audience', 'audit', 'audition', 'author', 'average', 'award', 'awful', 'axe',
-  'eagle', 'ear', 'early', 'earring', 'earthquake', 'easy', 'echo', 'edge', 'edition', 'editor', 'effect', 'effort',
-  'egg', 'eight', 'eighteen', 'eighty', 'elbow', 'election', 'electrician', 'element', 'elephant', 'elevator',
-  'email', 'embassy', 'emergency', 'emotion', 'empire', 'employee', 'employer', 'empty', 'end', 'enemy', 'engine',
-  'engineer', 'entry', 'envelope', 'episode', 'equal', 'error', 'escape', 'essay', 'estate', 'estimate', 'evening',
-  'event', 'exam', 'example', 'excellent', 'exception', 'excuse', 'exercise', 'exhibition', 'exit', 'expert',
-  'explanation', 'extension', 'extra', 'eye',
-  'icon', 'idea', 'ideal', 'identity', 'igloo', 'illness', 'image', 'impact', 'important', 'impression',
-  'improvement', 'inch', 'incident', 'income', 'increase', 'index', 'individual', 'industry', 'infant', 'infection',
-  'influence', 'initial', 'injury', 'ink', 'inn', 'insect', 'inspector', 'instance', 'instant', 'institute',
-  'instruction', 'instrument', 'insult', 'intelligent', 'interest', 'interesting', 'internal', 'interview',
-  'introduction', 'invention', 'investment', 'invitation', 'iron', 'island', 'issue', 'item',
-  'oak', 'oath', 'object', 'obligation', 'observation', 'obstacle', 'occasion', 'ocean', 'odd', 'offence', 'offer',
-  'office', 'officer', 'official', 'oil', 'old', 'omelette', 'onion', 'online', 'only', 'open', 'opening', 'opera',
-  'operation', 'operator', 'opinion', 'opponent', 'opportunity', 'option', 'oral', 'orange', 'orchestra', 'order',
-  'ordinary', 'organ', 'organisation', 'organization', 'origin', 'original', 'orphan', 'outcome', 'outdoor',
-  'outfit', 'outline', 'oven', 'overview', 'owl', 'owner', 'ox',
+  'able', 'absence', 'absolute', 'academic', 'academy', 'accent', 'accident', 'accountant', 'achievement', 'acid',
+  'active', 'activity', 'actor', 'actress', 'adult', 'advantage', 'adventure', 'advertisement', 'affair', 'agency',
+  'agent', 'agreement', 'airline', 'airport', 'album', 'alien', 'alley', 'alliance', 'analysis', 'ancient', 'angel',
+  'angry', 'animal', 'ankle', 'announcement', 'ant', 'apartment', 'apology', 'app', 'apple', 'application',
+  'appointment', 'apron', 'area', 'argument', 'army', 'arrangement', 'arrow', 'art', 'article', 'artist', 'aspect',
+  'assembly', 'assessment', 'asset', 'assignment', 'assistant', 'athlete', 'attitude', 'audience', 'awful',
+  'eagle', 'ear', 'early', 'earring', 'earthquake', 'easy', 'edition', 'editor', 'effort', 'eight', 'eighteen',
+  'eighty', 'election', 'electrician', 'element', 'elephant', 'elevator', 'embassy', 'emergency', 'emotion',
+  'empire', 'employee', 'employer', 'enemy', 'engine', 'entry', 'envelope', 'episode', 'essay', 'estate', 'evening',
+  'event', 'exam', 'example', 'excellent', 'exception', 'exhibition', 'expert', 'explanation', 'extension', 'extra',
+  'icon', 'idea', 'ideal', 'identity', 'igloo', 'illness', 'important', 'impression', 'improvement', 'incident',
+  'income', 'individual', 'industry', 'infant', 'infection', 'injury', 'inn', 'insect', 'inspector', 'instance',
+  'instant', 'instruction', 'instrument', 'intelligent', 'interesting', 'internal', 'introduction', 'invention',
+  'investment', 'invitation', 'island', 'item',
+  'oak', 'oath', 'obligation', 'observation', 'obstacle', 'occasion', 'ocean', 'odd', 'offence', 'office', 'officer',
+  'official', 'old', 'omelette', 'onion', 'online', 'only', 'opening', 'opera', 'operation', 'operator', 'opinion',
+  'opponent', 'opportunity', 'option', 'oral', 'orange', 'orchestra', 'ordinary', 'organ', 'organisation',
+  'organization', 'origin', 'original', 'orphan', 'outcome', 'outdoor', 'outfit', 'oven', 'overview', 'owl', 'owner',
+  'ox',
 ];
 
 /** Lowercase word → the article it takes. */

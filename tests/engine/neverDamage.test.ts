@@ -356,13 +356,13 @@ const TRUTH_FIX = /^(.*) → (.*) @ (\d+)$/su;
 const TABLE_CELL = /(?<=\|[ \t]*)[^|\s][^|\n]*?(?=[ \t]*\|)/gu;
 
 /**
- * The row a paragraph of the truth-table session came from, and where the paragraph starts in its input: a plain
- * text paragraph is a whole input, a Markdown paragraph is one table cell. Matched by equality, never by substring
- * (F6 re-review 5, M-6).
+ * The row a paragraph of the truth-table session came from, and where the paragraph starts in its input: a
+ * paragraph is a whole input, or one cell of a Markdown table. Matched by equality, never by substring (F6
+ * re-review 5, M-6).
  */
 function truthRowOf(rows: readonly TickTruth[], text: string): { row: TickTruth; offset: number } | undefined {
   for (const row of rows) {
-    if (!row.markdown && row.input === text) return { row, offset: 0 };
+    if (row.input === text) return { row, offset: 0 };
     const cell = row.markdown ? [...row.input.matchAll(TABLE_CELL)].find((m) => m[0] === text) : undefined;
     if (cell) return { row, offset: cell.index! };
   }

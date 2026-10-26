@@ -353,6 +353,15 @@ export const TICK_TRUTH: readonly TickTruth[] = [
   { input: 'How To Become A Engineer In India', mayTick: [] },
   { input: 'We stayed with the An family in Seoul.', mayTick: [] },
   { input: 'Dr. An home visits are on Fridays.', mayTick: [] },
+  // F6 re-review 5, I-2: a lowercase "a" as a variable before a word that is also a verb.
+  { input: 'He ate a apple, so why does a equal b?', mayTick: ['a → an @ 7'], ticked: true },
+  { input: 'Why does a equal b in this proof?', mayTick: [] },
+  { input: 'Will a increase if b falls?', mayTick: [] },
+  { input: 'Can a end before b starts?', mayTick: [] },
+  { input: 'Let a equal 5 and b equal 3.', mayTick: [] },
+  { input: 'If x and a increase together, the sum rises.', mayTick: [] },
+  { input: 'Then a must exceed b, so a only grows.', mayTick: [] },
+  { input: 'Let *a* equal 5, and let a equal b.', mayTick: [], markdown: true },
 ];
 
 /** Invisible characters sprinkled at random between ASCII characters. */
