@@ -99,7 +99,37 @@ function contextOf(text: string, { start, end }: Span): { before: string; after:
     after = `${after.trimEnd()}…`;
   }
   // Named before spaces are collapsed: "\s" also matches U+FEFF.
-  return { before: named(before).replace(SPACES, ' '), after: named(after).replace(SPACES, ' ') };
+  return { before: namedContext(before).replace(SPACES, ' '), after: namedContext(after).replace(SPACES, ' ') };
+}
+
+/** The Indic scripts of India: a ZWJ or ZWNJ between two characters of one of them shapes the word (a conjunct). */
+const INDIC_SCRIPTS = [
+  /\p{Script=Devanagari}/u,
+  /\p{Script=Bengali}/u,
+  /\p{Script=Gurmukhi}/u,
+  /\p{Script=Gujarati}/u,
+  /\p{Script=Oriya}/u,
+  /\p{Script=Tamil}/u,
+  /\p{Script=Telugu}/u,
+  /\p{Script=Kannada}/u,
+  /\p{Script=Malayalam}/u,
+];
+const ZWNJ = '\u{200C}';
+const ZWJ = '\u{200D}';
+
+/** True when `text[i]` is a ZWJ or ZWNJ inside a word of one Indic script, as hygiene keeps it. */
+function isIndicJoiner(text: string, i: number): boolean {
+  if (text[i] !== ZWJ && text[i] !== ZWNJ) return false;
+  const [before, after] = [text[i - 1] ?? '', text[i + 1] ?? ''];
+  return INDIC_SCRIPTS.some((script) => script.test(before) && script.test(after));
+}
+
+/**
+ * The context `text` named like the change, except a joiner inside a Hindi or Bengali word: drawn as the real
+ * character, so the word reads right and a screen reader doesn't read "U+200D" (F7 re-review 6, M-3).
+ */
+function namedContext(text: string): string {
+  return text.replace(INVISIBLE, (ch: string, at: number) => (isIndicJoiner(text, at) ? ch : nameOf(ch)));
 }
 
 /** How whitespace at a change's edge is drawn, so a spacing fix isn't blank: "··" → "·", " ," → ", ". */
@@ -109,9 +139,14 @@ const EDGE_WHITESPACE = /^\s+|\s+$/gu;
 const ONLY_WHITESPACE = /^\s+$/u;
 const INVISIBLE = /[\p{Cf}\p{Default_Ignorable_Code_Point}]/gu;
 
+/** An invisible or direction character's name: "‹U+200B›". */
+function nameOf(ch: string): string {
+  return `‹U+${ch.codePointAt(0)!.toString(16).toUpperCase().padStart(4, '0')}›`;
+}
+
 /** `text` with invisible and direction characters named ("‹U+200B›", "‹U+202E›"), so none acts unseen. */
 function named(text: string): string {
-  return text.replace(INVISIBLE, (ch) => `‹U+${ch.codePointAt(0)!.toString(16).toUpperCase().padStart(4, '0')}›`);
+  return text.replace(INVISIBLE, nameOf);
 }
 
 /** `text` named, and the whitespace at its edges drawn as signs. */

@@ -92,6 +92,35 @@ describe('ChangeLog: one row for the simple-fixes card (Task F4)', () => {
     expect(container.querySelector('.change del > *')!.getAttribute('lang')).toBe('en');
   });
 
+  it.each([
+    ['क्\u{200D}ष the the cat', 'क्\u{200D}ष '],
+    ['क्\u{200C}ष the the cat', 'क्\u{200C}ष '],
+    // Bengali "RAB": ra, ZWJ, virama, ya, aa, ba.
+    ['\u{09B0}\u{200D}\u{09CD}\u{09AF}\u{09BE}\u{09AC} the the cat', '\u{09B0}\u{200D}\u{09CD}\u{09AF}\u{09BE}\u{09AC} '],
+  ])('shows a joiner inside a Hindi or Bengali word of the context as itself, not as a code: "%s" (F7 re-review 6, M-3)', (text, before) => {
+    const { container } = renderLog([applied('d', 'the the', 'the', 'Repetition', text)], text);
+    expect(container.querySelector('.change .context')!.textContent).toBe(before);
+    expect(container.querySelector('.change')!.textContent).not.toContain('U+');
+  });
+
+  it.each([
+    // A joiner outside an Indic word, between two scripts, or at the context's edge, and a direction control.
+    ['a\u{200D}b the the cat', 'a‹U+200D›b '],
+    ['क\u{200D}b the the cat', 'क‹U+200D›b '],
+    ['क्\u{200D}the the cat', 'क्‹U+200D›'],
+    ['क\u{202E}ष the the cat', 'क‹U+202E›ष '],
+  ])('still names other invisible characters in the context: "%s" (F7 re-review 6, M-3)', (text, before) => {
+    const { container } = renderLog([applied('d', 'the the', 'the', 'Repetition', text)], text);
+    expect(container.querySelector('.change .context')!.textContent).toBe(before);
+  });
+
+  it('still names a joiner that is part of the change itself (F7 re-review 6, M-3)', () => {
+    const text = 'यह क्\u{200D}षमा है।';
+    const original = 'क्\u{200D}षमा';
+    const { container } = renderLog([applied('w', original, 'क्षमा', 'Typo', text)], text);
+    expect(container.querySelector('.change del')!.textContent).toBe('क्‹U+200D›षमा');
+  });
+
   it('names an invisible character it deleted', () => {
     const text = 'mod\u{200B}els here';
     const { container } = renderLog([{ ...applied('z', '\u{200B}', '', 'Invisible', text), auto: true, batch: undefined }], text);
