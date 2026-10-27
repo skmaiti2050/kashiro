@@ -4,7 +4,7 @@ import { EditorView } from '@codemirror/view';
 import { DismissMenu } from '@/ui/DismissMenu';
 import { speak } from '@/ui/platform/speech';
 import { makeController, warmLinter } from './harness';
-import { installSpeech, LOCAL_VOICE, ONLINE_VOICE, openAndWait, renderShell } from './shell';
+import { installSpeech, LOCAL_VOICE, ONLINE_VOICE, openAndWait, renderShell, reviewPanel } from './shell';
 
 vi.mock('@tauri-apps/api/window', async () => (await import('./platformMocks')).tauriWindow);
 vi.mock('@/ui/platform/files', async () => (await import('./platformMocks')).platformFiles);
@@ -108,6 +108,25 @@ describe('the document text', () => {
     fireEvent.keyDown(view.contentDOM, { key: '.', ctrlKey: true });
     const slot = screen.getByRole('group', { name: /^Card \d+ of \d+ left\. Terms\./ });
     expect(document.activeElement).toBe(slot);
+  });
+});
+
+describe('review keys on the "Repeated words" card (F8 re-review 7, M-4)', () => {
+  it('Enter opens its preview with every place unticked, and a second Enter changes nothing', async () => {
+    const text = 'He had had enough of it. He said that that was fine. What it is is a mess. The film was very very good.';
+    const { controller } = makeController();
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText(text));
+    expect(screen.getByRole('heading', { name: 'Repeated words (4 places)' })).toBeTruthy();
+
+    fireEvent.keyDown(reviewPanel(), { key: 'Enter' });
+    const boxes = screen.getAllByRole<HTMLInputElement>('checkbox');
+    expect(boxes.map((b) => b.checked)).toEqual([false, false, false, false]);
+    fireEvent.keyDown(reviewPanel(), { key: 'Enter' });
+
+    const session = controller.getState().session!;
+    expect(session.outputText(0)).toBe(text);
+    expect(session.outcomes().filter((o) => o.status === 'applied')).toEqual([]);
   });
 });
 

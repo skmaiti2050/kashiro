@@ -53,6 +53,8 @@ export function DecisionCard({ controller, decision, candidates, paraText, touch
   const isBatch = decision.kind === 'batch';
   // The simple-fixes card mixes kinds and words: the first member's word or rule is not the card's (Task F4).
   const isSimpleFixes = decision.id === SIMPLE_FIXES_ID;
+  // Every place starts unticked (the "Repeated words" card): the button opens a choice, not "Apply all".
+  const choosesPlaces = isBatch && !isSimpleFixes && decision.startUnticked?.length === members.length;
   const isWordFlag = WORD_REWRITE_KINDS.has(first.kind) && !isSimpleFixes;
   const flagOnly = first.replacements.length === 0;
   const category = isSimpleFixes ? 'correctness' : categoryOf(first, decision.kind);
@@ -105,7 +107,11 @@ export function DecisionCard({ controller, decision, candidates, paraText, touch
               aria-keyshortcuts={i === 0 ? 'Enter' : undefined}
               onClick={() => accept(i)}
             >
-              {isSimpleFixes ? t.t('card.reviewSimpleFixes', { count: members.length }) : acceptLabel(t, first, r, isBatch, members.length)}
+              {isSimpleFixes
+                ? t.t('card.reviewSimpleFixes', { count: members.length })
+                : choosesPlaces
+                  ? t.t('card.chooseFixes')
+                  : acceptLabel(t, first, r, isBatch, members.length)}
               {i === 0 && <Kbd>Enter</Kbd>}
             </button>
           ))}

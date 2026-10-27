@@ -170,6 +170,7 @@
   "card.otherLanguageTitle": "{count, plural, one {# word in an Indian language} other {# words in Indian languages}}",
   "card.simpleFixesTitle": "{count, plural, one {# simple fix: review and apply} other {# simple fixes: review and apply all}}",
   "card.reviewSimpleFixes": "{count, plural, one {Review and apply} other {Review and apply all #}}",
+  "card.chooseFixes": "Choose which to fix…",
 
   "dismiss.menu": "Dismiss",
   "dismiss.button": "Dismiss ▾",
@@ -178,6 +179,7 @@
   "dismiss.undoHint": "· undo in Settings",
 
   "batch.untickHint": "Untick any place you want to decide on its own.",
+  "batch.tickHint": "Nothing starts ticked. Tick each place you want to fix.",
   "batch.apply": "Apply {count, number}",
   "batch.applySome": "Apply {chosen, number} of {total, number}",
   "batch.cancel": "Cancel",

@@ -171,6 +171,7 @@
   "card.otherLanguageTitle": "{count, plural, one {भारतीय भाषा का # शब्द} other {भारतीय भाषाओं के # शब्द}}",
   "card.simpleFixesTitle": "{count, plural, one {# आसान सुधार: देखें और लागू करें} other {# आसान सुधार: देखें और सभी लागू करें}}",
   "card.reviewSimpleFixes": "{count, plural, one {देखें और लागू करें} other {देखें और सभी # लागू करें}}",
+  "card.chooseFixes": "चुनें कि कौन-से सुधार लागू करें…",
 
   "dismiss.menu": "नज़रअंदाज़ करें",
   "dismiss.button": "नज़रअंदाज़ ▾",
@@ -179,6 +180,7 @@
   "dismiss.undoHint": "· सेटिंग्स में वापस ला सकते हैं",
 
   "batch.untickHint": "जिस जगह पर अलग से फ़ैसला करना हो, उसका निशान हटा दें।",
+  "batch.tickHint": "शुरू में किसी पर निशान नहीं है। जिस जगह को सुधारना हो, उस पर निशान लगाएँ।",
   "batch.apply": "{count, number} लागू करें",
   "batch.applySome": "{total, number} में से {chosen, number} लागू करें",
   "batch.cancel": "रद्द करें",

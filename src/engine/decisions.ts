@@ -26,8 +26,9 @@ export interface Decision {
    */
   likelyTypos?: [string, string][];
   /**
-   * Simple-fixes card only: the members that start unticked in its preview (defaultTicks), in card order. "Review
-   * and apply all" applies the others with one click (Task F5).
+   * Batches only: the members that start unticked in the preview, in card order. On the simple-fixes card,
+   * defaultTicks picks them and "Review and apply all" applies the others with one click (Task F5); on the
+   * "Repeated words" card every member starts unticked (F8 re-review 7, M-4).
    */
   startUnticked?: string[];
 }
@@ -200,7 +201,10 @@ class DecisionGroups {
     return [...this.groups].map(([key, g]): Decision => {
       const c = g[0];
       if (g.length > 1) {
-        return { id: `batch:${key}`, kind: 'batch', candidateIds: g.map((x) => x.id), label: batchLabel(c, g.length), score: score(c, true) };
+        const candidateIds = g.map((x) => x.id);
+        const batch: Decision = { id: `batch:${key}`, kind: 'batch', candidateIds, label: batchLabel(c, g.length), score: score(c, true) };
+        // Off the slip allowlist, a doubled word is often grammar ("had had", "that that"): the user ticks the slips.
+        return key === REPEATED_WORDS_KEY ? { ...batch, startUnticked: candidateIds } : batch;
       }
       return { id: c.id, kind: 'single', candidateIds: [c.id], label: singleLabel(c), score: score(c, false) };
     });

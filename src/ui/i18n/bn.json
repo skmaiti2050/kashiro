@@ -171,6 +171,7 @@
   "card.otherLanguageTitle": "{count, plural, other {ভারতীয় ভাষার #টি শব্দ}}",
   "card.simpleFixesTitle": "{count, plural, =1 {#টি সহজ সংশোধন: দেখে বসান} other {#টি সহজ সংশোধন: দেখে সব বসান}}",
   "card.reviewSimpleFixes": "{count, plural, =1 {দেখে বসান} other {দেখে #টিই বসান}}",
+  "card.chooseFixes": "কোনগুলো বসাবেন, বেছে নিন…",
 
   "dismiss.menu": "এড়িয়ে যান",
   "dismiss.button": "এড়িয়ে যান ▾",
@@ -179,6 +180,7 @@
   "dismiss.undoHint": "· সেটিংসে ফিরিয়ে আনা যায়",
 
   "batch.untickHint": "যে জায়গার জন্য আলাদা করে সিদ্ধান্ত নিতে চান, তার টিক তুলে দিন।",
+  "batch.tickHint": "শুরুতে কোনোটিতেই টিক নেই। যে জায়গাগুলোয় সংশোধন চান, সেগুলোয় টিক দিন।",
   "batch.apply": "{count, number}টি বসান",
   "batch.applySome": "{total, number}টির মধ্যে {chosen, number}টি বসান",
   "batch.cancel": "বাতিল",

@@ -184,6 +184,15 @@ describe('the simple-fixes card ticks only a closed set of fixes (Task F6, owner
     expect(unticked).toEqual(['an → a', 'sms → SMS']);
   });
 
+  it('starts every place of the review-tier "Repeated words" card unticked: they are often grammar (F8 re-review 7, M-4)', async () => {
+    const text = 'He had had enough of it. He said that that was fine. What it is is a mess. The film was very very good.';
+    const s = await CheckSession.start([{ id: 0, text }], opts(), { linter });
+    const { top, more } = s.decisions();
+    const card = [...top, ...more].find((d) => d.id === 'batch:repeated-words');
+    expect(card?.label).toBe('Repeated words (4 places)');
+    expect(card!.startUnticked).toEqual(card!.candidateIds);
+  });
+
   it('ticks no spaces the zero-click rule left as layout (M-4)', async () => {
     const { session, unticked } = await applyAllWithDefaultTicks([{ id: 0, text: 'Use tabs\t\there please.' }]);
     expect(unticked).toEqual(['\t\t →  ']);

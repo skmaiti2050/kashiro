@@ -12,7 +12,7 @@ interface Props {
   onCancel(): void;
   /** Enter applies and Backspace cancels (the card slot's review keys); false where those keys act elsewhere. Default true. */
   reviewKeys?: boolean;
-  /** Members that start unticked (the simple-fixes card's Decision.startUnticked); default none. */
+  /** Members that start unticked (Decision.startUnticked); default none. */
   startUnticked?: readonly string[];
 }
 
@@ -33,10 +33,11 @@ export function BatchPreview({ members, replacementIndex, paraText, onApply, onC
       return next;
     });
   const label = chosen.length === members.length ? t.t('batch.apply', { count: chosen.length }) : t.t('batch.applySome', { chosen: chosen.length, total: members.length });
+  const nothingStartsTicked = members.every((c) => startUnticked.includes(c.id));
 
   return (
     <div className="batch-preview" onClick={(e) => e.stopPropagation()}>
-      <p className="hint">{t.t('batch.untickHint')}</p>
+      <p className="hint">{nothingStartsTicked ? t.t('batch.tickHint') : t.t('batch.untickHint')}</p>
       <ol className="members">
         {members.map((c) => (
           <li key={c.id}>

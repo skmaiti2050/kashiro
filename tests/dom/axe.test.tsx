@@ -82,6 +82,17 @@ describe('axe-core: no serious or critical violations', () => {
     await audit('batch preview');
   }, 60_000);
 
+  it('the "Repeated words" preview with nothing ticked and Apply disabled (F8 re-review 7, M-4)', async () => {
+    const { controller } = makeController();
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText('He had had enough of it. The film was very very good.'));
+    const card = showCard('.card', (c) => buttonNamed(c, /^Choose which to fix/) !== undefined)!;
+    expect(card).not.toBeNull();
+    fireEvent.click(buttonNamed(card, /^Choose which to fix/)!);
+    expect(screen.getByText('Nothing starts ticked. Tick each place you want to fix.')).toBeTruthy();
+    await audit('repeated-words preview, nothing ticked');
+  });
+
   it('Indian-language words card', async () => {
     const { controller } = makeController();
     renderShell(controller);

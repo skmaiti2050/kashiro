@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { SIMPLE_FIXES_ID, type Decision } from '@/engine/decisions';
 import type { Candidate } from '@/engine/types';
 import { DecisionCard } from '@/ui/DecisionCard';
@@ -81,6 +81,50 @@ describe('DecisionCard: the simple-fixes card (Task F4)', () => {
       expect(names.some((name) => name.startsWith(createTranslator(language, ['en-IN']).t(key)))).toBe(false);
       expect(names.some((name) => name.startsWith(en.t(key)))).toBe(false);
     }
+  });
+});
+
+describe('DecisionCard: the review-tier "Repeated words" card starts with nothing ticked (F8 re-review 7, M-4)', () => {
+  const TEXT = 'He had had enough. The film was very very good.';
+  const doubling = (id: string, original: string): Candidate => {
+    const start = TEXT.indexOf(original);
+    const word = original.split(' ')[0];
+    return { id, paraId: 0, span: { start, end: start + original.length }, original, replacements: [word], kind: 'Repetition', message: 'Repeated word.', source: 'rules' };
+  };
+  const members = [doubling('h', 'had had'), doubling('v', 'very very')];
+  const card: Decision = { id: 'batch:repeated-words', kind: 'batch', candidateIds: ['h', 'v'], label: 'Repeated words (2 places)', score: 4, startUnticked: ['h', 'v'] };
+
+  it.each([
+    ['en', 'Choose which to fix…', 'Nothing starts ticked. Tick each place you want to fix.', 'Apply 0 of 2'],
+    ['hi', 'चुनें कि कौन-से सुधार लागू करें…', 'शुरू में किसी पर निशान नहीं है। जिस जगह को सुधारना हो, उस पर निशान लगाएँ।', '2 में से 0 लागू करें'],
+    ['bn', 'কোনগুলো বসাবেন, বেছে নিন…', 'শুরুতে কোনোটিতেই টিক নেই। যে জায়গাগুলোয় সংশোধন চান, সেগুলোয় টিক দিন।', '2টির মধ্যে 0টি বসান'],
+  ] as const)('%s: the button says the user chooses, and the preview says nothing is ticked', (language, choose, hint, apply) => {
+    const onApply = vi.fn();
+    const controller = { applyBatch: onApply } as unknown as SessionController;
+    render(
+      <TranslatorProvider translator={createTranslator(language, ['en-IN'])}>
+        <DecisionCard
+          controller={controller}
+          decision={card}
+          candidates={new Map(members.map((c) => [c.id, c]))}
+          paraText={new Map([[0, TEXT]])}
+          touchesLocked={false}
+          onNext={() => {}}
+          onLocate={() => {}}
+        />
+      </TranslatorProvider>,
+    );
+    const button = screen.getAllByRole('button').find((b) => b.getAttribute('data-key') === 'accept')!;
+    expect(button.textContent).toBe(`${choose}Enter`);
+
+    fireEvent.click(button);
+    expect(screen.getAllByRole<HTMLInputElement>('checkbox').map((b) => b.checked)).toEqual([false, false]);
+    expect(document.querySelector('.batch-preview .hint')!.textContent).toBe(hint);
+    const applyButton = screen.getAllByRole<HTMLButtonElement>('button').find((b) => b.getAttribute('data-key') === 'accept')!;
+    expect(applyButton.textContent).toBe(`${apply} Enter`);
+    expect(applyButton.disabled).toBe(true);
+    fireEvent.click(applyButton);
+    expect(onApply).not.toHaveBeenCalled();
   });
 });
 
