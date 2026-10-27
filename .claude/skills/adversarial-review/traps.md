@@ -39,7 +39,9 @@ These are the inputs that found real damage in Kashiro's reviews. Use the groups
 
 ## Paths that apply edits
 - Accepting a single card after other cards shifted the offsets; undo
-- An open card or preview while the text changes. Ids are offsets (`paraId:start:end:kind`), so also try **new text under the same ids**: a line moved with Alt+↑, a paste over the span, an undo, typing without a pause
+- An open card or preview while the text changes. Ids are offsets (`paraId:start:end:kind`), so also try **new text under the same ids** (a line moved with Alt+↑, a paste over the span, an undo, typing without a pause) and **the same words from another place under the same ids** (swap two equal-length lines that share a misspelling, one of them marked "sic")
+- A re-check with no text change (a settings or preset change) while a preview is open
+- UI harnesses: a jsdom harness around a changed copy of `src/ui` outside the repo needs `NODE_PATH` set to the repo's `node_modules` and a global `React`. To check which parts of a UI rule the tests cover, remove one part in that copy and see whether any test goes red
 - "Review and apply all" with default ticks on every batch card
 - Settings: every opted-in kind, old or corrupt stored settings
 - carryDecisions on re-check; the change-log row (context, invisible-character names, wrapping, `lang`)
