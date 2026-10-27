@@ -562,6 +562,27 @@ describe('Task 10 budget tuning', () => {
     expect(decisions[0].candidateIds).toEqual([a.id, b.id]);
   });
 
+  it('every review batch starts with every place unticked: ranked, demoted and blocked alike (Task F10)', () => {
+    const that = (paraId: number) => cand({ paraId, original: 'THAT THAT', replacements: ['THAT'], kind: 'Repetition' });
+    const colour = (paraId: number) => cand({ paraId, original: 'colour', replacements: ['color'], kind: 'Variant' });
+    const locked = (paraId: number) => cand({ paraId, original: 'Its', replacements: ["It's"], kind: 'Agreement' });
+    const typo = (paraId: number) => cand({ paraId, original: 'recieve', replacements: ['receive', 'relieve'] });
+    const lockedPair = [locked(0), locked(1)];
+    const blockedPair = [colour(4), colour(5)];
+    const cands = [that(0), that(1), colour(2), colour(3), ...lockedPair, typo(6), typo(7), ...blockedPair];
+    const r = buildDecisions(cands, new Map(cands.map((c) => [c.id, 'review' as Tier])), {
+      fold: (c) => lockedPair.includes(c),
+      blocked: (c) => blockedPair.includes(c),
+    });
+    const batches = [...r.decisions, ...r.blocked].filter((d) => d.kind === 'batch');
+    expect(batches.map((d) => d.label).sort()).toEqual(
+      ['THAT THAT → THAT (2 places)', 'colour → color (2 places)', 'recieve → receive / relieve (2 places)', "Its → It's (2 places)", 'colour → color (2 places)'].sort(),
+    );
+    expect(r.demoted).toHaveLength(1);
+    expect(r.blocked).toHaveLength(1);
+    for (const d of batches) expect(d.startUnticked, d.label).toEqual(d.candidateIds);
+  });
+
   it('(2) uppercase-start guard applies only to Spelling and Typo', () => {
     const rep = cand({ original: 'The the', replacements: ['The'], kind: 'Repetition' });
     expect(tierOf(rep, ctx({ paraText: new Map([[0, 'The the cat sat.']]) }))).toBe('safe');

@@ -1,5 +1,5 @@
 // Task 13 UI: the AI suggestions group, "Improve this sentence" (card, toolbar, Ctrl+I, right-click), progress
-// and Cancel, "No improvement suggested", "Accept all helper suggestions", the speed advice, and axe on each.
+// and Cancel, "No improvement suggested", "Choose helper suggestions to accept", the speed advice, and axe on each.
 import { describe, it, expect, beforeAll, vi } from 'vitest';
 import axe from 'axe-core';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
@@ -183,7 +183,7 @@ describe('"Check how it reads": progress, Cancel and Accept all', () => {
     expect(controller.getState().session!.candidates().filter((c) => c.source === 'llm').map((c) => c.replacements[0])).toEqual([FIRST_REWRITE]);
   });
 
-  it('"Accept all helper suggestions" opens a preview and applies only on its click, as one undo step', async () => {
+  it('"Choose helper suggestions to accept" opens a preview with nothing ticked and applies the ticked ones on its click, as one undo step (Task F10)', async () => {
     const { controller } = aiController((text) => (text === FIRST ? FIRST_REWRITE : text === SECOND ? SECOND_REWRITE : null));
     await openText(controller);
     await act(async () => {
@@ -191,10 +191,15 @@ describe('"Check how it reads": progress, Cancel and Accept all', () => {
       controller.ai.improveSentence(1, 0);
       await controller.ai.settled();
     });
-    const acceptAll = within(aiGroup()).getByRole('button', { name: 'Accept all helper suggestions (2)' });
-    fireEvent.click(acceptAll);
+    const choose = within(aiGroup()).getByRole('button', { name: 'Choose helper suggestions to accept (2)…' });
+    fireEvent.click(choose);
     expect(controller.getState().session!.outputText(0)).toBe(FIRST); // the click opened the preview only
-    await audit('accept all preview');
+    const boxes = within(aiGroup()).getAllByRole<HTMLInputElement>('checkbox');
+    expect(boxes.map((b) => b.checked)).toEqual([false, false]);
+    expect(within(aiGroup()).getByText('Nothing starts ticked. Tick each place you want to fix.')).toBeTruthy();
+    expect(within(aiGroup()).getByRole<HTMLButtonElement>('button', { name: 'Apply 0 of 2' }).disabled).toBe(true);
+    await audit('accept all preview, nothing ticked');
+    for (const box of boxes) fireEvent.click(box);
     fireEvent.click(within(aiGroup()).getByRole('button', { name: /^Apply 2/ }));
     const session = controller.getState().session!;
     expect([session.outputText(0), session.outputText(1)]).toEqual([FIRST_REWRITE, SECOND_REWRITE]);
@@ -212,12 +217,13 @@ describe('the Accept-all preview applies only what it showed (I2)', () => {
       controller.ai.improveSentence(0, 0);
       await controller.ai.settled();
     });
-    fireEvent.click(within(aiGroup()).getByRole('button', { name: 'Accept all helper suggestions (1)' }));
+    fireEvent.click(within(aiGroup()).getByRole('button', { name: 'Choose helper suggestions to accept (1)…' }));
     await act(async () => {
       controller.ai.improveSentence(1, 0); // arrives while the preview is open
       await controller.ai.settled();
     });
     expect(within(aiGroup()).queryByText(SECOND_REWRITE)).toBeNull();
+    fireEvent.click(within(aiGroup()).getByRole('checkbox'));
     fireEvent.click(within(aiGroup()).getByRole('button', { name: /^Apply 1/ }));
     const session = controller.getState().session!;
     expect([session.outputText(0), session.outputText(1)]).toEqual([FIRST_REWRITE, SECOND]);

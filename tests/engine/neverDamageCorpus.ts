@@ -244,7 +244,7 @@ const PLANTED = [
  * exact fixes that may start ticked, as "original → replacement @ offset" (the offset of the original in `input`).
  * It is written by hand, not derived from the engine's rules, so a gate that ticks anything else fails whatever its
  * own definitions say. A fix matches only at its offset, so a second, wrong "a → an" in a row that allows one
- * fails (F6 re-review 5, M-6).
+ * fails (F6 re-review 5, M-6). No other batch card may tick anything on any input (Task F10).
  * - `ticked`: the closed tick set covers every fix in `mayTick`, so with default settings they all start ticked
  *   (the table can't pass by the card ticking nothing);
  * - `markdown`: the input is read as Markdown (a table cell), otherwise as plain text.
@@ -282,6 +282,12 @@ export const TICK_TRUTH: readonly TickTruth[] = [
   { input: 'अंग्रेज़ी वर्णमाला: A a, B b, C c.', mayTick: [] },
   { input: '- A a\n- B b\n- C c', mayTick: [], markdown: true },
   { input: '| A a | B b |\n|---|---|\n| C c | D d |', mayTick: [], markdown: true },
+  // Task F10 (owner decision 2026-10-27): a doubling off the slip allowlist, repeated so it forms its own batch card
+  // in any case or spacing, starts with every place unticked; it is often grammar.
+  { input: 'He said THAT THAT was fine. I knew THAT THAT was wrong.', mayTick: [] },
+  { input: 'HE HAD HAD ENOUGH. SHE HAD HAD LUNCH.', mayTick: [] },
+  { input: 'He Had Had Enough. She Had Had Lunch.', mayTick: [] },
+  { input: 'He had  had enough. She had  had lunch.', mayTick: [] },
   // Right fixes outside the closed set start unticked too (Task F8; F8 re-review 7, M-5).
   { input: 'I think teh plan works.', mayTick: [] },
   { input: 'It rained today. we left early.', mayTick: [] },

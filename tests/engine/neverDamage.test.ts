@@ -13,15 +13,16 @@
  * Then "Review and apply all" on the simple-fixes card with its default ticks, one click and nothing inspected,
  * is judged too (Task F5), against truth tables written by hand rather than the gate's own rules (Task F6): each
  * change must be a planted error's one approved fix, and each fix ticked on a TICK_TRUTH input must be one its row
- * allows. The planted errors are still fixed by the click.
+ * allows. The planted errors are still fixed by the click. Every other batch card must start with nothing ticked
+ * (Task F10), in both the generated document and the truth-table inputs.
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import { CheckSession, type Outcome } from '@/engine/session';
-import { SIMPLE_FIXES_ID } from '@/engine/decisions';
+import { SIMPLE_FIXES_ID, type Decision } from '@/engine/decisions';
 import { createLinter, type RulesLinter } from '@/engine/linter';
 import { DEFAULT_MODULES } from '@/engine/modules';
 import { PRESETS, type PresetId } from '@/engine/presets';
-import type { Tier } from '@/engine/types';
+import type { Candidate, Tier } from '@/engine/types';
 import { markdownAdapter, plaintextAdapter } from '@/formats/text';
 import { AUTO_APPLY_KINDS } from '@/ui/state/settings';
 import { acceptAllRules } from '../../cli/run';
@@ -159,6 +160,24 @@ function cardProblem(o: Outcome, p: StressParagraph): string | null {
   return planted ? null : 'starts ticked, but is no planted error\'s fix';
 }
 
+/**
+ * Each member that starts ticked on a batch card other than the simple-fixes card. None may (owner decision
+ * 2026-10-27, Task F10): Enter, Enter on such a card must change nothing, whatever the card's key, case or spacing.
+ */
+function tickedOffTheSimpleFixesCard(decisions: readonly Decision[], candidates: ReadonlyMap<string, Candidate>): string[] {
+  return decisions
+    .filter((d) => d.kind === 'batch' && d.id !== SIMPLE_FIXES_ID)
+    .flatMap((d) => {
+      const unticked = new Set(d.startUnticked ?? []);
+      return d.candidateIds
+        .filter((id) => !unticked.has(id))
+        .map((id) => {
+          const c = candidates.get(id)!;
+          return `¶${c.paraId} ${c.kind} "${shown(c.original)}" → "${shown(c.replacements[0] ?? '')}" starts ticked on the card "${d.label}"`;
+        });
+    });
+}
+
 /** A printable view of a change, with invisible characters as <U+…>. */
 function shown(text: string): string {
   return text.replace(INVISIBLE, (ch) => `<U+${ch.codePointAt(0)!.toString(16).toUpperCase().padStart(4, '0')}>`);
@@ -238,6 +257,20 @@ describe('never damage: generated traps, under every preset and setting', () => 
     expect(problem('a', 'an', 8)).toBe('its offsets do not match the paragraph');
   });
 
+  it('the card judge: no member of any other batch card may start ticked (Task F10)', () => {
+    const text = 'He said THAT THAT was fine. I knew THAT THAT was wrong.';
+    const doubling = (id: string, at: number): Candidate => ({ id, paraId: 0, span: { start: at, end: at + 9 }, original: 'THAT THAT', replacements: ['THAT'], kind: 'Repetition', message: '', source: 'rules' });
+    const candidates = new Map([doubling('x', text.indexOf('THAT THAT')), doubling('y', text.lastIndexOf('THAT THAT'))].map((c) => [c.id, c]));
+    const card = (over: Partial<Decision>): Decision => ({ id: 'batch:Repetitionthat that→that', kind: 'batch', candidateIds: ['x', 'y'], label: 'THAT THAT → THAT (2 places)', score: 4, ...over });
+    const ticked = '¶0 Repetition "THAT THAT" → "THAT" starts ticked on the card "THAT THAT → THAT (2 places)"';
+    expect(tickedOffTheSimpleFixesCard([card({})], candidates)).toEqual([ticked, ticked]);
+    expect(tickedOffTheSimpleFixesCard([card({ startUnticked: ['x'] })], candidates)).toEqual([ticked]);
+    expect(tickedOffTheSimpleFixesCard([card({ startUnticked: ['x', 'y'] })], candidates)).toEqual([]);
+    // The simple-fixes card is the truth table's to judge; a single decision has no ticks.
+    expect(tickedOffTheSimpleFixesCard([card({ id: SIMPLE_FIXES_ID })], candidates)).toEqual([]);
+    expect(tickedOffTheSimpleFixesCard([card({ kind: 'single', candidateIds: ['x'] })], candidates)).toEqual([]);
+  });
+
   it.each(RUNS)('$format, $preset preset, $setting: every change made without a click is approved', async ({ preset, setting, adapter }) => {
     const file = document.map((p) => p.text).join('\n\n') + '\n';
     const { paras, handle } = await adapter.read(new TextEncoder().encode(file));
@@ -311,6 +344,8 @@ describe('never damage: generated traps, under every preset and setting', () => 
       return why === null ? [] : [`¶${o.candidate.paraId} ${o.candidate.kind} "${shown(o.candidate.original)}" → "${shown(o.replacement ?? '')}": ${why}`];
     });
     cardProblems.push(...splitDirectionPairs(session, document));
+    // Every other batch card starts with nothing ticked (Task F10).
+    cardProblems.push(...tickedOffTheSimpleFixesCard([...top, ...more], new Map(session.candidates().map((c) => [c.id, c]))));
     expect(cardProblems).toEqual([]);
     // The judge saw the card's changes, and the planted doublings are still fixed by the one click (since Task F8
     // only doublings start ticked: 10 in this document).
@@ -370,7 +405,7 @@ function truthRowOf(rows: readonly TickTruth[], text: string): { row: TickTruth;
   return undefined;
 }
 
-describe('the simple-fixes card ticks only what the truth table allows (Task F6, F5 re-review 4)', () => {
+describe('the simple-fixes card ticks only what the truth table allows, and no other batch card ticks anything (Tasks F6, F10)', () => {
   it('each allowed fix names the original at its offset in the input', () => {
     const wrong = TICK_TRUTH.flatMap((row) =>
       row.mayTick.filter((fix) => {
@@ -412,6 +447,8 @@ describe('the simple-fixes card ticks only what the truth table allows (Task F6,
         if (match) tickedOn.set(match.row, [...(tickedOn.get(match.row) ?? []), fix]);
         if (!match?.row.mayTick.includes(fix)) problems.push(`"${shown(text)}": "${shown(fix)}" starts ticked; the table allows ${JSON.stringify(match?.row.mayTick ?? [])}`);
       }
+      // No other batch card ticks anything, whatever the table allows on the simple-fixes card (Task F10).
+      problems.push(...tickedOffTheSimpleFixesCard([...top, ...more], byId));
     }
     expect(problems).toEqual([]);
     // The closed set still ticks: the table can't pass by the card ticking nothing.

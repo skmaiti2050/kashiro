@@ -193,6 +193,19 @@ describe('the simple-fixes card ticks only a closed set of fixes (Task F6, owner
     expect(card!.startUnticked).toEqual(card!.candidateIds);
   });
 
+  it.each([
+    ['He said THAT THAT was fine. I knew THAT THAT was wrong.', 'THAT THAT → THAT (2 places)'],
+    ['HE HAD HAD ENOUGH. SHE HAD HAD LUNCH.', 'HAD HAD → HAD (2 places)'],
+    ['He Had Had Enough. She Had Had Lunch.', 'Had Had → Had (2 places)'],
+    ['He had  had enough. She had  had lunch.', 'had  had → had (2 places)'],
+  ])('starts every place of any other batch card unticked, in any case or spacing: "%s" (Task F10)', async (text, label) => {
+    const s = await CheckSession.start([{ id: 0, text }], opts(), { linter });
+    const { top, more } = s.decisions();
+    const batches = [...top, ...more].filter((d) => d.kind === 'batch');
+    expect(batches.map((d) => d.label)).toEqual([label]);
+    expect(batches[0].startUnticked).toEqual(batches[0].candidateIds);
+  });
+
   it('ticks no spaces the zero-click rule left as layout (M-4)', async () => {
     const { session, unticked } = await applyAllWithDefaultTicks([{ id: 0, text: 'Use tabs\t\there please.' }]);
     expect(unticked).toEqual(['\t\t →  ']);

@@ -172,6 +172,7 @@
   "card.simpleFixesTitle": "{count, plural, =1 {#টি সহজ সংশোধন: দেখে বসান} other {#টি সহজ সংশোধন: দেখে সব বসান}}",
   "card.reviewSimpleFixes": "{count, plural, =1 {দেখে বসান} other {দেখে #টিই বসান}}",
   "card.chooseFixes": "কোনগুলো বসাবেন, বেছে নিন…",
+  "card.chooseWhere": "{what} কোথায় বসাবেন, বেছে নিন…",
 
   "dismiss.menu": "এড়িয়ে যান",
   "dismiss.button": "এড়িয়ে যান ▾",
@@ -562,7 +563,7 @@
   "modules.aiStays": "যে AI প্রস্তাবগুলি দেখানো হয়েছে, AI পুনর্লিখন বন্ধ থাকলেও আপনি সিদ্ধান্ত না নেওয়া পর্যন্ত সেগুলি থাকে।",
   "ai.nothingMore": "দেখার মতো আর কোনো বাক্য নেই।",
   "ai.pending": "দেখার জন্য {count, plural, other {#টি AI প্রস্তাব}}।",
-  "ai.acceptAll": "সহায়কের সব প্রস্তাব মেনে নিন ({count, number})",
+  "ai.chooseSuggestions": "সহায়কের কোন প্রস্তাবগুলো মেনে নেবেন, বেছে নিন ({count, number})…",
   "ai.speedSlow": "এই PC-তে AI পুনর্লিখন ধীর (প্রতি বাক্যে প্রায় {seconds, number} সেকেন্ড)। ব্যাকরণ পরীক্ষার জন্য এটি লাগে না। একটি একটি বাক্যে “এই বাক্যটি আরও ভালো করুন” ব্যবহার করুন।",
   "ai.speedGpuFailed": "গ্রাফিক্স কার্ডের (GPU) সংস্করণ চালু হয়নি, তাই ধীর প্রসেসরের (CPU) সংস্করণ চলছে।",
   "ai.speedSlowGpuFailed": "{slow} {gpu}",

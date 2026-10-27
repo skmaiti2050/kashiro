@@ -16,8 +16,8 @@ interface Props {
 
 /**
  * The review panel's AI group (Task 13): "Check how it reads" / "Check more sentences", the run's progress with
- * Cancel, the last notice ("No improvement suggested…"), the speed advice, and "Accept all helper suggestions",
- * which opens a preview first. Progress is not a live region: the announcer says the start and the end.
+ * Cancel, the last notice ("No improvement suggested…"), the speed advice, and "Choose helper suggestions to
+ * accept", which opens a preview with nothing ticked. Progress is not a live region: the announcer says the start and the end.
  */
 export function AiGroup({ controller, state, session, paraText }: Props) {
   const t = useT();
@@ -76,7 +76,7 @@ export function AiGroup({ controller, state, session, paraText }: Props) {
       {pending.length > 0 && !previewed?.length && (
         <div className="actions">
           <span className="hint">{t.t('ai.pending', { count: pending.length })}</span>
-          <button onClick={() => setPreviewIds(pending.map((c) => c.id))}>{t.t('ai.acceptAll', { count: pending.length })}</button>
+          <button onClick={() => setPreviewIds(pending.map((c) => c.id))}>{t.t('ai.chooseSuggestions', { count: pending.length })}</button>
         </div>
       )}
       {previewed && previewed.length > 0 && (
@@ -86,6 +86,8 @@ export function AiGroup({ controller, state, session, paraText }: Props) {
           paraText={paraText}
           // Outside the card slot, Enter and Backspace act on the current card, not on this preview.
           reviewKeys={false}
+          // Like every batch card but the simple-fixes card, nothing starts ticked (owner decision 2026-10-27, Task F10).
+          startUnticked={previewed.map((c) => c.id)}
           onApply={(ids) => {
             setPreviewIds(null);
             controller.ai.acceptAll(ids);

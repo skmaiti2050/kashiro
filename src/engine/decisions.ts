@@ -27,8 +27,8 @@ export interface Decision {
   likelyTypos?: [string, string][];
   /**
    * Batches only: the members that start unticked in the preview, in card order. On the simple-fixes card,
-   * defaultTicks picks them and "Review and apply all" applies the others with one click (Task F5); on the
-   * "Repeated words" card every member starts unticked (F8 re-review 7, M-4).
+   * defaultTicks picks them and "Review and apply all" applies the others with one click (Task F5); on every
+   * other batch card every member starts unticked (owner decision 2026-10-27, Task F10).
    */
   startUnticked?: string[];
 }
@@ -144,7 +144,7 @@ function simpleFixesCard(fixes: Candidate[], startUnticked: string[]): Decision 
  * - Spelling/Typo: kind + lowercased word, whatever the suggestions. One decision per flagged word
  *   ("Sujit (12 places)"), resolved by adding it to the dictionary, ignoring all, or one replacement for all.
  * - a doubled word (doubledWord): one key for all of them, "had had" and "that that" alike; the batch
- *   preview lists each place with its own fix, to untick the ones that are grammar.
+ *   preview lists each place with its own fix, to tick the ones that are slips.
  * - exactly one replacement: kind + lower(original) + '→' + lower(replacement) (each member keeps its own
  *   replacement on accept, so "It's → Its" keeps its capital).
  * - otherwise (no fix, or a choice): kind + lower(original) + message, i.e. the identical flag repeated.
@@ -202,9 +202,9 @@ class DecisionGroups {
       const c = g[0];
       if (g.length > 1) {
         const candidateIds = g.map((x) => x.id);
-        const batch: Decision = { id: `batch:${key}`, kind: 'batch', candidateIds, label: batchLabel(c, g.length), score: score(c, true) };
-        // Off the slip allowlist, a doubled word is often grammar ("had had", "that that"): the user ticks the slips.
-        return key === REPEATED_WORDS_KEY ? { ...batch, startUnticked: candidateIds } : batch;
+        // Only the simple-fixes card ticks anything (owner decision 2026-10-27, Task F10): a fix that suits one place
+        // can damage another ("THAT THAT" is grammar, "wagged it's tail" → "it is tail"), so the user ticks each place.
+        return { id: `batch:${key}`, kind: 'batch', candidateIds, label: batchLabel(c, g.length), score: score(c, true), startUnticked: candidateIds };
       }
       return { id: c.id, kind: 'single', candidateIds: [c.id], label: singleLabel(c), score: score(c, false) };
     });

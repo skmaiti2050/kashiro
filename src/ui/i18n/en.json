@@ -171,6 +171,7 @@
   "card.simpleFixesTitle": "{count, plural, one {# simple fix: review and apply} other {# simple fixes: review and apply all}}",
   "card.reviewSimpleFixes": "{count, plural, one {Review and apply} other {Review and apply all #}}",
   "card.chooseFixes": "Choose which to fix…",
+  "card.chooseWhere": "Choose where to use {what}…",
 
   "dismiss.menu": "Dismiss",
   "dismiss.button": "Dismiss ▾",
@@ -562,7 +563,7 @@
   "modules.aiStays": "AI suggestions already shown stay until you decide them, even with AI rewrites off.",
   "ai.nothingMore": "No more sentences to check.",
   "ai.pending": "{count, plural, one {# AI suggestion} other {# AI suggestions}} to review.",
-  "ai.acceptAll": "Accept all helper suggestions ({count, number})",
+  "ai.chooseSuggestions": "Choose helper suggestions to accept ({count, number})…",
   "ai.speedSlow": "This PC is slow for AI rewrites (about {seconds, number} s per sentence). Grammar checking doesn’t need it. Use “Improve this sentence” on single sentences.",
   "ai.speedGpuFailed": "The graphics card (GPU) build did not start, so the slower processor (CPU) build is used.",
   "ai.speedSlowGpuFailed": "{slow} {gpu}",

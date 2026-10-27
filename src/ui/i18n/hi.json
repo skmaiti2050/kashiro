@@ -172,6 +172,7 @@
   "card.simpleFixesTitle": "{count, plural, one {# आसान सुधार: देखें और लागू करें} other {# आसान सुधार: देखें और सभी लागू करें}}",
   "card.reviewSimpleFixes": "{count, plural, one {देखें और लागू करें} other {देखें और सभी # लागू करें}}",
   "card.chooseFixes": "चुनें कि कौन-से सुधार लागू करें…",
+  "card.chooseWhere": "चुनें कि {what} कहाँ लागू करें…",
 
   "dismiss.menu": "नज़रअंदाज़ करें",
   "dismiss.button": "नज़रअंदाज़ ▾",
@@ -562,7 +563,7 @@
   "modules.aiStays": "जो AI सुझाव दिख चुके हैं, वे AI रीराइट बंद होने पर भी तब तक रहते हैं जब तक आप उन पर फ़ैसला न करें।",
   "ai.nothingMore": "जाँचने के लिए और वाक्य नहीं हैं।",
   "ai.pending": "देखने के लिए {count, plural, one {# AI सुझाव} other {# AI सुझाव}}।",
-  "ai.acceptAll": "सहायक के सभी सुझाव स्वीकार करें ({count, number})",
+  "ai.chooseSuggestions": "चुनें कि सहायक के कौन-से सुझाव स्वीकार करें ({count, number})…",
   "ai.speedSlow": "यह PC AI रीराइट के लिए धीमा है (हर वाक्य में लगभग {seconds, number} सेकंड)। व्याकरण जाँच को इसकी ज़रूरत नहीं है। अकेले वाक्यों पर “यह वाक्य बेहतर करें” इस्तेमाल करें।",
   "ai.speedGpuFailed": "ग्राफ़िक्स कार्ड (GPU) वाला संस्करण शुरू नहीं हुआ, इसलिए धीमा प्रोसेसर (CPU) वाला संस्करण चल रहा है।",
   "ai.speedSlowGpuFailed": "{slow} {gpu}",

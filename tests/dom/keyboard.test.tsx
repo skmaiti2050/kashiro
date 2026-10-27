@@ -130,6 +130,38 @@ describe('review keys on the "Repeated words" card (F8 re-review 7, M-4)', () =>
   });
 });
 
+describe('review keys on every other batch card (Task F10, owner decision 2026-10-27)', () => {
+  it.each([
+    'He said THAT THAT was fine. I knew THAT THAT was wrong.',
+    'HE HAD HAD ENOUGH. SHE HAD HAD LUNCH.',
+    'He Had Had Enough. She Had Had Lunch.',
+    'He had  had enough. She had  had lunch.',
+    'I like it alot. She likes it alot too.',
+    'I recieve mail. They recieve calls.',
+    // Two cards: "it's → its" and "it's → it is / it has"; ticked, the second made "wagged it is tail".
+    "The dog wagged it's tail. The cat licked it's paw.",
+  ])('Enter, Enter changes nothing on any card: "%s"', async (text) => {
+    const { controller } = makeController();
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText(text));
+    const session = controller.getState().session!;
+    const { top, more } = session.decisions();
+    expect([...top, ...more].filter((d) => d.kind !== 'batch')).toEqual([]);
+
+    for (let i = 0; i < top.length; i++) {
+      fireEvent.keyDown(reviewPanel(), { key: 'Enter' });
+      expect(screen.getAllByRole<HTMLInputElement>('checkbox').every((b) => !b.checked)).toBe(true);
+      expect(screen.getByText('Nothing starts ticked. Tick each place you want to fix.')).toBeTruthy();
+      fireEvent.keyDown(reviewPanel(), { key: 'Enter' });
+      fireEvent.keyDown(reviewPanel(), { key: 'Backspace' }); // closes the preview
+      fireEvent.keyDown(reviewPanel(), { key: 'j' });
+    }
+
+    expect(session.outputText(0)).toBe(text);
+    expect(session.outcomes().filter((o) => o.status !== 'pending')).toEqual([]);
+  });
+});
+
 describe('speak', () => {
   it('refuses a voice that is not local, whatever the caller passes', () => {
     const speech = installSpeech([ONLINE_VOICE, LOCAL_VOICE]);

@@ -128,6 +128,44 @@ describe('DecisionCard: the review-tier "Repeated words" card starts with nothin
   });
 });
 
+describe('DecisionCard: a batch card with a choice of fixes starts with nothing ticked (Task F10)', () => {
+  const TEXT = 'I recieve mail. They recieve calls.';
+  const spelling = (id: string, start: number): Candidate => ({ id, paraId: 0, span: { start, end: start + 7 }, original: 'recieve', replacements: ['receive', 'relieve'], kind: 'Spelling', message: 'Did you mean to spell “recieve” this way?', source: 'rules' });
+  const members = [spelling('r1', TEXT.indexOf('recieve')), spelling('r2', TEXT.lastIndexOf('recieve'))];
+  const card: Decision = { id: 'batch:word:Spelling:recieve', kind: 'batch', candidateIds: ['r1', 'r2'], label: 'recieve → receive / relieve (2 places)', score: 3, startUnticked: ['r1', 'r2'] };
+
+  it.each([
+    ['en', ['Choose where to use “receive”…Enter', 'Choose where to use “relieve”…'], 'Nothing starts ticked. Tick each place you want to fix.'],
+    ['hi', ['चुनें कि “receive” कहाँ लागू करें…Enter', 'चुनें कि “relieve” कहाँ लागू करें…'], 'शुरू में किसी पर निशान नहीं है। जिस जगह को सुधारना हो, उस पर निशान लगाएँ।'],
+    ['bn', ['“receive” কোথায় বসাবেন, বেছে নিন…Enter', '“relieve” কোথায় বসাবেন, বেছে নিন…'], 'শুরুতে কোনোটিতেই টিক নেই। যে জায়গাগুলোয় সংশোধন চান, সেগুলোয় টিক দিন।'],
+  ] as const)('%s: each fix button says the user chooses the places, and its preview starts unticked', (language, choose, hint) => {
+    const onApply = vi.fn();
+    render(
+      <TranslatorProvider translator={createTranslator(language, ['en-IN'])}>
+        <DecisionCard
+          controller={{ applyBatch: onApply } as unknown as SessionController}
+          decision={card}
+          candidates={new Map(members.map((c) => [c.id, c]))}
+          paraText={new Map([[0, TEXT]])}
+          touchesLocked={false}
+          onNext={() => {}}
+          onLocate={() => {}}
+        />
+      </TranslatorProvider>,
+    );
+    const names = screen.getAllByRole('button').map((b) => b.textContent ?? '');
+    expect(names.slice(0, 2)).toEqual(choose);
+
+    fireEvent.click(screen.getAllByRole('button')[1]);
+    expect(screen.getAllByRole<HTMLInputElement>('checkbox').map((b) => b.checked)).toEqual([false, false]);
+    expect(document.querySelector('.batch-preview .hint')!.textContent).toBe(hint);
+    const applyButton = screen.getAllByRole<HTMLButtonElement>('button').find((b) => b.getAttribute('data-key') === 'accept')!;
+    expect(applyButton.disabled).toBe(true);
+    fireEvent.click(applyButton);
+    expect(onApply).not.toHaveBeenCalled();
+  });
+});
+
 describe('DecisionCard: a choice that deletes the text (Task F2)', () => {
   it.each([
     ['en', 'Delete'],

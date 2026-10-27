@@ -53,7 +53,7 @@ export function DecisionCard({ controller, decision, candidates, paraText, touch
   const isBatch = decision.kind === 'batch';
   // The simple-fixes card mixes kinds and words: the first member's word or rule is not the card's (Task F4).
   const isSimpleFixes = decision.id === SIMPLE_FIXES_ID;
-  // Every place starts unticked (the "Repeated words" card): the button opens a choice, not "Apply all".
+  // Every place starts unticked (every batch card but the simple-fixes card, Task F10): the button opens a choice, not "Apply all".
   const choosesPlaces = isBatch && !isSimpleFixes && decision.startUnticked?.length === members.length;
   const isWordFlag = WORD_REWRITE_KINDS.has(first.kind) && !isSimpleFixes;
   const flagOnly = first.replacements.length === 0;
@@ -110,7 +110,7 @@ export function DecisionCard({ controller, decision, candidates, paraText, touch
               {isSimpleFixes
                 ? t.t('card.reviewSimpleFixes', { count: members.length })
                 : choosesPlaces
-                  ? t.t('card.chooseFixes')
+                  ? chooseLabel(t, first, r)
                   : acceptLabel(t, first, r, isBatch, members.length)}
               {i === 0 && <Kbd>Enter</Kbd>}
             </button>
@@ -173,11 +173,22 @@ export function DecisionCard({ controller, decision, candidates, paraText, touch
 
 /** "Accept", "Use “its”", "Delete", or for a batch its count and kind: "Apply all 12 fixes (Formatting)" (opens the preview). */
 function acceptLabel(t: Translator, first: Candidate, replacement: string, isBatch: boolean, places: number): string {
-  const what = replacement === '' ? t.t('card.deleteWord') : t.t('quote', { text: excerpt(replacement).text });
+  const what = fixName(t, replacement);
   const choices = first.replacements.length;
   if (isBatch && choices === 1) return batchApplyLabel(t, first.kind, places);
   if (isBatch) return t.t('card.applyTo', { what, count: places });
   if (choices === 1) return t.t('card.accept');
   // A whole label: "Use" + "delete" reads badly, and in Hindi and Bengali it isn't a sentence.
   return replacement === '' ? t.t('card.acceptDelete') : t.t('card.use', { what });
+}
+
+/** A batch whose places all start unticked: "Choose which to fix…", or per fix "Choose where to use “receive”…" (Task F10). */
+function chooseLabel(t: Translator, first: Candidate, replacement: string): string {
+  if (first.replacements.length === 1) return t.t('card.chooseFixes');
+  return t.t('card.chooseWhere', { what: fixName(t, replacement) });
+}
+
+/** A fix as a button names it: "“receive”", or "delete" for an empty replacement. */
+function fixName(t: Translator, replacement: string): string {
+  return replacement === '' ? t.t('card.deleteWord') : t.t('quote', { text: excerpt(replacement).text });
 }

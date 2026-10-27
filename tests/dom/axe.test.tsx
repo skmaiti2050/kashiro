@@ -77,8 +77,9 @@ describe('axe-core: no serious or critical violations', () => {
     expect(batch).not.toBeNull();
     fireEvent.click(buttonNamed(batch, /^See each$/)!);
     await audit('batch: see each');
-    fireEvent.click(buttonNamed(batch, /^Apply /)!);
-    expect(screen.getByText(/Untick any place/)).toBeTruthy();
+    // Every batch card but the simple-fixes card starts with nothing ticked (Task F10).
+    fireEvent.click(buttonNamed(batch, /^Choose /)!);
+    expect(screen.getByText('Nothing starts ticked. Tick each place you want to fix.')).toBeTruthy();
     await audit('batch preview');
   }, 60_000);
 
