@@ -96,6 +96,11 @@ export interface ControllerState extends SavedReviewsState {
   ai: AiState;
   /** Bumped on every change: the session is mutable, so views re-read it when this moves. */
   revision: number;
+  /**
+   * Bumped on every change to the document's text, whatever made it: typing, or an edit applied or taken back in
+   * place (a card, an AI suggestion, the change log). An open batch preview closes when it moves (useOpenPreview).
+   */
+  textChanges: number;
 }
 
 export interface Announcement {
@@ -105,6 +110,9 @@ export interface Announcement {
 
 const RECHECK_DELAY_MS = 300;
 const PASTED_NAME = 'Untitled.txt';
+
+/** The edits the session writes into the text, as one string: equal strings mean the same text. */
+const editsOf = (session: CheckSession) => JSON.stringify(session.acceptedEdits());
 
 /**
  * The desktop flow without React: open → check → review → save. Holds one document and its
@@ -206,6 +214,7 @@ export class SessionController {
       helperBackend: null,
       ai: NO_AI,
       revision: 0,
+      textChanges: 0,
     };
     this.ai = new AiSuggestions({
       ...this.helperHost,
@@ -329,7 +338,7 @@ export class SessionController {
     if (!this.state.document?.editable) return;
     this.changes++;
     this.queue.push(text);
-    if (!this.state.checking) this.set({ checking: true });
+    this.set({ checking: true, textChanges: this.state.textChanges + 1 });
   }
 
   private async checkTypedText(text: string): Promise<void> {
@@ -555,6 +564,7 @@ export class SessionController {
   private act(change: (s: CheckSession) => void, count: () => void, verb: MessageKey): void {
     const session = this.state.session;
     if (!session) return;
+    const editsBefore = editsOf(session);
     try {
       change(session);
     } catch (e) {
@@ -563,7 +573,9 @@ export class SessionController {
     }
     this.changes++;
     count();
-    this.set({ error: null, decided: this.tally.decided, announcement: this.announcement(msg(verb)) });
+    // A reject or "Review again" changes no text, so an open preview stays.
+    const textChanges = this.state.textChanges + (editsOf(session) === editsBefore ? 0 : 1);
+    this.set({ error: null, decided: this.tally.decided, announcement: this.announcement(msg(verb)), textChanges });
     this.reviews.changed();
   }
 

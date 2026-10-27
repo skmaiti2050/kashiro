@@ -21,9 +21,10 @@ import { useOpenPreview } from './useOpenPreview';
 
 interface Props {
   controller: SessionController;
-  /** The session the card comes from, and whether typed text waits for its re-check: either changing closes the preview. */
+  /** The session the card comes from, whether typed text waits for its re-check, and ControllerState.textChanges: any changing closes the preview. */
   session: CheckSession;
   checking: boolean;
+  textChanges: number;
   decision: Decision;
   candidates: Map<string, Candidate>;
   paraText: Map<number, string>;
@@ -46,14 +47,14 @@ interface Props {
  * (not word flags, not AI rewrites) get the Dismiss ▾ scope menu. `data-key` marks the buttons the
  * review keys press (Enter: accept, Backspace: reject).
  */
-export function DecisionCard({ controller, session, checking, decision, candidates, paraText, touchesLocked, onNext, onLocate, onLookUp, onImprove }: Props) {
+export function DecisionCard({ controller, session, checking, textChanges, decision, candidates, paraText, touchesLocked, onNext, onLocate, onLookUp, onImprove }: Props) {
   const t = useT();
   const [seeEach, setSeeEach] = useState(false);
   const [place, setPlace] = useState(0);
   /** Each fix's button, by replacement index: the one that opened the preview takes focus back when it closes. */
   const openers = useRef<(HTMLButtonElement | null)[]>([]);
-  // The replacement index the open preview applies; typing or a re-check closes it (useOpenPreview, Task F13).
-  const openPreview = useOpenPreview<number>(session, checking, (replacement) => openers.current[replacement]?.focus());
+  // The replacement index the open preview applies; any change to the text or a re-check closes it (useOpenPreview).
+  const openPreview = useOpenPreview<number>(session, checking, textChanges, (replacement) => openers.current[replacement]?.focus());
   const preview = openPreview.shown;
   const members = decision.candidateIds.map((id) => candidates.get(id)!);
   const first = members[0];

@@ -26,10 +26,12 @@ export function AiGroup({ controller, state, session, paraText }: Props) {
   const choose = useRef<HTMLButtonElement>(null);
   /**
    * The ids of the suggestions the open Accept-all preview shows: fixed when it opens, so one arriving later is never
-   * applied unseen. Typing or a re-check closes it, as on a batch card (useOpenPreview, Task F13). Focus goes back to
-   * "Choose…", or while none is left to choose, to the group's first button.
+   * applied unseen. Any change to the text or a re-check closes it, as on a batch card (useOpenPreview, Tasks F13 and
+   * F14). Focus goes back to "Choose…", or while none is left to choose, to the group's first button.
    */
-  const openPreview = useOpenPreview<ReadonlySet<string>>(session, state.checking, () => (choose.current ?? group.current?.querySelector('button'))?.focus());
+  const openPreview = useOpenPreview<ReadonlySet<string>>(session, state.checking, state.textChanges, () =>
+    (choose.current ?? group.current?.querySelector('button'))?.focus(),
+  );
   const opened = openPreview.shown;
   const { run, checkedDocument, notice, measuring } = state.ai;
   const pending = pendingSuggestions(session);

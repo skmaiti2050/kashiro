@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, vi } from 'vitest';
-import { act, fireEvent, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { moveLineUp, undo } from '@codemirror/commands';
 import { EditorView } from '@codemirror/view';
 import { SIMPLE_FIXES_ID, type Decision } from '@/engine/decisions';
@@ -239,5 +239,41 @@ describe('any change to the text, and any re-check, closes an open batch preview
     fireEvent.click(cancel);
     expect(previewOpen()).toBe(false);
     expect(document.activeElement).toBe(reviewPanel().querySelector('.card button[data-key~="accept"]'));
+  });
+});
+
+// Final F13 review M-6 and M-7 (Task F14): a preview opened while typed text waited for its check stayed open as more
+// was typed, and an edit that changes the session in place (here the change log's Undo) left it open.
+describe('every change to the text closes an open batch preview (Task F14)', () => {
+  it('a preview opened while typed text waits for its check closes when more is typed', async () => {
+    const TEXT = 'I recieve mail. You recieve calls.';
+    const { controller } = makeController({ preset: 'blog' });
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText(TEXT));
+    showCard(/recieve/);
+    act(() => controller.editText(`${TEXT}\n\nThe`));
+    expect(controller.getState().checking).toBe(true);
+    fireEvent.click(reviewPanel().querySelector<HTMLButtonElement>('.card button[data-key~="accept"]')!);
+    toggleRow(0);
+    expect(previewOpen()).toBe(true);
+
+    act(() => controller.editText(`${TEXT}\n\nThe road`));
+    expect(previewOpen()).toBe(false);
+    await waitFor(() => expect(controller.getState().checking).toBe(false), { timeout: 10000 });
+    expect(controller.getState().session!.outcomes().filter((o) => o.status === 'applied')).toEqual([]);
+  });
+
+  it('the change log’s Undo closes the preview', async () => {
+    const { controller } = makeController({ preset: 'blog' });
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText('I recieve​ the parcel.\nI recieve "sic" once.'));
+    showCard(/recieve/);
+    fireEvent.keyDown(reviewPanel(), { key: 'Enter' });
+    toggleRow(0);
+
+    fireEvent.click(screen.getByRole('button', { name: /Change log/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' })); // the zero-click removal of U+200B
+    expect(controller.getState().session!.outputText(0)).toContain('​');
+    expect(previewOpen()).toBe(false);
   });
 });

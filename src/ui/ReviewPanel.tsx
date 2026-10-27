@@ -216,6 +216,7 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
         controller={controller}
         session={session!}
         checking={state.checking}
+        textChanges={state.textChanges}
         decision={d}
         candidates={candidates}
         paraText={paraText}

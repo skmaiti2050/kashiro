@@ -34,6 +34,7 @@ function renderCard(language: 'en' | 'hi' | 'bn') {
         touchesLocked={false}
         session={NO_SESSION}
         checking={false}
+        textChanges={0}
         onNext={() => {}}
         onLocate={() => {}}
       />
@@ -61,6 +62,7 @@ describe('DecisionCard: the simple-fixes card (Task F4)', () => {
           touchesLocked={false}
           session={NO_SESSION}
           checking={false}
+          textChanges={0}
           onNext={() => {}}
           onLocate={() => {}}
           onLookUp={() => {}}
@@ -118,6 +120,7 @@ describe('DecisionCard: the review-tier "Repeated words" card starts with nothin
           touchesLocked={false}
           session={NO_SESSION}
           checking={false}
+          textChanges={0}
           onNext={() => {}}
           onLocate={() => {}}
         />
@@ -159,6 +162,7 @@ describe('DecisionCard: a batch card with a choice of fixes starts with nothing 
           touchesLocked={false}
           session={NO_SESSION}
           checking={false}
+          textChanges={0}
           onNext={() => {}}
           onLocate={() => {}}
         />

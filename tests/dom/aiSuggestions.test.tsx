@@ -4,7 +4,7 @@ import { describe, it, expect, beforeAll, vi } from 'vitest';
 import axe from 'axe-core';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { EditorView } from '@codemirror/view';
-import { createLinter } from '@/engine/linter';
+import { createLinter, type RulesLinter } from '@/engine/linter';
 import { DEFAULT_MODULES } from '@/engine/modules';
 import type { Rewriter } from '@/engine/llm/suggest';
 import { SessionController } from '@/ui/state/sessionController';
@@ -32,8 +32,22 @@ const AI_ON: Partial<Settings> = {
   helperSpeed: { modelPath: 'C:/models/helper.gguf', seconds: 2.5, backend: 'cpu', gpuFallback: false },
 };
 
-/** A controller whose writing helper answers with `answer` and records what it was sent. */
-function aiController(answer: (text: string) => string | null | Promise<string | null>, settings: Partial<Settings> = AI_ON) {
+/** A linter whose rules pass fails on any paragraph holding `word`: that check fails, and the session stays. */
+function failingOn(word: string, linter: RulesLinter): RulesLinter {
+  return {
+    get variant() {
+      return linter.variant;
+    },
+    lintParagraphs: (paras, language) =>
+      paras.some((p) => p.text.includes(word)) ? Promise.reject(new Error('the rules pass failed')) : linter.lintParagraphs(paras, language),
+    lintSpelling: (paras, variant) => linter.lintSpelling(paras, variant),
+    addWords: (words) => linter.addWords(words),
+    setVariant: (variant) => linter.setVariant(variant),
+  };
+}
+
+/** A controller whose writing helper answers with `answer` and records what it was sent; its checks fail on `failCheckOn`. */
+function aiController(answer: (text: string) => string | null | Promise<string | null>, settings: Partial<Settings> = AI_ON, failCheckOn?: string) {
   const sent: string[] = [];
   const rewriter: Rewriter = {
     async rewrite(text, _preset, _variant, signal) {
@@ -45,7 +59,10 @@ function aiController(answer: (text: string) => string | null | Promise<string |
   };
   const controller = new SessionController({
     files: noFiles,
-    createLinter: (variant, words) => createLinter(variant, words),
+    createLinter: async (variant, words) => {
+      const linter = await createLinter(variant, words);
+      return failCheckOn ? failingOn(failCheckOn, linter) : linter;
+    },
     saveSettings: async () => {},
     startHelper: async () => ({ rewriter, stop: () => {}, backend: 'cpu', gpuFallback: false }),
     settings: { ...defaultSettings('en-US'), preset: 'business', ...settings },
@@ -303,6 +320,131 @@ describe('the Accept-all preview applies only what it showed (I2)', () => {
     await waitFor(() => expect(controller.getState().checking).toBe(false), { timeout: 10000 });
     expect(within(aiGroup()).queryAllByRole('checkbox')).toEqual([]);
     expect(within(aiGroup()).getByRole('button', { name: 'Choose helper suggestions to accept (1)…' })).toBeTruthy();
+  });
+});
+
+/** Presses J until the current card's title matches `title`. */
+function showCard(title: RegExp): void {
+  for (let i = 0; i < 20; i++) {
+    if (title.test(reviewPanel().querySelector('.card-title')?.textContent ?? '')) return;
+    fireEvent.keyDown(reviewPanel(), { key: 'j' });
+  }
+  throw new Error(`No card titled ${title}`);
+}
+
+const cardPreview = () => reviewPanel().querySelector<HTMLElement>('.card-slot .batch-preview');
+const cardRows = () => [...cardPreview()!.querySelectorAll<HTMLInputElement>('input[type=checkbox]')];
+const offeredIds = (controller: SessionController) => {
+  const { top, more } = controller.getState().session!.decisions();
+  return [...top, ...more].flatMap((d) => d.candidateIds);
+};
+
+// Final F13 review M-6, I-2 and M-8 (Task F14): an edit made in place (the AI preview's Apply, a card's Apply) left the
+// other open preview open, and a card then applied over an accepted rewrite reverted it.
+describe('an edit from one preview closes the other (Task F14)', () => {
+  it('the AI preview’s Apply closes the card preview, and the card no longer offers the place the rewrite replaced', async () => {
+    const POST = 'I recieve post daily.';
+    const CALLS = 'You recieve "sic" calls.';
+    const REWRITE = 'Post reaches me daily.';
+    const { controller } = aiController((text) => (text === POST ? REWRITE : null));
+    await openText(controller, `${POST}\n\n${CALLS}`);
+    await act(async () => {
+      controller.ai.improveSentence(0, 0);
+      await controller.ai.settled();
+    });
+    showCard(/recieve.*2 places/);
+    fireEvent.keyDown(reviewPanel(), { key: 'Enter' });
+    fireEvent.click(cardRows()[0]);
+    fireEvent.click(within(aiGroup()).getByRole('button', { name: 'Choose helper suggestions to accept (1)…' }));
+    fireEvent.click(within(aiGroup()).getByRole('checkbox'));
+
+    fireEvent.click(within(aiGroup()).getByRole('button', { name: /^Apply 1/ }));
+    const session = controller.getState().session!;
+    expect([session.outputText(0), session.outputText(1)]).toEqual([REWRITE, CALLS]);
+    expect(cardPreview()).toBeNull();
+    expect(offeredIds(controller)).not.toContain('0:2:9:Spelling');
+    expect(offeredIds(controller)).toContain('1:4:11:Spelling');
+
+    fireEvent.click(screen.getByRole('button', { name: /Change log/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Undo/ }));
+    expect([session.outputText(0), session.outputText(1)]).toEqual([POST, CALLS]);
+    expect(offeredIds(controller)).toEqual(expect.arrayContaining(['0:2:9:Spelling', '1:4:11:Spelling']));
+  });
+
+  it('the AI preview’s Apply in another sentence closes the card preview', async () => {
+    const { controller } = aiController((text) => (text === FIRST ? FIRST_REWRITE : null));
+    await openText(controller, `${FIRST} I recieve mail.\n\nYou recieve "sic" calls.`);
+    await act(async () => {
+      controller.ai.improveSentence(0, 0);
+      await controller.ai.settled();
+    });
+    showCard(/recieve.*2 places/);
+    fireEvent.keyDown(reviewPanel(), { key: 'Enter' });
+    fireEvent.click(cardRows()[0]);
+    fireEvent.click(within(aiGroup()).getByRole('button', { name: 'Choose helper suggestions to accept (1)…' }));
+    fireEvent.click(within(aiGroup()).getByRole('checkbox'));
+
+    fireEvent.click(within(aiGroup()).getByRole('button', { name: /^Apply 1/ }));
+    expect(controller.getState().session!.outputText(0)).toBe(`${FIRST_REWRITE} I recieve mail.`);
+    expect(cardPreview()).toBeNull();
+    showCard(/recieve.*2 places/); // the same card, still offering both places
+  });
+
+  it('a card’s Apply in another sentence closes the AI preview', async () => {
+    const { controller } = aiController((text) => (text === FIRST ? FIRST_REWRITE : null));
+    await openText(controller, `${FIRST} I recieve mail.\n\nYou recieve "sic" calls.`);
+    await act(async () => {
+      controller.ai.improveSentence(0, 0);
+      await controller.ai.settled();
+    });
+    fireEvent.click(within(aiGroup()).getByRole('button', { name: 'Choose helper suggestions to accept (1)…' }));
+    fireEvent.click(within(aiGroup()).getByRole('checkbox'));
+    showCard(/recieve/);
+    fireEvent.keyDown(reviewPanel(), { key: 'Enter' });
+    fireEvent.click(cardRows()[0]);
+
+    fireEvent.click(cardPreview()!.querySelector<HTMLButtonElement>('button.primary')!);
+    const session = controller.getState().session!;
+    expect(session.outputText(0)).toBe(`${FIRST} I receive mail.`);
+    expect(within(aiGroup()).queryAllByRole('checkbox')).toEqual([]);
+    expect(within(aiGroup()).getByRole('button', { name: 'Choose helper suggestions to accept (1)…' })).toBeTruthy();
+  });
+
+  it('rejecting a card changes no text, so the AI preview stays open with its tick', async () => {
+    const { controller } = aiController((text) => (text === FIRST ? FIRST_REWRITE : null));
+    await openText(controller, `${FIRST} I recieve mail.\n\nYou recieve "sic" calls.`);
+    await act(async () => {
+      controller.ai.improveSentence(0, 0);
+      await controller.ai.settled();
+    });
+    fireEvent.click(within(aiGroup()).getByRole('button', { name: 'Choose helper suggestions to accept (1)…' }));
+    fireEvent.click(within(aiGroup()).getByRole('checkbox'));
+    showCard(/recieve/);
+
+    fireEvent.click(reviewPanel().querySelector<HTMLButtonElement>('.card button[data-key~="reject"]')!);
+    expect(controller.getState().session!.outcomes().some((o) => o.status === 'rejected')).toBe(true);
+    expect(within(aiGroup()).getAllByRole<HTMLInputElement>('checkbox').map((box) => box.checked)).toEqual([true]);
+  });
+
+  // Pins the group's `checking` input: here only `checking` moves (no new session, no text change).
+  it('a preview opened while typed text waits for its check closes when that check fails', async () => {
+    const { controller } = aiController((text) => (text === FIRST ? FIRST_REWRITE : null), AI_ON, 'Zzbreak');
+    await openText(controller);
+    await act(async () => {
+      controller.ai.improveSentence(0, 0);
+      await controller.ai.settled();
+    });
+    const session = controller.getState().session!;
+    act(() => controller.editText(`${FIRST}\n\n${SECOND} Zzbreak`));
+    expect(controller.getState().checking).toBe(true);
+    fireEvent.click(within(aiGroup()).getByRole('button', { name: 'Choose helper suggestions to accept (1)…' }));
+    fireEvent.click(within(aiGroup()).getByRole('checkbox'));
+
+    await waitFor(() => expect(controller.getState().checking).toBe(false), { timeout: 10000 });
+    expect(controller.getState().error).not.toBeNull();
+    expect(controller.getState().session).toBe(session);
+    expect(within(aiGroup()).queryAllByRole('checkbox')).toEqual([]);
+    expect(session.outputText(0)).toBe(FIRST);
   });
 });
 
