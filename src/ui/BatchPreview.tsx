@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import type { Candidate } from '@/engine/types';
 import { Diff } from './Diff';
 import { Kbd } from './Kbd';
@@ -14,26 +14,28 @@ interface Props {
   reviewKeys?: boolean;
   /** Members that start unticked (Decision.startUnticked); default none. */
   startUnticked?: readonly string[];
-}
-
-/**
- * What the preview shows of a member: its id, its text, its fixes and whether it starts ticked. An open preview closes
- * when this changes for a member it shows (Task F12): ids are offsets, so a moved line, a paste or an undo can put
- * other words under the same id, and the user's ticks would then cover text they never saw.
- */
-export function memberAsShown(member: Candidate, startsTicked: boolean): string {
-  return JSON.stringify([member.id, member.original, member.replacements, startsTicked]);
+  /** Called as the preview closes with focus inside it, so the opener can take focus back (the page would get it). */
+  onCloseWithFocus?(): void;
 }
 
 /**
  * The checklist shown before "Apply all" (UI/UX research §3, GitHub's batched suggestions): every place
  * as a one-line diff, ticked unless `startUnticked` names it. The ticked ones are applied as one change, undone
- * together in the log.
+ * together in the log. Any change to the text closes it (useOpenPreview), so its ticks only ever cover what it shows.
  */
-export function BatchPreview({ members, replacementIndex, paraText, onApply, onCancel, reviewKeys = true, startUnticked = [] }: Props) {
+export function BatchPreview({ members, replacementIndex, paraText, onApply, onCancel, reviewKeys = true, startUnticked = [], onCloseWithFocus }: Props) {
   const t = useT();
-  // The ticked ids, fixed when the preview opens: a member it hasn't seen (a re-check's new id) starts unticked (Task F11).
+  const box = useRef<HTMLDivElement>(null);
+  // The ticked ids, fixed when the preview opens: a member it hasn't seen starts unticked (Task F11).
   const [ticked, setTicked] = useState<ReadonlySet<string>>(() => new Set(members.filter((c) => !startUnticked.includes(c.id)).map((c) => c.id)));
+  // A layout effect's cleanup runs before React removes the preview's elements, while focus can still be inside them.
+  // Deliberately run once: the first onCloseWithFocus given is the one called.
+  useLayoutEffect(() => {
+    const element = box.current;
+    return () => {
+      if (element?.contains(document.activeElement)) onCloseWithFocus?.();
+    };
+  }, []);
   const chosen = members.filter((c) => ticked.has(c.id)).map((c) => c.id);
   const toggle = (id: string) =>
     setTicked((prev) => {
@@ -46,7 +48,7 @@ export function BatchPreview({ members, replacementIndex, paraText, onApply, onC
   const nothingStartsTicked = members.every((c) => startUnticked.includes(c.id));
 
   return (
-    <div className="batch-preview" onClick={(e) => e.stopPropagation()}>
+    <div ref={box} className="batch-preview" onClick={(e) => e.stopPropagation()}>
       <p className="hint">{nothingStartsTicked ? t.t('batch.tickHint') : t.t('batch.untickHint')}</p>
       <ol className="members">
         {members.map((c) => (

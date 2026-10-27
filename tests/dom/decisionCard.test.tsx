@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { SIMPLE_FIXES_ID, type Decision } from '@/engine/decisions';
+import type { CheckSession } from '@/engine/session';
 import type { Candidate } from '@/engine/types';
 import { DecisionCard } from '@/ui/DecisionCard';
 import { createTranslator } from '@/ui/i18n/translator';
@@ -19,6 +20,8 @@ const repeated: Candidate = {
   source: 'rules',
 };
 const decision: Decision = { id: 'c1', kind: 'single', candidateIds: ['c1'], label: 'the the', score: 1 };
+/** These cards are rendered alone: no check runs, so the session is only compared by identity. */
+const NO_SESSION = {} as CheckSession;
 
 function renderCard(language: 'en' | 'hi' | 'bn') {
   render(
@@ -29,6 +32,8 @@ function renderCard(language: 'en' | 'hi' | 'bn') {
         candidates={new Map([['c1', repeated]])}
         paraText={new Map([[0, PARA]])}
         touchesLocked={false}
+        session={NO_SESSION}
+        checking={false}
         onNext={() => {}}
         onLocate={() => {}}
       />
@@ -54,6 +59,8 @@ describe('DecisionCard: the simple-fixes card (Task F4)', () => {
           candidates={new Map(members.map((c) => [c.id, c]))}
           paraText={new Map([[0, TEXT]])}
           touchesLocked={false}
+          session={NO_SESSION}
+          checking={false}
           onNext={() => {}}
           onLocate={() => {}}
           onLookUp={() => {}}
@@ -109,6 +116,8 @@ describe('DecisionCard: the review-tier "Repeated words" card starts with nothin
           candidates={new Map(members.map((c) => [c.id, c]))}
           paraText={new Map([[0, TEXT]])}
           touchesLocked={false}
+          session={NO_SESSION}
+          checking={false}
           onNext={() => {}}
           onLocate={() => {}}
         />
@@ -148,6 +157,8 @@ describe('DecisionCard: a batch card with a choice of fixes starts with nothing 
           candidates={new Map(members.map((c) => [c.id, c]))}
           paraText={new Map([[0, TEXT]])}
           touchesLocked={false}
+          session={NO_SESSION}
+          checking={false}
           onNext={() => {}}
           onLocate={() => {}}
         />

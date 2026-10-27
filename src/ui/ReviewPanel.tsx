@@ -214,6 +214,8 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
       <DecisionCard
         key={d.id}
         controller={controller}
+        session={session!}
+        checking={state.checking}
         decision={d}
         candidates={candidates}
         paraText={paraText}

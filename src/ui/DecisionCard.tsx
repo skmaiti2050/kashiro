@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { SIMPLE_FIXES_ID, type Decision } from '@/engine/decisions';
+import type { CheckSession } from '@/engine/session';
 import type { Candidate } from '@/engine/types';
 import { WORD_REWRITE_KINDS } from '@/engine/wordFlags';
-import { BatchPreview, memberAsShown } from './BatchPreview';
+import { BatchPreview } from './BatchPreview';
 import { CategoryTag } from './CategoryTag';
 import { Diff } from './Diff';
 import { DismissMenu } from './DismissMenu';
@@ -16,9 +17,13 @@ import { batchApplyLabel, excerpt } from './state/labels';
 import { englishOnly, explanation } from './state/plainMessages';
 import type { SessionController } from './state/sessionController';
 import { wordsToCompare } from './state/wordLookup';
+import { useOpenPreview } from './useOpenPreview';
 
 interface Props {
   controller: SessionController;
+  /** The session the card comes from, and whether typed text waits for its re-check: either changing closes the preview. */
+  session: CheckSession;
+  checking: boolean;
   decision: Decision;
   candidates: Map<string, Candidate>;
   paraText: Map<number, string>;
@@ -41,21 +46,16 @@ interface Props {
  * (not word flags, not AI rewrites) get the Dismiss ▾ scope menu. `data-key` marks the buttons the
  * review keys press (Enter: accept, Backspace: reject).
  */
-export function DecisionCard({ controller, decision, candidates, paraText, touchesLocked, onNext, onLocate, onLookUp, onImprove }: Props) {
+export function DecisionCard({ controller, session, checking, decision, candidates, paraText, touchesLocked, onNext, onLocate, onLookUp, onImprove }: Props) {
   const t = useT();
   const [seeEach, setSeeEach] = useState(false);
   const [place, setPlace] = useState(0);
-  /** The open preview: the replacement index it applies, and the members it was opened for, as shown (memberAsShown). */
-  const [opened, setOpened] = useState<{ replacement: number; members: string } | null>(null);
+  /** Each fix's button, by replacement index: the one that opened the preview takes focus back when it closes. */
+  const openers = useRef<(HTMLButtonElement | null)[]>([]);
+  // The replacement index the open preview applies; typing or a re-check closes it (useOpenPreview, Task F13).
+  const openPreview = useOpenPreview<number>(session, checking, (replacement) => openers.current[replacement]?.focus());
+  const preview = openPreview.shown;
   const members = decision.candidateIds.map((id) => candidates.get(id)!);
-  const membersKey = members.map((c) => memberAsShown(c, !decision.startUnticked?.includes(c.id))).join('\n');
-  // A re-check that changes the members (typing shifts their ids, a new use joins: Task F11) or what they show (a moved
-  // line or a paste puts other words under the same ids: Task F12) closes the preview, so its ticks never cover text
-  // the user hasn't seen; re-opening shows the engine's current ticks. Setting state while rendering is React's
-  // pattern for resetting state when a prop changes.
-  if (opened && opened.members !== membersKey) setOpened(null);
-  const preview = opened?.members === membersKey ? opened.replacement : null;
-  const setPreview = (replacement: number | null) => setOpened(replacement === null ? null : { replacement, members: membersKey });
   const first = members[0];
   const shown = members[place % members.length];
   const isBatch = decision.kind === 'batch';
@@ -69,7 +69,7 @@ export function DecisionCard({ controller, decision, candidates, paraText, touch
   const explained = isSimpleFixes ? msg('explain.simpleFixes') : explanation(first);
   // The engine never hides word flags, AI rewrites, hygiene fixes or flags on protected text, so don't offer it.
   const canIgnoreRule = !isWordFlag && !isSimpleFixes && first.source !== 'llm' && first.source !== 'hygiene' && !touchesLocked;
-  const accept = (i: number) => (isBatch ? setPreview(i) : controller.accept(decision.id, i));
+  const accept = (i: number) => (isBatch ? openPreview.open(i) : controller.accept(decision.id, i));
   const rejectLabel = flagOnly ? (isBatch ? 'card.dismissAll' : 'card.dismiss') : isBatch ? 'card.rejectAll' : 'card.reject';
   // Only for a word: a phrase or sentence to rewrite has nothing to look up.
   const lookUpWords = onLookUp && !isSimpleFixes ? wordsToCompare(first.original, first.replacements[0]) : null;
@@ -100,16 +100,20 @@ export function DecisionCard({ controller, decision, candidates, paraText, touch
           startUnticked={decision.startUnticked}
           onApply={(ids) => {
             // Unticked places stay as a smaller batch under the same id: show its card, not the preview.
-            setPreview(null);
+            openPreview.close();
             controller.applyBatch(decision.id, ids, preview);
           }}
-          onCancel={() => setPreview(null)}
+          onCancel={openPreview.close}
+          onCloseWithFocus={openPreview.closingWithFocus}
         />
       ) : (
         <div className="actions" onClick={(e) => e.stopPropagation()}>
           {first.replacements.map((r, i) => (
             <button
               key={i}
+              ref={(element) => {
+                openers.current[i] = element;
+              }}
               className={i === 0 ? 'primary' : ''}
               data-key={i === 0 ? 'accept' : undefined}
               aria-keyshortcuts={i === 0 ? 'Enter' : undefined}

@@ -87,22 +87,6 @@ describe('an open batch preview after a re-check changes its members (Task F11)'
     expect(session.outcomes().filter((o) => o.status === 'applied')).toEqual([]);
   });
 
-  // Task F12: the preview is kept only when every member reads as it did: the same id, text, fixes and engine tick.
-  it.each([
-    ['review batch, user ticked one', 'I recieve mail. You recieve calls.', /recieve/, [true, false]],
-    ['simple-fixes card, user unticked the slip', 'It was the the end. Say a a, b b.', /simple fix/i, [false, false]],
-  ])('%s: a re-check that leaves every member as it was keeps the preview and the user’s ticks', async (_name, text, title, ticks) => {
-    const { controller } = makeController();
-    renderShell(controller);
-    await openAndWait(controller, () => controller.openText(text));
-    showCard(title);
-    fireEvent.keyDown(reviewPanel(), { key: 'Enter' });
-    fireEvent.click(reviewPanel().querySelector<HTMLInputElement>('.batch-preview input[type=checkbox]')!);
-
-    await retype(controller, `${text}\n\nThe road was long.`);
-    const boxes = [...reviewPanel().querySelectorAll<HTMLInputElement>('.batch-preview input[type=checkbox]')];
-    expect(boxes.map((box) => box.checked)).toEqual(ticks);
-  });
 });
 
 /** The document's CodeMirror editor. */
@@ -152,5 +136,108 @@ describe('an open batch preview after a re-check puts other text under the same 
     expect(tickedInPreview(now)).toEqual(engineTicks(now));
     expect(session.outputText(0)).toBe(after);
     expect(session.outcomes().filter((o) => o.status === 'applied')).toEqual([]);
+  });
+});
+
+const previewOpen = () => reviewPanel().querySelector('.batch-preview') !== null;
+
+/** Clicks the checkbox of the open preview's row `row` (0-based), as the user ticking or unticking it. */
+const toggleRow = (row: number) => fireEvent.click(reviewPanel().querySelectorAll<HTMLInputElement>('.batch-preview input[type=checkbox]')[row]);
+
+const isReviewBatch = (id: string) => !isSimpleFixes(id);
+
+// Final F12 review I-1c: a reorder put the same words from another place under the same ids, so the preview stayed
+// open and the user's tick moved to a place they left unticked (a "sic"). Owner decision 2026-10-27: stop matching
+// members. Any change to the text, and any re-check, closes the preview; Enter re-opens it with the engine's ticks.
+describe('any change to the text, and any re-check, closes an open batch preview (Task F13)', () => {
+  it.each([
+    [
+      'review batch, two equal-length lines swapped (Alt+↑), the user ticked the line without "sic"',
+      'I recieve the parcel.\nI recieve "sic" once.',
+      'I recieve "sic" once.\nI recieve the parcel.',
+      /recieve/,
+      isReviewBatch,
+    ],
+    [
+      'review batch, two paragraphs swapped, the user ticked the one without "sic"',
+      'Recieve the parcel today.\n\nRecieve, the band, sang (sic).',
+      'Recieve, the band, sang (sic).\n\nRecieve the parcel today.',
+      /recieve/i,
+      isReviewBatch,
+    ],
+    ['simple-fixes card, two paragraphs swapped, the user unticked "cat"', 'The the cat sat.\n\nThe the dog ran off.', 'The the dog ran off.\n\nThe the cat sat.', /simple fix/i, isSimpleFixes],
+    // Kept the preview and the user's ticks before Task F13.
+    ['review batch, another paragraph typed', 'I recieve mail. You recieve calls.', 'I recieve mail. You recieve calls.\n\nThe road was long.', /recieve/, isReviewBatch],
+    ['simple-fixes card, another paragraph typed', 'It was the the end. Say a a, b b.', 'It was the the end. Say a a, b b.\n\nThe road was long.', /simple fix/i, isSimpleFixes],
+  ])('%s: the preview closes, and Enter re-opens it with the engine’s ticks', async (_name, before, after, title, pick) => {
+    const { controller } = makeController({ preset: 'blog' });
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText(before));
+    showCard(title);
+    fireEvent.keyDown(reviewPanel(), { key: 'Enter' });
+    toggleRow(0);
+
+    await retype(controller, after);
+    expect(tickedAgainstTheEngine(batchDecision(controller, pick))).toEqual([]);
+    expect(previewOpen()).toBe(false);
+
+    fireEvent.keyDown(reviewPanel(), { key: 'Enter' });
+    const now = batchDecision(controller, pick);
+    expect(previewOpen()).toBe(true);
+    expect(tickedInPreview(now)).toEqual(engineTicks(now));
+    const session = controller.getState().session!;
+    expect(session.paragraphs().map((p) => session.outputText(p.id))).toEqual(after.split('\n\n'));
+    expect(session.outcomes().filter((o) => o.status === 'applied')).toEqual([]);
+  });
+
+  it('typing closes the preview at once, before its re-check', async () => {
+    const { controller } = makeController({ preset: 'blog' });
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText('I recieve mail. You recieve calls.'));
+    showCard(/recieve/);
+    fireEvent.keyDown(reviewPanel(), { key: 'Enter' });
+    toggleRow(0);
+
+    act(() => controller.editText('I recieve mail. You recieve calls.\n\nThe'));
+    expect(controller.getState().checking).toBe(true);
+    expect(previewOpen()).toBe(false);
+    await waitFor(() => expect(controller.getState().checking).toBe(false), { timeout: 10000 });
+  });
+
+  it('a re-check without a text change (the goal chosen again) closes the preview, and focus goes to the card’s button', async () => {
+    const { controller } = makeController({ preset: 'blog' });
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText('I recieve mail. You recieve calls.'));
+    showCard(/recieve/);
+    fireEvent.keyDown(reviewPanel(), { key: 'Enter' });
+    toggleRow(0);
+    const box = reviewPanel().querySelector<HTMLInputElement>('.batch-preview input[type=checkbox]')!;
+    act(() => box.focus());
+
+    await act(async () => {
+      controller.setPreset('blog');
+      await controller.settled();
+    });
+    expect(previewOpen()).toBe(false);
+    const opener = reviewPanel().querySelector<HTMLButtonElement>('.card button[data-key~="accept"]')!;
+    expect(opener.textContent).toMatch(/^Choose/);
+    expect(document.activeElement).toBe(opener);
+
+    fireEvent.keyDown(reviewPanel(), { key: 'Enter' });
+    const now = batchDecision(controller, isReviewBatch);
+    expect(tickedInPreview(now)).toEqual(engineTicks(now));
+  });
+
+  it('Cancel clicked in the preview gives focus to the card’s button, not the page', async () => {
+    const { controller } = makeController({ preset: 'blog' });
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText('I recieve mail. You recieve calls.'));
+    showCard(/recieve/);
+    fireEvent.keyDown(reviewPanel(), { key: 'Enter' });
+    const cancel = reviewPanel().querySelector<HTMLButtonElement>('.batch-preview button[data-key~="reject"]')!;
+    act(() => cancel.focus());
+    fireEvent.click(cancel);
+    expect(previewOpen()).toBe(false);
+    expect(document.activeElement).toBe(reviewPanel().querySelector('.card button[data-key~="accept"]'));
   });
 });

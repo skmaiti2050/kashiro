@@ -256,6 +256,54 @@ describe('the Accept-all preview applies only what it showed (I2)', () => {
     expect([session.outputText(0), session.outputText(1)]).toEqual([OTHER, FIRST]);
     expect(within(aiGroup()).getByRole('button', { name: 'Choose helper suggestions to accept (2)…' })).toBeTruthy();
   });
+
+  // Final F12 review I-1c: the same sentence at the same offset in two swapped paragraphs gives the same suggestion under
+  // the same id, so the preview stayed open and the user's tick moved to the sentence quoted on purpose. Owner decision
+  // 2026-10-27 (Task F13): any change to the text closes the preview, and focus goes back to its button.
+  it('two paragraphs with the same sentence swapped: the preview closes, nothing is applied, and focus goes to "Choose…"', async () => {
+    const RAIN = `${FIRST} The rain had stopped.`;
+    const QUOTE = `${FIRST} I quote "${FIRST}" on purpose.`;
+    const { controller } = aiController((text) => (text === FIRST ? FIRST_REWRITE : null));
+    await openText(controller, `${RAIN}\n\n${QUOTE}`);
+    await act(async () => {
+      controller.ai.improveSentence(0, 0);
+      controller.ai.improveSentence(1, 0);
+      await controller.ai.settled();
+    });
+    fireEvent.click(within(aiGroup()).getByRole('button', { name: 'Choose helper suggestions to accept (2)…' }));
+    const rain = within(aiGroup()).getByRole<HTMLInputElement>('checkbox', { name: /rain/ });
+    fireEvent.click(rain);
+    act(() => rain.focus());
+
+    act(() => controller.editText(`${QUOTE}\n\n${RAIN}`)); // the paragraphs swapped in one edit
+    await waitFor(() => expect(controller.getState().checking).toBe(false), { timeout: 10000 });
+    const tickedRows = within(aiGroup()).queryAllByRole<HTMLInputElement>('checkbox').filter((box) => box.checked).map((box) => box.closest('label')!.textContent);
+    expect(tickedRows.filter((row) => !row!.includes('rain'))).toEqual([]); // only the sentence the user ticked
+    expect(within(aiGroup()).queryAllByRole('checkbox')).toEqual([]);
+    const choose = within(aiGroup()).getByRole('button', { name: 'Choose helper suggestions to accept (2)…' });
+    expect(document.activeElement).toBe(choose);
+
+    fireEvent.click(choose);
+    expect(within(aiGroup()).getAllByRole<HTMLInputElement>('checkbox').map((box) => box.checked)).toEqual([false, false]);
+    const session = controller.getState().session!;
+    expect([session.outputText(0), session.outputText(1)]).toEqual([QUOTE, RAIN]);
+  });
+
+  it('typing in another paragraph closes the preview', async () => {
+    const { controller } = aiController((text) => (text === FIRST ? FIRST_REWRITE : null));
+    await openText(controller);
+    await act(async () => {
+      controller.ai.improveSentence(0, 0);
+      await controller.ai.settled();
+    });
+    fireEvent.click(within(aiGroup()).getByRole('button', { name: 'Choose helper suggestions to accept (1)…' }));
+    fireEvent.click(within(aiGroup()).getByRole('checkbox'));
+
+    act(() => controller.editText(`${FIRST}\n\n${SECOND} Then it rained.`));
+    await waitFor(() => expect(controller.getState().checking).toBe(false), { timeout: 10000 });
+    expect(within(aiGroup()).queryAllByRole('checkbox')).toEqual([]);
+    expect(within(aiGroup()).getByRole('button', { name: 'Choose helper suggestions to accept (1)…' })).toBeTruthy();
+  });
 });
 
 describe('Settings', () => {
