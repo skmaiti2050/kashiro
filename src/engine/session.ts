@@ -425,13 +425,17 @@ export class CheckSession {
     }
   }
 
-  /** Adds `word` to the linter and rejects every pending Spelling/Typo flag of it. */
+  /**
+   * Adds `word` to the linter and rejects every Spelling/Typo flag of it that is pending, or withdrawn under an
+   * edit the user applied (else undoing that edit would bring it back as a card: final F14 review M-10).
+   */
   private async addWord(word: string): Promise<void> {
     await this.linter.addWords([word]);
     this.added.push(word);
     const reason = `"${word}" added to dictionary`;
     for (const c of this.cands.values()) {
-      if (this.ledger.status.get(c.id) !== 'pending' || !WORD_REWRITE_KINDS.has(c.kind)) continue;
+      const open = this.ledger.status.get(c.id) === 'pending' || this.ledger.isCovered(c.id);
+      if (!open || !WORD_REWRITE_KINDS.has(c.kind)) continue;
       if (c.original.toLowerCase() !== word.toLowerCase()) continue;
       this.userRejected.add(c.id);
       this.ledger.record(c.id, 'rejected', false, reason);

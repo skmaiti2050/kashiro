@@ -121,3 +121,31 @@ describe('a rule fix inside an applied edit (Task F14)', () => {
     expect(['a', 'b', 'c'].map((m) => statusOf(s, m).status)).toEqual(['rejected', 'pending', 'rejected']);
   });
 });
+
+// Final F14 review M-10: addWord rejected pending flags only, so the one withdrawn under the rewrite came back as a card.
+describe('a word added to the dictionary while its flag is withdrawn under a rewrite (Task F15)', () => {
+  it('never comes back as a card when the rewrite is undone', async () => {
+    const POST = 'I recieve post daily.';
+    const CALLS = 'You recieve "sic" calls.';
+    // Its own linter: the added word must not reach the other tests.
+    const own = await createLinter('American');
+    const s = await CheckSession.start(
+      [
+        { id: 0, text: POST },
+        { id: 1, text: CALLS },
+      ],
+      { preset: 'business', variant: 'American', fallbackVariant: 'American', language: 'plaintext', dictionary: [] },
+      { linter: own },
+    );
+    expect(s.addRewrite(0, { start: 0, end: POST.length }, 'Post reaches me daily.', POST)).toEqual({ ok: true });
+    const batch = s.applyRewrites(['llm:0:0-21']);
+    expect(offeredIds(s)).toEqual(['1:4:11:Spelling']);
+
+    await s.addToDictionary('1:4:11:Spelling');
+    expect(offeredIds(s)).toEqual([]);
+    s.undoBatch(batch);
+    expect(output(s)).toEqual([POST, CALLS]);
+    expect(offeredIds(s)).not.toContain('0:2:9:Spelling');
+    expect(statusOf(s, '0:2:9:Spelling')).toMatchObject({ status: 'rejected', reason: '"recieve" added to dictionary' });
+  });
+});

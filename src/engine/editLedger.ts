@@ -39,6 +39,11 @@ export class EditLedger {
     return out;
   }
 
+  /** True while withdrawCovered holds `id` out of the review, under an edit the user applied. */
+  isCovered(id: string): boolean {
+    return this.status.get(id) === 'superseded' && this.coveredBy.has(id);
+  }
+
   /** For an applied edit that a later edit superseded: that later edit's id, while it is still applied. */
   appliedOver(id: string): string | undefined {
     const by = this.supersededBy.get(id);
