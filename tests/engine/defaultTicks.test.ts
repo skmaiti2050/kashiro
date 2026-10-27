@@ -8,7 +8,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { CheckSession, type CheckOptions } from '@/engine/session';
 import { SIMPLE_FIXES_ID } from '@/engine/decisions';
 import { createLinter, type RulesLinter } from '@/engine/linter';
-import { markdownAdapter } from '@/formats/text';
+import { markdownAdapter, plaintextAdapter } from '@/formats/text';
 import type { Paragraph } from '@/engine/types';
 
 let linter: RulesLinter;
@@ -120,6 +120,33 @@ describe('the simple-fixes card ticks only a closed set of fixes (Task F6, owner
     const { session, ticked } = await applyAllWithDefaultTicks(paras, { language: 'markdown' });
     expect(ticked).toEqual(['the the → the']);
     expect(paras.map((p) => session.outputText(p.id))).toEqual(['- A apple fell.\n- Bring a pen an paper to the exam.']);
+  });
+
+  it.each([
+    ['plain text', 'A a B b C c D d', 'plaintext'],
+    ['after a colon', 'Letters: A a, B b, C c.', 'plaintext'],
+    ['after a full stop', 'Copy the letters. A a, B b, C c.', 'plaintext'],
+    ['a real slip at a sentence start too', 'We left. A a man came in.', 'plaintext'],
+    ['after a Hindi lead-in', 'अंग्रेज़ी वर्णमाला: A a, B b, C c.', 'plaintext'],
+    ['on a Markdown list line', '- A a\n- B b\n- C c', 'markdown'],
+    ['in a Markdown table cell', '| A a | B b |\n|---|---|\n| C c | D d |', 'markdown'],
+  ] as const)('never starts the alphabet pair "A a" ticked, but lists it: %s (F8 re-review 7, M-1)', async (_where, text, language) => {
+    const adapter = language === 'markdown' ? markdownAdapter : plaintextAdapter;
+    const { paras } = await adapter.read(new TextEncoder().encode(text + '\n'));
+    const { session, ticked, unticked } = await applyAllWithDefaultTicks(paras, { language });
+    expect(ticked).toEqual([]);
+    expect(unticked).toContain('A a → A');
+    expect(paras.map((p) => session.outputText(p.id))).toEqual(paras.map((p) => p.text));
+  });
+
+  it.each([
+    ['The the cat sat.', 'The the → The'],
+    ['We left. The the cat sat.', 'The the → The'],
+    ['It was a a lot of work.', 'a a → a'],
+    ['Letters: A, B and a a cat.', 'a a → a'],
+  ])('still ticks every other allowlisted doubling, a capital at a sentence start included: "%s"', async (text, fix) => {
+    const { ticked } = await applyAllWithDefaultTicks([{ id: 0, text }]);
+    expect(ticked).toEqual([fix]);
   });
 
   it.each([

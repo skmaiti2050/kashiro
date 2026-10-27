@@ -275,6 +275,13 @@ export const TICK_TRUTH: readonly TickTruth[] = [
   { input: 'I like apple a orange.', mayTick: [] },
   { input: 'Grades: A excellent, B good, C average.', mayTick: [] },
   { input: 'Vamos a animal planet mañana.', mayTick: [] },
+  // F8 re-review 7, M-1: "A a" is the alphabet pair on a worksheet, wherever it stands; so is a real "A a man" slip.
+  { input: 'A a B b C c', mayTick: [] },
+  { input: 'Letters: A a, B b.', mayTick: [] },
+  { input: 'We left. A a man came in.', mayTick: [] },
+  { input: 'अंग्रेज़ी वर्णमाला: A a, B b, C c.', mayTick: [] },
+  { input: '- A a\n- B b\n- C c', mayTick: [], markdown: true },
+  { input: '| A a | B b |\n|---|---|\n| C c | D d |', mayTick: [], markdown: true },
   // Right fixes outside the closed set: they may start ticked, but need not.
   { input: 'I think teh plan works.', mayTick: ['teh → the @ 8'] },
   { input: 'It rained today. we left early.', mayTick: ['we → We @ 17'] },

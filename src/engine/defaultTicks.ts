@@ -1,10 +1,12 @@
 import type { Candidate, Span } from './types';
 import { isSlipDoubling } from './tiers';
+import { doubledWord } from './wordFlags';
 
 /**
  * Which fixes on the simple-fixes card start unticked (Tasks F6 and F8, owner decisions 2026-10-26). "Review and
  * apply all" applies every ticked fix with one click, so a fix starts ticked only when it belongs to a closed,
- * listed set: a doubled word on the slip allowlist (isSlipDoubling), one copy and the space between removed.
+ * listed set: a doubled word on the slip allowlist (isSlipDoubling), one copy and the space between removed,
+ * except the alphabet pair "A a".
  * Everything else starts unticked, however safe its shape looks. That includes every a/an swap: re-reviews 4 to 6
  * each found a new way a ticked one was wrong ("Class A office", "a equal b", "mother an father" for "and").
  * Capitals, "i" → "I", punctuation spacing, dot runs, other formatting, whitespace, spelling slips and the kinds
@@ -27,8 +29,16 @@ export function untickedByDefault(fixes: readonly Candidate[], ctx: TickContext)
 
 function startsTicked(c: Candidate, ctx: TickContext): boolean {
   const text = ctx.paraText.get(c.paraId);
-  if (text === undefined || c.replacements.length !== 1 || ctx.optedIn(c)) return false;
+  if (text === undefined || c.replacements.length !== 1 || ctx.optedIn(c) || isAlphabetPair(c)) return false;
   return text.slice(c.span.start, c.span.end) === c.original && isSlipDoubling(c, text);
+}
+
+/**
+ * "A a": on an alphabet or phonics sheet ("A a, B b, C c") the capital is the letter, not a sentence-start
+ * article, and position can't tell the two apart (F8 re-review 7, M-1). It stays on the card, unticked.
+ */
+function isAlphabetPair(c: Candidate): boolean {
+  return doubledWord(c) === 'a' && c.original.startsWith('A');
 }
 
 /** Whitespace-separated tokens: "a SMS" is two. */
