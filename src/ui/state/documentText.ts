@@ -1,3 +1,4 @@
+import { pairUniqueKeys } from '@/engine/carryDecisions';
 import type { Paragraph } from '@/engine/types';
 
 /** The view text of a document without its own plain text (.docx): paragraphs separated by a blank line. */
@@ -13,18 +14,16 @@ export function joinParagraphs(paras: Paragraph[]): { text: string; starts: Map<
 }
 
 /**
- * Old paragraph id → new paragraph id, for paragraphs whose text did not change. Duplicated texts pair
- * up in order (the first old "A." with the first new "A.").
+ * Old paragraph id → new paragraph id, for paragraphs whose text did not change. A text found in more than one
+ * paragraph, before or after, is never matched: which copy is which can't be told, so its decisions are not
+ * carried and its places come back for review (owner decision, Task F15).
  */
 export function matchUnchangedParagraphs(before: Paragraph[], after: Paragraph[]): Map<number, number> {
-  const oldIdsByText = new Map<string, number[]>();
-  for (const p of before) oldIdsByText.set(p.text, [...(oldIdsByText.get(p.text) ?? []), p.id]);
-  const matched = new Map<number, number>();
-  for (const p of after) {
-    const oldId = oldIdsByText.get(p.text)?.shift();
-    if (oldId !== undefined) matched.set(oldId, p.id);
-  }
-  return matched;
+  const pairs = pairUniqueKeys(
+    before.map((p) => p.text),
+    after.map((p) => p.text),
+  );
+  return new Map([...pairs].map(([i, j]) => [before[i].id, after[j].id]));
 }
 
 /** True when both lists hold the same paragraphs (ids and text) in the same order. */

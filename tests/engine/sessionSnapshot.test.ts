@@ -188,6 +188,36 @@ describe('restore', () => {
     expect(same.outputText(0)).toBe('She receive the letter.');
   });
 
+  // Final F14 review I-3 (owner decision, Task F15): copies paired in order put a decision on the other copy.
+  it('a paragraph whose text is found more than once, in the saved review or now, keeps no decision; unique ones keep theirs', async () => {
+    const COPY = 'She recieved the letter.';
+    const paras: Paragraph[] = [
+      { id: 0, text: COPY },
+      { id: 1, text: 'We was late again.' },
+      { id: 2, text: COPY },
+    ];
+    const before = await start(paras);
+    const [first, second] = before.candidates().filter((c) => c.original === 'recieved');
+    before.accept(first.id);
+    before.reject(second.id);
+    before.reject(byOriginal(before, 'was').id);
+    const snap = await snapshot(before, VIEW);
+    const statusesOf = (s: CheckSession, original: string) => s.outcomes().filter((o) => o.candidate.original === original).map((o) => o.status);
+
+    // The first copy deleted: its fix never moves onto the copy the user rejected.
+    const deleted = await restore([paras[1], { id: 2, text: COPY }], snap, opts, { linter });
+    expect(deleted.session.outputText(2)).toBe(COPY);
+    expect(statusesOf(deleted.session, 'recieved')).toEqual(['pending']);
+    expect(statusesOf(deleted.session, 'was')).toEqual(['rejected']);
+    expect(deleted.restored).toBe(1);
+
+    // Both copies still there: neither knows which decision was its own, so both come back for review.
+    const same = await restore(paras, snap, opts, { linter });
+    expect(statusesOf(same.session, 'recieved')).toEqual(['pending', 'pending']);
+    expect(statusesOf(same.session, 'was')).toEqual(['rejected']);
+    expect(same.rechecked).toBe(2);
+  });
+
   it('starts with the snapshot depth', async () => {
     const before = await start(PARAS);
     before.setDepth('light');

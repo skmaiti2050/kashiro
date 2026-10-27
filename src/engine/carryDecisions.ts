@@ -40,6 +40,31 @@ export function userDecisions(session: CheckSession): UserDecision[] {
 }
 
 /**
+ * Index in `before` → index in `after`, for keys (paragraph texts or their hashes) found exactly once in each list.
+ * A key found more than once on either side is left out: which copy is which can't be told, so no decision is
+ * carried onto it and its places come back for review (owner decision, final F14 review I-3, Task F15).
+ */
+export function pairUniqueKeys(before: string[], after: string[]): Map<number, number> {
+  const onlyOnce = (keys: string[]) => {
+    const at = new Map<string, number>();
+    const repeated = new Set<string>();
+    for (const [i, key] of keys.entries()) {
+      if (at.has(key)) repeated.add(key);
+      else at.set(key, i);
+    }
+    for (const key of repeated) at.delete(key);
+    return at;
+  };
+  const beforeAt = onlyOnce(before);
+  const pairs = new Map<number, number>();
+  for (const [key, j] of onlyOnce(after)) {
+    const i = beforeAt.get(key);
+    if (i !== undefined) pairs.set(i, j);
+  }
+  return pairs;
+}
+
+/**
  * Replays `decisions` (from userDecisions of an earlier check, or a saved review) onto `after`, a fresh
  * check, for flags in paragraphs whose text did not change (`unchanged`: the decision's paraId → the new
  * paragraph id). Accepted stays accepted with the same replacement, rejected stays rejected, and an undone

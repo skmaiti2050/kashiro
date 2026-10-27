@@ -16,14 +16,23 @@ describe('joinParagraphs', () => {
 });
 
 describe('matchUnchangedParagraphs', () => {
-  it('maps each unchanged old paragraph to its new id, in order, once each', () => {
-    const before = ['A.', 'B.', 'A.', 'C.'].map((text, id) => ({ id, text }));
-    const after = ['New.', 'A.', 'B!', 'A.', 'C.'].map((text, id) => ({ id, text }));
-    expect([...matchUnchangedParagraphs(before, after)]).toEqual([
-      [0, 1],
-      [2, 3],
-      [3, 4],
+  const paras = (texts: string[]) => texts.map((text, id) => ({ id, text }));
+
+  it('maps each unchanged paragraph to its new id, even when it moved', () => {
+    expect([...matchUnchangedParagraphs(paras(['A.', 'B.', 'C.']), paras(['New.', 'C.', 'B!', 'A.']))]).toEqual([
+      [2, 1],
+      [0, 3],
     ]);
+  });
+
+  // Final F14 review I-3 (owner decision, Task F15): pairing copies in order put a decision on the other copy.
+  it('never matches a text found in more than one paragraph, before or after', () => {
+    // Two copies before, still two after.
+    expect([...matchUnchangedParagraphs(paras(['A.', 'B.', 'A.', 'C.']), paras(['New.', 'A.', 'B!', 'A.', 'C.']))]).toEqual([[3, 4]]);
+    // Two copies before, one deleted.
+    expect([...matchUnchangedParagraphs(paras(['A.', 'Note.', 'A.']), paras(['Note.', 'A.']))]).toEqual([[1, 0]]);
+    // One before, a copy pasted or typed to read the same.
+    expect([...matchUnchangedParagraphs(paras(['A. Fine.', 'A.']), paras(['A.', 'A.']))]).toEqual([]);
   });
 });
 

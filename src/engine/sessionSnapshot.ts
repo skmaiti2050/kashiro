@@ -1,4 +1,4 @@
-import { carryDecisions, findTwin, userDecisions, type UserDecision } from './carryDecisions';
+import { carryDecisions, findTwin, pairUniqueKeys, userDecisions, type UserDecision } from './carryDecisions';
 import type { ReviewDepth } from './depth';
 import type { PresetId } from './presets';
 import { CheckSession } from './session';
@@ -124,16 +124,9 @@ async function chosenReplacement(
 }
 
 /**
- * Saved paragraph index → the id of the paragraph with the same hash now. Duplicated paragraphs pair up in
- * order (the first saved "A." with the first "A." now), as the re-check's matchUnchangedParagraphs does.
+ * Saved paragraph index → the id of the paragraph with the same hash now. A hash found more than once, saved or
+ * now, is never matched (see pairUniqueKeys), as in the re-check's matchUnchangedParagraphs.
  */
 function matchSavedParagraphs(saved: string[], current: string[], paras: Paragraph[]): Map<number, number> {
-  const savedByHash = new Map<string, number[]>();
-  saved.forEach((hash, i) => savedByHash.set(hash, [...(savedByHash.get(hash) ?? []), i]));
-  const matched = new Map<number, number>();
-  current.forEach((hash, i) => {
-    const at = savedByHash.get(hash)?.shift();
-    if (at !== undefined) matched.set(at, paras[i].id);
-  });
-  return matched;
+  return new Map([...pairUniqueKeys(saved, current)].map(([i, j]) => [i, paras[j].id]));
 }

@@ -764,6 +764,45 @@ describe('SessionController: typing re-checks', () => {
     expect(pending.some((id) => id.startsWith('2:'))).toBe(true);
   });
 
+  // Final F14 review I-3 (owner decision, Task F15): copies paired in order put a decision on the other copy.
+  describe('a paragraph whose text is found more than once, before or after the typing, keeps no decision', () => {
+    const COPY = 'I recieve it.';
+    const output = (c: SessionController) => c.getState().session!.paragraphs().map((p) => c.getState().session!.outputText(p.id));
+    const recieveCard = (c: SessionController) => [...c.getState().session!.decisions().top, ...c.getState().session!.decisions().more].find((d) => d.label.includes('recieve'))!;
+    async function retype(c: SessionController, text: string) {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      c.editText(text);
+      await vi.advanceTimersByTimeAsync(300);
+      await c.settled();
+    }
+
+    it('copy 1 fixed, copy 2 rejected ("sic"), copy 1 deleted: the rejected copy stays as typed and comes back for review', async () => {
+      const { controller } = makeController({ settings: { preset: 'blog' } });
+      await controller.openText(`${COPY}\n\nNote.\n\n${COPY}`);
+      const [first, second] = recieveCard(controller).candidateIds;
+      controller.applyBatch(recieveCard(controller).id, [first]);
+      controller.reject(second);
+      expect(output(controller)).toEqual(['I receive it.', 'Note.', COPY]);
+
+      await retype(controller, `Note.\n\n${COPY}`);
+      expect(output(controller)).toEqual(['Note.', COPY]);
+      expect(controller.getState().session!.outcomes().filter((o) => o.candidate.original === 'recieve').map((o) => o.status)).toEqual(['pending']);
+    });
+
+    it('a copy pasted above a fixed paragraph: neither copy gets the fix, and a unique paragraph keeps its decision', async () => {
+      const { controller } = makeController({ settings: { preset: 'blog' } });
+      await controller.openText(`${COPY}\n\nYou recieve "sic" calls.`);
+      const [first, second] = recieveCard(controller).candidateIds;
+      controller.applyBatch(recieveCard(controller).id, [first]);
+      controller.reject(second);
+
+      await retype(controller, `${COPY}\n\n${COPY}\n\nYou recieve "sic" calls.`);
+      expect(output(controller)).toEqual([COPY, COPY, 'You recieve "sic" calls.']);
+      const status = controller.getState().session!.outcomes().filter((o) => o.candidate.original === 'recieve').map((o) => o.status);
+      expect(status).toEqual(['pending', 'pending', 'rejected']);
+    });
+  });
+
   it('"Review again" on a rejected batch whose paragraph moved still gives back one decision, not one per place', async () => {
     const { controller } = makeController();
     await controller.openText("I can't go. You can't stay.\n\nIt's late.");

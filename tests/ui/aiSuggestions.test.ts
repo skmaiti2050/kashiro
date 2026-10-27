@@ -381,6 +381,33 @@ describe('never a stale rewrite', () => {
   });
 });
 
+describe('a re-check and accepted rewrites (Task F15)', () => {
+  const POST = 'I recieve post daily.';
+  const POST_REWRITE = 'Post reaches me daily.';
+  const helperForPost = () => mockHelper((text) => (text === POST || text === 'I receive post daily.' ? POST_REWRITE : null));
+  async function retype(c: SessionController, text: string) {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    c.editText(text);
+    await vi.advanceTimersByTimeAsync(300);
+    await c.settled();
+  }
+
+  // Final F14 review I-3 (owner decision): copies paired in order moved the rewrite onto the paragraph just typed.
+  it('an accepted rewrite never moves to another paragraph typed to read the same: both copies come back as typed', async () => {
+    const helper = helperForPost();
+    const { controller } = makeController({ startHelper: helper.startHelper });
+    await controller.openText(`${POST} Fine.\n\n${POST}`);
+    controller.ai.improveSentence(1, 0);
+    await controller.ai.settled();
+    controller.ai.acceptAll(suggestions(controller).map((c) => c.id));
+    expect(textOf(controller)).toBe(`${POST} Fine.\n\n${POST_REWRITE}`);
+
+    await retype(controller, `${POST}\n\n${POST}`);
+    expect(textOf(controller)).toBe(`${POST}\n\n${POST}`);
+    expect(suggestions(controller)).toEqual([]);
+  });
+});
+
 describe('"Accept all helper suggestions"', () => {
   it('applies them only on the click, as one change that one undo takes back', async () => {
     const helper = mockHelper((text) => (text === LONG ? LONG_REWRITE : text === WAS ? WAS_REWRITE : null));

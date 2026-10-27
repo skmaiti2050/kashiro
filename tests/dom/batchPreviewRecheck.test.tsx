@@ -277,3 +277,24 @@ describe('every change to the text closes an open batch preview (Task F14)', () 
     expect(previewOpen()).toBe(false);
   });
 });
+
+// Final F14 review I-3 (owner decision, Task F15): the re-check paired the two copies in order, so the fix the user
+// ticked on paragraph 2 landed on paragraph 1, the one just typed.
+describe('a paragraph whose text is found twice after the typing keeps no decision (Task F15)', () => {
+  it('Apply in the typing pause on a paragraph the typing made a copy of: no copy gets the fix, both come back as typed', async () => {
+    const { controller } = makeController({ preset: 'blog' });
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText('I recieve it. Fine.\n\nI recieve it.'));
+    showCard(/recieve/);
+    act(() => controller.editText('I recieve it.\n\nI recieve it.'));
+    expect(controller.getState().checking).toBe(true);
+    fireEvent.click(reviewPanel().querySelector<HTMLButtonElement>('.card button[data-key~="accept"]')!);
+    toggleRow(1);
+    fireEvent.click(reviewPanel().querySelector<HTMLButtonElement>('.batch-preview button.primary')!);
+
+    await waitFor(() => expect(controller.getState().checking).toBe(false), { timeout: 10000 });
+    const session = controller.getState().session!;
+    expect(session.paragraphs().map((p) => session.outputText(p.id))).toEqual(['I recieve it.', 'I recieve it.']);
+    expect(session.outcomes().filter((o) => o.status === 'applied')).toEqual([]);
+  });
+});
