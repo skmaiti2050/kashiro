@@ -39,6 +39,7 @@ These are the inputs that found real damage in Kashiro's reviews. Use the groups
 
 ## Paths that apply edits
 - Accepting a single card after other cards shifted the offsets; undo
+- An open card or preview while the text changes. Ids are offsets (`paraId:start:end:kind`), so also try **new text under the same ids**: a line moved with Alt+↑, a paste over the span, an undo, typing without a pause
 - "Review and apply all" with default ticks on every batch card
 - Settings: every opted-in kind, old or corrupt stored settings
 - carryDecisions on re-check; the change-log row (context, invisible-character names, wrapping, `lang`)
