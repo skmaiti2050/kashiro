@@ -282,9 +282,9 @@ export const TICK_TRUTH: readonly TickTruth[] = [
   { input: 'अंग्रेज़ी वर्णमाला: A a, B b, C c.', mayTick: [] },
   { input: '- A a\n- B b\n- C c', mayTick: [], markdown: true },
   { input: '| A a | B b |\n|---|---|\n| C c | D d |', mayTick: [], markdown: true },
-  // Right fixes outside the closed set: they may start ticked, but need not.
-  { input: 'I think teh plan works.', mayTick: ['teh → the @ 8'] },
-  { input: 'It rained today. we left early.', mayTick: ['we → We @ 17'] },
+  // Right fixes outside the closed set start unticked too (Task F8; F8 re-review 7, M-5).
+  { input: 'I think teh plan works.', mayTick: [] },
+  { input: 'It rained today. we left early.', mayTick: [] },
   // F4 re-review 3, I-1 to I-3: an abbreviation's dot, part of a word, an initialism, a short word.
   { input: 'Meet at 5 pm. tomorrow please.', mayTick: [] },
   { input: 'Jan. was cold.', mayTick: [] },
