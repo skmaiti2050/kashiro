@@ -332,9 +332,20 @@ export class CheckSession {
         this.ledger.record(c.id, 'pending', false, TRACKED_CHANGE_REASON);
         continue;
       }
+      // Never over an edit the user applied, one made a moment ago in this batch included: withdrawCovered takes it out.
+      if (c.source !== 'llm' && this.ledger.userEditOver(c)) continue;
       this.ledger.apply(c, c.replacements[replacementIndex], false);
     }
-    this.rewrites.withdrawStale(); // a pending AI rewrite of a sentence that now reads differently leaves
+    this.withdrawOutdated();
+  }
+
+  /**
+   * After the text changed: a rule fix inside an edit the user applied leaves the review (and one no longer covered
+   * comes back), and so does a pending AI rewrite of a sentence that now reads differently.
+   */
+  private withdrawOutdated(): void {
+    this.ledger.withdrawCovered();
+    this.rewrites.withdrawStale();
   }
 
   reject(decisionId: string): void {
@@ -442,8 +453,8 @@ export class CheckSession {
     } else {
       throw new Error(`cannot undo ${candidateId} (${s ?? 'unknown'})`);
     }
-    // Either way the text, or a rewrite back in review, may no longer match what a pending rewrite was made for.
-    this.rewrites.withdrawStale();
+    // Either way the text, or a rewrite back in review, may no longer match what a pending fix was made for.
+    this.withdrawOutdated();
   }
 
   /** Adds candidates as pending (never auto-applied). Ids already present are ignored. */
@@ -460,6 +471,7 @@ export class CheckSession {
         if (this.tiers.get(c.id) !== 'hidden') this.tiers.set(c.id, 'review');
       }
     }
+    this.ledger.withdrawCovered(); // one added inside an edit the user applied is never offered
   }
 
   /**
@@ -498,7 +510,7 @@ export class CheckSession {
     this.unplaceable.set(candidateId, reason);
     this.ledger.record(candidateId, 'rejected', this.ledger.autoApplied.has(candidateId), `unplaceable: ${reason}`);
     this.ledger.restoreSuperseded(candidateId);
-    this.rewrites.withdrawStale();
+    this.withdrawOutdated();
   }
 
   // ---- internals -----------------------------------------------------------

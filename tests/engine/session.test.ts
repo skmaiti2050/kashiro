@@ -306,7 +306,8 @@ describe('supersede chain', () => {
     expect(s.outputText(0)).toBe(TEH_FIXED);
   });
 
-  it('restores to pending when another applied edit now clashes', async () => {
+  // Before Task F14 it came back pending and on offer, so applying it would have undone "llm:c" (final F13 review I-2).
+  it('restored under another applied edit, it stays out of the review until that edit is undone too', async () => {
     const s = await startFixed([{ id: 0, text: TEH }]);
     const ofof = byOriginal(s, 'of of'); // 16..21, applied with the simple-fixes card
     const llm = (id: string, start: number, end: number, r: string): Candidate => ({
@@ -320,10 +321,13 @@ describe('supersede chain', () => {
     s.accept('llm:b'); // supersedes "of of"
     s.accept('llm:c'); // overlaps "of of" only
     s.undo('llm:b');
-    expect(lastLog(s, ofof.id)!.status).toBe('pending');
-    expect(s.decisions().top.flatMap((d) => d.candidateIds)).toContain(ofof.id);
+    expect(lastLog(s, ofof.id)).toMatchObject({ status: 'superseded', reason: 'superseded by llm:c' });
+    expect(s.decisions().top.flatMap((d) => d.candidateIds)).not.toContain(ofof.id);
     const edits = s.acceptedEdits();
     for (let i = 1; i < edits.length; i++) expect(edits[i - 1].span.end).toBeLessThanOrEqual(edits[i].span.start);
+    s.undo('llm:c');
+    expect(lastLog(s, ofof.id)).toMatchObject({ status: 'pending', reason: 'restored after llm:c was removed' });
+    expect(s.decisions().top.flatMap((d) => d.candidateIds)).toContain(ofof.id);
   });
 });
 
