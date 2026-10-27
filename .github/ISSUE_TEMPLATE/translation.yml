@@ -1,0 +1,26 @@
+name: Translation
+description: A wrong, unclear or missing Hindi, Bengali or other interface string.
+labels: ["i18n"]
+body:
+  - type: dropdown
+    id: language
+    attributes:
+      label: Language
+      options:
+        - Hindi
+        - Bengali
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: where
+    attributes:
+      label: Where it appears, and the current text
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested text, and why
+    validations:
+      required: true

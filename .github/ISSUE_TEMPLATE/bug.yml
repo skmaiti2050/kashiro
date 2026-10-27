@@ -1,0 +1,30 @@
+name: Bug
+description: Something doesn't work (crash, wrong suggestion, a file that won't open).
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: Include the steps, and the text or a small file that shows it if you can.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+  - type: input
+    id: version
+    attributes:
+      label: Version (About) and Windows version
+    validations:
+      required: true
+  - type: dropdown
+    id: build
+    attributes:
+      label: Build
+      options:
+        - Installer, with the AI helper
+        - Installer, without the AI helper
+        - Portable zip, with the AI helper
+        - Portable zip, without the AI helper
+        - Built from source

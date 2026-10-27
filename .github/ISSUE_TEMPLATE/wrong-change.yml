@@ -1,0 +1,49 @@
+name: Wrong change
+description: Kashiro changed text it shouldn't have, or a fix that starts ticked is wrong.
+labels: ["never-damage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you. This is the most important kind of report. Please paste the **exact** text: invisible characters, spaces and line breaks matter.
+  - type: textarea
+    id: before
+    attributes:
+      label: Text before
+      description: The original text, as small as still shows the problem.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: after
+    attributes:
+      label: Text after
+      render: text
+    validations:
+      required: true
+  - type: dropdown
+    id: how
+    attributes:
+      label: How did it change?
+      options:
+        - Without any click
+        - '"Review and apply all" on the simple-fixes card (with the default ticks)'
+        - Accepting a single card
+        - Other (please describe below)
+    validations:
+      required: true
+  - type: input
+    id: file
+    attributes:
+      label: File type and preset
+      placeholder: "e.g. .docx, Academic"
+  - type: input
+    id: version
+    attributes:
+      label: Version (About)
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
