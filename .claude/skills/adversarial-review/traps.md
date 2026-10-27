@@ -42,6 +42,8 @@ These are the inputs that found real damage in Kashiro's reviews. Use the groups
 - An open card or preview while the text changes. Ids are offsets (`paraId:start:end:kind`), so also try **new text under the same ids** (a line moved with Alt+↑, a paste over the span, an undo, typing without a pause) and **the same words from another place under the same ids** (swap two equal-length lines that share a misspelling, one of them marked "sic")
 - A re-check with no text change (a settings or preset change) while a preview is open
 - An edit from another surface while a preview is open: the AI helper's Apply, another card's Apply, the change log's Undo
+- Paragraphs that are, or become, identical across a re-check or a saved-review resume (deleting, pasting or retyping one): accepted, rejected and AI decisions must stay on their own paragraph. `probe.mts` never re-checks, so drive this with a harness that edits the text and re-checks
+- An accepted fix plus an AI rewrite of the same sentence, then typing elsewhere: both must survive
 - A rule card over text an accepted AI rewrite (or any applied edit) has already replaced; applying it must not revert the rewrite. The probe doesn't run the AI helper, so drive this with a harness that accepts an AI edit through the session
 - UI harnesses: a jsdom harness around a changed copy of `src/ui` outside the repo needs `NODE_PATH` set to the repo's `node_modules` and a global `React`. To check which parts of a UI rule the tests cover, remove one part in that copy and see whether any test goes red
 - "Review and apply all" with default ticks on every batch card
