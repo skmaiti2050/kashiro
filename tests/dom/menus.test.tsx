@@ -90,6 +90,17 @@ describe('BatchPreview', () => {
     expect(onApply).toHaveBeenCalledWith(['a']);
   });
 
+  // Final F10 review I-1: it stored the unticked ids, so a member it hadn't seen showed ticked.
+  it('a member it has not seen starts unticked, even with no startUnticked (Task F11)', () => {
+    const onApply = vi.fn();
+    const props = { replacementIndex: 0, paraText: new Map([[0, para]]), onApply, onCancel: () => {} };
+    const { rerender } = render(<BatchPreview members={members} startUnticked={['a', 'b']} {...props} />);
+    const shifted = [member('a2', members[0].span.start), member('b2', members[1].span.start)];
+    rerender(<BatchPreview members={shifted} {...props} />);
+    expect(screen.getAllByRole<HTMLInputElement>('checkbox').map((b) => b.checked)).toEqual([false, false]);
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: /^Apply 0 of 2/ }).disabled).toBe(true);
+  });
+
   it('with nothing ticked, Apply is disabled; Cancel cancels', () => {
     const onCancel = vi.fn();
     render(<BatchPreview members={members} replacementIndex={0} paraText={new Map([[0, para]])} onApply={() => {}} onCancel={onCancel} />);

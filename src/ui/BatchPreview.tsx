@@ -23,10 +23,11 @@ interface Props {
  */
 export function BatchPreview({ members, replacementIndex, paraText, onApply, onCancel, reviewKeys = true, startUnticked = [] }: Props) {
   const t = useT();
-  const [unticked, setUnticked] = useState<ReadonlySet<string>>(() => new Set(startUnticked));
-  const chosen = members.filter((c) => !unticked.has(c.id)).map((c) => c.id);
+  // The ticked ids, fixed when the preview opens: a member it hasn't seen (a re-check's new id) starts unticked (Task F11).
+  const [ticked, setTicked] = useState<ReadonlySet<string>>(() => new Set(members.filter((c) => !startUnticked.includes(c.id)).map((c) => c.id)));
+  const chosen = members.filter((c) => ticked.has(c.id)).map((c) => c.id);
   const toggle = (id: string) =>
-    setUnticked((prev) => {
+    setTicked((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -42,7 +43,7 @@ export function BatchPreview({ members, replacementIndex, paraText, onApply, onC
         {members.map((c) => (
           <li key={c.id}>
             <label className="member-check">
-              <input type="checkbox" checked={!unticked.has(c.id)} onChange={() => toggle(c.id)} />
+              <input type="checkbox" checked={ticked.has(c.id)} onChange={() => toggle(c.id)} />
               <Diff candidate={c} replacement={c.replacements[replacementIndex]} paraText={paraText} />
             </label>
           </li>

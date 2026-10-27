@@ -45,8 +45,15 @@ export function DecisionCard({ controller, decision, candidates, paraText, touch
   const t = useT();
   const [seeEach, setSeeEach] = useState(false);
   const [place, setPlace] = useState(0);
-  /** The replacement index whose "Apply all" preview is open. */
-  const [preview, setPreview] = useState<number | null>(null);
+  /** The open preview: the replacement index it applies, and the members it was opened for. */
+  const [opened, setOpened] = useState<{ replacement: number; members: string } | null>(null);
+  const membersKey = decision.candidateIds.join(' ');
+  // A re-check that changes the members (typing shifts their ids, a new use joins) closes the preview, so its ticks
+  // never cover places the user hasn't seen; re-opening shows the engine's current ticks (Task F11). Setting state
+  // while rendering is React's pattern for resetting state when a prop changes.
+  if (opened && opened.members !== membersKey) setOpened(null);
+  const preview = opened?.members === membersKey ? opened.replacement : null;
+  const setPreview = (replacement: number | null) => setOpened(replacement === null ? null : { replacement, members: membersKey });
   const members = decision.candidateIds.map((id) => candidates.get(id)!);
   const first = members[0];
   const shown = members[place % members.length];
