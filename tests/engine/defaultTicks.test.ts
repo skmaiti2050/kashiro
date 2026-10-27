@@ -140,10 +140,25 @@ describe('the simple-fixes card ticks only a closed set of fixes (Task F6, owner
   });
 
   it.each([
+    ['plain text', 'a a b b c c', 'plaintext'],
+    ['after a colon', 'Say the sounds: a a, b b.', 'plaintext'],
+    ['on a Markdown list line', '- a a\n- b b', 'markdown'],
+    // Real slips, unticked too: the same trade-off as "A a man" (F9).
+    ['a real slip', 'It was a a lot of work.', 'plaintext'],
+    ['a real slip after letters', 'Letters: A, B and a a cat.', 'plaintext'],
+  ] as const)('never starts a lowercase doubled "a" ticked, but lists it: %s (Task F10)', async (_where, text, language) => {
+    const adapter = language === 'markdown' ? markdownAdapter : plaintextAdapter;
+    const { paras } = await adapter.read(new TextEncoder().encode(text + '\n'));
+    const { session, ticked, unticked } = await applyAllWithDefaultTicks(paras, { language });
+    expect(ticked).toEqual([]);
+    expect(unticked).toContain('a a → a');
+    expect(paras.map((p) => session.outputText(p.id))).toEqual(paras.map((p) => p.text));
+  });
+
+  it.each([
     ['The the cat sat.', 'The the → The'],
     ['We left. The the cat sat.', 'The the → The'],
-    ['It was a a lot of work.', 'a a → a'],
-    ['Letters: A, B and a a cat.', 'a a → a'],
+    ['Most of of them came.', 'of of → of'],
   ])('still ticks every other allowlisted doubling, a capital at a sentence start included: "%s"', async (text, fix) => {
     const { ticked } = await applyAllWithDefaultTicks([{ id: 0, text }]);
     expect(ticked).toEqual([fix]);

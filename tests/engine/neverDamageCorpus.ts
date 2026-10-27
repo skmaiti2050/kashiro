@@ -282,6 +282,11 @@ export const TICK_TRUTH: readonly TickTruth[] = [
   { input: 'अंग्रेज़ी वर्णमाला: A a, B b, C c.', mayTick: [] },
   { input: '- A a\n- B b\n- C c', mayTick: [], markdown: true },
   { input: '| A a | B b |\n|---|---|\n| C c | D d |', mayTick: [], markdown: true },
+  // Task F10: a doubled "a" in any case, lowercase phonics included, and so the real slip "a a lot" too.
+  { input: 'a a b b c c', mayTick: [] },
+  { input: 'Say the sounds: a a, b b.', mayTick: [] },
+  { input: '- a a\n- b b', mayTick: [], markdown: true },
+  { input: 'It was a a lot of work.', mayTick: [] },
   // Task F10 (owner decision 2026-10-27): a doubling off the slip allowlist, repeated so it forms its own batch card
   // in any case or spacing, starts with every place unticked; it is often grammar.
   { input: 'He said THAT THAT was fine. I knew THAT THAT was wrong.', mayTick: [] },
