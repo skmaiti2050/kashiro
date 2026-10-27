@@ -6,7 +6,7 @@ import { doubledWord } from './wordFlags';
  * Which fixes on the simple-fixes card start unticked (Tasks F6 and F8, owner decisions 2026-10-26). "Review and
  * apply all" applies every ticked fix with one click, so a fix starts ticked only when it belongs to a closed,
  * listed set: a doubled word on the slip allowlist (isSlipDoubling), one copy and the space between removed,
- * except a doubled "a" in any case (isLetterPair).
+ * except a doubled "a" or "an" in any case (isLetterPair).
  * Everything else starts unticked, however safe its shape looks. That includes every a/an swap: re-reviews 4 to 6
  * each found a new way a ticked one was wrong ("Class A office", "a equal b", "mother an father" for "and").
  * Capitals, "i" → "I", punctuation spacing, dot runs, other formatting, whitespace, spelling slips and the kinds
@@ -33,13 +33,16 @@ function startsTicked(c: Candidate, ctx: TickContext): boolean {
   return text.slice(c.span.start, c.span.end) === c.original && isSlipDoubling(c, text);
 }
 
+/** The doubled words that are also letters or sounds on a worksheet. */
+const LETTER_WORDS: ReadonlySet<string> = new Set(['a', 'an']);
+
 /**
- * A doubled "a" in any case ("A a", "a a"): on an alphabet or phonics sheet ("A a, B b", "Say the sounds: a a, b b")
- * it is the letter, and nothing in the text tells it from the slip "a a lot" (F8 re-review 7, M-1; Task F10). It
- * stays on the card, unticked.
+ * A doubled "a" or "an" in any case ("A a", "a a", "An an"): on an alphabet or phonics sheet ("A a, B b", "Say the
+ * sounds: a a, b b", "An an. Bn bn.") it is the letter or the sound, and nothing in the text tells it from the slip
+ * "a a lot" or "an an apple" (F8 re-review 7, M-1; Tasks F10 and F11). It stays on the card, unticked.
  */
 function isLetterPair(c: Candidate): boolean {
-  return doubledWord(c) === 'a';
+  return LETTER_WORDS.has(doubledWord(c) ?? '');
 }
 
 /** Whitespace-separated tokens: "a SMS" is two. */

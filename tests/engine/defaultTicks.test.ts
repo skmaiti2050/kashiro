@@ -156,6 +156,21 @@ describe('the simple-fixes card ticks only a closed set of fixes (Task F6, owner
   });
 
   it.each([
+    ['a capital first copy', 'An an. Bn bn.', 'An an → An', 'plaintext'],
+    ['a lowercase pair after a colon', 'Sounds: an an, in in.', 'an an → an', 'plaintext'],
+    ['on a Markdown list line', '- An an\n- Bn bn', 'An an → An', 'markdown'],
+    // A real slip, unticked too: the same trade-off as "a a lot" (Task F10).
+    ['a real slip', 'An an apple fell.', 'An an → An', 'plaintext'],
+  ] as const)('never starts a doubled "an" ticked, but lists it: %s (Task F11)', async (_where, text, fix, language) => {
+    const adapter = language === 'markdown' ? markdownAdapter : plaintextAdapter;
+    const { paras } = await adapter.read(new TextEncoder().encode(text + '\n'));
+    const { session, ticked, unticked } = await applyAllWithDefaultTicks(paras, { language });
+    expect(ticked).toEqual([]);
+    expect(unticked).toContain(fix);
+    expect(paras.map((p) => session.outputText(p.id))).toEqual(paras.map((p) => p.text));
+  });
+
+  it.each([
     ['The the cat sat.', 'The the → The'],
     ['We left. The the cat sat.', 'The the → The'],
     ['Most of of them came.', 'of of → of'],

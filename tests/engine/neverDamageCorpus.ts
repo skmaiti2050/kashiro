@@ -287,6 +287,13 @@ export const TICK_TRUTH: readonly TickTruth[] = [
   { input: 'Say the sounds: a a, b b.', mayTick: [] },
   { input: '- a a\n- b b', mayTick: [], markdown: true },
   { input: 'It was a a lot of work.', mayTick: [] },
+  // Task F11 (final F10 review I-2): a doubled "an" in any case, like "a a"; so the real slip "An an apple" too.
+  { input: 'An an. Bn bn.', mayTick: [] },
+  { input: 'Sounds: an an, in in.', mayTick: [] },
+  { input: '- An an\n- Bn bn', mayTick: [], markdown: true },
+  { input: 'अक्षर: An an, Bn bn.', mayTick: [] },
+  { input: 'Say an an, then say a.', mayTick: [] },
+  { input: 'An an apple fell.', mayTick: [] },
   // Task F10 (owner decision 2026-10-27): a doubling off the slip allowlist, repeated so it forms its own batch card
   // in any case or spacing, starts with every place unticked; it is often grammar.
   { input: 'He said THAT THAT was fine. I knew THAT THAT was wrong.', mayTick: [] },
