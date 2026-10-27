@@ -18,7 +18,7 @@ Kashiro's rule #1 is that it never changes the user's text without permission. C
    - `npm run check-file -- in.txt out.txt` writes what one document becomes without a click.
    - For a surface the probe doesn't reach (single-card accept and undo, carryDecisions, the change log), write a scratch harness that imports `src/engine`. Run it from the repo root so the path aliases resolve. A harness outside the repo must import by absolute `file:///` URL on Windows.
 4. **Measure against the last baseline:** zero-click changes and default ticks on the trust corpus, and the decisions.md md5 (in `deps/reports/upgrade-report.md` after `npm run upgrade:check`). A count that moved is a finding until explained.
-5. **Check the oracle.** Would the stress test and the truth table go red if this change were wrong? A judge that reuses the code it judges can't catch that code's bugs. Check which cards each judge actually looks at; a card no judge covers is a finding.
+5. **Check the oracle.** Would the stress test and the truth table go red if this change were wrong? A judge that reuses the code it judges can't catch that code's bugs. Check which cards each judge actually looks at; a card no judge covers is a finding. Judges read the engine's decisions, so also check what the **rendered** card or preview ticks, including after a re-check changes its members while it is open (a jsdom harness around the real component).
 6. **Write the report** in the shape below.
 
 ## Severity
@@ -30,6 +30,8 @@ Kashiro's rule #1 is that it never changes the user's text without permission. C
 | Minor | Everything else |
 
 This table decides severity. If an earlier review rated the same class differently, use this table and note the difference in the finding.
+
+Accepted v1.0 risk (owner, 2026-10-27): an allowlisted doubling on the simple-fixes card starts ticked even when written on purpose ("with with" as a keyword, "and and" in lyrics). Report such cases as Minor unless the input is ordinary prose.
 
 ## Report
 
