@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { SIMPLE_FIXES_ID, type Decision } from '@/engine/decisions';
 import type { Candidate } from '@/engine/types';
 import { WORD_REWRITE_KINDS } from '@/engine/wordFlags';
-import { BatchPreview } from './BatchPreview';
+import { BatchPreview, memberAsShown } from './BatchPreview';
 import { CategoryTag } from './CategoryTag';
 import { Diff } from './Diff';
 import { DismissMenu } from './DismissMenu';
@@ -45,16 +45,17 @@ export function DecisionCard({ controller, decision, candidates, paraText, touch
   const t = useT();
   const [seeEach, setSeeEach] = useState(false);
   const [place, setPlace] = useState(0);
-  /** The open preview: the replacement index it applies, and the members it was opened for. */
+  /** The open preview: the replacement index it applies, and the members it was opened for, as shown (memberAsShown). */
   const [opened, setOpened] = useState<{ replacement: number; members: string } | null>(null);
-  const membersKey = decision.candidateIds.join(' ');
-  // A re-check that changes the members (typing shifts their ids, a new use joins) closes the preview, so its ticks
-  // never cover places the user hasn't seen; re-opening shows the engine's current ticks (Task F11). Setting state
-  // while rendering is React's pattern for resetting state when a prop changes.
+  const members = decision.candidateIds.map((id) => candidates.get(id)!);
+  const membersKey = members.map((c) => memberAsShown(c, !decision.startUnticked?.includes(c.id))).join('\n');
+  // A re-check that changes the members (typing shifts their ids, a new use joins: Task F11) or what they show (a moved
+  // line or a paste puts other words under the same ids: Task F12) closes the preview, so its ticks never cover text
+  // the user hasn't seen; re-opening shows the engine's current ticks. Setting state while rendering is React's
+  // pattern for resetting state when a prop changes.
   if (opened && opened.members !== membersKey) setOpened(null);
   const preview = opened?.members === membersKey ? opened.replacement : null;
   const setPreview = (replacement: number | null) => setOpened(replacement === null ? null : { replacement, members: membersKey });
-  const members = decision.candidateIds.map((id) => candidates.get(id)!);
   const first = members[0];
   const shown = members[place % members.length];
   const isBatch = decision.kind === 'batch';

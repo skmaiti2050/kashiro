@@ -17,6 +17,15 @@ interface Props {
 }
 
 /**
+ * What the preview shows of a member: its id, its text, its fixes and whether it starts ticked. An open preview closes
+ * when this changes for a member it shows (Task F12): ids are offsets, so a moved line, a paste or an undo can put
+ * other words under the same id, and the user's ticks would then cover text they never saw.
+ */
+export function memberAsShown(member: Candidate, startsTicked: boolean): string {
+  return JSON.stringify([member.id, member.original, member.replacements, startsTicked]);
+}
+
+/**
  * The checklist shown before "Apply all" (UI/UX research §3, GitHub's batched suggestions): every place
  * as a one-line diff, ticked unless `startUnticked` names it. The ticked ones are applied as one change, undone
  * together in the log.

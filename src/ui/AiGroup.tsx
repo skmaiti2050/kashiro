@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { CheckSession } from '@/engine/session';
-import { BatchPreview } from './BatchPreview';
+import { BatchPreview, memberAsShown } from './BatchPreview';
 import { useT } from './i18n/useT';
 import { pendingSuggestions } from './state/aiState';
 import { CATEGORIES } from './state/categories';
@@ -21,12 +21,20 @@ interface Props {
  */
 export function AiGroup({ controller, state, session, paraText }: Props) {
   const t = useT();
-  /** The suggestions the open Accept-all preview shows: fixed when it opens, so one arriving later is never applied unseen. */
-  const [previewIds, setPreviewIds] = useState<string[] | null>(null);
+  /**
+   * The suggestions the open Accept-all preview shows, by id, as shown (memberAsShown): fixed when it opens, so one
+   * arriving later is never applied unseen.
+   */
+  const [opened, setOpened] = useState<ReadonlyMap<string, string> | null>(null);
   const { run, checkedDocument, notice, measuring } = state.ai;
   const pending = pendingSuggestions(session);
   // Still pending among those shown: one decided or withdrawn meanwhile leaves the preview.
-  const previewed = previewIds && pending.filter((c) => previewIds.includes(c.id));
+  const stillShown = opened ? pending.filter((c) => opened.has(c.id)) : [];
+  // A re-check that puts another suggestion under a shown id (two sentences of the same length swapped) closes the
+  // preview, as on a batch card (Task F12). Setting state while rendering resets it when the session changes.
+  const changed = stillShown.some((c) => opened?.get(c.id) !== memberAsShown(c, false));
+  if (changed) setOpened(null);
+  const previewed = opened && !changed ? stillShown : null;
   const advice = speedAdvice(state.settings);
   const progressText = run ? t.t('ai.progress', { done: run.done, total: run.total }) : '';
 
@@ -76,7 +84,7 @@ export function AiGroup({ controller, state, session, paraText }: Props) {
       {pending.length > 0 && !previewed?.length && (
         <div className="actions">
           <span className="hint">{t.t('ai.pending', { count: pending.length })}</span>
-          <button onClick={() => setPreviewIds(pending.map((c) => c.id))}>{t.t('ai.chooseSuggestions', { count: pending.length })}</button>
+          <button onClick={() => setOpened(new Map(pending.map((c) => [c.id, memberAsShown(c, false)])))}>{t.t('ai.chooseSuggestions', { count: pending.length })}</button>
         </div>
       )}
       {previewed && previewed.length > 0 && (
@@ -89,10 +97,10 @@ export function AiGroup({ controller, state, session, paraText }: Props) {
           // Like every batch card but the simple-fixes card, nothing starts ticked (owner decision 2026-10-27, Task F10).
           startUnticked={previewed.map((c) => c.id)}
           onApply={(ids) => {
-            setPreviewIds(null);
+            setOpened(null);
             controller.ai.acceptAll(ids);
           }}
-          onCancel={() => setPreviewIds(null)}
+          onCancel={() => setOpened(null)}
         />
       )}
     </section>

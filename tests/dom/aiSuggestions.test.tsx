@@ -230,6 +230,32 @@ describe('the Accept-all preview applies only what it showed (I2)', () => {
     const second = session.outcomes().find((o) => o.candidate.source === 'llm' && o.candidate.paraId === 1)!;
     expect(second.status).toBe('pending');
   });
+
+  // Final F11 review I-1b, the same rule for this preview (Task F12): ids are offsets, so swapping two sentences of
+  // the same length trades their suggestions' ids, and the user's tick would move to the suggestion they didn't tick.
+  it('a re-check that puts another suggestion under a ticked id closes the preview and applies nothing', async () => {
+    const OTHER = 'The bus come late.'; // as long as FIRST
+    const OTHER_REWRITE = 'The bus came late.';
+    const { controller } = aiController((text) => (text === FIRST ? FIRST_REWRITE : text === OTHER ? OTHER_REWRITE : null));
+    await openText(controller, `${FIRST}\n\n${OTHER}`);
+    await act(async () => {
+      controller.ai.improveSentence(0, 0);
+      controller.ai.improveSentence(1, 0);
+      await controller.ai.settled();
+    });
+    fireEvent.click(within(aiGroup()).getByRole('button', { name: 'Choose helper suggestions to accept (2)…' }));
+    fireEvent.click(within(aiGroup()).getByRole('checkbox', { name: /were/ }));
+
+    act(() => controller.editText(`${OTHER}\n\n${FIRST}`)); // the paragraphs swapped in one edit
+    await waitFor(() => expect(controller.getState().checking).toBe(false), { timeout: 10000 });
+    const session = controller.getState().session!;
+    expect(session.candidates().filter((c) => c.source === 'llm' && c.paraId === 0).map((c) => c.replacements[0])).toEqual([OTHER_REWRITE]);
+    const tickedRows = within(aiGroup()).queryAllByRole<HTMLInputElement>('checkbox').filter((box) => box.checked).map((box) => box.closest('label')!.textContent);
+    expect(tickedRows.filter((row) => !row!.includes('were'))).toEqual([]); // only the suggestion the user ticked
+    expect(within(aiGroup()).queryAllByRole('checkbox')).toEqual([]);
+    expect([session.outputText(0), session.outputText(1)]).toEqual([OTHER, FIRST]);
+    expect(within(aiGroup()).getByRole('button', { name: 'Choose helper suggestions to accept (2)…' })).toBeTruthy();
+  });
 });
 
 describe('Settings', () => {
