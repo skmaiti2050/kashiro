@@ -994,10 +994,13 @@ button.link {
   overflow-y: auto;
 }
 
-/* minmax(0, 1fr): a long change can't widen the text column past the row and push Undo off-screen (F7 re-review 6, M-4). */
+/*
+ * minmax(0, 1fr): a long change can't widen the text column past the row and push Undo off-screen (F7 re-review 6,
+ * M-4). fit-content(40%): a long status wraps instead of squeezing the changes to 0 px at 760 px (F8 re-review 7, M-3).
+ */
 .changelog .entries li {
   display: grid;
-  grid-template-columns: 48px minmax(0, 1fr) auto auto;
+  grid-template-columns: 48px minmax(0, 1fr) fit-content(40%) auto;
   gap: 12px;
   align-items: center;
   padding: 4px 0;

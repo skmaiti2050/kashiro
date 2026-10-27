@@ -150,4 +150,16 @@ describe('ChangeLog: a long change or context wraps inside its row (F7 re-review
     const row = container.querySelector('.entries li')!;
     expect(gridTracks(getComputedStyle(row).gridTemplateColumns)[1]).toBe('minmax(0, 1fr)');
   });
+
+  // At the 760 px minimum window an `auto` status column took its whole one-line width first and left the changes
+  // 0 px wide (F8 re-review 7, M-3). fit-content(40%) caps it, so the status wraps and the changes keep the rest.
+  it.each([
+    ['a batch row with six kinds', CARD.concat(['Spelling', 'Capitalization', 'Punctuation'].map((kind, i) => applied(`k${i}`, 'plan', 'plan', kind)))],
+    ['a single row', [{ ...applied('d', 'of of', 'of', 'Repetition'), batch: undefined }]],
+  ])('%s: a long status wraps inside at most 40 per cent of the row, and never squeezes the changes to nothing', (_name, outcomes) => {
+    const { container } = renderLog(outcomes);
+    for (const row of container.querySelectorAll('.entries li')) {
+      expect(gridTracks(getComputedStyle(row).gridTemplateColumns)).toEqual(['48px', 'minmax(0, 1fr)', 'fit-content(40%)', 'auto']);
+    }
+  });
 });
