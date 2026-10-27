@@ -406,6 +406,31 @@ describe('a re-check and accepted rewrites (Task F15)', () => {
     expect(textOf(controller)).toBe(`${POST}\n\n${POST}`);
     expect(suggestions(controller)).toEqual([]);
   });
+
+  // Final F14 review M-9: the fix, superseded by the rewrite, was not carried, so the rewrite's sentence read differently.
+  it('a fix accepted, then a rewrite of its sentence accepted: both survive typing in another paragraph', async () => {
+    const helper = helperForPost();
+    const { controller } = makeController({ startHelper: helper.startHelper });
+    await controller.openText(`${POST}\n\nYou recieve "sic" calls.\n\nMore.`);
+    const card = [...session(controller).decisions().top, ...session(controller).decisions().more].find((d) => d.candidateIds.includes('0:2:9:Spelling'))!;
+    controller.applyBatch(card.id, ['0:2:9:Spelling']);
+    controller.ai.improveSentence(0, 0); // sent with the fix in it: "I receive post daily."
+    await controller.ai.settled();
+    expect(helper.sent).toEqual(['I receive post daily.']);
+    controller.ai.acceptAll(['llm:0:0-21']);
+    expect(textOf(controller)).toBe(`${POST_REWRITE}\n\nYou recieve "sic" calls.\n\nMore.`);
+
+    await retype(controller, `${POST}\n\nYou recieve "sic" calls.\n\nMore text.`);
+    expect(textOf(controller)).toBe(`${POST_REWRITE}\n\nYou recieve "sic" calls.\n\nMore text.`);
+    expect(statusOf(controller, 'llm:0:0-21')).toBe('applied');
+    const offered = [...session(controller).decisions().top, ...session(controller).decisions().more].flatMap((d) => d.candidateIds);
+    expect(offered).not.toContain('0:2:9:Spelling');
+    expect(offered).toContain('1:4:11:Spelling');
+
+    // Undoing the rewrite gives back the fix the user accepted under it.
+    controller.undo('llm:0:0-21');
+    expect(textOf(controller)).toBe('I receive post daily.\n\nYou recieve "sic" calls.\n\nMore text.');
+  });
 });
 
 describe('"Accept all helper suggestions"', () => {

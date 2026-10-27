@@ -209,6 +209,11 @@ export class CheckSession {
     return [...top, ...more].some((d) => CARD_ACCEPT_METHODS.has(d.id) && d.candidateIds.includes(candidateId));
   }
 
+  /** For an edit the user applied and a later edit (an AI rewrite) superseded: that edit's id, while it stays applied. */
+  appliedOver(candidateId: string): string | undefined {
+    return this.ledger.appliedOver(candidateId);
+  }
+
   /** Decisions in the default view (spec §10): the top of the ranking, sized by the review depth. */
   decisionCount(): number {
     return this.decisions().top.length;

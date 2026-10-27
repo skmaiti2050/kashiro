@@ -13,6 +13,8 @@ export interface UserDecision {
   /** The replacement chosen, for an applied edit: replayed only if the new check suggests this same text. */
   replacement?: string;
   source: Source;
+  /** An accepted edit that an AI rewrite (this id) superseded: carrying the rewrite supersedes it again. */
+  under?: string;
 }
 
 type Flag = Pick<UserDecision, 'kind' | 'original' | 'span'>;
@@ -24,17 +26,21 @@ export const findTwin = (session: CheckSession, paraId: number, flag: Flag) =>
   session.candidates().find((c) => c.paraId === paraId && sameFlag(c, flag));
 
 /**
- * The user's own decisions in `session`: accepted, rejected, and auto-fixes undone. Left out: what is still
- * pending, auto-fixes still applied (the next check makes them again), edits that could not be placed, and
- * flags closed by adding their word to the dictionary (the dictionary itself brings that back).
+ * The user's own decisions in `session`: accepted, rejected, and auto-fixes undone. An edit the user accepted and
+ * then an AI rewrite of its sentence superseded counts as accepted, with `under` set: the rewrite was made for the
+ * sentence with that edit in it, so the edit is replayed first (final F14 review M-9). Left out: what is still
+ * pending, auto-fixes still applied (the next check makes them again), edits that could not be placed, and flags
+ * closed by adding their word to the dictionary (the dictionary itself brings that back).
  */
 export function userDecisions(session: CheckSession): UserDecision[] {
   const decisions: UserDecision[] = [];
   for (const o of session.outcomes()) {
-    if (o.auto || o.unplaceable !== undefined || (o.status !== 'applied' && o.status !== 'rejected')) continue;
-    if (o.reason?.endsWith('added to dictionary')) continue;
+    if (o.auto || o.unplaceable !== undefined || o.reason?.endsWith('added to dictionary')) continue;
+    const under = o.status === 'superseded' ? session.appliedOver(o.candidate.id) : undefined;
+    if (o.status !== 'applied' && o.status !== 'rejected' && under === undefined) continue;
     const { id, paraId, kind, original, span, source } = o.candidate;
-    decisions.push({ candidateId: id, paraId, kind, original, span: { ...span }, status: o.status, replacement: o.replacement, source });
+    const status = o.status === 'rejected' ? 'rejected' : 'applied';
+    decisions.push({ candidateId: id, paraId, kind, original, span: { ...span }, status, replacement: o.replacement, source, ...(under ? { under } : {}) });
   }
   return decisions;
 }

@@ -119,6 +119,17 @@ describe('snapshot', () => {
     }
   });
 
+  // Task F15 carries a fix under an accepted rewrite across a re-check; a saved review still keeps neither (no AI is saved).
+  it('leaves out a fix the user accepted and then an accepted AI rewrite superseded', async () => {
+    const POST = 'I recieve post daily.';
+    const s = await start([{ id: 0, text: POST }]);
+    s.accept(byOriginal(s, 'recieve').id);
+    expect(s.addRewrite(0, { start: 0, end: POST.length }, 'Post reaches me daily.', 'I receive post daily.')).toEqual({ ok: true });
+    s.accept('llm:0:0-21');
+    expect(s.outcomes().find((o) => o.candidate.original === 'recieve')!.status).toBe('superseded');
+    expect((await snapshot(s, VIEW)).decisions).toEqual([]);
+  });
+
   it('leaves out pending flags, auto-fixes still applied and words added to the dictionary', async () => {
     // Its own linter: adding a word changes the linter for good.
     const s = await CheckSession.start(PARAS, opts, { linter: await createLinter('American') });

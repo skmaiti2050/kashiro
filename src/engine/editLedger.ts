@@ -39,6 +39,12 @@ export class EditLedger {
     return out;
   }
 
+  /** For an applied edit that a later edit superseded: that later edit's id, while it is still applied. */
+  appliedOver(id: string): string | undefined {
+    const by = this.supersededBy.get(id);
+    return this.status.get(id) === 'superseded' && by !== undefined && this.status.get(by) === 'applied' ? by : undefined;
+  }
+
   /** The edit the user applied (not an auto-fix) that overlaps `c`, if any. */
   userEditOver(c: Candidate): Candidate | undefined {
     return this.clashing(c).find((o) => !this.autoApplied.has(o.id));
