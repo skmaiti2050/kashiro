@@ -1291,6 +1291,28 @@ describe('SessionController: the writing helper model', () => {
   });
 });
 
+// Task F20 item 9b (owner): "Vantix" was stored while reviewing `vantix`, and a reopen flagged `vantix` in 26 places.
+describe('SessionController: a word added to the dictionary holds after a reopen', () => {
+  it('stored as written (lowercase), saved, and no case of it is flagged when the document is opened again', async () => {
+    // The card's first place is the capitalised sentence start.
+    const text = 'Vantix is our app.\n\nWe use vantix daily, and vantix often.\n\nAsk vantix support.';
+    const { controller, saved } = makeController({ settings: { preset: 'blog', fallbackVariant: 'Indian' } });
+    await controller.openText(text);
+    const session = controller.getState().session!;
+    const flag = session.candidates().find((c) => c.original === 'vantix')!;
+    const { top, more } = session.decisions();
+    const card = [...top, ...more].find((d) => d.candidateIds.includes(flag.id))!;
+    expect(card.candidateIds[0]).toBe('0:0:6:Spelling');
+    await controller.addToDictionary(card.id);
+    expect(saved.at(-1)!.dictionary).toContain('vantix');
+    expect(saved.at(-1)!.dictionary).not.toContain('Vantix');
+
+    await controller.openText(`${text}\n\nVANTIX rocks.`);
+    const reopened = controller.getState().session!;
+    expect(reopened.candidates().filter((c) => /^vantix$/i.test(c.original) && reopened.tier(c.id) !== 'hidden').map((c) => c.original)).toEqual([]);
+  });
+});
+
 // Task F20 item 6 (owner: "v1.0: yield"): a long check let no click, scroll or keypress through until it ended.
 describe('SessionController: a long check yields to the browser between chunks', () => {
   /** About 60 paragraphs, several chunks. */

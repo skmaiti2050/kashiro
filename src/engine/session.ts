@@ -19,6 +19,7 @@ import { DEFAULT_DEPTH, upFrontCount, type ReviewDepth } from './depth';
 import { countWords } from './words';
 import { DEFAULT_MODULES, type ModuleSwitches } from './modules';
 import { doubledWord, WORD_REWRITE_KINDS } from './wordFlags';
+import { dictionaryAccepts, dictionaryForm } from './dictionaryWords';
 import { sentenceWithEdits } from './sentences';
 import type { GuardVerdict } from './llm/guard';
 import { HelperRewrites } from './sessionRewrites';
@@ -376,7 +377,8 @@ export class CheckSession {
     if (!WORD_REWRITE_KINDS.has(first.kind) || members.some((c) => c.original.toLowerCase() !== first.original.toLowerCase())) {
       throw new Error(`${decisionId} is not a word flag (Spelling/Typo of one word)`);
     }
-    await this.addWord(first.original);
+    // As the user wrote it, not as its first place happens to be (a sentence start's capital): F20 item 9b.
+    await this.addWord(dictionaryForm(members.map((c) => c.original)));
   }
 
   /**
@@ -415,29 +417,33 @@ export class CheckSession {
     const card = [...top, ...more].find((d) => d.kind === kind);
     if (!card) throw new Error(`there is no ${kind} card to accept: none of its words are pending`);
     const typos = new Set([...keepAsTypos, ...alsoTypos(card)].map((w) => w.toLowerCase()));
-    const words = new Map<string, string>(); // lowercased → first spelling seen
+    const spellings = new Map<string, string[]>(); // lowercased → every spelling on the card, in order
     for (const id of card.candidateIds) {
       const original = this.cands.get(id)!.original;
-      if (!words.has(original.toLowerCase())) words.set(original.toLowerCase(), original);
+      spellings.set(original.toLowerCase(), [...(spellings.get(original.toLowerCase()) ?? []), original]);
     }
-    for (const [lower, word] of words) {
+    for (const [lower, written] of spellings) {
       if (typos.has(lower)) this.typoWords.add(lower);
-      else await this.addWord(word);
+      else await this.addWord(dictionaryForm(written));
     }
   }
 
   /**
-   * Adds `word` to the linter and rejects every Spelling/Typo flag of it that is pending, or withdrawn under an
-   * edit the user applied (else undoing that edit would bring it back as a card: final F14 review M-10).
+   * Adds `word` to the linter and rejects every Spelling/Typo flag the entry accepts (dictionaryAccepts) that is
+   * pending, or withdrawn under an edit the user applied (else undoing that edit would bring it back as a card: final
+   * F14 review M-10). A fix of the word the user applied is taken back, as its Undo would: the next check no longer
+   * flags the word, so it would drop the fix without a word (M-12, F20 item 9a). Only that fix: one an AI rewrite was
+   * made over is no longer applied (superseded) and stays as it is, with the rewrite.
    */
   private async addWord(word: string): Promise<void> {
     await this.linter.addWords([word]);
     this.added.push(word);
     const reason = `"${word}" added to dictionary`;
     for (const c of this.cands.values()) {
-      const open = this.ledger.status.get(c.id) === 'pending' || this.ledger.isCovered(c.id);
-      if (!open || !WORD_REWRITE_KINDS.has(c.kind)) continue;
-      if (c.original.toLowerCase() !== word.toLowerCase()) continue;
+      if (!WORD_REWRITE_KINDS.has(c.kind) || !dictionaryAccepts(word, c.original)) continue;
+      const status = this.ledger.status.get(c.id);
+      if (status === 'applied' && !this.ledger.autoApplied.has(c.id)) this.undo(c.id);
+      else if (status !== 'pending' && !this.ledger.isCovered(c.id)) continue;
       this.userRejected.add(c.id);
       this.ledger.record(c.id, 'rejected', false, reason);
     }
