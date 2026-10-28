@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { usePopup } from './usePopup';
 import { useT } from './i18n/useT';
 import { kindLabel } from './state/kindLabels';
 
@@ -29,15 +30,13 @@ export function DismissMenu({ kind, thisOneLabel, onThisOne, onRule }: Props) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
+  const menu = useRef<HTMLDivElement>(null);
+  const close = useCallback(() => setOpen(false), []);
+  // On a review card it opens towards the end, unless that would run past the panel (Task F20 item 7).
+  const placement = usePopup({ open, close, anchor: root, menu, prefer: 'end' });
 
   useEffect(() => {
-    if (!open) return;
-    root.current?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus();
-    const closeOutside = (e: MouseEvent) => {
-      if (!root.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', closeOutside);
-    return () => document.removeEventListener('mousedown', closeOutside);
+    if (open) root.current?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus();
   }, [open]);
 
   const choose = (action: () => void) => {
@@ -66,7 +65,7 @@ export function DismissMenu({ kind, thisOneLabel, onThisOne, onRule }: Props) {
         {t.t('dismiss.button')}
       </button>
       {open && (
-        <div className="menu" role="menu" aria-label={t.t('dismiss.menu')}>
+        <div className="menu" role="menu" aria-label={t.t('dismiss.menu')} ref={menu} style={placement}>
           <button role="menuitem" onClick={() => choose(onThisOne)}>
             {thisOneLabel}
           </button>

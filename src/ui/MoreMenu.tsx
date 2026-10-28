@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { moveInMenu } from './DismissMenu';
+import { usePopup } from './usePopup';
 import { Kbd } from './Kbd';
 import { useT } from './i18n/useT';
 
@@ -16,22 +17,21 @@ const ariaKeys = (keys: string) => keys.replace(/^Ctrl\+/, 'Control+').replace(/
 /**
  * The toolbar's ⋯ menu (Task U3: a calmer toolbar): the less used actions in one keyboard-accessible menu
  * (WAI-ARIA menu button: Enter or Space opens it on its first item, Up and Down move and wrap, Home and End
- * jump, Escape closes it and returns to ⋯, a click outside closes it).
+ * jump, Escape closes it and returns to ⋯, a click or focus outside closes it). Placed and kept the only open
+ * popup by usePopup.
  */
 export function MoreMenu({ items }: { items: MoreMenuItem[] }) {
   const t = useT();
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
+  const menu = useRef<HTMLDivElement>(null);
+  const close = useCallback(() => setOpen(false), []);
+  // At the toolbar's end: it opens towards the start when both sides fit (Task F17).
+  const placement = usePopup({ open, close, anchor: root, menu, prefer: 'start' });
 
   useEffect(() => {
-    if (!open) return;
-    root.current?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus();
-    const closeOutside = (e: MouseEvent) => {
-      if (!root.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', closeOutside);
-    return () => document.removeEventListener('mousedown', closeOutside);
+    if (open) root.current?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus();
   }, [open]);
 
   const onKeyDown = (e: KeyboardEvent) => {
@@ -69,7 +69,7 @@ export function MoreMenu({ items }: { items: MoreMenuItem[] }) {
         ⋯
       </button>
       {open && (
-        <div className="menu" role="menu" aria-label={t.t('toolbar.more')}>
+        <div className="menu" role="menu" aria-label={t.t('toolbar.more')} ref={menu} style={placement}>
           {items.map((item) => (
             <button key={item.label} role="menuitem" aria-keyshortcuts={item.keys && ariaKeys(item.keys)} onClick={() => choose(item)}>
               {item.label} {item.keys && <Kbd>{item.keys}</Kbd>}

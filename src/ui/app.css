@@ -612,6 +612,8 @@ legend {
   background: var(--panel);
   padding: 12px 16px;
   overflow-y: auto;
+  /* Never sideways: popups are placed and capped inside it (usePopup, F20 item 7). */
+  overflow-x: hidden;
   /* Keeps the scrolled-to card clear of the panel's edges. */
   scroll-padding-block: 16px;
 }

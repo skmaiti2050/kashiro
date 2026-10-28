@@ -1,4 +1,4 @@
-import { useRef, type KeyboardEvent } from 'react';
+import { useCallback, useRef, useState, type KeyboardEvent } from 'react';
 import { PRESETS, type PresetId } from '@/engine/presets';
 import type { Variant } from '@/engine/types';
 import type { MessageKey } from './i18n/catalogues';
@@ -6,6 +6,7 @@ import type { Translator } from './i18n/translator';
 import { useT } from './i18n/useT';
 import { MoreMenu, type MoreMenuItem } from './MoreMenu';
 import { siblingPath } from './state/documentText';
+import { usePopup } from './usePopup';
 import type { ControllerState, SessionController } from './state/sessionController';
 
 export const VARIANTS: Variant[] = ['American', 'British', 'Australian', 'Canadian', 'Indian'];
@@ -80,12 +81,18 @@ export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onHelp
     { label: t.t('toolbar.settings'), keys: 'Ctrl+,', onChoose: onSettings },
     { label: t.t('toolbar.about'), onChoose: onAbout },
   ];
-  const saveMenu = useRef<HTMLDetailsElement>(null);
+  // Save ▾ is a <details> whose open state React holds, so usePopup can place it and close it (Task F20 item 7).
+  const [saveOpen, setSaveOpen] = useState(false);
+  const saveGroup = useRef<HTMLDivElement>(null);
+  const saveMenu = useRef<HTMLDivElement>(null);
+  const saveSummary = useRef<HTMLElement>(null);
+  const closeSave = useCallback(() => setSaveOpen(false), []);
+  const savePlacement = usePopup({ open: saveOpen, close: closeSave, anchor: saveGroup, menu: saveMenu, prefer: 'start' });
   const closeSaveMenu = (e: KeyboardEvent<HTMLDetailsElement>) => {
-    if (e.key !== 'Escape' || !saveMenu.current?.open) return;
+    if (e.key !== 'Escape' || !saveOpen) return;
     e.stopPropagation();
-    saveMenu.current.open = false;
-    saveMenu.current.querySelector('summary')?.focus();
+    setSaveOpen(false);
+    saveSummary.current?.focus();
   };
 
   return (
@@ -134,7 +141,7 @@ export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onHelp
       <span className="spacer" />
       <MoreMenu items={moreItems} />
 
-      <div className="save-group">
+      <div className="save-group" ref={saveGroup}>
         <button
           className="primary"
           disabled={!document || !session}
@@ -143,9 +150,18 @@ export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onHelp
         >
           {t.t('save.button')}
         </button>
-        <details className="save-menu" ref={saveMenu} onKeyDown={closeSaveMenu}>
-          <summary aria-label={t.t('save.options')}>▾</summary>
-          <div className="menu">
+        <details className="save-menu" open={saveOpen} onKeyDown={closeSaveMenu}>
+          <summary
+            ref={saveSummary}
+            aria-label={t.t('save.options')}
+            onClick={(e) => {
+              e.preventDefault();
+              setSaveOpen((v) => !v);
+            }}
+          >
+            ▾
+          </summary>
+          <div className="menu" ref={saveMenu} style={savePlacement}>
             <fieldset>
               <legend>{t.t('save.howLegend')}</legend>
               <SaveChoice

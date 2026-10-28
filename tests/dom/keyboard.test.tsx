@@ -38,9 +38,9 @@ describe('menus and the toolbar', () => {
     expect(document.activeElement).toBe(open);
 
     const menu = document.querySelector<HTMLDetailsElement>('.save-menu')!;
-    act(() => {
-      menu.open = true;
-    });
+    // Opened as the user opens it: React holds its open state since Task F20 (one popup at a time).
+    fireEvent.click(screen.getByText('▾'));
+    expect(menu.open).toBe(true);
     fireEvent.keyDown(screen.getByRole('radio', { name: /New copy/ }), { key: 'Escape' });
     expect(menu.open).toBe(false);
     expect(document.activeElement).toBe(screen.getByText('▾'));
