@@ -243,6 +243,8 @@
   "log.spaces": "{count, plural, one {# स्पेस} other {# स्पेस}}",
   "log.undo": "वापस लें",
   "log.undoAll": "सभी {count, number} वापस लें",
+  "log.showChanges": "{count, plural, one {# बदलाव} other {# बदलाव}} दिखाएँ",
+  "log.hideChanges": "बदलाव छिपाएँ",
   "log.reviewAgain": "फिर से देखें",
   "log.batchStatus": "{count, plural, one {# सुधार} other {# सुधार}} ({kind}) एक साथ लागू",
   "log.autoFixed": "अपने-आप सुधारा",

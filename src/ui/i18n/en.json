@@ -242,6 +242,8 @@
   "log.spaces": "{count, plural, one {# space} other {# spaces}}",
   "log.undo": "Undo",
   "log.undoAll": "Undo all {count, number}",
+  "log.showChanges": "Show {count, plural, one {# change} other {# changes}}",
+  "log.hideChanges": "Hide changes",
   "log.reviewAgain": "Review again",
   "log.batchStatus": "{count, plural, one {# fix} other {# fixes}} ({kind}) applied together",
   "log.autoFixed": "auto-fixed",

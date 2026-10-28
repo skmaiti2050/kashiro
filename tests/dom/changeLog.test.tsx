@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import type { CheckSession, Outcome } from '@/engine/session';
 import type { Candidate } from '@/engine/types';
 import { ChangeLog } from '@/ui/ChangeLog';
@@ -16,13 +16,16 @@ const applied = (id: string, original: string, replacement: string, kind: string
   return { candidate, paragraphNumber: 1, status: 'applied', auto: false, replacement, batch: 'batch-1' };
 };
 
+/** The log with every batch row opened (collapsed by default since Task F20), so each change is shown. */
 function renderLog(outcomes: Outcome[], text = TEXT, language: 'en' | 'hi' | 'bn' = 'en') {
   const session = { outcomes: () => outcomes, paragraphs: () => [{ id: 0, text }] } as unknown as CheckSession;
-  return render(
+  const result = render(
     <TranslatorProvider translator={createTranslator(language, ['en-IN'])}>
       <ChangeLog controller={{} as SessionController} state={{ session } as ControllerState} open onToggle={() => {}} />
     </TranslatorProvider>,
   );
+  result.container.querySelectorAll('.batch-toggle').forEach((button) => fireEvent.click(button));
+  return result;
 }
 
 const CARD = [applied('t', 'teh', 'the', 'Typo'), applied('o', 'of of', 'of', 'Repetition'), applied('a', 'a', 'an', 'Miscellaneous', TEXT, TEXT.indexOf(' a apple') + 1)];
@@ -158,7 +161,8 @@ describe('ChangeLog: a long change or context wraps inside its row (F7 re-review
     ['a single row', [{ ...applied('d', 'of of', 'of', 'Repetition'), batch: undefined }]],
   ])('%s: a long status wraps inside at most 40 per cent of the row, and never squeezes the changes to nothing', (_name, outcomes) => {
     const { container } = renderLog(outcomes);
-    for (const row of container.querySelectorAll('.entries li')) {
+    // A batch row is a header over its lines (Task F20 item 2): each line is laid out like a single row.
+    for (const row of container.querySelectorAll('.entries > li:not(.batch), .batch-changes > li')) {
       expect(gridTracks(getComputedStyle(row).gridTemplateColumns)).toEqual(['48px', 'minmax(0, 1fr)', 'fit-content(40%)', 'auto']);
     }
   });

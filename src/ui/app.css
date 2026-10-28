@@ -75,6 +75,7 @@
   .editor .cm-scroller,
   .review,
   .changelog .entries,
+  .changelog .batch-changes,
   .dialog {
     scrollbar-width: thin;
     scrollbar-color: var(--scroll-thumb) var(--scroll-track);
@@ -84,6 +85,7 @@
 .editor .cm-scroller::-webkit-scrollbar,
 .review::-webkit-scrollbar,
 .changelog .entries::-webkit-scrollbar,
+.changelog .batch-changes::-webkit-scrollbar,
 .dialog::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -92,6 +94,7 @@
 .editor .cm-scroller::-webkit-scrollbar-track,
 .review::-webkit-scrollbar-track,
 .changelog .entries::-webkit-scrollbar-track,
+.changelog .batch-changes::-webkit-scrollbar-track,
 .dialog::-webkit-scrollbar-track {
   background: var(--scroll-track);
 }
@@ -99,6 +102,7 @@
 .editor .cm-scroller::-webkit-scrollbar-thumb,
 .review::-webkit-scrollbar-thumb,
 .changelog .entries::-webkit-scrollbar-thumb,
+.changelog .batch-changes::-webkit-scrollbar-thumb,
 .dialog::-webkit-scrollbar-thumb {
   background: var(--scroll-thumb);
   border-radius: 5px;
@@ -109,6 +113,7 @@
 .editor .cm-scroller::-webkit-scrollbar-thumb:hover,
 .review::-webkit-scrollbar-thumb:hover,
 .changelog .entries::-webkit-scrollbar-thumb:hover,
+.changelog .batch-changes::-webkit-scrollbar-thumb:hover,
 .dialog::-webkit-scrollbar-thumb:hover {
   background: var(--scroll-thumb-hover);
 }
@@ -1030,9 +1035,48 @@ button.link {
   display: grid;
   grid-template-columns: 48px minmax(0, 1fr) fit-content(40%) auto;
   gap: 12px;
-  align-items: center;
+  /* Top, never centred: a row's Undo stays level with its first line however far the change wraps (F20). */
+  align-items: start;
   padding: 4px 0;
   border-bottom: 1px solid var(--line);
+}
+
+/* A batch row: its header, then (opened) one line per change, each laid out like a single row (F20 item 2). */
+.changelog .entries li.batch {
+  display: block;
+}
+
+.changelog .batch-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  align-items: start;
+  justify-content: space-between;
+}
+
+.changelog .batch-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-inline-start: auto;
+}
+
+/*
+ * About twelve lines, then it scrolls inside the log, so the drawer never grows past its size. Positioned like
+ * every scrolling box (F19).
+ */
+.changelog .batch-changes {
+  position: relative;
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  padding-inline-start: 12px;
+  max-height: 24em;
+  overflow-y: auto;
+}
+
+.changelog .batch-changes li:last-child {
+  border-bottom: none;
 }
 
 /* "No changes yet." is one line of text, not a change row: in the row grid it fell into the 48px column. */
@@ -1043,14 +1087,6 @@ button.link {
 .changelog .where,
 .changelog .status {
   color: var(--muted);
-}
-
-/* A batch row lists each change it made, wrapping inside the row's text column. */
-.changelog .changes {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px 16px;
-  min-width: 0;
 }
 
 /*

@@ -1,3 +1,4 @@
+import { useId, useState } from 'react';
 import type { Outcome } from '@/engine/session';
 import type { Span } from '@/engine/types';
 import type { Translator } from './i18n/translator';
@@ -201,11 +202,17 @@ function Change({ o, text }: { o: Outcome; text: string | undefined }) {
   );
 }
 
+/** Where a change is: its paragraph's number. */
+function Where({ number }: { number: number }) {
+  const t = useT();
+  return <span className="where">{t.t('log.paragraph', { number })}</span>;
+}
+
 function ChangeRow({ controller, o, text }: { controller: SessionController; o: Outcome; text: string | undefined }) {
   const t = useT();
   return (
     <li className={o.status}>
-      <span className="where">{t.t('log.paragraph', { number: o.paragraphNumber })}</span>
+      <Where number={o.paragraphNumber} />
       <Change o={o} text={text} />
       <span className="status">
         {kindLabel(t, o.candidate.kind)} · {statusLabel(t, o)}
@@ -221,22 +228,40 @@ function ChangeRow({ controller, o, text }: { controller: SessionController; o: 
   );
 }
 
+/**
+ * Every change of one "Apply all" (F4 re-review 3, M-7), collapsed under a header: hundreds of them in one wrapped
+ * block could not be read (Task F20 item 2). Opened, each change has its own line and Undo; an undone change leaves
+ * the batch and comes back as its own row.
+ */
 function BatchRow({ controller, batch, outcomes, paraText }: { controller: SessionController; batch: string; outcomes: Outcome[]; paraText: ReadonlyMap<number, string> }) {
   const t = useT();
-  const paragraphs = [...new Set(outcomes.map((o) => t.t('log.paragraph', { number: o.paragraphNumber })))].join(' ');
+  const [open, setOpen] = useState(false);
+  const listId = useId();
   // The simple-fixes card applies several kinds at once: name each (Task F4).
   const kinds = [...new Set(outcomes.map((o) => kindLabel(t, o.candidate.kind)))].join(', ');
   return (
     <li className="applied batch">
-      <span className="where">{paragraphs}</span>
-      {/* Every change the batch made, not only the first: they are undone together (F4 re-review 3, M-7). */}
-      <span className="changes">
-        {outcomes.map((o) => (
-          <Change key={o.candidate.id} o={o} text={paraText.get(o.candidate.paraId)} />
-        ))}
-      </span>
-      <span className="status">{t.t('log.batchStatus', { count: outcomes.length, kind: kinds })}</span>
-      <button onClick={() => controller.undoBatch(batch)}>{t.t('log.undoAll', { count: outcomes.length })}</button>
+      <div className="batch-head">
+        <span className="status">{t.t('log.batchStatus', { count: outcomes.length, kind: kinds })}</span>
+        <span className="batch-actions">
+          <button className="quiet batch-toggle" aria-expanded={open} aria-controls={open ? listId : undefined} onClick={() => setOpen(!open)}>
+            {open ? t.t('log.hideChanges') : t.t('log.showChanges', { count: outcomes.length })} <span aria-hidden="true">{open ? '▴' : '▾'}</span>
+          </button>
+          <button onClick={() => controller.undoBatch(batch)}>{t.t('log.undoAll', { count: outcomes.length })}</button>
+        </span>
+      </div>
+      {open && (
+        <ol className="batch-changes" id={listId}>
+          {outcomes.map((o) => (
+            <li key={o.candidate.id}>
+              <Where number={o.paragraphNumber} />
+              <Change o={o} text={paraText.get(o.candidate.paraId)} />
+              <span className="status">{kindLabel(t, o.candidate.kind)}</span>
+              <button onClick={() => controller.undo(o.candidate.id)}>{t.t('log.undo')}</button>
+            </li>
+          ))}
+        </ol>
+      )}
     </li>
   );
 }
