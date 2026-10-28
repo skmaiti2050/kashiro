@@ -38,6 +38,15 @@ describe('the two release configs', () => {
     expect((full.app as { windows: { title: string }[] }).windows[0].title).toBe('Kashiro');
   });
 
+  // Task F17: CodeMirror's runtime <style> tag (style-mod) has no nonce, and a production nonce in style-src turns off
+  // 'unsafe-inline', so the editor lost its layout and the document could not scroll. Script nonces stay.
+  it('keeps the declared style-src as written: Tauri adds no style nonce, only script ones (Task F17)', () => {
+    const security = (full.app as { security: { csp: string; dangerousDisableAssetCspModification?: unknown } }).security;
+    expect(security.dangerousDisableAssetCspModification).toEqual(['style-src']);
+    expect(security.csp).toMatch(/style-src 'self' 'unsafe-inline'(;|$)/);
+    expect(security.csp).not.toMatch(/script-src[^;]*'unsafe-inline'/);
+  });
+
   it('both are the same app: same name, identifier, version, CSP and installer settings, so one installs over the other', () => {
     for (const key of ['productName', 'mainBinaryName', 'identifier', 'version', 'app']) expect(noai[key]).toEqual(full[key]);
     const windows = (conf: Record<string, unknown>) => (conf.bundle as { windows: Record<string, unknown> }).windows;

@@ -74,7 +74,7 @@ describe('findWidenings (tauri.conf.json CSP and capabilities against a baseline
       'capability extra adds fs:default',
       'capability extra adds platforms all',
       'capability extra adds local true',
-      'app.security.dangerousDisableAssetCspModification changed: (none) -> true',
+      'app.security.dangerousDisableAssetCspModification changed: ["style-src"] -> true',
     ]);
   });
 
