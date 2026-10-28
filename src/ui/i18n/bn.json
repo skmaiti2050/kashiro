@@ -22,6 +22,7 @@
   "toolbar.mixedTitle": "কিছু শব্দ ইংরেজির অন্য ধরনের বানানে লেখা; সেগুলো দেখে নেওয়ার জন্য দেখানো হয়েছে।",
   "toolbar.detected": "{variant} (নিজে থেকে শনাক্ত)",
   "toolbar.default": "{variant} (ডিফল্ট)",
+  "toolbar.automatic": "স্বয়ংক্রিয় (লেখা থেকে শনাক্ত)",
   "toolbar.googleDocs": "Google Docs",
   "toolbar.shortcuts": "কিবোর্ড শর্টকাট",
   "toolbar.settings": "সেটিংস",

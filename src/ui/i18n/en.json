@@ -21,6 +21,7 @@
   "toolbar.mixedTitle": "Some words follow another English variant; they are offered for review.",
   "toolbar.detected": "{variant} (detected)",
   "toolbar.default": "{variant} (default)",
+  "toolbar.automatic": "Automatic (detect from text)",
   "toolbar.googleDocs": "Google Docs",
   "toolbar.shortcuts": "Keyboard shortcuts",
   "toolbar.settings": "Settings",

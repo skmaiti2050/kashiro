@@ -22,6 +22,7 @@
   "toolbar.mixedTitle": "कुछ शब्द अंग्रेज़ी के किसी दूसरे प्रकार की स्पेलिंग में हैं; उन्हें जाँचने के लिए दिखाया गया है।",
   "toolbar.detected": "{variant} (अपने-आप पहचाना गया)",
   "toolbar.default": "{variant} (डिफ़ॉल्ट)",
+  "toolbar.automatic": "अपने-आप (पाठ से पहचानें)",
   "toolbar.googleDocs": "Google Docs",
   "toolbar.shortcuts": "कीबोर्ड शॉर्टकट",
   "toolbar.settings": "सेटिंग्स",

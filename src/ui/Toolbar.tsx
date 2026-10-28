@@ -2,6 +2,7 @@ import { useRef, type KeyboardEvent } from 'react';
 import { PRESETS, type PresetId } from '@/engine/presets';
 import type { Variant } from '@/engine/types';
 import type { MessageKey } from './i18n/catalogues';
+import type { Translator } from './i18n/translator';
 import { useT } from './i18n/useT';
 import { MoreMenu, type MoreMenuItem } from './MoreMenu';
 import { siblingPath } from './state/documentText';
@@ -114,9 +115,7 @@ export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onHelp
             value={variantOverride ?? ''}
             onChange={(e) => controller.setVariant(e.target.value === '' ? null : (e.target.value as Variant))}
           >
-            <option value="">
-              {t.t(session.variantFromFallback ? 'toolbar.default' : 'toolbar.detected', { variant: t.t(VARIANT_KEYS[session.variant]) })}
-            </option>
+            <option value="">{automaticVariantLabel(t, variantOverride, session.variant, session.variantFromFallback)}</option>
             {VARIANTS.map((v) => (
               <option key={v} value={v}>
                 {t.t(VARIANT_KEYS[v])}
@@ -183,6 +182,16 @@ export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onHelp
       </div>
     </div>
   );
+}
+
+/**
+ * The variant menu's first choice, which clears the user's pick. While a variant is picked the check has detected
+ * nothing, so it names none: "American (detected)" there was the pick itself, and choosing it fell back to
+ * "Indian (default)" (F20 item 5). With no pick it names the variant the check chose and why.
+ */
+function automaticVariantLabel(t: Translator, picked: Variant | null, variant: Variant, fromFallback: boolean): string {
+  if (picked !== null) return t.t('toolbar.automatic');
+  return t.t(fromFallback ? 'toolbar.default' : 'toolbar.detected', { variant: t.t(VARIANT_KEYS[variant]) });
 }
 
 /** "essay.docx" → "essay.checked.docx" (saveFlow's default name for a new copy). */

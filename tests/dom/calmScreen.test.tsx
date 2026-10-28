@@ -147,4 +147,32 @@ describe('the English variant in the status bar and the toolbar', () => {
     expect(statusBar()).toContain('English (detected)');
     expect(automatic()).toMatch(/ \(detected\)$/);
   });
+
+  // Task F20 item 5 (owner): after picking American, the automatic choice read "American (detected)", but choosing
+  // it cleared the pick and the re-check fell back to "Indian (default)".
+  it('while a variant is picked, the automatic choice names no variant', async () => {
+    const { controller } = makeController({ fallbackVariant: 'Indian' });
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText('The cat sat on the mat.'));
+    act(() => controller.setVariant('American'));
+    await waitFor(() => expect(statusBar()).toContain('American English'));
+    const select = within(toolbar()).getByRole('combobox', { name: /English/ }) as HTMLSelectElement;
+    expect(select.value).toBe('American');
+    expect(select.querySelector('option[value=""]')!.textContent).toBe('Automatic (detect from text)');
+    expect(statusBar()).not.toMatch(/\((detected|default)\)/);
+    act(() => controller.setVariant(null));
+    await waitFor(() => expect(statusBar()).toContain('Indian English (default)'));
+    expect(select.querySelector('option[value=""]')!.textContent).toBe('Indian (default)');
+  });
+
+  it.each([
+    ['hi', 'अपने-आप (पाठ से पहचानें)'],
+    ['bn', 'স্বয়ংক্রিয় (লেখা থেকে শনাক্ত)'],
+  ] as const)('%s: the automatic choice is translated', async (language, label) => {
+    const { controller } = makeController({ fallbackVariant: 'Indian', uiLanguage: language });
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText('The cat sat on the mat.'));
+    act(() => controller.setVariant('American'));
+    await waitFor(() => expect(toolbar().querySelector('option[value=""]')!.textContent).toBe(label));
+  });
 });
