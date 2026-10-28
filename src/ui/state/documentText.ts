@@ -1,4 +1,4 @@
-import { pairUniqueKeys } from '@/engine/carryDecisions';
+import { pairUnchangedKeys } from '@/engine/carryDecisions';
 import type { Paragraph } from '@/engine/types';
 
 /** The view text of a document without its own plain text (.docx): paragraphs separated by a blank line. */
@@ -14,12 +14,13 @@ export function joinParagraphs(paras: Paragraph[]): { text: string; starts: Map<
 }
 
 /**
- * Old paragraph id → new paragraph id, for paragraphs whose text did not change. A text found in more than one
- * paragraph, before or after, is never matched: which copy is which can't be told, so its decisions are not
- * carried and its places come back for review (owner decision, Task F15).
+ * Old paragraph id → new paragraph id, for paragraphs whose text did not change. The same list (a goal or
+ * settings change, a .docx re-check) maps each paragraph to itself, copies included (final F15 review M-14).
+ * Otherwise a text found in more than one paragraph, before or after, is never matched: which copy is which
+ * can't be told, so its decisions are not carried and its places come back for review (owner decision, Task F15).
  */
 export function matchUnchangedParagraphs(before: Paragraph[], after: Paragraph[]): Map<number, number> {
-  const pairs = pairUniqueKeys(
+  const pairs = pairUnchangedKeys(
     before.map((p) => p.text),
     after.map((p) => p.text),
   );

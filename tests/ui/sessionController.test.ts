@@ -803,6 +803,65 @@ describe('SessionController: typing re-checks', () => {
     });
   });
 
+  // Final F15 review M-14: with the same paragraph list, which copy is which is certain.
+  describe('a re-check that sees the same paragraph list keeps every decision, copies included', () => {
+    const COPIES = 'I recieve it.\n\nI recieve it.\n\nYou recieve "sic" calls.';
+    const output = (c: SessionController) => c.getState().session!.paragraphs().map((p) => c.getState().session!.outputText(p.id));
+    const recieveStatus = (c: SessionController) =>
+      c.getState().session!.outcomes().filter((o) => o.candidate.original === 'recieve').map((o) => o.status);
+    /** Copy 1 fixed, copy 2 rejected ("sic"), the third paragraph rejected too. */
+    function decide(c: SessionController) {
+      const { top, more } = c.getState().session!.decisions();
+      const card = [...top, ...more].find((d) => d.label.includes('recieve'))!;
+      const [first, second, third] = card.candidateIds;
+      c.applyBatch(card.id, [first]);
+      c.reject(second);
+      c.reject(third);
+      expect(output(c)).toEqual(['I receive it.', 'I recieve it.', 'You recieve "sic" calls.']);
+    }
+
+    it.each([
+      ['a goal change', (c: SessionController) => c.setPreset('academic')],
+      ['"this rule in this document"', (c: SessionController) => c.ignoreRule('Contraction', 'document')],
+    ])('%s', async (_, recheck) => {
+      const { controller } = makeController({ settings: { preset: 'blog' } });
+      await controller.openText(COPIES);
+      decide(controller);
+      const checks = lintCalls;
+      recheck(controller);
+      await controller.settled();
+      expect(lintCalls).toBe(checks + 1);
+      expect(output(controller)).toEqual(['I receive it.', 'I recieve it.', 'You recieve "sic" calls.']);
+      expect(recieveStatus(controller)).toEqual(['applied', 'rejected', 'rejected']);
+    });
+
+    it('a change made without a click and undone on one copy stays undone there, and stays made on the other', async () => {
+      const { controller } = makeController({ settings: { preset: 'blog' } });
+      await controller.openText('Total:  five items.\n\nTotal:  five items.\n\nMore.');
+      const collapse = (c: SessionController) => c.getState().session!.outcomes().filter((o) => o.candidate.original === '  ');
+      controller.undo(collapse(controller)[0].candidate.id);
+      controller.setPreset('academic');
+      await controller.settled();
+      expect(output(controller)).toEqual(['Total:  five items.', 'Total: five items.', 'More.']);
+      expect(collapse(controller).map((o) => [o.status, o.auto])).toEqual([
+        ['rejected', false],
+        ['applied', true],
+      ]);
+    });
+
+    it('a .docx re-checked after a goal change', async () => {
+      const paragraph = (text: string) => `<w:p><w:r><w:t xml:space="preserve">${text.replace(/"/g, '&quot;')}</w:t></w:r></w:p>`;
+      const bytes = await buildDocx(COPIES.split('\n\n').map(paragraph).join(''));
+      const { controller } = makeController({ settings: { preset: 'blog' } });
+      await controller.openFile({ name: 'table.docx', path: '/docs/table.docx', bytes });
+      decide(controller);
+      controller.setPreset('academic');
+      await controller.settled();
+      expect(output(controller)).toEqual(['I receive it.', 'I recieve it.', 'You recieve "sic" calls.']);
+      expect(recieveStatus(controller)).toEqual(['applied', 'rejected', 'rejected']);
+    });
+  });
+
   it('"Review again" on a rejected batch whose paragraph moved still gives back one decision, not one per place', async () => {
     const { controller } = makeController();
     await controller.openText("I can't go. You can't stay.\n\nIt's late.");

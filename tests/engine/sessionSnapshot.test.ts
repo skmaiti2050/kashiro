@@ -200,7 +200,7 @@ describe('restore', () => {
   });
 
   // Final F14 review I-3 (owner decision, Task F15): copies paired in order put a decision on the other copy.
-  it('a paragraph whose text is found more than once, in the saved review or now, keeps no decision; unique ones keep theirs', async () => {
+  it('when the document changed, a paragraph whose text is found more than once, in the saved review or now, keeps no decision; unique ones keep theirs', async () => {
     const COPY = 'She recieved the letter.';
     const paras: Paragraph[] = [
       { id: 0, text: COPY },
@@ -222,11 +222,33 @@ describe('restore', () => {
     expect(statusesOf(deleted.session, 'was')).toEqual(['rejected']);
     expect(deleted.restored).toBe(1);
 
-    // Both copies still there: neither knows which decision was its own, so both come back for review.
-    const same = await restore(paras, snap, opts, { linter });
-    expect(statusesOf(same.session, 'recieved')).toEqual(['pending', 'pending']);
-    expect(statusesOf(same.session, 'was')).toEqual(['rejected']);
-    expect(same.rechecked).toBe(2);
+    // Both copies still there, with a new paragraph: neither knows which decision was its own, so both come back for review.
+    const added = await restore([...paras, { id: 3, text: 'A new paragraph.' }], snap, opts, { linter });
+    expect(statusesOf(added.session, 'recieved')).toEqual(['pending', 'pending']);
+    expect(statusesOf(added.session, 'was')).toEqual(['rejected']);
+    expect(added.rechecked).toBe(3);
+  });
+
+  // Final F15 review M-14: with the same paragraph list, which copy is which is certain.
+  it('an unchanged document keeps every decision, copies included', async () => {
+    const COPY = 'She recieved the letter.';
+    const paras: Paragraph[] = [
+      { id: 0, text: COPY },
+      { id: 1, text: 'We was late again.' },
+      { id: 2, text: COPY },
+    ];
+    const before = await start(paras);
+    const [first, second] = before.candidates().filter((c) => c.original === 'recieved');
+    before.accept(first.id);
+    before.reject(second.id);
+    before.reject(byOriginal(before, 'was').id);
+    const snap = await snapshot(before, VIEW);
+
+    const { session, restored, rechecked } = await restore(paras, snap, opts, { linter });
+    expect(statuses(session)).toEqual(statuses(before));
+    expect(paras.map((p) => session.outputText(p.id))).toEqual(['She received the letter.', 'We was late again.', COPY]);
+    expect(restored).toBe(3);
+    expect(rechecked).toBe(0);
   });
 
   it('starts with the snapshot depth', async () => {

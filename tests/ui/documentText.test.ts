@@ -34,6 +34,16 @@ describe('matchUnchangedParagraphs', () => {
     // One before, a copy pasted or typed to read the same.
     expect([...matchUnchangedParagraphs(paras(['A. Fine.', 'A.']), paras(['A.', 'A.']))]).toEqual([]);
   });
+
+  // Final F15 review M-14: with the same list, which copy is which is certain.
+  it('maps each paragraph to itself when the list is the same (count, text and order), copies included', () => {
+    const after = ['A.', 'B.', 'A.'].map((text, i) => ({ id: i + 10, text }));
+    expect([...matchUnchangedParagraphs(paras(['A.', 'B.', 'A.']), after)]).toEqual([
+      [0, 10],
+      [1, 11],
+      [2, 12],
+    ]);
+  });
 });
 
 describe('siblingPath', () => {

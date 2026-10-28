@@ -1,4 +1,4 @@
-import { carryDecisions, findTwin, pairUniqueKeys, userDecisions, type UserDecision } from './carryDecisions';
+import { carryDecisions, findTwin, pairUnchangedKeys, userDecisions, type UserDecision } from './carryDecisions';
 import type { ReviewDepth } from './depth';
 import type { PresetId } from './presets';
 import { CheckSession } from './session';
@@ -125,9 +125,10 @@ async function chosenReplacement(
 }
 
 /**
- * Saved paragraph index → the id of the paragraph with the same hash now. A hash found more than once, saved or
- * now, is never matched (see pairUniqueKeys), as in the re-check's matchUnchangedParagraphs.
+ * Saved paragraph index → the id of the paragraph with the same hash now. An unchanged document maps each
+ * paragraph to itself; otherwise a hash found more than once, saved or now, is never matched (see
+ * pairUnchangedKeys), as in the re-check's matchUnchangedParagraphs.
  */
 function matchSavedParagraphs(saved: string[], current: string[], paras: Paragraph[]): Map<number, number> {
-  return new Map([...pairUniqueKeys(saved, current)].map(([i, j]) => [i, paras[j].id]));
+  return new Map([...pairUnchangedKeys(saved, current)].map(([i, j]) => [i, paras[j].id]));
 }

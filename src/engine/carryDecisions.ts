@@ -46,11 +46,21 @@ export function userDecisions(session: CheckSession): UserDecision[] {
 }
 
 /**
- * Index in `before` → index in `after`, for keys (paragraph texts or their hashes) found exactly once in each list.
- * A key found more than once on either side is left out: which copy is which can't be told, so no decision is
- * carried onto it and its places come back for review (owner decision, final F14 review I-3, Task F15).
+ * Index in `before` → index in `after`, for the paragraphs whose key (text or its hash) did not change. When the
+ * list is the same (count, keys and order), each paragraph is itself, copies included: which copy is which is
+ * certain (final F15 review M-14). Otherwise see pairUniqueKeys.
  */
-export function pairUniqueKeys(before: string[], after: string[]): Map<number, number> {
+export function pairUnchangedKeys(before: string[], after: string[]): Map<number, number> {
+  const sameList = before.length === after.length && before.every((key, i) => key === after[i]);
+  return sameList ? new Map(before.map((_, i) => [i, i])) : pairUniqueKeys(before, after);
+}
+
+/**
+ * Index in `before` → index in `after`, for keys found exactly once in each list. A key found more than once on
+ * either side is left out: which copy is which can't be told, so no decision is carried onto it and its places
+ * come back for review (owner decision, final F14 review I-3, Task F15).
+ */
+function pairUniqueKeys(before: string[], after: string[]): Map<number, number> {
   const onlyOnce = (keys: string[]) => {
     const at = new Map<string, number>();
     const repeated = new Set<string>();
