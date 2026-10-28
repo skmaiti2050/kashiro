@@ -298,6 +298,8 @@ summary:focus-visible,
   top: 110%;
   z-index: 10;
   width: 320px;
+  /* Never wider than the window, whatever its width or language (Task F17). */
+  max-width: calc(100vw - 16px);
   padding: 8px;
   background: var(--panel);
   border: 1px solid var(--line);
@@ -335,6 +337,12 @@ summary:focus-visible,
   width: 280px;
   display: grid;
   gap: 2px;
+}
+
+/* The toolbar's ⋯ sits at its end: its menu opens towards the start, inside the window (Task F17). */
+.more-menu .menu {
+  inset-inline-start: auto;
+  inset-inline-end: 0;
 }
 
 .menu-anchor .menu button {
