@@ -9,7 +9,7 @@ import { act, render, screen } from '@testing-library/react';
 
 const show = vi.fn(async () => {});
 vi.mock('@tauri-apps/api/window', () => ({
-  getCurrentWindow: () => ({ onCloseRequested: async () => () => {}, destroy: async () => {}, show }),
+  getCurrentWindow: () => ({ onCloseRequested: async () => () => {}, destroy: async () => {}, show, setTitle: async () => {} }),
 }));
 vi.mock('@/ui/platform/files', async () => (await import('./platformMocks')).platformFiles);
 vi.mock('@/ui/platform/linter', async () => (await import('./platformMocks')).platformLinter);

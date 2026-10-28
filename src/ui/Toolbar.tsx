@@ -7,6 +7,7 @@ import { useT } from './i18n/useT';
 import { MoreMenu, type MoreMenuItem } from './MoreMenu';
 import { siblingPath } from './state/documentText';
 import { usePopup } from './usePopup';
+import { middleTruncate } from './state/windowTitle';
 import type { ControllerState, SessionController } from './state/sessionController';
 
 export const VARIANTS: Variant[] = ['American', 'British', 'Australian', 'Canadian', 'Indian'];
@@ -139,6 +140,12 @@ export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onHelp
       )}
 
       <span className="spacer" />
+      {/* The opened file's name, as the window title has it, in full on hover (F20 item 11). */}
+      {document?.path && (
+        <span className="doc-name" title={document.name}>
+          {middleTruncate(document.name)}
+        </span>
+      )}
       <MoreMenu items={moreItems} />
 
       <div className="save-group" ref={saveGroup}>

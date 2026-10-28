@@ -291,6 +291,13 @@ summary:focus-visible,
   background: transparent;
 }
 
+/* The opened file's name (F20 item 11): quiet, already cut to 48 characters, and it wraps in a narrow window. */
+.toolbar .doc-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+}
+
 .save-group {
   position: relative;
   display: inline-flex;

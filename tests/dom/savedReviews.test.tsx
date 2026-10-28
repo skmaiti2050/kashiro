@@ -17,6 +17,7 @@ vi.mock('@tauri-apps/api/window', () => ({
       return () => {};
     },
     destroy: async () => {},
+    setTitle: async () => {},
   }),
 }));
 vi.mock('@/ui/platform/files', async () => (await import('./platformMocks')).platformFiles);

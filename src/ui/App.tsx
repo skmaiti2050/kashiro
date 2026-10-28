@@ -30,6 +30,7 @@ import { readingStyle } from './state/readingSettings';
 import { SessionController, type ControllerState } from './state/sessionController';
 import { modulesFor } from './state/settings';
 import { useSession } from './state/useSession';
+import { windowTitle } from './state/windowTitle';
 import './fonts';
 import './app.css';
 import './a11y.css';
@@ -155,6 +156,12 @@ function ShellView({ controller, state }: { controller: SessionController; state
       }),
     );
   }, [controller]);
+
+  // An opened file names the window; a paste or the sample keeps the app's name (F20 item 11).
+  const title = windowTitle(state.document);
+  useEffect(() => {
+    void getCurrentWindow().setTitle(title);
+  }, [title]);
 
   const paste = async () => {
     const text = await readClipboardText();
