@@ -22,8 +22,10 @@ export { buildDecisions, foldsUnderMore, type Decision } from './decisions';
 export { findContractions } from './contractions';
 
 export interface TierContext {
-  /** paraId → fact-locked spans (findLockedSpans + adapter Paragraph.locked). */
+  /** paraId → fact-locked spans (findLockedSpans + findCommandSpans + adapter Paragraph.locked). */
   locked: Map<number, Span[]>;
+  /** paraId → command-like text (findCommandSpans): only spelling is asked there (isSuggestionOnCommand). */
+  commandSpans?: Map<number, Span[]>;
   /** Lowercased words in the document's own spelling variant (never auto-converted). */
   variantWords: Set<string>;
   preset: Preset;
@@ -213,6 +215,17 @@ function isIgnoredRule(c: Candidate, ctx: TierContext): boolean {
   return !overlapsLocked(c, ctx.locked.get(c.paraId));
 }
 
+/**
+ * A suggestion other than spelling on command-like text, an AI rewrite included: "--region" → "–region", the space
+ * before a continuation "\", "sudo" → "Sudo", "echo the the" → "echo the" or a grammar "apt-get" → "apt-get-the"
+ * each break the command (Task F20 item 1, owner). Spelling stays, asked on its own card: the span is fact-locked
+ * too. Hygiene stays as it is: deleting a stray invisible character never breaks a command.
+ */
+function isSuggestionOnCommand(c: Candidate, ctx: TierContext): boolean {
+  if (c.source === 'hygiene' || WORD_REWRITE_KINDS.has(c.kind)) return false;
+  return overlapsLocked(c, ctx.commandSpans?.get(c.paraId));
+}
+
 function baseTier(c: Candidate, ctx: TierContext): Tier {
   const { preset } = ctx;
   if (isStyleChoice(c)) return 'review';
@@ -243,6 +256,7 @@ function baseTier(c: Candidate, ctx: TierContext): Tier {
 export function tierOf(c: Candidate, ctx: TierContext): Tier {
   const paraText = ctx.paraText?.get(c.paraId);
   if (isCodeNoiseFlag(c, paraText)) return 'hidden';
+  if (isSuggestionOnCommand(c, ctx)) return 'hidden';
   if (lowersAcronym(c)) return 'hidden';
   if (paraText !== undefined && isListLabelFlag(c, paraText, ctx.listParagraphs?.has(c.paraId) ?? false)) return 'hidden';
   if (isIgnoredRule(c, ctx)) return 'hidden';

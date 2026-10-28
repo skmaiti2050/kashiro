@@ -2,6 +2,7 @@ import { createLinter, type RulesLinter } from './linter';
 import { detectVariant } from './variant';
 import { findInvisible, visibleText, type VisibleText } from './hygiene';
 import { findLockedSpans } from './factLock';
+import { findCommandSpans } from './commands';
 import { PRESETS } from './presets';
 import { findContractions } from './contractions';
 import { improveSuggestions, withoutOffensiveSuggestions } from './suggestions/improve';
@@ -50,8 +51,11 @@ export async function prepareCheck(
   const linter = deps.linter ?? (await createLinter(opts.variant ?? opts.fallbackVariant, opts.dictionary));
   if (deps.linter && opts.dictionary.length) await syncDictionary(linter, opts.dictionary);
 
+  // Commands are fact-locked too (never auto-applied, spelling asked on its own card); tierOf also hides every
+  // other rule's flag on them (Task F20 item 1).
+  const commandSpans = new Map(paras.map((p) => [p.id, findCommandSpans(p.text)]));
   const locked = new Map<number, Span[]>();
-  for (const p of paras) locked.set(p.id, [...findLockedSpans(p.text), ...(p.locked ?? [])]);
+  for (const p of paras) locked.set(p.id, [...findLockedSpans(p.text), ...commandSpans.get(p.id)!, ...(p.locked ?? [])]);
   // The linter reads each paragraph without its invisible junk; its spans are mapped back below.
   const invisible = new Map(paras.map((p) => [p.id, findInvisible(p, locked.get(p.id))]));
   const visible = new Map(paras.map((p) => [p.id, visibleText(p, invisible.get(p.id)!)]));
@@ -91,6 +95,7 @@ export async function prepareCheck(
   const ctx: TierContext = {
     modules,
     locked,
+    commandSpans,
     variantWords,
     preset,
     userTierOverrides: opts.tierOverrides,

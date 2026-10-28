@@ -216,6 +216,32 @@ const KEY_VALUE_BLOCK = [
   '[[Address     12 MG Road, Pune.]]',
 ];
 
+/**
+ * A runbook (Task F20 item 1, owner's AWS runbook): commands with --flags, a trailing " \" and its continuation
+ * lines, "sudo" at a line start, a doubling inside a command, en-dash bait, and prose fixes around them. Each
+ * command is a trap: no change made without a click, and no tick on the simple-fixes card, may touch it.
+ */
+const RUNBOOK_BLOCK = [
+  'Disaster recovery runbook. First log in to the jump host. then switch to root.',
+  'Step 3. Stop the service on each node.\n[[sudo systemctl stop nginx]]\n[[sudo systemctl status nginx]]',
+  "[[Run: aws ec2 describe-instances --region ap-south-1 \\\n  --query 'Reservations[].Instances[].InstanceId' \\\n  --output text]]",
+  '[[docker build -t app:latest . \\\n  --no-cache]]',
+  '[[Run: aws s3 ls \\]]',
+  '[[sudo apt-get install -y \\\n  nginx \\\n  curl]]',
+  '[[$ docker ps -a --filter status=exited]]',
+  '[[echo the the > notes.txt]]',
+  '[[cd /opt/app && npm ci && npm run build]]',
+  'Use the [[--dry-run]] flag first, and check the output -- it should list every bucket.\nPass [[-v]] for more detail , and then run it again.',
+  'Restore the snapshot. This takes about ten minutes -- so wait  for it. we are done.',
+  // Two spaces before a continuation: never collapsed without a click.
+  '[[ls -la  \\\n/var/log]]',
+];
+
+/** The runbook's paragraphs, with its commands as traps. */
+export function runbookParagraphs(): StressParagraph[] {
+  return RUNBOOK_BLOCK.map((line) => toParagraph(parseTemplate(line)));
+}
+
 /** Paragraph openers: list labels the format does not draw itself. */
 const LIST_LABELS = ['[[a.]] ', '[[(iv)]] ', '[[1.]] ', '[[b)]] '];
 
@@ -407,6 +433,9 @@ export const TICK_TRUTH: readonly TickTruth[] = [
   { input: 'Le dije que a idea era mala.', mayTick: [] },
   { input: 'Tenemos a idea muy buena para mañana.', mayTick: [] },
   { input: 'Ela comprou a apple para o almoço.', mayTick: [] },
+  // Task F20 item 1: a doubling inside a command is the command's text, not a slip.
+  { input: 'echo the the > notes.txt', mayTick: [] },
+  { input: 'sudo echo of of', mayTick: [] },
 ];
 
 /** Invisible characters sprinkled at random between ASCII characters. */
@@ -516,6 +545,10 @@ export function stressDocument(seed: number, count: number): StressParagraph[] {
   for (let p = 0; p < count; p++) {
     if (p % 20 === 10) {
       paragraphs.push(...KEY_VALUE_BLOCK.map((line) => toParagraph(parseTemplate(line))));
+      continue;
+    }
+    if (p === 15) {
+      paragraphs.push(...runbookParagraphs());
       continue;
     }
     if (random() < 0.1) {
