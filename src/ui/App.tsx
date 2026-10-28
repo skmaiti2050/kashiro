@@ -155,8 +155,11 @@ function ShellView({ controller, state }: { controller: SessionController; state
   }, [controller]);
 
   const paste = async () => {
-    // Reading the clipboard can be refused; an empty document to paste into works either way.
-    const text = await navigator.clipboard.readText().catch(() => '');
+    const text = await readClipboardText();
+    // Refused: an empty document to paste into with Ctrl+V works anyway.
+    if (text === null) return controller.openText('');
+    // An image or a file copied in Explorer reads as '': say so, and keep the open document as it is.
+    if (text.trim() === '') return controller.showNotice(msg('notice.clipboardNoText'));
     await controller.openText(text);
   };
   const onOpen = () => unlessUnsaved(() => void controller.open());
@@ -273,6 +276,15 @@ function ShellView({ controller, state }: { controller: SessionController; state
       )}
     </div>
   );
+}
+
+/** The clipboard's text ('' when it holds none), or null when reading it was refused. */
+async function readClipboardText(): Promise<string | null> {
+  try {
+    return await navigator.clipboard.readText();
+  } catch {
+    return null;
+  }
 }
 
 /** Subscribes for as long as the component is mounted, even if it unmounts before the listener is ready. */

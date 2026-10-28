@@ -461,6 +461,7 @@
   "notice.savedBackup": "Saved as {path} with a backup at {backup}",
   "notice.savedUnplaced": "{saved}. {count, plural, one {# change couldn’t be placed} other {# changes couldn’t be placed}}: see the change log.",
   "notice.report": "Saved the report as {path}",
+  "notice.clipboardNoText": "The clipboard has no text to check. To check a Word file, use Open.",
 
   "error.explain": "{what}: {cause} {next}",
   "error.plain": "{cause}",

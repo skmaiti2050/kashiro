@@ -462,6 +462,7 @@
   "notice.savedBackup": "{path} नाम से सेव किया, बैकअप {backup} पर है",
   "notice.savedUnplaced": "{saved}। {count, plural, one {# बदलाव नहीं लगाया जा सका} other {# बदलाव नहीं लगाए जा सके}}: बदलाव सूची देखें।",
   "notice.report": "रिपोर्ट {path} नाम से सेव की",
+  "notice.clipboardNoText": "क्लिपबोर्ड में जाँचने के लिए कोई टेक्स्ट नहीं है। Word फ़ाइल जाँचने के लिए \"खोलें\" इस्तेमाल करें।",
 
   "error.explain": "{what}: {cause} {next}",
   "error.plain": "{cause}",

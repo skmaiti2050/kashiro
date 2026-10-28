@@ -462,6 +462,7 @@
   "notice.savedBackup": "{path} নামে সেভ হয়েছে, ব্যাকআপ আছে {backup}-এ",
   "notice.savedUnplaced": "{saved}। {count, plural, other {#টি পরিবর্তন বসানো যায়নি}}: পরিবর্তনের তালিকা দেখুন।",
   "notice.report": "রিপোর্ট {path} নামে সেভ হয়েছে",
+  "notice.clipboardNoText": "ক্লিপবোর্ডে পরীক্ষা করার মতো কোনো লেখা নেই। Word ফাইল পরীক্ষা করতে \"খুলুন\" ব্যবহার করুন।",
 
   "error.explain": "{what}: {cause} {next}",
   "error.plain": "{cause}",
