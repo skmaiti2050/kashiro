@@ -173,3 +173,23 @@ describe('LLM first-run budget by depth', () => {
     expect(firstRunBudget(1500, 25, 'thorough')).toBe(0);
   });
 });
+
+// Task F20 item 10 (owner: "All clear at Light, then 37 new cards after a reopen"). The depth sizes only the queue
+// up front; it refills from "More" as cards are decided, so "All clear" at any depth means nothing is left at any
+// other depth either. The 37 cards came from elsewhere (see the F20 report): this pins the depth half down.
+describe('the review depth hides nothing once the review is all clear', () => {
+  it.each(DEPTH_NAMES)('at %s, deciding the queue until it is empty leaves no decision at any depth', async (depth) => {
+    const paras = Array.from({ length: 12 }, (_, id) => ({ id, text: `I think teh plan ${id} works. We went to the the market. He ate a apple.` }));
+    const s = await start(paras, { depth });
+    expect(s.rankedDecisionCount()).toBeGreaterThan(s.decisions().top.length - 1);
+    let decided = 0;
+    while (s.decisions().top.length > 0 && decided < 200) {
+      s.reject(s.decisions().top[0].id);
+      decided++;
+    }
+    for (const other of DEPTH_NAMES) {
+      s.setDepth(other);
+      expect(s.decisions(), other).toEqual({ top: [], more: [] });
+    }
+  });
+});
