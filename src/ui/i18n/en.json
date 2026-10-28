@@ -181,6 +181,8 @@
 
   "batch.untickHint": "Untick any place you want to decide on its own.",
   "batch.tickHint": "Nothing starts ticked. Tick each place you want to fix.",
+  "batch.tickAll": "Tick all ({count, number})",
+  "batch.untickAll": "Untick all",
   "batch.apply": "Apply {count, number}",
   "batch.applySome": "Apply {chosen, number} of {total, number}",
   "batch.cancel": "Cancel",

@@ -148,6 +148,26 @@ describe('BatchPreview', () => {
     expect(screen.getByRole<HTMLButtonElement>('button', { name: /^Apply 0 of 2/ }).disabled).toBe(true);
   });
 
+  // Task F17 (owner request): a "216 simple fixes" card meant 216 ticks by hand.
+  it('"Tick all (2)" ticks every place and Apply applies them all; nothing is applied until Apply is pressed', () => {
+    const onApply = vi.fn();
+    const startUnticked = Object.freeze(['a', 'b']);
+    render(<BatchPreview members={members} replacementIndex={0} paraText={new Map([[0, para]])} onApply={onApply} onCancel={() => {}} startUnticked={startUnticked} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Tick all (2)' }));
+    expect(screen.getAllByRole<HTMLInputElement>('checkbox').map((b) => b.checked)).toEqual([true, true]);
+    expect(onApply).not.toHaveBeenCalled();
+    expect(startUnticked).toEqual(['a', 'b']);
+    fireEvent.click(screen.getByRole('button', { name: /^Apply 2/ }));
+    expect(onApply).toHaveBeenCalledWith(['a', 'b']);
+  });
+
+  it('"Untick all" unticks every place and disables Apply', () => {
+    render(<BatchPreview members={members} replacementIndex={0} paraText={new Map([[0, para]])} onApply={() => {}} onCancel={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Untick all' }));
+    expect(screen.getAllByRole<HTMLInputElement>('checkbox').map((b) => b.checked)).toEqual([false, false]);
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: /^Apply 0 of 2/ }).disabled).toBe(true);
+  });
+
   it('with nothing ticked, Apply is disabled; Cancel cancels', () => {
     const onCancel = vi.fn();
     render(<BatchPreview members={members} replacementIndex={0} paraText={new Map([[0, para]])} onApply={() => {}} onCancel={onCancel} />);

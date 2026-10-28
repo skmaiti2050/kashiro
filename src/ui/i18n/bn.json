@@ -182,6 +182,8 @@
 
   "batch.untickHint": "যে জায়গার জন্য আলাদা করে সিদ্ধান্ত নিতে চান, তার টিক তুলে দিন।",
   "batch.tickHint": "শুরুতে কোনোটিতেই টিক নেই। যে জায়গাগুলোয় সংশোধন চান, সেগুলোয় টিক দিন।",
+  "batch.tickAll": "সবগুলোয় টিক দিন ({count, number})",
+  "batch.untickAll": "সবগুলোর টিক তুলে দিন",
   "batch.apply": "{count, number}টি বসান",
   "batch.applySome": "{total, number}টির মধ্যে {chosen, number}টি বসান",
   "batch.cancel": "বাতিল",

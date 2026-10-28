@@ -224,6 +224,47 @@ describe('"Check how it reads": progress, Cancel and Accept all', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Undo all 2' }));
     expect([session.outputText(0), session.outputText(1)]).toEqual([FIRST, SECOND]);
   });
+
+  // Task F17 (owner request): ticking each suggestion by hand is slow on a long document.
+  it('"Tick all (2)" then Apply accepts every suggestion shown; "Untick all" disables Apply; ticking applies nothing', async () => {
+    const { controller } = aiController((text) => (text === FIRST ? FIRST_REWRITE : text === SECOND ? SECOND_REWRITE : null));
+    await openText(controller);
+    await act(async () => {
+      controller.ai.improveSentence(0, 0);
+      controller.ai.improveSentence(1, 0);
+      await controller.ai.settled();
+    });
+    fireEvent.click(within(aiGroup()).getByRole('button', { name: 'Choose helper suggestions to accept (2)…' }));
+    fireEvent.click(within(aiGroup()).getByRole('button', { name: 'Tick all (2)' }));
+    expect(within(aiGroup()).getAllByRole<HTMLInputElement>('checkbox').map((b) => b.checked)).toEqual([true, true]);
+    const session = controller.getState().session!;
+    expect([session.outputText(0), session.outputText(1)]).toEqual([FIRST, SECOND]);
+    await audit('accept all preview, all ticked');
+
+    fireEvent.click(within(aiGroup()).getByRole('button', { name: 'Untick all' }));
+    expect(within(aiGroup()).getByRole<HTMLButtonElement>('button', { name: 'Apply 0 of 2' }).disabled).toBe(true);
+    fireEvent.click(within(aiGroup()).getByRole('button', { name: 'Tick all (2)' }));
+    fireEvent.click(within(aiGroup()).getByRole('button', { name: /^Apply 2/ }));
+    expect([session.outputText(0), session.outputText(1)]).toEqual([FIRST_REWRITE, SECOND_REWRITE]);
+  });
+
+  it('a change to the text after "Tick all" still closes the preview and applies nothing', async () => {
+    const { controller } = aiController((text) => (text === FIRST ? FIRST_REWRITE : text === SECOND ? SECOND_REWRITE : null));
+    await openText(controller);
+    await act(async () => {
+      controller.ai.improveSentence(0, 0);
+      controller.ai.improveSentence(1, 0);
+      await controller.ai.settled();
+    });
+    fireEvent.click(within(aiGroup()).getByRole('button', { name: 'Choose helper suggestions to accept (2)…' }));
+    fireEvent.click(within(aiGroup()).getByRole('button', { name: 'Tick all (2)' }));
+
+    act(() => controller.editText(`${FIRST}\n\n${SECOND}\n\nThe road was long.`));
+    expect(within(aiGroup()).queryAllByRole('checkbox')).toEqual([]);
+    await waitFor(() => expect(controller.getState().checking).toBe(false), { timeout: 10000 });
+    const session = controller.getState().session!;
+    expect([session.outputText(0), session.outputText(1)]).toEqual([FIRST, SECOND]);
+  });
 });
 
 describe('the Accept-all preview applies only what it showed (I2)', () => {

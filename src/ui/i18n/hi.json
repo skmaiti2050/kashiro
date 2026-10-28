@@ -182,6 +182,8 @@
 
   "batch.untickHint": "जिस जगह पर अलग से फ़ैसला करना हो, उसका निशान हटा दें।",
   "batch.tickHint": "शुरू में किसी पर निशान नहीं है। जिस जगह को सुधारना हो, उस पर निशान लगाएँ।",
+  "batch.tickAll": "सब पर निशान लगाएँ ({count, number})",
+  "batch.untickAll": "सबका निशान हटाएँ",
   "batch.apply": "{count, number} लागू करें",
   "batch.applySome": "{total, number} में से {chosen, number} लागू करें",
   "batch.cancel": "रद्द करें",

@@ -856,6 +856,14 @@ legend {
   gap: 6px;
 }
 
+/* "Tick all (N)" and "Untick all" above a preview's list (Task F17). */
+.tick-all {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
 .members,
 .name-list,
 .more ul,

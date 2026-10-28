@@ -50,6 +50,11 @@ export function BatchPreview({ members, replacementIndex, paraText, onApply, onC
   return (
     <div ref={box} className="batch-preview" onClick={(e) => e.stopPropagation()}>
       <p className="hint">{nothingStartsTicked ? t.t('batch.tickHint') : t.t('batch.untickHint')}</p>
+      {/* Only ever on the user's press (Task F17): the engine's starting ticks stay, and Apply is still its own press. */}
+      <div className="tick-all">
+        <button onClick={() => setTicked(new Set(members.map((c) => c.id)))}>{t.t('batch.tickAll', { count: members.length })}</button>
+        <button onClick={() => setTicked(new Set())}>{t.t('batch.untickAll')}</button>
+      </div>
       <ol className="members">
         {members.map((c) => (
           <li key={c.id}>
