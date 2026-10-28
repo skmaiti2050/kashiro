@@ -202,10 +202,15 @@ function Change({ o, text }: { o: Outcome; text: string | undefined }) {
   );
 }
 
-/** Where a change is: its paragraph's number. */
+/** Where a change is: "P 226", named in full on hover and to screen readers ("Paragraph 226", Task F20 item 3). */
 function Where({ number }: { number: number }) {
   const t = useT();
-  return <span className="where">{t.t('log.paragraph', { number })}</span>;
+  const full = t.t('log.paragraphFull', { number });
+  return (
+    <span className="where" title={full} aria-label={full}>
+      {t.t('log.paragraph', { number })}
+    </span>
+  );
 }
 
 function ChangeRow({ controller, o, text }: { controller: SessionController; o: Outcome; text: string | undefined }) {

@@ -58,9 +58,9 @@ describe('ChangeLog: the batch row opens to one change per line (Task F20 item 2
     expect(list).toBeTruthy();
     const lines = [...list.querySelectorAll(':scope > li')];
     expect(lines.map((li) => `${li.querySelector('.where')!.textContent} | ${li.querySelector('del')!.textContent} → ${li.querySelector('ins')!.textContent} | ${li.querySelector('button')!.textContent}`)).toEqual([
-      '¶1 | teh → the | Undo',
-      '¶2 | of of → of | Undo',
-      '¶226 | a → an | Undo',
+      'P 1 | teh → the | Undo',
+      'P 2 | of of → of | Undo',
+      'P 226 | a → an | Undo',
     ]);
     fireEvent.click(toggle(container));
     expect(toggle(container).textContent).toBe('Show 3 changes ▾');
@@ -139,6 +139,31 @@ describe('ChangeLog rows sit at the top, and the open list scrolls inside the lo
       expect(container.querySelectorAll('.batch-changes > li')).toHaveLength(3);
       unmount();
     }
+  });
+});
+
+describe('ChangeLog: a change\'s place reads "P 226", and "Paragraph 226" on hover and to screen readers (Task F20 item 3)', () => {
+  it.each([
+    ['en', 'P 226', 'Paragraph 226'],
+    ['hi', 'अनु. 226', 'अनुच्छेद 226'],
+    ['bn', 'অনু. 226', 'অনুচ্ছেদ 226'],
+  ] as const)('%s, on a single row and on each line of a batch', (language, shown, full) => {
+    const single = { ...applied('s', 'plan', 'plan', 'Spelling', 226), batch: undefined };
+    const session = { outcomes: () => [single, CARD[2]], paragraphs: () => [{ id: 0, text: TEXT }] } as unknown as CheckSession;
+    const { container } = render(
+      <TranslatorProvider translator={createTranslator(language, ['en-IN'])}>
+        <ChangeLog controller={{} as SessionController} state={{ session } as ControllerState} open onToggle={() => {}} />
+      </TranslatorProvider>,
+    );
+    fireEvent.click(container.querySelector('.batch-toggle')!);
+    const places = [...container.querySelectorAll('.where')];
+    expect(places).toHaveLength(2);
+    for (const place of places) {
+      expect(place.textContent).toBe(shown);
+      expect(place.getAttribute('title')).toBe(full);
+      expect(place.getAttribute('aria-label')).toBe(full);
+    }
+    expect(container.textContent).not.toContain('¶');
   });
 });
 
