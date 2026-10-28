@@ -111,6 +111,8 @@ function ShellView({ controller, state }: { controller: SessionController; state
   const improveAtCaret = useRef<() => void>(() => {});
   const lookUpAtCaret = useRef<() => boolean>(() => false);
   const [logOpen, setLogOpen] = useState(false);
+  /** Bumped by "See the change log": the log then takes focus and is shown, even when already open (F20 item 8). */
+  const [logReveals, setLogReveals] = useState(0);
   const [focus, setFocus] = useState<DocumentFocus | null>(null);
   const [cardRequest, setCardRequest] = useState<CardRequest | null>(null);
   /** What to do once the user has answered "Save, Discard, or Cancel?". */
@@ -237,7 +239,10 @@ function ShellView({ controller, state }: { controller: SessionController; state
           onLocate={(candidate) => setFocus((f) => ({ candidate, seq: (f?.seq ?? 0) + 1 }))}
           request={cardRequest}
           keysEnabled={!dialogOpen}
-          onShowLog={() => setLogOpen(true)}
+          onShowLog={() => {
+            setLogOpen(true);
+            setLogReveals((n) => n + 1);
+          }}
           onSave={() => void controller.save()}
           readAloud={readAloud}
           readCaret={() => caretReader.current()}
@@ -245,7 +250,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
         />
       </main>
       <StatusBar state={state} />
-      <ChangeLog controller={controller} state={state} open={logOpen} onToggle={() => setLogOpen((v) => !v)} />
+      <ChangeLog controller={controller} state={state} open={logOpen} onToggle={() => setLogOpen((v) => !v)} reveals={logReveals} />
       {panel === 'settings' && <SettingsPanel controller={controller} state={state} readAloud={readAloud} onClose={() => setPanel('none')} />}
       {panel === 'help' && <GoogleDocsHelp onOpen={openFromHelp} onClose={() => setPanel('none')} />}
       {panel === 'shortcuts' && <ShortcutsSheet readAloud={readAloud !== null} lookUp={lookUpOn} improve={aiOn} onClose={() => setPanel('none')} />}

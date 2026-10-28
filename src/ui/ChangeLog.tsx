@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import type { Outcome } from '@/engine/session';
 import type { Span } from '@/engine/types';
 import type { Translator } from './i18n/translator';
@@ -12,7 +12,15 @@ interface Props {
   state: ControllerState;
   open: boolean;
   onToggle(): void;
+  /**
+   * Bumped each time something asks to show the log ("See the change log"): it takes focus, scrolls into view and
+   * is highlighted for a moment, open or not before (Task F20 item 8). 0: never asked.
+   */
+  reveals?: number;
 }
+
+/** How long "See the change log" highlights the log. */
+const REVEAL_MS = 1600;
 
 function statusLabel(t: Translator, o: Outcome): string {
   if (o.unplaceable !== undefined) return t.t('log.couldNotPlace', { reason: t.format(unplaceableMessage(o.unplaceable)) });
@@ -43,18 +51,31 @@ function rowsOf(entries: Outcome[]): Row[] {
 }
 
 /** Bottom drawer: every applied or rejected change with its own Undo (a batch has one), and the report export. */
-export function ChangeLog({ controller, state, open, onToggle }: Props) {
+export function ChangeLog({ controller, state, open, onToggle, reveals = 0 }: Props) {
   const t = useT();
   const session = state.session;
+  const toggle = useRef<HTMLButtonElement>(null);
+  const [revealed, setRevealed] = useState(false);
+
+  useEffect(() => {
+    if (reveals === 0) return;
+    const button = toggle.current;
+    button?.focus();
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    button?.closest('.changelog')?.scrollIntoView?.({ block: 'nearest', behavior: reduced ? 'auto' : 'smooth' });
+    setRevealed(true);
+    const timer = setTimeout(() => setRevealed(false), REVEAL_MS);
+    return () => clearTimeout(timer);
+  }, [reveals]);
   const entries = session ? session.outcomes().filter((o) => o.status === 'applied' || o.status === 'rejected') : [];
   const applied = entries.filter((o) => o.status === 'applied').length;
   // The paragraphs as read: every change's span is in their offsets.
   const paraText = new Map(open && session ? session.paragraphs().map((p) => [p.id, p.text]) : []);
 
   return (
-    <section className={open ? 'changelog open' : 'changelog'} aria-label={t.t('log.label')}>
+    <section className={['changelog', open && 'open', revealed && 'reveal'].filter(Boolean).join(' ')} aria-label={t.t('log.label')}>
       <div className="changelog-bar">
-        <button className="quiet" onClick={onToggle} aria-expanded={open}>
+        <button ref={toggle} className="quiet" onClick={onToggle} aria-expanded={open}>
           {open ? '▾' : '▸'} {t.t('log.toggle', { count: applied })}
         </button>
         <button disabled={!session} onClick={() => void controller.exportReport()}>
