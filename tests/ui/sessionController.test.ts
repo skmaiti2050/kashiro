@@ -801,6 +801,47 @@ describe('SessionController: typing re-checks', () => {
       const status = controller.getState().session!.outcomes().filter((o) => o.candidate.original === 'recieve').map((o) => o.status);
       expect(status).toEqual(['pending', 'pending', 'rejected']);
     });
+
+    // Final F15 review M-13: the undone change came back applied, with no click and no card.
+    describe('a change made without a click and undone on a copy is never made again: both copies show it as a card', () => {
+      const TOTAL = 'Total:  five items.';
+      const collapses = (c: SessionController) =>
+        c.getState().session!.outcomes().filter((o) => o.candidate.original === '  ').map((o) => [o.status, o.auto]);
+      const offered = (c: SessionController) => {
+        const { top, more } = c.getState().session!.decisions();
+        return [...top, ...more].flatMap((d) => d.candidateIds).filter((id) => id.endsWith(':6:8:Formatting'));
+      };
+      async function undoFirstCollapse(text: string) {
+        const { controller } = makeController({ settings: { preset: 'blog' } });
+        await controller.openText(text);
+        controller.undo(controller.getState().session!.outcomes().find((o) => o.candidate.original === '  ' && o.auto)!.candidate.id);
+        return controller;
+      }
+
+      it('typing in another paragraph, twice', async () => {
+        const controller = await undoFirstCollapse(`${TOTAL}\n\n${TOTAL}\n\nMore.`);
+        expect(output(controller)).toEqual([TOTAL, 'Total: five items.', 'More.']);
+
+        await retype(controller, `${TOTAL}\n\n${TOTAL}\n\nMore text.`);
+        expect(output(controller)).toEqual([TOTAL, TOTAL, 'More text.']);
+        expect(collapses(controller)).toEqual([
+          ['pending', false],
+          ['pending', false],
+        ]);
+        expect(offered(controller)).toEqual(['0:6:8:Formatting', '1:6:8:Formatting']);
+
+        await retype(controller, `${TOTAL}\n\n${TOTAL}\n\nMore text here.`);
+        expect(output(controller)).toEqual([TOTAL, TOTAL, 'More text here.']);
+        expect(offered(controller)).toEqual(['0:6:8:Formatting', '1:6:8:Formatting']);
+      });
+
+      it('a copy pasted of the paragraph where it was undone', async () => {
+        const controller = await undoFirstCollapse(`${TOTAL}\n\nMore.`);
+        await retype(controller, `${TOTAL}\n\n${TOTAL}\n\nMore.`);
+        expect(output(controller)).toEqual([TOTAL, TOTAL, 'More.']);
+        expect(offered(controller)).toEqual(['0:6:8:Formatting', '1:6:8:Formatting']);
+      });
+    });
   });
 
   // Final F15 review M-14: with the same paragraph list, which copy is which is certain.

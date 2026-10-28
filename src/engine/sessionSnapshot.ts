@@ -1,4 +1,4 @@
-import { carryDecisions, findTwin, pairUnchangedKeys, userDecisions, type UserDecision } from './carryDecisions';
+import { carryDecisions, findTwin, pairParagraphKeys, userDecisions, type ParagraphMatch, type UserDecision } from './carryDecisions';
 import type { ReviewDepth } from './depth';
 import type { PresetId } from './presets';
 import { CheckSession } from './session';
@@ -19,7 +19,8 @@ export interface SavedDecision {
   kind: string;
   start: number;
   end: number;
-  status: 'applied' | 'rejected';
+  /** As UserDecision.status: held is an undone auto-fix offered as a card. */
+  status: 'applied' | 'rejected' | 'held';
   /**
    * For an applied edit only: replacementHash() of the replacement chosen. Not its index: a dictionary word or
    * a Harper upgrade can put another word at that index, and replaying it would make an edit nobody chose.
@@ -92,11 +93,12 @@ export async function snapshot(session: CheckSession, view: SnapshotView): Promi
 export async function restore(paras: Paragraph[], snap: SessionSnapshot, opts: CheckOptions, deps: SessionDeps = {}): Promise<RestoredReview> {
   const session = await CheckSession.start(paras, { ...opts, depth: snap.depth }, deps);
   const hashes = await Promise.all(paras.map((p) => sha256Hex(p.text)));
-  const unchanged = matchSavedParagraphs(snap.paragraphs, hashes, paras);
+  const { unchanged, copies } = matchSavedParagraphs(snap.paragraphs, hashes, paras);
   const textOf = new Map(paras.map((p) => [p.id, p.text]));
   const decisions: UserDecision[] = [];
   for (const [i, d] of snap.decisions.entries()) {
-    const paraId = unchanged.get(d.paragraph);
+    // On a paragraph found more than once, only an undone auto-fix counts (held back on every copy); any copy gives the text.
+    const paraId = unchanged.get(d.paragraph) ?? (d.status === 'applied' ? undefined : copies.get(d.paragraph)?.[0]);
     if (paraId === undefined) continue; // its paragraph changed: checked afresh
     const flag = { kind: d.kind, original: textOf.get(paraId)!.slice(d.start, d.end), span: { start: d.start, end: d.end } };
     const replacement = d.status === 'applied' ? await chosenReplacement(session, paraId, flag, d.replacementHash) : undefined;
@@ -105,7 +107,7 @@ export async function restore(paras: Paragraph[], snap: SessionSnapshot, opts: C
     decisions.push({ candidateId: `saved-${i}`, paraId: d.paragraph, ...flag, status: d.status, replacement, source: 'rules' });
   }
   const before = new Map(session.outcomes().map((o) => [o.candidate.id, o.status]));
-  const carried = carryDecisions(decisions, session, unchanged);
+  const carried = carryDecisions(decisions, session, unchanged, copies);
   const after = new Map(session.outcomes().map((o) => [o.candidate.id, o.status]));
   const restored = [...carried.values()].filter((id) => before.get(id) !== after.get(id)).length;
   return { session, restored, rechecked: paras.length - unchanged.size };
@@ -126,9 +128,13 @@ async function chosenReplacement(
 
 /**
  * Saved paragraph index → the id of the paragraph with the same hash now. An unchanged document maps each
- * paragraph to itself; otherwise a hash found more than once, saved or now, is never matched (see
- * pairUnchangedKeys), as in the re-check's matchUnchangedParagraphs.
+ * paragraph to itself; otherwise a hash found more than once, saved or now, is never matched but gives its
+ * copies (see pairParagraphKeys), as in the re-check's matchParagraphs.
  */
-function matchSavedParagraphs(saved: string[], current: string[], paras: Paragraph[]): Map<number, number> {
-  return new Map([...pairUnchangedKeys(saved, current)].map(([i, j]) => [i, paras[j].id]));
+function matchSavedParagraphs(saved: string[], current: string[], paras: Paragraph[]): ParagraphMatch {
+  const { unchanged, copies } = pairParagraphKeys(saved, current);
+  return {
+    unchanged: new Map([...unchanged].map(([i, j]) => [i, paras[j].id])),
+    copies: new Map([...copies].map(([i, js]) => [i, js.map((j) => paras[j].id)])),
+  };
 }

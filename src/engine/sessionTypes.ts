@@ -65,6 +65,9 @@ export interface Outcome {
 
 export const TRACKED_CHANGE_REASON = 'inside an existing tracked change';
 
+/** Why a change made without a click is a card instead: the user undid it before (CheckSession.holdBackUndone). */
+export const UNDONE_BEFORE_REASON = 'held back: undone before';
+
 /** Overlap of two edits; zero-width spans clash when they sit at the same point or inside the other. */
 export function overlaps(a: Span, b: Span): boolean {
   if (a.start === a.end && b.start === b.end) return a.start === b.start;

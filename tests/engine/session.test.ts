@@ -555,7 +555,7 @@ describe('names card in a session', () => {
     expect(before.outputText(0)).not.toBe(paras[0].text);
     const after = await start(paras);
     expect(after.onWordCard(byOriginal(after, 'Anjali').id)).toBe(true);
-    carryDecisions(userDecisions(before), after, new Map([[0, 0]]));
+    carryDecisions(userDecisions(before), after, new Map([[0, 0]]), new Map());
     expect(after.outputText(0)).toBe(paras[0].text);
     expect(after.outcomes().find((o) => o.candidate.original === 'Anjali')!.status).toBe('pending');
   });

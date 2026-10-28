@@ -17,7 +17,7 @@ import { UnreadableFileError } from '@/formats/fileProblems';
 import { explain, openError, plainError } from './errors';
 import { checkOptions, currentDepth } from './checkOptions';
 import { DecisionTally } from './decisionTally';
-import { matchUnchangedParagraphs, sameParagraphs } from './documentText';
+import { matchParagraphs, sameParagraphs } from './documentText';
 import { readDocument, readTypedText, type LoadedFile, type OpenDocument } from './openDocument';
 import { progressOf } from './progress';
 import { RecheckQueue } from './recheckQueue';
@@ -379,9 +379,10 @@ export class SessionController {
       // The depth may have moved while the check ran.
       session.setDepth(currentDepth(this.state.settings));
       if (before) {
-        const unchanged = matchUnchangedParagraphs(before.paragraphs(), loaded.paras);
+        const { unchanged, copies } = matchParagraphs(before.paragraphs(), loaded.paras);
         // AI answers after the rule decisions: a rewrite was made for its sentence with the accepted fixes in it.
-        this.tally.remap(new Map([...carryDecisions(userDecisions(before), session, unchanged), ...this.ai.sessionReplaced(before, session, unchanged)]));
+        const carried = carryDecisions(userDecisions(before), session, unchanged, copies);
+        this.tally.remap(new Map([...carried, ...this.ai.sessionReplaced(before, session, unchanged)]));
       }
       // A new document's result is announced; a re-check while typing stays quiet.
       // Hindi or Bengali text was skipped: never let "nothing to decide" read as an all-clear for it.

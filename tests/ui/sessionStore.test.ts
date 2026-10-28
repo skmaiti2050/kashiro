@@ -95,10 +95,16 @@ describe('SessionStore', () => {
       { ...good, kind: 7 },
       'teh',
       { paragraph: 0, kind: 'Typo', start: 0, end: 3, status: 'rejected' },
+      // A change made without a click, undone, then held back as a card by a re-check (final F15 review M-13).
+      { paragraph: 0, kind: 'Formatting', start: 4, end: 6, status: 'held' },
     ];
     await files.save(KEY_A, JSON.stringify(review({ snapshot: { ...SNAP, decisions, documentIgnoredRules: ['Style', 3] } as unknown as SessionSnapshot })));
     const loaded = (await store.load(KEY_A))!;
-    expect(loaded.snapshot.decisions).toEqual([good, { paragraph: 0, kind: 'Typo', start: 0, end: 3, status: 'rejected' }]);
+    expect(loaded.snapshot.decisions).toEqual([
+      good,
+      { paragraph: 0, kind: 'Typo', start: 0, end: 3, status: 'rejected' },
+      { paragraph: 0, kind: 'Formatting', start: 4, end: 6, status: 'held' },
+    ]);
     expect(loaded.snapshot.documentIgnoredRules).toEqual(['Style']);
   });
 

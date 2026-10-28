@@ -129,6 +129,6 @@ function isSavedDecision(d: unknown, paragraphs: number): boolean {
   if (!isRecord(d) || typeof d.kind !== 'string') return false;
   const { paragraph, start, end, status, replacementHash } = d;
   if (!isCount(paragraph) || paragraph >= paragraphs || !isCount(start) || !isCount(end) || start > end) return false;
-  if (status === 'rejected') return true;
+  if (status === 'rejected' || status === 'held') return true;
   return status === 'applied' && typeof replacementHash === 'string' && REPLACEMENT_HASH.test(replacementHash);
 }

@@ -26,6 +26,7 @@ import {
   byPosition,
   overlaps,
   TRACKED_CHANGE_REASON,
+  UNDONE_BEFORE_REASON,
   type CheckOptions,
   type Edit,
   type LogEntry,
@@ -466,6 +467,17 @@ export class CheckSession {
     this.withdrawOutdated();
   }
 
+  /**
+   * After a re-check: takes back a change this check made without a click and offers it as a card, because the
+   * user undid it before, on this paragraph or on a copy of it that can't be told apart (final F15 review M-13).
+   * Anything but an auto-fix still applied is left as it is.
+   */
+  holdBackUndone(candidateId: string): void {
+    if (this.ledger.status.get(candidateId) !== 'applied' || !this.ledger.autoApplied.has(candidateId)) return;
+    this.holdBack(candidateId, UNDONE_BEFORE_REASON);
+    this.withdrawOutdated();
+  }
+
   /** Adds candidates as pending (never auto-applied). Ids already present are ignored. */
   addCandidates(cs: Candidate[]): void {
     for (const c of cs) {
@@ -544,13 +556,15 @@ export class CheckSession {
       const auto = [...this.ledger.autoApplied].map((id) => this.cands.get(id)!).filter((c) => c.paraId === paraId);
       if (auto.length === 0) continue;
       const edits = auto.map((c) => ({ paraId, span: c.span, replacement: this.ledger.replacement.get(c.id)! }));
-      for (const i of editsChangingTokens(p.text, edits, this.hygieneRemovable(paraId))) {
-        const c = auto[i];
-        this.ledger.autoApplied.delete(c.id);
-        this.ledger.record(c.id, 'pending', false, HELD_BACK_REASON);
-        this.tiers.set(c.id, 'review');
-      }
+      for (const i of editsChangingTokens(p.text, edits, this.hygieneRemovable(paraId))) this.holdBack(auto[i].id, HELD_BACK_REASON);
     }
+  }
+
+  /** A change made without a click goes back to pending, offered for review. */
+  private holdBack(candidateId: string, reason: string): void {
+    this.ledger.autoApplied.delete(candidateId);
+    this.ledger.record(candidateId, 'pending', false, reason);
+    this.tiers.set(candidateId, 'review');
   }
 
   /** Offsets in the paragraph of the invisible characters hygiene flagged with a deletion: all the backstop lets go. */

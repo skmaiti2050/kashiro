@@ -251,6 +251,33 @@ describe('restore', () => {
     expect(rechecked).toBe(0);
   });
 
+  // Final F15 review M-13: a change made without a click and undone on one copy came back applied on both.
+  it('a change made without a click and undone on a copy is never made again when the document changed: both copies show it as a card', async () => {
+    const TOTAL = 'Total:  five items.';
+    const paras: Paragraph[] = [
+      { id: 0, text: TOTAL },
+      { id: 1, text: TOTAL },
+    ];
+    const before = await start(paras);
+    before.undo(before.outcomes().find((o) => o.candidate.original === '  ' && o.auto)!.candidate.id);
+    const collapses = (s: CheckSession) => s.outcomes().filter((o) => o.candidate.original === '  ').map((o) => [o.status, o.auto]);
+    const changed = [...paras, { id: 2, text: 'A new paragraph.' }];
+
+    const resumed = (await restore(changed, await snapshot(before, VIEW), opts, { linter })).session;
+    expect(changed.map((p) => resumed.outputText(p.id))).toEqual([TOTAL, TOTAL, 'A new paragraph.']);
+    expect(collapses(resumed)).toEqual([
+      ['pending', false],
+      ['pending', false],
+    ]);
+
+    // Saved again and resumed on the same text: still cards, never made without a click.
+    const again = (await restore(changed, await snapshot(resumed, VIEW), opts, { linter })).session;
+    expect(collapses(again)).toEqual([
+      ['pending', false],
+      ['pending', false],
+    ]);
+  });
+
   it('starts with the snapshot depth', async () => {
     const before = await start(PARAS);
     before.setDepth('light');
