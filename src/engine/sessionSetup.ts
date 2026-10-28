@@ -3,6 +3,7 @@ import { detectVariant } from './variant';
 import { findInvisible, visibleText, type VisibleText } from './hygiene';
 import { findLockedSpans } from './factLock';
 import { findCommandSpans } from './commands';
+import { lintInChunks } from './chunks';
 import { PRESETS } from './presets';
 import { findContractions } from './contractions';
 import { improveSuggestions, withoutOffensiveSuggestions } from './suggestions/improve';
@@ -65,6 +66,7 @@ export async function prepareCheck(
   const { variant, mixed, variantWords, fromFallback } = await detectVariant(asSeen, opts.fallbackVariant, {
     linter,
     variant: opts.variant,
+    pause: deps.pause,
   });
   if (linter.variant !== variant) await linter.setVariant(variant);
 
@@ -73,7 +75,7 @@ export async function prepareCheck(
   const modules = resolveModules(opts.modules);
 
   const kept = new Map(paras.map((p) => [p.id, invisible.get(p.id)!.filter((c) => c.replacements.length === 0).map((c) => c.span.start)]));
-  const linted: Candidate[] = (await linter.lintParagraphs(asSeen, opts.language))
+  const linted: Candidate[] = (await lintInChunks(asSeen, (chunk) => linter.lintParagraphs(chunk, opts.language), deps.pause))
     .map((c) => inParagraph(c, visible.get(c.paraId)!, paraText.get(c.paraId)!))
     .map((c) =>
       modules.betterSuggestions ? improveSuggestions(c, paraText.get(c.paraId), locked.get(c.paraId)) : withoutOffensiveSuggestions(c),

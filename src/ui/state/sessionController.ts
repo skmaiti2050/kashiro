@@ -32,6 +32,7 @@ import { AiSuggestions } from './aiSuggestions';
 import { NO_AI, type AiState } from './aiState';
 import { modulesFor, type Settings } from './settings';
 import * as settingsActions from './settingsActions';
+import { yieldToBrowser } from './yieldToBrowser';
 
 export type { Files, OpenedFile, SavedFile } from './saveFlow';
 export { DOCX_NOTE, type OpenDocument } from './openDocument';
@@ -59,6 +60,15 @@ export interface ControllerDeps {
   helperInstalled?: boolean;
   /** The saved-review files in the app's data folder; without them no review is saved. */
   sessions?: SessionFiles;
+  /** Waits while the browser handles input between chunks of a long check (default yieldToBrowser). */
+  yieldToBrowser?: () => Promise<void>;
+}
+
+/** Thrown at a check's pause when a newer check has started: the old one stops there, its result unused. */
+class CheckSuperseded extends Error {
+  constructor() {
+    super('a newer check replaced this one');
+  }
 }
 
 /** Choosing the writing helper's model: the open dialog, and the chosen file's SHA-256. */
@@ -369,12 +379,19 @@ export class SessionController {
   private async check(keepDecisions: boolean): Promise<void> {
     const loaded = this.loaded!;
     const run = ++this.checks;
+    // The session is changed in place, so a decision made while this check runs still reaches carryDecisions.
     const before = keepDecisions ? this.state.session : null;
+    // Between chunks the browser handles input, so the panel stays usable during a long check (F20 item 6); a check
+    // a newer one replaced stops at its next pause.
+    const pause = async () => {
+      await (this.deps.yieldToBrowser ?? yieldToBrowser)();
+      if (run !== this.checks) throw new CheckSuperseded();
+    };
     try {
       const linter = await this.getLinter();
       const { settings, variantOverride, documentIgnoredRules } = this.state;
       const options = checkOptions(settings, variantOverride, documentIgnoredRules, loaded.adapter.language);
-      const session = await CheckSession.start(loaded.paras, options, { linter, now: this.deps.now });
+      const session = await CheckSession.start(loaded.paras, options, { linter, now: this.deps.now, pause });
       if (run !== this.checks) return;
       // The depth may have moved while the check ran.
       session.setDepth(currentDepth(this.state.settings));

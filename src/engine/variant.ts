@@ -1,5 +1,6 @@
 import { createLinter, type RulesLinter } from './linter';
 import type { Paragraph, Variant } from './types';
+import { lintInChunks } from './chunks';
 
 const ORDER: Variant[] = ['American', 'British', 'Canadian', 'Australian', 'Indian'];
 
@@ -22,13 +23,14 @@ interface VariantResult {
 export async function detectVariant(
   paras: Paragraph[],
   fallback: Variant,
-  opts: { linter?: RulesLinter; variant?: Variant } = {},
+  opts: { linter?: RulesLinter; variant?: Variant; pause?: () => Promise<void> } = {},
 ): Promise<VariantResult> {
   const linter = opts.linter ?? (await createLinter(fallback));
   const flagged = new Map<Variant, Set<string>>();
   const counts = new Map<Variant, number>();
   for (const v of ORDER) {
-    const cands = await linter.lintSpelling(paras, v);
+    // A long text is read a chunk at a time, with `pause` between (lintInChunks, Task F20 item 6).
+    const cands = await lintInChunks(paras, (chunk) => linter.lintSpelling(chunk, v), opts.pause);
     const spelling = cands.filter((c) => c.kind === 'Spelling');
     counts.set(v, spelling.length);
     flagged.set(v, new Set(spelling.map((c) => c.original.toLowerCase())));

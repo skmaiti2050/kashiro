@@ -1290,3 +1290,66 @@ describe('SessionController: the writing helper model', () => {
     expect(rewrite).toHaveBeenCalledTimes(1);
   });
 });
+
+// Task F20 item 6 (owner: "v1.0: yield"): a long check let no click, scroll or keypress through until it ended.
+describe('SessionController: a long check yields to the browser between chunks', () => {
+  /** About 60 paragraphs, several chunks. */
+  const LONG = Array.from({ length: 60 }, (_, i) => `I think teh plan works in part ${i}. We went to the the market.`).join('\n\n');
+
+  it('yields at least once on a large document', async () => {
+    const yieldToBrowser = vi.fn(async () => {});
+    const { controller } = makeController({ yieldToBrowser });
+    await controller.openText(LONG);
+    expect(controller.getState().phase).toBe('ready');
+    expect(yieldToBrowser.mock.calls.length).toBeGreaterThan(1);
+  });
+
+  it('a goal change during a running check shows only the newer check\'s result', async () => {
+    let changed = false;
+    const shown: unknown[] = [];
+    const { controller } = makeController({
+      yieldToBrowser: async () => {
+        await new Promise((r) => setTimeout(r, 0));
+        // The user changes the goal while the first check is still reading the text.
+        if (!changed) {
+          changed = true;
+          controller.setPreset('blog');
+        }
+      },
+    });
+    controller.subscribe(() => {
+      const { session } = controller.getState();
+      if (session && !shown.includes(session)) shown.push(session);
+    });
+    await controller.openText(LONG);
+    await controller.settled();
+    expect(changed).toBe(true);
+    expect(controller.getState()).toMatchObject({ phase: 'ready', error: null, checking: false });
+    expect(controller.getState().settings.preset).toBe('blog');
+    // One session only: the first check stopped at its next pause, so its result never showed.
+    expect(shown).toHaveLength(1);
+    const lintedAlone = makeController({ settings: { preset: 'blog' } }).controller;
+    await lintedAlone.openText(LONG);
+    expect(controller.getState().session!.decisionCount()).toBe(lintedAlone.getState().session!.decisionCount());
+  });
+
+  it('a decision made while a re-check runs is kept by that re-check', async () => {
+    let hold: (() => void) | null = null;
+    let holding = false;
+    const { controller } = makeController({
+      yieldToBrowser: () => (holding ? new Promise<void>((r) => (hold = r)) : Promise.resolve()),
+    });
+    await controller.openText(LONG);
+    holding = true;
+    controller.setPreset('blog'); // the re-check stops at its first pause
+    await vi.waitFor(() => expect(hold).not.toBeNull());
+    const card = controller.getState().session!.decisions().top[0];
+    controller.reject(card.id);
+    holding = false;
+    hold!();
+    await controller.settled();
+    const after = controller.getState().session!;
+    const rejected = after.outcomes().filter((o) => o.status === 'rejected');
+    expect(rejected.map((o) => o.candidate.id)).toEqual(expect.arrayContaining(card.candidateIds));
+  });
+});

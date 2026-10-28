@@ -28,6 +28,11 @@ export interface SessionDeps {
   linter?: RulesLinter;
   /** Clock for LogEntry.at. */
   now?: () => Date;
+  /**
+   * Called before each chunk of paragraphs the check lints (lintInChunks): the UI yields to the browser there, and
+   * throws to stop a check a newer one superseded. Without it the text is linted in one go.
+   */
+  pause?: () => Promise<void>;
 }
 
 export interface Edit {
