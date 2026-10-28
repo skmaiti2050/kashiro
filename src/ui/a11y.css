@@ -74,9 +74,12 @@
   position: relative;
 }
 
-/* The panel grows with the app text size, but never past half the window. */
+/*
+ * The panel grows with the window (26 % of it, from 380 px up to 520 px) and with the app text size, but never
+ * past half the workspace: on a 2,000 px window its cards no longer wrap at 380 px (F20 item 4).
+ */
 .workspace {
-  grid-template-columns: minmax(0, 1fr) clamp(300px, calc(380px * var(--ui-zoom, 1)), 50%);
+  grid-template-columns: minmax(0, 1fr) clamp(300px, calc(clamp(380px, 26vw, 520px) * var(--ui-zoom, 1)), 50%);
 }
 
 .toolbar {

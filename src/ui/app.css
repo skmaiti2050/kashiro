@@ -82,6 +82,15 @@
   }
 }
 
+/* Room for the scrollbar is kept while there is none, so content doesn't re-wrap when one appears (F20 item 4). */
+.editor .cm-scroller,
+.review,
+.changelog .entries,
+.changelog .batch-changes,
+.dialog {
+  scrollbar-gutter: stable;
+}
+
 .editor .cm-scroller::-webkit-scrollbar,
 .review::-webkit-scrollbar,
 .changelog .entries::-webkit-scrollbar,
