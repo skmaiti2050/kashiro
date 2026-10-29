@@ -50,6 +50,32 @@ describe('isClearProseSentence (Task F21d)', () => {
     expect(clear(text)).toBe(false);
   });
 
+  // Task F21b E1: a hard-wrapped sentence (emails at 72 columns, wrapped Markdown) is read whole across a single break.
+  it.each([
+    'We went to the market early and\nsaw the the cardamom stall.',
+    'Our team went to\nthe the market on Monday.',
+    'We went to the market early and\r\nsaw the the cardamom stall.',
+    'It rained all day, so we went to\nthe market late. Then we saw the the\ncardamom stall and went home.',
+  ])('a hard-wrapped clear sentence: %j', (text) => {
+    expect(clear(text)).toBe(true);
+  });
+
+  it.each([
+    ['a blank line ends the sentence', 'We went to the market and\n\nthe the stall was shut.'],
+    ['a list label on the next line ends it', 'We went to the market and\n- the the stall was shut.'],
+    ['a wrapped list item keeps its label', '- We went to the market and\nthe the stall was shut.'],
+    ['a wrapped command line', 'To build it, type\necho the the > out.txt.'],
+    ['a wrapped line with no end mark', 'We went to the market and\nsaw the the stall'],
+  ])('not clear across a break: %s', (_name, text) => {
+    expect(clear(text)).toBe(false);
+  });
+
+  it('a line of command text is never joined to the prose next to it', () => {
+    // The command line stays its own line, so the prose sentence under it is judged alone, as before.
+    expect(clear('sudo apt-get update\nThe the server comes back.', 'The the', 'sudo apt-get update')).toBe(true);
+    expect(clear('To update it we run\nsudo apt-get the the update.', 'the the', 'sudo apt-get the the update.')).toBe(false);
+  });
+
   it('run or enter before a function word is prose: "run the the shop", "enter your name"', () => {
     expect(clear('They run the the shop on Main Street.')).toBe(true);
     expect(clear('Enter your name and and press OK.', 'and and')).toBe(true);

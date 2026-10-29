@@ -560,6 +560,16 @@ export const TICK_TRUTH: readonly TickTruth[] = [
   { input: '(He shakes his head.) Bring me the the cardamom.', mayTick: ['the the → the @ 31'], ticked: true },
   { input: '‘We sold out of of mangoes by nine,’ she said.', mayTick: ['of of → of @ 13'], ticked: true },
   { input: '3,912 essays went to the the panel last week.', mayTick: ['the the → the @ 21'], ticked: true },
+  // Task F21b E1: a hard-wrapped prose sentence is read whole across a single line break, in plain text and Markdown.
+  { input: 'We went to the market early and\nsaw the the cardamom stall.', mayTick: ['the the → the @ 36'], ticked: true },
+  { input: 'We went to the market early and\nsaw the the cardamom stall.', mayTick: ['the the → the @ 36'], ticked: true, markdown: true },
+  { input: 'Our team went to\nthe the market on Monday.', mayTick: ['the the → the @ 17'], ticked: true },
+  // A blank line, a list label or a command line still ends it; wrapped command lines never tick.
+  { input: 'We went to the market and\n- the the stall was shut.', mayTick: [], markdown: true },
+  { input: 'To build it, type\necho the the > out.txt.', mayTick: [] },
+  { input: 'Steps to build:\nmake the the build now.', mayTick: [] },
+  { input: 'To update it we run\nsudo apt-get the the update.', mayTick: [] },
+  { input: 'Then run the build with\nnpm run the the build --watch.', mayTick: [] },
 ];
 
 /** Invisible characters sprinkled at random between ASCII characters. */
