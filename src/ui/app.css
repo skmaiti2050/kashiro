@@ -249,6 +249,11 @@ summary:focus-visible,
   margin: 0 2px;
 }
 
+/* Settings › "Show keyboard shortcuts on buttons" off (F21b item 10): menus and the legend keep theirs. */
+.app[data-key-hints='off'] button:not([role='menuitem']) .key-hint {
+  display: none;
+}
+
 /* Toolbar */
 .toolbar {
   display: flex;

@@ -80,6 +80,10 @@ export function ReadingSettings({ controller, reading, readAloud }: Props) {
             ))}
           </select>
         </label>
+        <label>
+          <input type="checkbox" checked={reading.keyHints} onChange={(e) => change({ keyHints: e.target.checked })} />
+          {t.t('reading.keyHints')}
+        </label>
       </fieldset>
 
       <fieldset>

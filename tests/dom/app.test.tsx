@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { english } from '../ui/english';
@@ -78,6 +79,37 @@ describe('keyboard: shortcuts sheet and Settings', () => {
     expect(app.style.getPropertyValue('--ui-zoom')).toBe('1.5');
     expect(app.dataset.font).toBe('atkinson');
     expect(saved.at(-1)!.reading).toMatchObject({ uiTextSize: 150, font: 'atkinson' });
+  });
+
+  it('Ctrl+/ opens the keyboard shortcuts, as F1 does (Task F21b item 10)', () => {
+    const { controller } = makeController();
+    renderShell(controller);
+    fireEvent.keyDown(document.body, { key: '/', ctrlKey: true });
+    expect(screen.getByRole('dialog', { name: 'Keyboard shortcuts' })).toBeTruthy();
+  });
+
+  it('Settings › Show keyboard shortcuts on buttons: on at first; off hides the hints on buttons only (Task F21b item 10)', () => {
+    const style = document.createElement('style');
+    style.textContent = readFileSync('src/ui/app.css', 'utf8') + readFileSync('src/ui/a11y.css', 'utf8');
+    document.head.append(style);
+    try {
+      const { controller, saved } = makeController();
+      const { container } = renderShell(controller);
+      const buttonHint = () => screen.getByRole('button', { name: /Open a file/ }).querySelector('.key-hint')!;
+      expect(getComputedStyle(buttonHint()).display).not.toBe('none');
+
+      fireEvent.keyDown(document.body, { key: ',', ctrlKey: true });
+      const settings = screen.getByRole('dialog', { name: 'Settings' });
+      const show = within(settings).getByRole('checkbox', { name: 'Show keyboard shortcuts on buttons' });
+      expect((show as HTMLInputElement).checked).toBe(true);
+      fireEvent.click(show);
+
+      expect(container.querySelector<HTMLElement>('.app')!.dataset.keyHints).toBe('off');
+      expect(saved.at(-1)!.reading.keyHints).toBe(false);
+      expect(getComputedStyle(buttonHint()).display).toBe('none');
+    } finally {
+      style.remove();
+    }
   });
 
   it('module switches are switches', () => {

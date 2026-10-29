@@ -13,7 +13,7 @@ const ANYWHERE: Shortcut[] = [
   { keys: 'Ctrl+V', action: 'shortcuts.paste' },
   { keys: 'Ctrl+W', action: 'shortcuts.close' },
   { keys: 'Ctrl+,', action: 'shortcuts.settings' },
-  { keys: ['F1', '?'], action: 'shortcuts.list' },
+  { keys: ['F1, Ctrl+/', '?'], action: 'shortcuts.list' },
   { keys: 'Tab / Shift+Tab', action: 'shortcuts.tab' },
   { keys: '← / →', action: 'shortcuts.toolbar' },
   { keys: 'Escape', action: 'shortcuts.escape' },

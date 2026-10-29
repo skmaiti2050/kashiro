@@ -389,6 +389,7 @@
   "reading.letterNormal": "Normal",
   "reading.letterWide": "Wide",
   "reading.letterWider": "Wider",
+  "reading.keyHints": "Show keyboard shortcuts on buttons",
   "reading.readAloud": "Read aloud",
   "reading.noVoice": "No voice that works offline is installed, so Read aloud is hidden. To add one: Windows Settings › Time & language › Speech › Add voices.",
   "reading.voice": "Voice",

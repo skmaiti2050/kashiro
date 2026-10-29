@@ -86,6 +86,12 @@ describe('appShortcut', () => {
     expect(appShortcut(press('F1', { ctrlKey: true }), true, 'none')).toBeNull();
   });
 
+  it('Ctrl+/ opens the keyboard shortcuts from anywhere, as F1 does (Task F21b item 10)', () => {
+    expect(appShortcut(press('/', { ctrlKey: true }), true, 'text-entry')).toBe('shortcuts');
+    expect(appShortcut(press('/', { ctrlKey: true }), false, 'none')).toBe('shortcuts');
+    expect(appShortcut(press('/'), true, 'none')).toBeNull();
+  });
+
   it('Ctrl+, opens Settings', () => {
     expect(appShortcut(press(',', { ctrlKey: true }), true, 'text-entry')).toBe('settings');
     expect(appShortcut(press(','), true, 'none')).toBeNull();

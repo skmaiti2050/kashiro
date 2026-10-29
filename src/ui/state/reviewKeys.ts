@@ -58,7 +58,7 @@ export type AppShortcut = 'open' | 'paste' | 'close' | 'settings' | 'shortcuts';
 /**
  * App-wide shortcuts: Ctrl+O opens a file; Ctrl+V on the empty start screen pastes as a new document
  * (once a document is open, Ctrl+V is the editor's own paste); Ctrl+W closes the open document; Ctrl+,
- * opens Settings; F1, or ? where it would not type a question mark, opens the keyboard shortcuts.
+ * opens Settings; F1 or Ctrl+/, or ? where it would not type a question mark, opens the keyboard shortcuts.
  */
 export function appShortcut(press: KeyPress, hasDocument: boolean, control: KeyTarget['control']): AppShortcut | null {
   if (press.altKey || press.metaKey) return null;
@@ -71,6 +71,8 @@ export function appShortcut(press: KeyPress, hasDocument: boolean, control: KeyT
   if (key === 'o') return 'open';
   if (key === 'w' && hasDocument) return 'close';
   if (key === ',') return 'settings';
+  // The editor has no language, so CodeMirror's own Ctrl+/ (toggle comment) does nothing and leaves it to us.
+  if (key === '/') return 'shortcuts';
   if (key === 'v' && !hasDocument && control !== 'text-entry') return 'paste';
   return null;
 }

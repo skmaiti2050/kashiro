@@ -390,6 +390,7 @@
   "reading.letterNormal": "सामान्य",
   "reading.letterWide": "चौड़ी",
   "reading.letterWider": "ज़्यादा चौड़ी",
+  "reading.keyHints": "बटनों पर कीबोर्ड शॉर्टकट दिखाएँ",
   "reading.readAloud": "पढ़कर सुनाना",
   "reading.noVoice": "ऑफ़लाइन चलने वाली कोई आवाज़ इंस्टॉल नहीं है, इसलिए ‘पढ़कर सुनाएँ’ छिपा है। आवाज़ जोड़ने के लिए: Windows Settings › Time & language › Speech › Add voices।",
   "reading.voice": "आवाज़",

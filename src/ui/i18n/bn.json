@@ -390,6 +390,7 @@
   "reading.letterNormal": "সাধারণ",
   "reading.letterWide": "চওড়া",
   "reading.letterWider": "আরও চওড়া",
+  "reading.keyHints": "বোতামে কিবোর্ড শর্টকাট দেখান",
   "reading.readAloud": "পড়ে শোনানো",
   "reading.noVoice": "অফলাইনে চলে এমন কোনো ভয়েস ইনস্টল করা নেই, তাই ‘পড়ে শোনান’ লুকোনো আছে। ভয়েস যোগ করতে: Windows Settings › Time & language › Speech › Add voices।",
   "reading.voice": "ভয়েস",

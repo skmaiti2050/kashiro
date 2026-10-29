@@ -199,7 +199,14 @@ function ShellView({ controller, state }: { controller: SessionController; state
   }, [t]);
 
   return (
-    <div className="app" lang={t.language} dir={t.dir} style={readingStyle(reading) as CSSProperties} data-font={reading.font}>
+    <div
+      className="app"
+      lang={t.language}
+      dir={t.dir}
+      style={readingStyle(reading) as CSSProperties}
+      data-font={reading.font}
+      data-key-hints={reading.keyHints ? 'on' : 'off'}
+    >
       <header className="app-header">
         <Toolbar
           controller={controller}

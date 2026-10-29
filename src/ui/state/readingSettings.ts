@@ -20,6 +20,8 @@ export interface ReadingSettings {
   rate: number;
   /** Speech pitch (1 is normal). */
   pitch: number;
+  /** Shortcut hints on buttons ("Enter", "Ctrl+O"); off hides them, the shortcuts still work (Task F21b item 10). */
+  keyHints: boolean;
 }
 
 export const DEFAULT_READING: ReadingSettings = {
@@ -31,6 +33,7 @@ export const DEFAULT_READING: ReadingSettings = {
   voice: null,
   rate: 1,
   pitch: 1,
+  keyHints: true,
 };
 
 /** The choices Settings offers; resolveReading clamps a hand-edited file to the same ranges. */
@@ -63,6 +66,7 @@ export function resolveReading(saved: unknown): ReadingSettings {
   }
   if (FONTS.includes(saved.font as ReadingFont)) resolved.font = saved.font as ReadingFont;
   if (typeof saved.voice === 'string') resolved.voice = saved.voice;
+  if (typeof saved.keyHints === 'boolean') resolved.keyHints = saved.keyHints;
   return resolved;
 }
 

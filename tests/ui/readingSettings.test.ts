@@ -14,8 +14,14 @@ describe('resolveReading', () => {
       voice: null,
       rate: 1,
       pitch: 1,
+      keyHints: true,
     });
     expect(DEFAULT_READING.uiTextSize).toBe(100);
+  });
+
+  it('keyboard shortcut hints on buttons: on unless switched off (Task F21b item 10)', () => {
+    expect(resolveReading({ keyHints: false }).keyHints).toBe(false);
+    expect(resolveReading({ keyHints: 'no' }).keyHints).toBe(true);
   });
 
   it('keeps valid saved values and fills in the rest', () => {
