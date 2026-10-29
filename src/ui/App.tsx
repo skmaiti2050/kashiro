@@ -31,6 +31,7 @@ import { SessionController, type ControllerState } from './state/sessionControll
 import { modulesFor } from './state/settings';
 import { useSession } from './state/useSession';
 import { windowTitle } from './state/windowTitle';
+import { useTheme } from './theme';
 import './fonts';
 import './app.css';
 import './a11y.css';
@@ -191,6 +192,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
   });
 
   const { reading } = state.settings;
+  useTheme(reading.theme);
   useEffect(() => {
     // The whole page, so text outside .app (none yet) and the native spell-check language follow too.
     document.documentElement.lang = t.language;

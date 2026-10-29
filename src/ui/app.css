@@ -37,32 +37,37 @@
   line-height: 20px;
   color: var(--ink);
   background: var(--bg);
+  /* Native parts (scrollbars, pickers) follow the chosen theme, not only Windows' mode. */
+  color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #1b1d20;
-    --panel: #232629;
-    --ink: #e6e3de;
-    --muted: #9aa0a6;
-    --line: #34383d;
-    --accent: #5fb39b;
-    --accent-ink: #10201b;
-    --old: #e08a80;
-    --new: #7fd0b7;
-    --pending: #e3a63c;
-    --warn-bg: #3a3020;
-    --error-bg: #3d2523;
-    --scroll-track: #26292d;
-    --scroll-thumb: #555b62;
-    --scroll-thumb-hover: #7a818a;
-    --cat-correctness: #ff8a50;
-    --cat-clarity: #56b4e9;
-    --cat-style: #c4a7f0;
-    --cat-terms: #3cc9a0;
-    --cat-ai: #e6c34a;
-    --cat-names: #a0aab8;
-  }
+/*
+ * Dark colours. src/ui/theme.ts puts data-theme on <html> before the first render: "dark" for Settings › Theme › Dark,
+ * or for System while Windows is in dark mode (Task F21b item 4). A Windows contrast theme overrides both.
+ */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #1b1d20;
+  --panel: #232629;
+  --ink: #e6e3de;
+  --muted: #9aa0a6;
+  --line: #34383d;
+  --accent: #5fb39b;
+  --accent-ink: #10201b;
+  --old: #e08a80;
+  --new: #7fd0b7;
+  --pending: #e3a63c;
+  --warn-bg: #3a3020;
+  --error-bg: #3d2523;
+  --scroll-track: #26292d;
+  --scroll-thumb: #555b62;
+  --scroll-thumb-hover: #7a818a;
+  --cat-correctness: #ff8a50;
+  --cat-clarity: #56b4e9;
+  --cat-style: #c4a7f0;
+  --cat-terms: #3cc9a0;
+  --cat-ai: #e6c34a;
+  --cat-names: #a0aab8;
 }
 
 /*

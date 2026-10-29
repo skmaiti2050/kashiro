@@ -15,8 +15,15 @@ describe('resolveReading', () => {
       rate: 1,
       pitch: 1,
       keyHints: true,
+      theme: 'system',
     });
     expect(DEFAULT_READING.uiTextSize).toBe(100);
+  });
+
+  it('the theme: System, Light or Dark; anything else is System (Task F21b item 4)', () => {
+    expect(resolveReading({ theme: 'dark' }).theme).toBe('dark');
+    expect(resolveReading({ theme: 'light' }).theme).toBe('light');
+    expect(resolveReading({ theme: 'sepia' }).theme).toBe('system');
   });
 
   it('keyboard shortcut hints on buttons: on unless switched off (Task F21b item 10)', () => {

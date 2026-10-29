@@ -112,6 +112,55 @@ describe('keyboard: shortcuts sheet and Settings', () => {
     }
   });
 
+  describe('Settings › Theme: System, Light or Dark (Task F21b item 4)', () => {
+    /** Windows in dark mode or not, as matchMedia reports it; `flip` changes it and tells the listeners. */
+    function systemTheme(dark: boolean) {
+      const listeners = new Set<() => void>();
+      const query = {
+        get matches() {
+          return dark;
+        },
+        addEventListener: (_: string, l: () => void) => listeners.add(l),
+        removeEventListener: (_: string, l: () => void) => listeners.delete(l),
+      };
+      const original = window.matchMedia;
+      window.matchMedia = ((q: string) => (q === '(prefers-color-scheme: dark)' ? query : original?.(q) ?? { matches: false })) as never;
+      return {
+        flip: () => {
+          dark = !dark;
+          listeners.forEach((l) => l());
+        },
+        restore: () => (window.matchMedia = original),
+      };
+    }
+    const theme = () => document.documentElement.dataset.theme;
+
+    it('System follows Windows, live; Light and Dark are applied at once, saved and remembered for the next start', () => {
+      const windows = systemTheme(true);
+      try {
+        const { controller, saved } = makeController();
+        renderShell(controller);
+        expect(theme()).toBe('dark');
+        act(() => windows.flip());
+        expect(theme()).toBe('light');
+
+        fireEvent.keyDown(document.body, { key: ',', ctrlKey: true });
+        const select = within(screen.getByRole('dialog', { name: 'Settings' })).getByRole('combobox', { name: 'Theme' });
+        expect((select as HTMLSelectElement).value).toBe('system');
+        fireEvent.change(select, { target: { value: 'dark' } });
+        expect(theme()).toBe('dark');
+        expect(saved.at(-1)!.reading.theme).toBe('dark');
+        expect(localStorage.getItem('kashiro.theme')).toBe('dark');
+        // A Windows switch no longer changes a chosen theme.
+        act(() => windows.flip());
+        expect(theme()).toBe('dark');
+      } finally {
+        windows.restore();
+        localStorage.clear();
+      }
+    });
+  });
+
   it('module switches are switches', () => {
     const { controller } = makeController();
     renderShell(controller);

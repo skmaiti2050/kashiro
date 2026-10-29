@@ -1,6 +1,9 @@
 import { isRecord } from '@/engine/modules';
 
 export type ReadingFont = 'default' | 'atkinson' | 'opendyslexic';
+/** The app's colours: Windows' light or dark mode (System), or one of them always (Task F21b item 4). */
+export type ThemeChoice = 'system' | 'light' | 'dark';
+export const THEMES: ThemeChoice[] = ['system', 'light', 'dark'];
 
 /** Settings › Reading and accessibility: text size, readable fonts, spacing and the read-aloud voice. */
 export interface ReadingSettings {
@@ -22,6 +25,8 @@ export interface ReadingSettings {
   pitch: number;
   /** Shortcut hints on buttons ("Enter", "Ctrl+O"); off hides them, the shortcuts still work (Task F21b item 10). */
   keyHints: boolean;
+  /** Light or dark colours; a Windows contrast theme overrides both. */
+  theme: ThemeChoice;
 }
 
 export const DEFAULT_READING: ReadingSettings = {
@@ -34,6 +39,7 @@ export const DEFAULT_READING: ReadingSettings = {
   rate: 1,
   pitch: 1,
   keyHints: true,
+  theme: 'system',
 };
 
 /** The choices Settings offers; resolveReading clamps a hand-edited file to the same ranges. */
@@ -67,6 +73,7 @@ export function resolveReading(saved: unknown): ReadingSettings {
   if (FONTS.includes(saved.font as ReadingFont)) resolved.font = saved.font as ReadingFont;
   if (typeof saved.voice === 'string') resolved.voice = saved.voice;
   if (typeof saved.keyHints === 'boolean') resolved.keyHints = saved.keyHints;
+  if (THEMES.includes(saved.theme as ThemeChoice)) resolved.theme = saved.theme as ThemeChoice;
   return resolved;
 }
 

@@ -38,6 +38,38 @@ describe('start-up', () => {
     expect(html).toMatch(/prefers-color-scheme:\s*dark[^}]*\{[^}]*background:\s*#1b1d20/);
   });
 
+  it('a chosen theme colours the page before any script runs too (Task F21b item 4)', () => {
+    const html = fs.readFileSync(path.resolve(__dirname, '../../index.html'), 'utf8');
+    expect(html).toMatch(/html\[data-theme='dark'\][^{]*\{[^}]*background:\s*#1b1d20/);
+    expect(html).toMatch(/prefers-color-scheme:\s*dark[^}]*:not\(\[data-theme='light'\]\)[^{]*\{[^}]*background:\s*#1b1d20/);
+  });
+
+  it('the dark colours follow data-theme, not Windows alone, so a chosen Light wins over a dark Windows (Task F21b item 4)', () => {
+    const css = fs.readFileSync(path.resolve(__dirname, '../../src/ui/app.css'), 'utf8');
+    expect(css).not.toMatch(/prefers-color-scheme/);
+    expect(css).toMatch(/:root\[data-theme='dark'\] \{[^}]*color-scheme: dark;[^}]*--bg: #1b1d20;/);
+  });
+
+  it('the saved theme is on the page before the app first renders: no wrong-colour flash (Task F21b item 4)', async () => {
+    localStorage.setItem('kashiro.theme', 'dark');
+    let themeAtRender: string | undefined;
+    vi.doMock('react-dom/client', () => ({
+      default: { createRoot: () => ({ render: () => (themeAtRender = document.documentElement.dataset.theme) }) },
+    }));
+    const root = document.createElement('div');
+    root.id = 'root';
+    document.body.append(root);
+    try {
+      await import('@/main');
+      expect(themeAtRender).toBe('dark');
+    } finally {
+      vi.doUnmock('react-dom/client');
+      root.remove();
+      localStorage.clear();
+      delete document.documentElement.dataset.theme;
+    }
+  });
+
   it('shows the window after its first frame, once', async () => {
     vi.useFakeTimers();
     render(<App />);

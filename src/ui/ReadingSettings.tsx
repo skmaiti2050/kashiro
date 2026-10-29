@@ -1,6 +1,14 @@
 import type { MessageKey } from './i18n/catalogues';
 import { useT } from './i18n/useT';
-import { LETTER_SPACINGS, LINE_SPACINGS, TEXT_SIZES, type ReadingFont, type ReadingSettings as Reading } from './state/readingSettings';
+import {
+  LETTER_SPACINGS,
+  LINE_SPACINGS,
+  TEXT_SIZES,
+  THEMES,
+  type ReadingFont,
+  type ReadingSettings as Reading,
+  type ThemeChoice,
+} from './state/readingSettings';
 import type { SessionController } from './state/sessionController';
 import type { ReadAloud } from './useReadAloud';
 
@@ -9,6 +17,8 @@ const FONT_LABELS: Record<ReadingFont, MessageKey> = {
   atkinson: 'reading.fontAtkinson',
   opendyslexic: 'reading.fontOpenDyslexic',
 };
+
+const THEME_LABELS: Record<ThemeChoice, MessageKey> = { system: 'reading.themeSystem', light: 'reading.themeLight', dark: 'reading.themeDark' };
 
 const LETTER_LABELS: Record<number, MessageKey> = { 0: 'reading.letterNormal', 0.05: 'reading.letterWide', 0.12: 'reading.letterWider' };
 
@@ -30,6 +40,16 @@ export function ReadingSettings({ controller, reading, readAloud }: Props) {
     <>
       <fieldset>
         <legend>{t.t('reading.legend')}</legend>
+        <label className="field">
+          <span>{t.t('reading.theme')}</span>
+          <select value={reading.theme} onChange={(e) => change({ theme: e.target.value as ThemeChoice })}>
+            {THEMES.map((theme) => (
+              <option key={theme} value={theme}>
+                {t.t(THEME_LABELS[theme])}
+              </option>
+            ))}
+          </select>
+        </label>
         <label className="field">
           <span>{t.t('reading.appSize')}</span>
           <select value={reading.uiTextSize} onChange={(e) => change({ uiTextSize: Number(e.target.value) })}>
