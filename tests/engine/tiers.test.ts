@@ -348,7 +348,7 @@ describe('indentation (Task F21 item A: YAML, a Makefile, a loop body)', () => {
 });
 
 describe('identifiers mixing letters and digits', () => {
-  it.each(['q2', 'mp4', 'P0', 'v2', '4K', 'B2B', 'COVID-19', 'A4'])('a Spelling/Typo flag of %s is hidden, whatever the overrides', (original) => {
+  it.each(['q2', 'mp4', 'P0', 'v2', '4K', 'B2B', 'COVID-19', 'A4', 'abc123def', 'a1b2c3d4e5f60718', 'bld9x7k2q'])('a Spelling/Typo flag of %s is hidden, whatever the overrides', (original) => {
     for (const kind of ['Spelling', 'Typo']) {
       const c = cand({ original, kind, replacements: ['qr'] });
       expect(tierOf(c, ctx())).toBe('hidden');
@@ -356,7 +356,8 @@ describe('identifiers mixing letters and digits', () => {
     }
   });
 
-  it.each(['y0u', 'th9s', 'abc123def'])('a digit inside a word (%s) is a typo, not an identifier: reviewed, never hidden or auto-fixed', (original) => {
+  // "abc123def" left this list in Task F21 item E: six hex characters with a digit read as a hash or an ID.
+  it.each(['y0u', 'th9s', 'recieve1'])('a digit inside a word (%s) is a typo, not an identifier: reviewed, never hidden or auto-fixed', (original) => {
     expect(tierOf(cand({ original, replacements: ['you'] }), ctx())).toBe('review');
     expect(tierOf(cand({ original, replacements: ['you'], kind: 'Typo' }), ctx())).toBe('review');
   });

@@ -5,7 +5,7 @@ import { findLockedSpans } from './factLock';
 import { findCommandSpansInParagraphs, withoutCaseOnlyFixOnCommand } from './commands';
 import { lintInChunks } from './chunks';
 import { isDictionaryWord } from './dictionaryWords';
-import { WORD_REWRITE_KINDS } from './wordFlags';
+import { WORD_REWRITE_KINDS, withoutNonWordFixes } from './wordFlags';
 import { PRESETS } from './presets';
 import { findContractions } from './contractions';
 import { improveSuggestions, withoutOffensiveSuggestions } from './suggestions/improve';
@@ -83,6 +83,7 @@ export async function prepareCheck(
       modules.betterSuggestions ? improveSuggestions(c, paraText.get(c.paraId), locked.get(c.paraId)) : withoutOffensiveSuggestions(c),
     )
     .map((c) => withoutFixOverKept(c, kept.get(c.paraId)!))
+    .map(withoutNonWordFixes)
     .map((c) => withoutCaseOnlyFixOnCommand(c, commandSpans.get(c.paraId)));
   const confusables = paras.flatMap((p) => findConfusables(p, locked.get(p.id)));
   // The curated rule knows these words better than the linter ("intercast" → "inter cast"): its flag replaces the linter's word flag there.

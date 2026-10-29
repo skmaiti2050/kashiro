@@ -1,5 +1,6 @@
 import type { Candidate, Span } from './types';
 import { isCodePath, isLettersAndDigitsIdentifier, isSentenceStart, OPENERS } from './factLock';
+import { isInIdentifier } from './identifiers';
 
 export const UPPER_START = /^\p{Lu}/u;
 /** Kinds that rewrite a word into a dictionary word: on a capitalised original that is likely a name. */
@@ -125,7 +126,27 @@ function tokenAround(text: string, span: Span): string {
 export function isCodeNoiseFlag(c: Candidate, paraText?: string): boolean {
   const token = paraText === undefined ? c.original.replace(TRAILING_PUNCTUATION, '') : tokenAround(paraText, c.span);
   if (CODE_NOISE_KINDS.has(c.kind) && looksLikeCode(token, c.replacements)) return true;
+  // An ID, hash or ARN (Task F21 item E): "6789abcdef0" in "ami-0123456789abcdef0", "vpc" in "vpc-032d…".
+  const inId = paraText === undefined ? isInIdentifier(c.original, { start: 0, end: c.original.length }) : isInIdentifier(paraText, c.span);
+  if (CODE_NOISE_KINDS.has(c.kind) && inId) return true;
   return WORD_REWRITE_KINDS.has(c.kind) && SINGLE_LETTER.test(token) && !ONE_LETTER_WORDS.has(token);
+}
+
+/** A word: letters, digits, apostrophes, hyphens or underscores, with a letter or a digit ("6789abcdef0", "don't"). */
+const WORD_TOKEN = /^(?=.*[\p{L}\p{N}])[\p{L}\p{N}'’_-]+$/u;
+const LETTER_OR_DIGIT = /[\p{L}\p{N}]/u;
+
+/**
+ * The flag without fixes that turn a word into punctuation or nothing: "6789abcdef0" → ")" deleted half an AMI ID
+ * (Task F21 item E, owner). A deletion by a rule other than spelling stays ("very" → "" is a fix). The linter's
+ * list stays in `linterReplacements`.
+ */
+export function withoutNonWordFixes(c: Candidate): Candidate {
+  if (!WORD_TOKEN.test(c.original)) return c;
+  const keep = (r: string) => LETTER_OR_DIGIT.test(r) || (r === '' && !WORD_REWRITE_KINDS.has(c.kind));
+  const kept = c.replacements.filter(keep);
+  if (kept.length === c.replacements.length) return c;
+  return { ...c, replacements: kept, linterReplacements: c.linterReplacements ?? c.replacements };
 }
 
 /** Capitalised-word Spelling/Typo flags are almost always names (spec §5 names card). */

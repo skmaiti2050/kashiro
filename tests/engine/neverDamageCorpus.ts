@@ -278,6 +278,12 @@ const RUNBOOK_BLOCK = [
   'Store the token:',
   '[[gh secret set FOO --body "$X"]]',
   '[[gh auth login]]',
+  // Task F21 item E (review M-18, E4, E9): identifiers get no spelling, word or capital fix.
+  'Attach [[sg-0a1b2c3d4e5f67890]] to [[i-0abcd1234efgh5678]] now.',
+  'The role is [[arn:aws:iam::123456789012:role/deploy-role-prod]] and the bucket [[arn:aws:s3:::my-bucket-logs]].',
+  'Launch from the image ([[ami-0123456789abcdef0]]) in the region.',
+  'Use [[vpc-0a1b2c3d4e5f60718]] and [[subnet-0f1e2d3c4b5a69788]] for the cluster.',
+  'The request id was [[3f2a9c1e-7b4d-4e8a-9f0c-1d2e3f4a5b6c]] after commit [[3911a5b]].',
 ];
 
 /** The runbook's paragraphs, with its commands as traps. */
@@ -504,6 +510,9 @@ export const TICK_TRUTH: readonly TickTruth[] = [
   // Review M-17.
   { input: 'Steps:\n1. until sudo docker pull ${SRC}; do sleep 5; done\n2. # install docker if not present\n3. gh secret set FOO --body "$X"', mayTick: [] },
   { input: 'gh auth login', mayTick: [] },
+  // Task F21 item E (review M-18).
+  { input: 'Attach sg-0a1b2c3d4e5f67890 to i-0abcd1234efgh5678 now.', mayTick: [] },
+  { input: 'The role is arn:aws:iam::123456789012:role/deploy-role-prod and the bucket arn:aws:s3:::my-bucket-logs.', mayTick: [] },
 ];
 
 /** Invisible characters sprinkled at random between ASCII characters. */
