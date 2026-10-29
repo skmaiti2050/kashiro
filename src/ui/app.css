@@ -1468,7 +1468,8 @@ button.link {
   align-items: center;
   gap: 12px;
   max-width: min(520px, calc(100vw - 32px));
-  padding: 8px 8px 8px 16px;
+  padding-block: 8px;
+  padding-inline: 16px 8px;
   border: 1px solid var(--muted);
   border-radius: 8px;
   background: var(--panel);

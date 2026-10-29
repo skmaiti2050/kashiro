@@ -276,7 +276,8 @@ function ShellView({ controller, state }: { controller: SessionController; state
       </main>
       <StatusBar state={state} />
       <ChangeLog controller={controller} state={state} open={logOpen} onToggle={() => setLogOpen((v) => !v)} reveals={logReveals} />
-      {state.undoOffer && (
+      {/* Not behind a dialog: it would be inert there, a status no one hears and an Undo no one can reach. */}
+      {state.undoOffer && !dialogOpen && (
         <UndoToast
           key={state.undoOffer.seq}
           message={t.format(state.undoOffer.message)}
