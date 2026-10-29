@@ -311,4 +311,17 @@ button.link {
   .progress-bar {
     border: 1px solid CanvasText;
   }
+
+  /* The Find panel (F26 item 1): the system's button and field colours, as for the app's own controls. */
+  .editor .cm-editor .cm-panel.cm-search .cm-button {
+    background: ButtonFace;
+    color: ButtonText;
+    border-color: ButtonText;
+  }
+
+  .editor .cm-editor .cm-panel.cm-search .cm-textfield {
+    background: Field;
+    color: FieldText;
+    border-color: FieldText;
+  }
 }

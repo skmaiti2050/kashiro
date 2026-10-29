@@ -806,18 +806,41 @@ legend {
   white-space: normal;
 }
 
+/*
+ * The field and buttons (F26 item 1): CodeMirror draws its buttons on a light gradient whatever the app's theme, so
+ * in dark the light ink was white on white, and its field is 70% size. Both are drawn like the app's own controls.
+ */
 .editor .cm-editor .cm-panel.cm-search .cm-textfield {
+  min-width: 16em;
   border: 1px solid var(--control-edge);
   border-radius: 6px;
-  background: var(--bg);
-  padding: 4px 8px;
+  background: var(--panel);
+  color: var(--ink);
+  font-size: inherit;
+  padding: 5px 8px;
+}
+
+.editor .cm-editor .cm-panel.cm-search .cm-button {
+  border: 1px solid var(--control-edge);
+  border-radius: 6px;
+  background: var(--panel);
+  background-image: none;
+  color: var(--ink);
+  font-size: inherit;
+  padding: 5px 12px;
+}
+
+.editor .cm-editor .cm-panel.cm-search .cm-button:hover {
+  border-color: var(--ink);
 }
 
 .editor .cm-editor .cm-panel.cm-search [name='close'] {
   top: 8px;
   inset-inline-end: 8px;
   border: 1px solid var(--control-edge);
+  border-radius: 6px;
   background: var(--panel);
+  color: var(--ink);
   padding: 2px 10px;
 }
 
