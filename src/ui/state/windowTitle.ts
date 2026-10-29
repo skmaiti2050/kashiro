@@ -18,7 +18,10 @@ export function middleTruncate(name: string, max = MAX_NAME): string {
   return [...stem.slice(0, head), '…', ...stem.slice(stem.length - (room - head)), ...extension].join('');
 }
 
-/** The window's title: "{name} — Kashiro" for an opened file; "Kashiro" for a paste, the sample or nothing. */
+/**
+ * The window's title: "{name} - Kashiro" for an opened file, a plain hyphen (owner, Task F21 item B); "Kashiro" for a
+ * paste, the sample or nothing.
+ */
 export function windowTitle(document: { name: string; path: string | null } | null): string {
-  return document?.path ? `${middleTruncate(document.name)} — ${APP_NAME}` : APP_NAME;
+  return document?.path ? `${middleTruncate(document.name)} - ${APP_NAME}` : APP_NAME;
 }

@@ -1,7 +1,7 @@
 /**
  * Task F20 item 11 (owner): an opened file names the window, "{name} — Kashiro", its name cut in the middle when long
  * (the start and the extension kept); a pasted or sample document keeps "Kashiro". The toolbar shows the file's name,
- * with the full name as its title.
+ * with the full name as its title. Task F21 item B (owner): the separator is a plain hyphen, "{name} - Kashiro".
  */
 import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 import { act, screen, waitFor, within } from '@testing-library/react';
@@ -24,7 +24,7 @@ const LONG = 'Disaster-Recovery-Runbook-for-the-Mumbai-Region-Primary-Cluster-v2
 
 describe('the window title text', () => {
   it('a file: its name and the app; a paste, the sample or nothing: the app alone', () => {
-    expect(windowTitle({ name: 'runbook.md', path: 'C:/docs/runbook.md' })).toBe('runbook.md — Kashiro');
+    expect(windowTitle({ name: 'runbook.md', path: 'C:/docs/runbook.md' })).toBe('runbook.md - Kashiro');
     expect(windowTitle({ name: 'Untitled.txt', path: null })).toBe('Kashiro');
     expect(windowTitle(null)).toBe('Kashiro');
   });
@@ -35,7 +35,7 @@ describe('the window title text', () => {
     expect(cut.startsWith('Disaster-Recovery-Run')).toBe(true);
     expect(cut.endsWith('-v2.docx')).toBe(true);
     expect(cut).toContain('…');
-    expect(windowTitle({ name: LONG, path: `C:/docs/${LONG}` })).toBe(`${cut} — Kashiro`);
+    expect(windowTitle({ name: LONG, path: `C:/docs/${LONG}` })).toBe(`${cut} - Kashiro`);
     expect(middleTruncate('short.docx')).toBe('short.docx');
   });
 
@@ -48,12 +48,12 @@ describe('the window title text', () => {
 });
 
 describe('the window title follows the open document (Task F20 item 11)', () => {
-  it('an opened file sets "{name} — Kashiro"; a paste goes back to "Kashiro"', async () => {
+  it('an opened file sets "{name} - Kashiro"; a paste goes back to "Kashiro"', async () => {
     const { controller } = makeController();
     renderShell(controller);
     const name = LONG.replace('.docx', '.md');
     await openAndWait(controller, () => controller.openFile({ name, path: `C:/docs/${name}`, bytes: new TextEncoder().encode('The cat sat on the mat.') }));
-    await waitFor(() => expect(setTitle).toHaveBeenLastCalledWith(`${middleTruncate(name)} — Kashiro`));
+    await waitFor(() => expect(setTitle).toHaveBeenLastCalledWith(`${middleTruncate(name)} - Kashiro`));
     expect(middleTruncate(name).endsWith('-v2.md')).toBe(true);
     const label = within(screen.getByRole('toolbar')).getByText(middleTruncate(name));
     expect(label.getAttribute('title')).toBe(name);
