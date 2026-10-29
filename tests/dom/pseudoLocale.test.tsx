@@ -293,6 +293,16 @@ describe('pseudo-locale (en-XA)', () => {
     await expectTranslatedAndFitting(controller);
   });
 
+  it('F23b: the Find panel, with Replace', async () => {
+    const { controller } = makeController({ uiLanguage: 'en-XA', preset: 'blog' });
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText('Each farmer should get water.'));
+    fireEvent.keyDown(document.body, { key: 'f', ctrlKey: true });
+    expect(document.querySelector('.cm-search')).not.toBeNull();
+    expect(document.activeElement).toBe(screen.getByRole('textbox', { name: name('find.find') }));
+    await expectTranslatedAndFitting(controller);
+  });
+
   it('every key row was rendered by some screen above', () => {
     expect([...rowsSeen].sort()).toEqual([...KEY_ROWS].sort());
   });

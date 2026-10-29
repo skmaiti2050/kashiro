@@ -53,13 +53,14 @@ export function reviewKeyAction(press: KeyPress, target: KeyTarget): ReviewKeyAc
   }
 }
 
-export type AppShortcut = 'open' | 'paste' | 'close' | 'settings' | 'shortcuts' | 'palette';
+export type AppShortcut = 'open' | 'paste' | 'close' | 'settings' | 'shortcuts' | 'palette' | 'find';
 
 /**
  * App-wide shortcuts: Ctrl+O opens a file; Ctrl+V on the empty start screen pastes as a new document
  * (once a document is open, Ctrl+V is the editor's own paste); Ctrl+W closes the open document; Ctrl+,
  * opens Settings; F1 or Ctrl+/, or ? where it would not type a question mark, opens the keyboard shortcuts;
- * Ctrl+K opens the command palette (F23 item 6).
+ * Ctrl+K opens the command palette (F23 item 6); Ctrl+F is Find in the document, from anywhere, so the
+ * browser's own find bar never opens (F23b).
  */
 export function appShortcut(press: KeyPress, hasDocument: boolean, control: KeyTarget['control']): AppShortcut | null {
   if (press.altKey || press.metaKey) return null;
@@ -73,6 +74,7 @@ export function appShortcut(press: KeyPress, hasDocument: boolean, control: KeyT
   if (key === 'w' && hasDocument) return 'close';
   if (key === ',') return 'settings';
   if (key === 'k') return 'palette';
+  if (key === 'f') return 'find';
   // The editor has no language, so CodeMirror's own Ctrl+/ (toggle comment) does nothing and leaves it to us.
   if (key === '/') return 'shortcuts';
   if (key === 'v' && !hasDocument && control !== 'text-entry') return 'paste';

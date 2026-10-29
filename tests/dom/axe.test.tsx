@@ -283,6 +283,25 @@ describe('axe-core: no serious or critical violations', () => {
     await audit('command palette, no match');
   });
 
+  it('F23b: the Find panel open, with Replace (editable text) and Find only (read-only .docx)', async () => {
+    const { controller } = makeController();
+    const { unmount } = renderShell(controller);
+    await openAndWait(controller, () => controller.openText('The water is cold. The water is clear.'));
+    fireEvent.keyDown(document.body, { key: 'f', ctrlKey: true });
+    fireEvent.change(screen.getByRole('textbox', { name: 'Find' }), { target: { value: 'water' } });
+    fireEvent.keyDown(screen.getByRole('textbox', { name: 'Find' }), { key: 'Enter', keyCode: 13 });
+    await audit('find panel with replace');
+    unmount();
+
+    const docx = makeController().controller;
+    renderShell(docx);
+    const bytes = await buildDocx('<w:p><w:r><w:t>The cat sat on the mat.</w:t></w:r></w:p>');
+    await openAndWait(docx, () => docx.openFile({ name: 'essay.docx', path: '/docs/essay.docx', bytes }));
+    fireEvent.keyDown(document.body, { key: 'f', ctrlKey: true });
+    expect(screen.getByRole('textbox', { name: 'Find' })).toBeTruthy();
+    await audit('find panel, read-only');
+  });
+
   it('F23: the welcome tour, first and last tip', async () => {
     renderShell(makeController().controller);
     chooseFromMore('Welcome tour');

@@ -6,13 +6,23 @@ const TEXT_ENTRY = 'textarea, select, [contenteditable="true"], input:not([type]
 /** Controls whose own Enter or Space does their job. */
 const CONTROL = 'button, input, a[href], summary';
 
+/** CodeMirror's panels (the Find panel) sit inside the document pane but are controls, not the text. */
+const EDITOR_PANELS = '.cm-panels';
+
 /** Reads where a keydown happened, for the pure rules in state/reviewKeys.ts. */
 export function keyTargetOf(target: EventTarget | null, documentEditable: boolean): KeyTarget {
   const el = target instanceof Element && target !== document.body ? target : null;
-  const place = !el || el.closest('.document') ? 'document' : el.closest('.review') ? 'panel' : 'other';
+  const place = placeOf(el);
   const control = el?.closest(TEXT_ENTRY) ? 'text-entry' : el?.closest(CONTROL) ? 'control' : 'none';
   const selection = window.getSelection();
   return { place, control, documentEditable, textSelected: selection !== null && !selection.isCollapsed };
+}
+
+function placeOf(el: Element | null): KeyTarget['place'] {
+  if (!el) return 'document';
+  if (el.closest(EDITOR_PANELS)) return 'other';
+  if (el.closest('.document')) return 'document';
+  return el.closest('.review') ? 'panel' : 'other';
 }
 
 /** Calls `onAction` for the review loop's keys (Enter, Backspace/Delete, J, K) while `enabled`. */

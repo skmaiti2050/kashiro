@@ -129,6 +129,8 @@ function ShellView({ controller, state }: { controller: SessionController; state
   const caretReader = useRef<() => CaretText | null>(() => null);
   const improveAtCaret = useRef<() => void>(() => {});
   const lookUpAtCaret = useRef<() => boolean>(() => false);
+  /** Bumped by Ctrl+F outside the text and by the command palette: DocumentView opens Find (F23b). */
+  const [findRequest, setFindRequest] = useState(0);
   const [logOpen, setLogOpen] = useState(changeLogWasOpen);
   useEffect(() => rememberChangeLogOpen(logOpen), [logOpen]);
   /** Bumped by "See the change log": the log then takes focus and is shown, even when already open (F20 item 8). */
@@ -221,9 +223,11 @@ function ShellView({ controller, state }: { controller: SessionController; state
   const aiOn = controller.ai.available();
   const lookUpFromMenu = lookUpOn ? () => lookUpAtCaret.current() || controller.showNotice(msg('lookup.noWord')) : null;
   const improveFromToolbar = aiOn && state.session ? () => improveAtCaret.current() : null;
+  const find = () => setFindRequest((n) => n + 1);
   useAppShortcuts(state.document !== null, (shortcut) => {
     if (dialogOpen) return;
-    if (shortcut === 'open') onOpen();
+    if (shortcut === 'find') find();
+    else if (shortcut === 'open') onOpen();
     else if (shortcut === 'paste') onPaste();
     else if (shortcut === 'close') onClose();
     else if (shortcut === 'settings') openSettings();
@@ -253,6 +257,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
       onCheckUpdates: checkForUpdates,
       onAbout: () => setPanel('about'),
       onTour: () => setPanel('tour'),
+      onFind: find,
       onLookUp: lookUpFromMenu,
       onImprove: improveFromToolbar,
       panel: split.collapsed ? null : panelCommands.current,
@@ -319,6 +324,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
           aiOn={aiOn && !dialogOpen}
           improveAtCaret={improveAtCaret}
           lookUpAtCaret={lookUpAtCaret}
+          findRequest={findRequest}
         />
         {split.collapsed ? (
           <div className="review-strip">

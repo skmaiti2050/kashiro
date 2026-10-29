@@ -18,6 +18,7 @@ import type { ControllerState, OpenDocument, SessionController } from './state/s
 import type { RecentReview } from './state/sessionStore';
 import { caretPosition, wordAtSelection } from './editorWords';
 import { useImproveKey, useLookUpKey } from './useKeys';
+import { findInDocument, findPhrases, openFind } from './findInDocument';
 import { useTextMenu } from './useTextMenu';
 
 /** The replacement text of an applied edit, shown right after the struck-through original. */
@@ -150,6 +151,7 @@ const FLAG_AT_CURSOR_ID = 'flag-at-cursor';
 function editorLabels(t: Translator) {
   return [
     placeholder(t.t('doc.placeholder')),
+    findPhrases(t),
     EditorView.contentAttributes.of({ 'aria-label': t.t('doc.textLabel'), 'aria-describedby': FLAG_AT_CURSOR_ID, lang: 'en', dir: 'ltr' }),
   ];
 }
@@ -178,6 +180,8 @@ interface Props {
   improveAtCaret: MutableRefObject<() => void>;
   /** Set to "Look up" of the selected word or the word at the cursor (the ⋯ menu); false when there is none. */
   lookUpAtCaret: MutableRefObject<() => boolean>;
+  /** Bumped to open Find (Ctrl+F outside the text, the command palette); 0 asks for nothing. */
+  findRequest: number;
 }
 
 /** CodeMirror view of the document: read-only for .docx, editable (and re-checked as you type) for text. */
@@ -195,6 +199,7 @@ export function DocumentView({
   aiOn,
   improveAtCaret,
   lookUpAtCaret,
+  findRequest,
 }: Props) {
   const t = useT();
   const host = useRef<HTMLDivElement>(null);
@@ -236,6 +241,8 @@ export function DocumentView({
           EditorView.editable.of(doc.editable),
           EditorState.readOnly.of(!doc.editable),
           history(),
+          // Before the default keymap, whose Escape would only collapse the selection.
+          findInDocument,
           keymap.of([
             { key: 'Mod-.', run: showCardAtCursor },
             { key: 'Alt-Enter', run: quickFixAtCursor },
@@ -289,6 +296,11 @@ export function DocumentView({
   useEffect(() => {
     view.current?.dispatch({ effects: labels.current.reconfigure(editorLabels(t)) });
   }, [t]);
+
+  // Runs after the effects of a closing dialog (the command palette), so its focus return doesn't undo this.
+  useEffect(() => {
+    if (findRequest && view.current) openFind(view.current);
+  }, [findRequest]);
 
   useEffect(() => {
     const editor = view.current;

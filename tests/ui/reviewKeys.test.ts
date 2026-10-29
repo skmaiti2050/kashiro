@@ -67,6 +67,12 @@ describe('appShortcut', () => {
     expect(appShortcut(press('k', { ctrlKey: true, shiftKey: true }), true, 'none')).toBeNull();
   });
 
+  it('Ctrl+F is Find from anywhere, with or without a document, so the browser’s own find never opens (F23b)', () => {
+    expect(appShortcut(press('f', { ctrlKey: true }), true, 'text-entry')).toBe('find');
+    expect(appShortcut(press('F', { ctrlKey: true }), false, 'none')).toBe('find');
+    expect(appShortcut(press('f', { ctrlKey: true, shiftKey: true }), true, 'none')).toBeNull();
+  });
+
   it('Ctrl+V pastes a new document only on the empty start screen', () => {
     expect(appShortcut(press('v', { ctrlKey: true }), false, 'none')).toBe('paste');
     expect(appShortcut(press('v', { ctrlKey: true }), true, 'none')).toBeNull();

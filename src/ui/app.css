@@ -780,6 +780,56 @@ legend {
   border-radius: 2px;
 }
 
+/*
+ * Find (F23b): CodeMirror's search panel above the text, in the theme. CodeMirror's own base theme is loaded after
+ * this file, so these rules are one class more specific than its rules.
+ */
+.editor .cm-editor .cm-panels {
+  background: var(--panel);
+  color: var(--ink);
+  font-family: var(--ui-font);
+  font-size: 14px;
+}
+
+.editor .cm-editor .cm-panels-top {
+  border-bottom: 1px solid var(--line);
+}
+
+/* Room at the end for the close button, which CodeMirror places there. */
+.editor .cm-editor .cm-panel.cm-search {
+  padding-block: 8px;
+  padding-inline: 12px 56px;
+}
+
+.editor .cm-editor .cm-panel.cm-search label {
+  font-size: inherit;
+  white-space: normal;
+}
+
+.editor .cm-editor .cm-panel.cm-search .cm-textfield {
+  border: 1px solid var(--control-edge);
+  border-radius: 6px;
+  background: var(--bg);
+  padding: 4px 8px;
+}
+
+.editor .cm-editor .cm-panel.cm-search [name='close'] {
+  top: 8px;
+  inset-inline-end: 8px;
+  border: 1px solid var(--control-edge);
+  background: var(--panel);
+  padding: 2px 10px;
+}
+
+.editor .cm-editor .cm-searchMatch {
+  background: color-mix(in srgb, var(--pending) 30%, transparent);
+}
+
+.editor .cm-editor .cm-searchMatch-selected {
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
+  outline: 1px solid var(--accent);
+}
+
 /* One rule per category: colour, line style and thickness (state/categories.ts holds the glyphs). */
 .cat-correctness {
   --cat-color: var(--cat-correctness);

@@ -106,6 +106,16 @@ describe('wording fixes (Task F2)', () => {
     expect(text(bn, 'about.privacy')).not.toContain('ডাউনলোড');
   });
 
+  it('About says the GitHub buttons open the browser only on a click, naming them as the menu does (F23b)', () => {
+    const buttonName = (catalogue: unknown, key: string) => text(catalogue, key).replace(/…$/, '');
+    for (const catalogue of [en, hi, bn]) {
+      const privacy = text(catalogue, 'about.privacy');
+      expect(privacy).toContain('GitHub');
+      expect(privacy).toContain(buttonName(catalogue, 'toolbar.reportBug'));
+      expect(privacy).toContain(buttonName(catalogue, 'toolbar.checkUpdates'));
+    }
+  });
+
   it('the owner-approved Hindi and Bengali wording', () => {
     const hiT = createTranslator('hi', ['hi-IN']);
     const bnT = createTranslator('bn', ['bn-IN']);

@@ -6,6 +6,7 @@ function layout() {
   document.body.innerHTML = `
     <nav class="toolbar"><button id="open">Open</button><select id="goal"><option>Blog</option></select></nav>
     <section class="document">
+      <div class="cm-panels"><div class="cm-panel cm-search"><button id="find-next">next</button><label><input id="find-case" type="checkbox" />match case</label></div></div>
       <div class="cm-content" id="editable" contenteditable="true">Some text.</div>
       <div class="cm-content" id="readonly" contenteditable="false">Some text.</div>
     </section>
@@ -40,6 +41,11 @@ describe('keyTargetOf', () => {
     expect(keyTargetOf(byId('slot'), false).place).toBe('panel');
     expect(keyTargetOf(byId('text'), false).place).toBe('panel');
     expect(keyTargetOf(byId('open'), false).place).toBe('other');
+  });
+
+  it('the Find panel inside the document pane counts as anywhere else, so its keys never decide cards (F23b)', () => {
+    expect(keyTargetOf(byId('find-next'), false).place).toBe('other');
+    expect(keyTargetOf(byId('find-case'), false).place).toBe('other');
   });
 
   it('the editable document and text fields are text entry; a read-only document is not', () => {

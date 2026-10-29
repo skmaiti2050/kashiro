@@ -366,7 +366,7 @@
 
   "about.title": "About Kashiro",
   "about.version": "Version {version}",
-  "about.privacy": "Your writing stays on this PC. Kashiro never connects to the internet. The writing model is a file you choose on this computer.",
+  "about.privacy": "Your writing stays on this PC. Kashiro never connects to the internet. The GitHub buttons (Report a bug, Check for updates) open your browser only when you click them. The writing model is a file you choose on this computer.",
   "about.licence": "Kashiro is free software under the Apache License 2.0.",
   "about.notices": "Third-party notices",
   "about.noticesHint": "Credits and licences of the data, fonts and libraries included in Kashiro. They are in English.",
@@ -650,5 +650,22 @@
   "tour.log": "Every change you make is listed in the change log at the bottom, each with its own Undo.",
   "tour.next": "Next",
   "tour.done": "Done",
-  "tour.skip": "Skip"
+  "tour.skip": "Skip",
+  "palette.find": "Find in document",
+  "shortcuts.find": "Find in the document (Escape closes Find)",
+  "find.find": "Find",
+  "find.replaceWith": "Replace with",
+  "find.next": "Next",
+  "find.previous": "Previous",
+  "find.all": "Select all",
+  "find.matchCase": "Match case",
+  "find.regexp": "Regular expression",
+  "find.byWord": "Whole words",
+  "find.replace": "Replace",
+  "find.replaceAll": "Replace all",
+  "find.close": "Close Find",
+  "find.currentMatch": "Current match",
+  "find.onLine": "on line",
+  "find.replacedOnLine": "Replaced the match on line {line}",
+  "find.replacedCount": "Replaced {matches} matches"
 }

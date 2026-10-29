@@ -14,6 +14,7 @@ const ANYWHERE: Shortcut[] = [
   { keys: 'Ctrl+W', action: 'shortcuts.close' },
   { keys: 'Ctrl+,', action: 'shortcuts.settings' },
   { keys: 'Ctrl+K', action: 'shortcuts.palette' },
+  { keys: 'Ctrl+F', action: 'shortcuts.find' },
   { keys: ['F1, Ctrl+/', '?'], action: 'shortcuts.list' },
   { keys: 'Tab / Shift+Tab', action: 'shortcuts.tab' },
   { keys: '← / →', action: 'shortcuts.toolbar' },

@@ -27,6 +27,8 @@ export interface PaletteActions {
   onCheckUpdates(): void;
   onAbout(): void;
   onTour(): void;
+  /** Find in the document, as Ctrl+F. */
+  onFind(): void;
   /** Null while word lookup is off (the entry is left out, as the ⋯ item is). */
   onLookUp: (() => void) | null;
   /** Null while AI rewrites are off or nothing is checked yet (left out, as the toolbar button is). */
@@ -53,6 +55,7 @@ export function paletteCommands(t: Translator, a: PaletteActions): PaletteComman
     { id: 'paste', label: t.t('toolbar.paste'), enabled: always, run: a.onPaste },
     { id: 'save', label: t.t('save.button'), enabled: a.hasDocument && a.hasSession, run: a.onSave },
     { id: 'close', label: t.t('toolbar.close'), keys: 'Ctrl+W', enabled: a.hasDocument, run: a.onClose },
+    { id: 'find', label: t.t('palette.find'), keys: 'Ctrl+F', enabled: a.hasDocument, run: a.onFind },
     { id: 'next', label: t.t('card.nextCard'), keys: 'J', enabled: reviewing, run: () => panel?.move(1) },
     { id: 'previous', label: t.t('palette.previousCard'), keys: 'K', enabled: reviewing, run: () => panel?.move(-1) },
     ...READ.map((r) => ({
