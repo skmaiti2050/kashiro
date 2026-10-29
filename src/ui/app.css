@@ -4,6 +4,8 @@
   --ink: #1f2328;
   --muted: #646b73;
   --line: #e3e0da;
+  /* A control's edge at rest (buttons, inputs, selects): at least 3:1 on --panel and --bg (WCAG 1.4.11). */
+  --control-edge: #8a847b;
   --accent: #2f6f5e;
   --accent-ink: #ffffff;
   --old: #a1453b;
@@ -52,6 +54,7 @@
   --ink: #e6e3de;
   --muted: #9aa0a6;
   --line: #34383d;
+  --control-edge: #757b82;
   --accent: #5fb39b;
   --accent-ink: #10201b;
   --old: #e08a80;
@@ -148,8 +151,9 @@ input {
   color: inherit;
 }
 
+/* Every button shows its shape at rest, not only on hover (F21b item 5, owner): an edge of at least 3:1. */
 button {
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-edge);
   background: var(--panel);
   border-radius: 6px;
   padding: 5px 12px;
@@ -157,7 +161,7 @@ button {
 }
 
 button:hover:not(:disabled) {
-  border-color: var(--muted);
+  border-color: var(--ink);
 }
 
 button:disabled {
@@ -171,10 +175,15 @@ button.primary {
   color: var(--accent-ink);
 }
 
+/* Quieter than a button, but still a button at rest: the same edge, no fill, muted text. */
 button.quiet {
-  border-color: transparent;
+  border: 1px solid var(--control-edge);
   background: transparent;
   color: var(--muted);
+}
+
+button.quiet:hover:not(:disabled) {
+  color: var(--ink);
 }
 
 select {
@@ -319,7 +328,7 @@ summary:focus-visible,
   list-style: none;
   cursor: pointer;
   padding: 5px 8px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-edge);
   border-radius: 6px;
 }
 
