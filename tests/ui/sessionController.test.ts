@@ -1311,6 +1311,17 @@ describe('SessionController: a word added to the dictionary holds after a reopen
     const reopened = controller.getState().session!;
     expect(reopened.candidates().filter((c) => /^vantix$/i.test(c.original) && reopened.tier(c.id) !== 'hidden').map((c) => c.original)).toEqual([]);
   });
+
+  // Task F21 item G (owner): the saved dictionary held "Vantix" and "vantix", "VPC" and "vpc".
+  it('a lowercase word replaces its other-case entries in the saved dictionary', async () => {
+    const { controller, saved } = makeController({ settings: { preset: 'blog', fallbackVariant: 'Indian', dictionary: ['Vantix', 'VANTIX', 'Nashik'] } });
+    await controller.openText('We use vantix daily, and vantix often.');
+    const session = controller.getState().session!;
+    const flag = session.candidates().find((c) => c.original === 'vantix')!;
+    const { top, more } = session.decisions();
+    await controller.addToDictionary([...top, ...more].find((d) => d.candidateIds.includes(flag.id))!.id);
+    expect(saved.at(-1)!.dictionary).toEqual(['Nashik', 'vantix']);
+  });
 });
 
 // Task F20 item 6 (owner: "v1.0: yield"): a long check let no click, scroll or keypress through until it ended.

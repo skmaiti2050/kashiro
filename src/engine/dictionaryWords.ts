@@ -28,3 +28,14 @@ export function dictionaryAccepts(entry: string, word: string): boolean {
 export function isDictionaryWord(dictionary: readonly string[], word: string): boolean {
   return dictionary.some((entry) => dictionaryAccepts(entry, word));
 }
+
+/**
+ * The dictionary with `word` added, one entry per word (Task F21 item G, owner): a lowercase word replaces its other
+ * cases ("vantix" drops "Vantix", "vpc" drops "VPC"), since it accepts them all; a word an entry already accepts
+ * ("Vantix" with "vantix" there) adds nothing.
+ */
+export function withWordAdded(dictionary: readonly string[], word: string): string[] {
+  if (isDictionaryWord(dictionary, word)) return [...dictionary];
+  if (!isLowercase(word)) return [...dictionary, word];
+  return [...dictionary.filter((entry) => entry.toLowerCase() !== word), word];
+}

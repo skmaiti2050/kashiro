@@ -9,7 +9,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { CheckSession, type CheckOptions } from '@/engine/session';
 import { createLinter, type RulesLinter } from '@/engine/linter';
-import { dictionaryAccepts, dictionaryForm } from '@/engine/dictionaryWords';
+import { dictionaryAccepts, dictionaryForm, withWordAdded } from '@/engine/dictionaryWords';
 import type { Paragraph } from '@/engine/types';
 
 let linter: RulesLinter;
@@ -41,6 +41,27 @@ describe('the dictionary case rule', () => {
     expect(['vantix', 'Vantix', 'VANTIX'].map((w) => dictionaryAccepts('vantix', w))).toEqual([true, true, true]);
     expect(['vantix', 'Vantix', 'VANTIX'].map((w) => dictionaryAccepts('Vantix', w))).toEqual([false, true, true]);
     expect(['vpc', 'Vpc', 'VPC'].map((w) => dictionaryAccepts('VPC', w))).toEqual([false, false, true]);
+  });
+});
+
+describe('adding a word keeps one entry per word (Task F21 item G, owner)', () => {
+  it('a lowercase word replaces its other-case entries', () => {
+    expect(withWordAdded(['Vantix', 'Nashik', 'VANTIX'], 'vantix')).toEqual(['Nashik', 'vantix']);
+    expect(withWordAdded(['VPC', 'AMI'], 'vpc')).toEqual(['AMI', 'vpc']);
+  });
+
+  it('a capitalised word adds nothing when an entry already accepts it', () => {
+    expect(withWordAdded(['vantix'], 'Vantix')).toEqual(['vantix']);
+    expect(withWordAdded(['vantix'], 'VANTIX')).toEqual(['vantix']);
+    expect(withWordAdded(['Vantix'], 'Vantix')).toEqual(['Vantix']);
+  });
+
+  it('any other word is added at the end, and nothing else changes', () => {
+    expect(withWordAdded(['vantix'], 'Nashik')).toEqual(['vantix', 'Nashik']);
+    expect(withWordAdded(['Vantix'], 'VPC')).toEqual(['Vantix', 'VPC']);
+    // "VANTIX" is no case of "nashik": a lowercase word removes only its own other cases.
+    expect(withWordAdded(['VANTIX'], 'nashik')).toEqual(['VANTIX', 'nashik']);
+    expect(withWordAdded([], 'teh')).toEqual(['teh']);
   });
 });
 

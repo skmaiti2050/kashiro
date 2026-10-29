@@ -2,6 +2,7 @@ import type { ReviewDepth } from '@/engine/depth';
 import type { ModuleSwitches } from '@/engine/modules';
 import type { PresetId } from '@/engine/presets';
 import type { CheckSession } from '@/engine/session';
+import { withWordAdded } from '@/engine/dictionaryWords';
 import type { Variant } from '@/engine/types';
 import { msg, type Message } from '../i18n/message';
 import { plainError } from './errors';
@@ -105,9 +106,9 @@ export async function addWords(host: SettingsHost, change: (s: CheckSession) => 
   }
   host.markUnsaved();
   host.decisionMade();
-  const { dictionary } = host.state().settings;
-  const known = new Set(dictionary);
-  updateSettings(host, { dictionary: [...dictionary, ...session.addedWords().filter((w) => !known.has(w))] });
+  // One entry per word: a lowercase word replaces its other cases (Task F21 item G).
+  const dictionary = session.addedWords().reduce(withWordAdded, host.state().settings.dictionary);
+  updateSettings(host, { dictionary });
   host.announce(msg('verb.addedToDictionary'));
 }
 
