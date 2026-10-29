@@ -84,6 +84,53 @@ describe('isInIdentifier', () => {
   });
 });
 
+// Task F26 item 5 (owner): "…snapshot copy vantix-db-mumbai was stuck…" got "mumbai → Mumbai / mumble / mamba";
+// accepting one renames an AWS resource. A lowercase hyphen-joined token of 3+ parts with an abbreviation-like part
+// (no vowel, a digit, or a tech word) is an identifier, unless every part is a common English word.
+describe('hyphen-joined resource names (F26 item 5)', () => {
+  it.each([
+    ['The snapshot copy vantix-db-mumbai was stuck.', 'mumbai'],
+    ['The snapshot copy vantix-db-mumbai was stuck.', 'vantix'],
+    ['The snapshot copy vantix-db-mumbai was stuck.', 'db'],
+    ['Deploy my-app-prod-1 today.', 'prod'],
+    ['Deploy my-app-prod-1 today.', 'app'],
+    ['Restart the api-gatway-ecr service.', 'gatway'],
+  ])('in "%s", %s is part of an identifier', (text, part) => {
+    expect(inId(text, part)).toBe(true);
+  });
+
+  it.each([
+    ['A state-of-the-art tool.', 'state'],
+    ['Keep the list up-to-date.', 'date'],
+    ['My mother-in-law came.', 'mother'],
+    // A typo in a prose hyphenation keeps its card: "teh" and "knwon" are not common, but no part looks like an
+    // abbreviation (each has a vowel, none has a digit, none is a tech word).
+    ['A state-of-teh-art tool.', 'teh'],
+    ['A well-knwon-fact.', 'knwon'],
+    ['A well-knwon fact.', 'knwon'],
+    // Two parts or a capital: not covered by this rule.
+    ['Ask the db-admin now.', 'admin'],
+    ['The Vantix-DB-Mumbai copy.', 'Mumbai'],
+  ])('in "%s", %s is a word, not an identifier', (text, part) => {
+    expect(inId(text, part)).toBe(false);
+  });
+
+  it('with Harper: no card on any part of "vantix-db-mumbai"; "well-knwon" and "state-of-teh-art" keep theirs', async () => {
+    const paras = [
+      { id: 0, text: 'The snapshot copy vantix-db-mumbai was stuck for an hour.' },
+      { id: 1, text: 'It is a well-knwon fact.' },
+      { id: 2, text: 'We bought a state-of-teh-art printer.' },
+    ];
+    const s = await CheckSession.start(paras, opts(), { linter });
+    const { top, more } = s.decisions();
+    const offered = new Set([...top, ...more].flatMap((d) => d.candidateIds));
+    for (const o of s.outcomes()) if (o.status === 'applied') offered.add(o.candidate.id);
+    const flagged = s.candidates().filter((c) => offered.has(c.id) && WORD_REWRITE_KINDS.has(c.kind));
+    expect(flagged.filter((c) => c.paraId === 0).map((c) => c.original)).toEqual([]);
+    expect(flagged.map((c) => c.original)).toEqual(expect.arrayContaining(['knwon', 'teh']));
+  });
+});
+
 describe('no fix turns a word into punctuation (the owner\'s "6789abcdef0" → ")")', () => {
   const cand = (original: string, replacements: string[], kind = 'Spelling'): Candidate => ({ id: 'x', paraId: 0, span: { start: 0, end: original.length }, original, replacements, kind, message: '', source: 'rules' });
 
