@@ -146,15 +146,29 @@ button.link {
   min-height: 24px;
 }
 
-/* Read aloud row under the card. */
+/*
+ * Read aloud row under the card: the label, then the buttons in a wrapping group of their own, so a button that wraps
+ * lines up under the first button, not under the label (F21b item 2). A note under them spans both columns.
+ */
 .read-aloud {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 4px 8px;
+  margin: 0 0 12px;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.read-aloud-buttons {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 4px;
-  margin: 0 0 12px;
-  font-size: 12px;
-  line-height: 16px;
+}
+
+.read-aloud-note {
+  grid-column: 1 / -1;
 }
 
 /* Keyboard shortcuts sheet. */

@@ -61,22 +61,25 @@ export function ReadAloudBar({ readAloud, textFor, keysEnabled }: Props) {
   return (
     <div className="read-aloud" role="group" aria-label={t.t('read.group')}>
       <span className="hint">{t.t('read.label')}</span>
-      {BUTTONS.map((b) => (
-        <button key={b.target} className="quiet" aria-keyshortcuts={b.keys} disabled={!canRead(b.target)} onClick={() => read(b.target)}>
-          {t.t(b.label)} <Kbd>{b.keys}</Kbd>
-        </button>
-      ))}
-      {readAloud.status !== 'idle' && (
-        <>
-          <button className="quiet" aria-keyshortcuts="Alt+K" onClick={() => readAloud.pauseOrResume()}>
-            {t.t(readAloud.status === 'paused' ? 'read.resume' : 'read.pause')} <Kbd>Alt+K</Kbd>
+      {/* Its own wrapping row, so a wrapped button lines up under the first one, not under the label (F21b item 2). */}
+      <span className="read-aloud-buttons">
+        {BUTTONS.map((b) => (
+          <button key={b.target} className="quiet" aria-keyshortcuts={b.keys} disabled={!canRead(b.target)} onClick={() => read(b.target)}>
+            {t.t(b.label)} <Kbd>{b.keys}</Kbd>
           </button>
-          <button className="quiet" aria-keyshortcuts="Alt+X" onClick={() => readAloud.stop()}>
-            {t.t('read.stop')} <Kbd>Alt+X</Kbd>
-          </button>
-        </>
-      )}
-      {!english && <span className="hint">{t.t('read.needsEnglishVoice')}</span>}
+        ))}
+        {readAloud.status !== 'idle' && (
+          <>
+            <button className="quiet" aria-keyshortcuts="Alt+K" onClick={() => readAloud.pauseOrResume()}>
+              {t.t(readAloud.status === 'paused' ? 'read.resume' : 'read.pause')} <Kbd>Alt+K</Kbd>
+            </button>
+            <button className="quiet" aria-keyshortcuts="Alt+X" onClick={() => readAloud.stop()}>
+              {t.t('read.stop')} <Kbd>Alt+X</Kbd>
+            </button>
+          </>
+        )}
+      </span>
+      {!english && <span className="hint read-aloud-note">{t.t('read.needsEnglishVoice')}</span>}
     </div>
   );
 }

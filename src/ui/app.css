@@ -244,8 +244,9 @@ summary:focus-visible,
   line-height: 14px;
 }
 
+/* The same gap above it as between the panel's other rows (F21b item 2). */
 .key-legend {
-  margin: -8px 0 16px;
+  margin: 0 0 16px;
   font-size: 12px;
   line-height: 16px;
 }
