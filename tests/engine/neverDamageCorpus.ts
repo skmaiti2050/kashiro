@@ -273,6 +273,11 @@ const RUNBOOK_BLOCK = [
   "[[aws ec2 describe-instances --query 'Reservations[].Instances[].{]]",
   '[[Id:InstanceId; Type:InstanceType;]]',
   "[[State:State.Name}' --output table]]",
+  // Review M-17: spelling batches on command words ("docker → Docker", "gh → go") reached commands with Tick all.
+  'Steps:\n[[1. until sudo docker pull ${SRC}; do sleep 5; done\n2. # install docker if not present\n3. gh secret set FOO --body "$X"]]',
+  'Store the token:',
+  '[[gh secret set FOO --body "$X"]]',
+  '[[gh auth login]]',
 ];
 
 /** The runbook's paragraphs, with its commands as traps. */
@@ -496,6 +501,9 @@ export const TICK_TRUTH: readonly TickTruth[] = [
   { input: "aws ec2 describe-instances \\\n  --filters \"Name=tag:Env,Values=prod\" \\\n  --query 'Reservations[].Instances[].{\n    id: InstanceId;\n    type: InstanceType;\n  }'", mayTick: [] },
   { input: "aws ec2 describe-instances \\\n  --region ap-south-1 \\\n  --query 'Reservations[].Instances[].{Id:InstanceId; Type:InstanceType}' \\\n  --output table", mayTick: [] },
   { input: 'sudo docker run -d \\\n  -p 80:80 \\\n  nginx:latest', mayTick: [] },
+  // Review M-17.
+  { input: 'Steps:\n1. until sudo docker pull ${SRC}; do sleep 5; done\n2. # install docker if not present\n3. gh secret set FOO --body "$X"', mayTick: [] },
+  { input: 'gh auth login', mayTick: [] },
 ];
 
 /** Invisible characters sprinkled at random between ASCII characters. */

@@ -174,6 +174,7 @@ export class CheckSession {
       termMinRepeats: this.termMinRepeats,
       foreignSentences: this.ctx.foreignSentences,
       modules: this.modules,
+      onCommand: (c) => overlapsLocked(c, this.ctx.commandSpans?.get(c.paraId)),
       untickedOnCard: (fixes) =>
         untickedByDefault(fixes, {
           paraText: this.ctx.paraText ?? new Map(),

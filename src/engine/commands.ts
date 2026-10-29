@@ -1,5 +1,7 @@
-import type { Paragraph, Span } from './types';
+import type { Candidate, Paragraph, Span } from './types';
 import { FUNCTION_WORDS } from './tiers';
+import { overlapsLocked } from './factLock';
+import { WORD_REWRITE_KINDS } from './wordFlags';
 
 /**
  * Command-like text (Task F20 item 1, owner decision 2026-10-28): a runbook's commands break when a rule
@@ -223,6 +225,18 @@ export function findCommandSpansInParagraphs(paras: readonly Paragraph[]): Map<n
       return [p.id, merged(p.text, spans)];
     }),
   );
+}
+
+/**
+ * A spelling flag on command text without the fixes that only change its case ("docker" → "Docker": the capital
+ * names another command, or none; Task F21, review M-17). The linter's list stays in `linterReplacements`.
+ */
+export function withoutCaseOnlyFixOnCommand(c: Candidate, commandSpans: Span[] | undefined): Candidate {
+  if (!WORD_REWRITE_KINDS.has(c.kind) || !overlapsLocked(c, commandSpans)) return c;
+  const original = c.original.toLowerCase();
+  const kept = c.replacements.filter((r) => r.toLowerCase() !== original);
+  if (kept.length === c.replacements.length) return c;
+  return { ...c, replacements: kept, linterReplacements: c.linterReplacements ?? c.replacements };
 }
 
 /** Ranges of command-like text in one paragraph on its own (see findCommandSpansInParagraphs). Sorted, merged. */

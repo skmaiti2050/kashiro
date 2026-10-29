@@ -197,14 +197,13 @@ function offeredOnCommands(s: CheckSession): string[] {
 
 /**
  * Answers every batch card at once (the review's oracle, Task F21): its default ticks, or with `tickAll` every member
- * that has a fix. Spelling batches are left alone for now. Returns how many members it applied.
+ * that has a fix, spelling batches included. Returns how many members it applied.
  */
 function applyEveryBatch(s: CheckSession, tickAll: boolean): number {
   const byId = new Map(s.candidates().map((c) => [c.id, c]));
   const { top, more } = s.decisions();
   let applied = 0;
   for (const d of [...top, ...more].filter((x) => x.kind === 'batch')) {
-    if (d.candidateIds.some((id) => WORD_REWRITE_KINDS.has(byId.get(id)!.kind))) continue;
     const unticked = new Set(d.startUnticked ?? []);
     const ids = d.candidateIds.filter((id) => (tickAll ? byId.get(id)!.replacements.length > 0 : !unticked.has(id)));
     if (ids.length === 0) continue;
@@ -254,6 +253,23 @@ describe('commands in a runbook are never formatted, punctuated or capitalised (
     const offered = new Set([...top, ...more].flatMap((d) => d.candidateIds));
     const fixes = s.candidates().filter((c) => offered.has(c.id)).map((c) => `¶${c.paraId} ${c.original} → ${c.replacements[0] ?? ''}`);
     expect(fixes).toEqual(expect.arrayContaining(['¶0 then → Then', '¶9 -- → –', '¶9   → ', '¶10 -- → –', '¶10 we → We']));
+  });
+
+  it('spelling on a command never joins a batch card, and a fix that only changes its case is not offered (Task F21, review M-17)', async () => {
+    // The owner's repro: "docker → Docker (2 places)" was a Spelling batch whose Tick all edited both commands.
+    const lines = ['until sudo docker pull ${SRC}; do', '# Install docker if not present', 'gh secret set FOO --body "$X"', 'gh auth login'];
+    const paras = lines.map((text, id) => ({ id, text }));
+    for (const tierOverrides of [undefined, EVERYTHING_AUTO]) {
+      const s = await CheckSession.start(paras, opts({ tierOverrides }), { linter });
+      const byId = new Map(s.candidates().map((c) => [c.id, c]));
+      const { top, more } = s.decisions();
+      const batched = [...top, ...more].filter((d) => d.kind === 'batch').flatMap((d) => d.candidateIds.map((id) => `${d.label}: ${byId.get(id)!.original}`));
+      expect(batched).toEqual([]);
+      const caseOnly = s.candidates().filter((c) => c.replacements.some((r) => r !== c.original && r.toLowerCase() === c.original.toLowerCase()));
+      expect(caseOnly.map((c) => `${c.original} → ${c.replacements.join(' / ')}`)).toEqual([]);
+      applyEveryBatch(s, true);
+      expect(paras.map((p) => s.outputText(p.id))).toEqual(lines);
+    }
   });
 
   it('prose keeps its fixes: semicolons, a quote line, a comparison, an option in a sentence, a Markdown table (Task F21)', async () => {

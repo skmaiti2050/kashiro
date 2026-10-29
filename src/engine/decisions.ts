@@ -184,14 +184,17 @@ interface DecisionOptions {
   modules?: ModuleSwitches;
   /** The simple-fixes card's members that start unticked (defaultTicks); default none. */
   untickedOnCard?: (fixes: Candidate[]) => string[];
+  /** Candidates on command text: their spelling flags are single decisions, never a batch (Task F21, review M-17). */
+  onCommand?: (c: Candidate) => boolean;
 }
 
 /** Decisions grouped by batch key, in first-appearance order. */
 class DecisionGroups {
   private readonly groups = new Map<string, Candidate[]>();
 
-  add(c: Candidate): void {
-    const key = batchKey(c);
+  /** `alone`: the candidate is a decision of its own, whatever its batch key. */
+  add(c: Candidate, alone = false): void {
+    const key = alone ? `alone:${c.id}` : batchKey(c);
     const g = this.groups.get(key);
     if (g) g.push(c);
     else this.groups.set(key, [c]);
@@ -225,6 +228,8 @@ class DecisionGroups {
  * on one terms card, ranked just above the names card (spec §5).
  * Other languages: Spelling/Typo flags of a romanised Indian-language word (findOtherLanguageWords; a term
  * stays on the terms card), its capitalised uses included, go on one card between the terms and names cards.
+ * Commands: a Spelling/Typo flag on command text (`onCommand`) is a single decision of its own, demoted, never in a
+ * batch or on a card (Task F21, review M-17).
  * Blocked candidates go into `blocked` (scored and sorted the same way), except flags that join a card:
  * adding a word to the dictionary changes no text.
  */
@@ -240,6 +245,7 @@ export function buildDecisions(
     foreignSentences,
     modules = DEFAULT_MODULES,
     untickedOnCard = () => [],
+    onCommand = () => false,
   }: DecisionOptions = {},
 ): { safe: string[]; decisions: Decision[]; demoted: string[]; blocked: Decision[] } {
   const reviewFlags = cands.filter((c) => (tiers.get(c.id) ?? 'review') === 'review');
@@ -277,7 +283,9 @@ export function buildDecisions(
       continue;
     }
     const asWord = rankedAsWord(c);
-    if (isTermFlag(c)) termFlags.push(c);
+    // Spelling in a command is asked place by place: a batch's Tick all would reach every command at once.
+    if (WORD_REWRITE_KINDS.has(c.kind) && onCommand(c)) (blocked(c) ? blockedGroups : asWord ? normal : demoted).add(c, true);
+    else if (isTermFlag(c)) termFlags.push(c);
     else if (isOtherLanguageFlag(c)) otherLanguageFlags.push(c);
     else if (modules.namesCard && isNameFlag(c) && !asWord) names.push(c);
     else if (blocked(c)) blockedGroups.add(c);

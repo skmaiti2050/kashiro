@@ -2,7 +2,7 @@ import { createLinter, type RulesLinter } from './linter';
 import { detectVariant } from './variant';
 import { findInvisible, visibleText, type VisibleText } from './hygiene';
 import { findLockedSpans } from './factLock';
-import { findCommandSpansInParagraphs } from './commands';
+import { findCommandSpansInParagraphs, withoutCaseOnlyFixOnCommand } from './commands';
 import { lintInChunks } from './chunks';
 import { isDictionaryWord } from './dictionaryWords';
 import { WORD_REWRITE_KINDS } from './wordFlags';
@@ -82,7 +82,8 @@ export async function prepareCheck(
     .map((c) =>
       modules.betterSuggestions ? improveSuggestions(c, paraText.get(c.paraId), locked.get(c.paraId)) : withoutOffensiveSuggestions(c),
     )
-    .map((c) => withoutFixOverKept(c, kept.get(c.paraId)!));
+    .map((c) => withoutFixOverKept(c, kept.get(c.paraId)!))
+    .map((c) => withoutCaseOnlyFixOnCommand(c, commandSpans.get(c.paraId)));
   const confusables = paras.flatMap((p) => findConfusables(p, locked.get(p.id)));
   // The curated rule knows these words better than the linter ("intercast" → "inter cast"): its flag replaces the linter's word flag there.
   // A word the user's dictionary accepts is never flagged: Harper misses "VANTIX" for the entry "Vantix" (F20 item 9b).
