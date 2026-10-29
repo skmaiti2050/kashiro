@@ -218,6 +218,120 @@ select:hover:not(:disabled) {
   border-color: var(--ink);
 }
 
+/*
+ * Checkboxes, radios and sliders (F21b item 3, owner): still native inputs, so keys, labels and screen readers work as
+ * before, drawn in the theme. At rest the control edge (at least 3:1); checked, the accent (about 6:1) with the check
+ * in the accent's ink. The size and its 24 px target are in a11y.css; the focus ring is the shared one above. A Windows
+ * contrast theme gets the system's own controls back (a11y.css).
+ */
+input {
+  accent-color: var(--accent);
+}
+
+input[type='checkbox'],
+input[type='radio'] {
+  appearance: none;
+  display: inline-grid;
+  place-content: center;
+  flex: none;
+  vertical-align: middle;
+  border: 1px solid var(--control-edge);
+  background-color: var(--panel);
+  cursor: pointer;
+}
+
+input[type='checkbox'] {
+  border-radius: 4px;
+}
+
+input[type='radio'] {
+  border-radius: 50%;
+}
+
+input[type='checkbox']:hover:not(:disabled),
+input[type='radio']:hover:not(:disabled) {
+  border-color: var(--ink);
+}
+
+input[type='checkbox']:checked {
+  background-color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* The check: a clipped square in the accent's ink, shown when checked. */
+input[type='checkbox']::before {
+  content: '';
+  width: 10px;
+  height: 10px;
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+  background: var(--accent-ink);
+  transform: scale(0);
+}
+
+input[type='radio']:checked {
+  border-color: var(--accent);
+}
+
+input[type='radio']::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  transform: scale(0);
+}
+
+input[type='checkbox']:checked::before,
+input[type='radio']:checked::before {
+  transform: scale(1);
+}
+
+input[type='checkbox']:disabled,
+input[type='radio']:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* A slider: a slim track and a larger thumb, in a 24 px tall target. Each engine's parts need rules of their own. */
+input[type='range'] {
+  appearance: none;
+  height: 24px;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type='range']::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--control-edge);
+}
+
+input[type='range']::-webkit-slider-thumb {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  margin-top: -7px;
+  border: 2px solid var(--panel);
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+input[type='range']::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--control-edge);
+}
+
+input[type='range']::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--panel);
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
 .hint {
   color: var(--muted);
 }

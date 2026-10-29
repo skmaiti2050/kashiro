@@ -72,6 +72,44 @@ describe('every button has a visible shape at rest, not only on hover (item 5, F
   });
 });
 
+describe('checkboxes, radios and sliders: native inputs drawn in the theme (item 3)', () => {
+  it('the theme accent is every input’s accent colour', () => {
+    expect(rule('input')).toMatch(/accent-color: var\(--accent\);/);
+  });
+
+  it('a checkbox or radio at rest: the control edge on the panel, and a 24 px target with its margin', () => {
+    expect(CSS).toMatch(/input\[type='checkbox'\],\ninput\[type='radio'\] \{[^}]*appearance: none;[^}]*border: 1px solid var\(--control-edge\);/);
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    document.body.append(box);
+    const size = getComputedStyle(box);
+    expect([size.width, size.height, size.marginTop]).toEqual(['18px', '18px', '3px']);
+    expect(rule("input[type='radio']")).toMatch(/border-radius: 50%;/);
+  });
+
+  it('checked: a filled accent box with a check in the accent’s ink; a radio gets an accent ring and dot', () => {
+    expect(rule("input[type='checkbox']:checked")).toMatch(/background-color: var\(--accent\);[^}]*border-color: var\(--accent\);/);
+    expect(rule("input[type='checkbox']::before")).toMatch(/background: var\(--accent-ink\);/);
+    expect(rule("input[type='checkbox']::before")).toMatch(/clip-path: polygon/);
+    expect(rule("input[type='radio']:checked")).toMatch(/border-color: var\(--accent\);/);
+    expect(rule("input[type='radio']::before")).toMatch(/background: var\(--accent\);/);
+    expect(CSS).toMatch(/input\[type='checkbox'\]:checked::before,\ninput\[type='radio'\]:checked::before \{\s*transform: scale\(1\);/);
+  });
+
+  it('a slider: a slim track in the control edge and a larger accent thumb', () => {
+    expect(rule("input[type='range']")).toMatch(/appearance: none;/);
+    expect(rule("input[type='range']::-webkit-slider-runnable-track")).toMatch(/height: 4px;[^}]*background: var\(--control-edge\);/);
+    expect(rule("input[type='range']::-webkit-slider-thumb")).toMatch(/width: 18px;[^}]*height: 18px;[^}]*background: var\(--accent\);/);
+    expect(rule("input[type='range']::-moz-range-thumb")).toMatch(/background: var\(--accent\);/);
+  });
+
+  it('a Windows contrast theme gets the system’s own checkboxes, radios and sliders back', () => {
+    const forced = CSS.slice(CSS.lastIndexOf('@media (forced-colors: active)'));
+    expect(forced).toMatch(/input\[type='checkbox'\],\s*input\[type='radio'\],\s*input\[type='range'\] \{\s*appearance: auto;/);
+    expect(forced).toMatch(/input::before \{\s*display: none;/);
+  });
+});
+
 describe('styled selects, still the native element (item 6, F21 list item 8)', () => {
   it('the control edge, room for a chevron drawn in the text colour, and padding', () => {
     const select = rule('select');

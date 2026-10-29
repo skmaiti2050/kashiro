@@ -215,6 +215,17 @@ button.link {
     border: 1px solid ButtonText;
   }
 
+  /* The system's own checkboxes, radios and sliders: the drawn check, dot and thumb would not follow it (F21b item 3). */
+  input[type='checkbox'],
+  input[type='radio'],
+  input[type='range'] {
+    appearance: auto;
+  }
+
+  input::before {
+    display: none;
+  }
+
   /* The system's own select, with its own arrow: the drawn chevron would not follow the contrast theme (F21b item 6). */
   select {
     appearance: auto;
