@@ -459,7 +459,12 @@ export class CheckSession {
     }
   }
 
-  /** Words added with addToDictionary or by accepting a card, in order. */
+  /** A word typed into the Dictionary panel (F22 item 1): added as addToDictionary adds a flagged word. */
+  async addTypedWord(word: string): Promise<void> {
+    await this.addWord(word.normalize('NFC'));
+  }
+
+  /** Words added with addToDictionary, addTypedWord or by accepting a card, in order. */
   addedWords(): string[] {
     return [...this.added];
   }

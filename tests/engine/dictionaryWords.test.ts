@@ -9,7 +9,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { CheckSession, type CheckOptions } from '@/engine/session';
 import { createLinter, type RulesLinter } from '@/engine/linter';
-import { dictionaryAccepts, dictionaryForm, withWordAdded } from '@/engine/dictionaryWords';
+import { dictionaryAccepts, dictionaryForm, duplicateCount, withDuplicatesMerged, withWordAdded } from '@/engine/dictionaryWords';
 import type { Paragraph } from '@/engine/types';
 
 let linter: RulesLinter;
@@ -41,6 +41,29 @@ describe('the dictionary case rule', () => {
     expect(['vantix', 'Vantix', 'VANTIX'].map((w) => dictionaryAccepts('vantix', w))).toEqual([true, true, true]);
     expect(['vantix', 'Vantix', 'VANTIX'].map((w) => dictionaryAccepts('Vantix', w))).toEqual([false, true, true]);
     expect(['vpc', 'Vpc', 'VPC'].map((w) => dictionaryAccepts('VPC', w))).toEqual([false, false, true]);
+  });
+});
+
+describe('Merge duplicates (F22 item 1, the owner’s 29-word dictionary)', () => {
+  const OWNER = ['Vantix', 'vantix', 'VPC', 'vpc', 'UBUNTU', 'ubuntu', 'AMI', 'ami', 'Nashik'];
+
+  it('keeps the lowercase form of each case group, in the place of its first entry', () => {
+    expect(withDuplicatesMerged(OWNER)).toEqual({ dictionary: ['vantix', 'vpc', 'ubuntu', 'ami', 'Nashik'], merged: 4 });
+    expect(duplicateCount(OWNER)).toBe(4);
+  });
+
+  it('without a lowercase form, keeps the first as written', () => {
+    expect(withDuplicatesMerged(['VPC', 'Vpc', 'Anjali'])).toEqual({ dictionary: ['VPC', 'Anjali'], merged: 1 });
+  });
+
+  it('collapses NFC variants (a decomposed and a composed "Café") into the composed form', () => {
+    const decomposed = 'Café';
+    expect(withDuplicatesMerged([decomposed, 'Café'])).toEqual({ dictionary: ['Café'], merged: 1 });
+  });
+
+  it('no duplicates: the same list and 0, so the button is disabled', () => {
+    expect(withDuplicatesMerged(['vantix', 'Nashik'])).toEqual({ dictionary: ['vantix', 'Nashik'], merged: 0 });
+    expect(duplicateCount([])).toBe(0);
   });
 });
 

@@ -231,6 +231,12 @@ describe('pseudo-locale (en-XA)', () => {
         await expectTranslatedAndFitting(controller);
       }
       fireEvent.click(screen.getByRole('button', { name: name('dialog.close') }));
+      chooseFromMore(name('toolbar.dictionary'), name('toolbar.more'));
+      fireEvent.click(screen.getByRole('button', { name: name('dictionary.merge') }));
+      await expectTranslatedAndFitting(controller);
+      fireEvent.change(screen.getByRole('searchbox', { name: name('dictionary.search') }), { target: { value: 'zzz' } });
+      await expectTranslatedAndFitting(controller);
+      fireEvent.click(screen.getByRole('button', { name: name('dialog.close') }));
       chooseFromMore(name('toolbar.shortcuts'), name('toolbar.more'));
       await expectTranslatedAndFitting(controller);
       fireEvent.click(screen.getByRole('button', { name: name('dialog.close') }));

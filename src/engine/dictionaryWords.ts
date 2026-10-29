@@ -48,3 +48,20 @@ export function withWordAdded(dictionary: readonly string[], word: string): stri
   if (!isLowercase(composed)) return [...dictionary, composed];
   return [...dictionary.filter((entry) => folded(entry) !== folded(composed)), composed];
 }
+
+/**
+ * The dictionary with its case and NFC variants collapsed into one entry each (F22 item 1, "Merge duplicates"):
+ * the lowercase form when the group has one (it accepts every case), otherwise the first as written, composed. Each
+ * entry keeps the place of its group's first entry. `merged` is how many entries went.
+ */
+export function withDuplicatesMerged(dictionary: readonly string[]): { dictionary: string[]; merged: number } {
+  const groups = new Map<string, string[]>();
+  for (const entry of dictionary) groups.set(folded(entry), [...(groups.get(folded(entry)) ?? []), entry]);
+  const kept = [...groups.values()].map((group) => (group.length === 1 ? group[0] : (group.find(isLowercase) ?? group[0]).normalize('NFC')));
+  return { dictionary: kept, merged: dictionary.length - kept.length };
+}
+
+/** How many entries "Merge duplicates" would remove (0: the button is disabled). */
+export function duplicateCount(dictionary: readonly string[]): number {
+  return withDuplicatesMerged(dictionary).merged;
+}

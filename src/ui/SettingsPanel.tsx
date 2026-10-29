@@ -60,10 +60,12 @@ interface Props {
   state: ControllerState;
   /** Null when this PC has no local voice: Settings then says why read aloud is missing. */
   readAloud: ReadAloud | null;
+  /** Settings › Checking's link to the Dictionary panel (Settings closes, the panel opens). */
+  onOpenDictionary(): void;
   onClose(): void;
 }
 
-export function SettingsPanel({ controller, state, readAloud, onClose }: Props) {
+export function SettingsPanel({ controller, state, readAloud, onOpenDictionary, onClose }: Props) {
   const t = useT();
   const [tab, setTab] = useState<SettingsTab>(rememberedTab);
   const { settings } = state;
@@ -76,7 +78,7 @@ export function SettingsPanel({ controller, state, readAloud, onClose }: Props) 
     <Dialog title={t.t('settings.title')} className="settings" onClose={onClose}>
       <Tabs label={t.t('settings.tabs')} tabs={SETTINGS_TABS.map((id) => ({ id, label: t.t(TAB_KEYS[id]) }))} selected={tab} onSelect={choose}>
         {tab === 'reading' && <ReadingSettings controller={controller} reading={settings.reading} readAloud={readAloud} />}
-        {tab === 'checking' && <CheckingSettings controller={controller} settings={settings} />}
+        {tab === 'checking' && <CheckingSettings controller={controller} settings={settings} onOpenDictionary={onOpenDictionary} />}
         {tab === 'saving' && <SavingSettings controller={controller} settings={settings} />}
         {tab === 'modules' && (
           <ModulesSettings controller={controller} settings={settings} checkingModel={state.checkingModel} helperBackend={state.helperBackend} />
@@ -134,7 +136,7 @@ function SavingSettings({ controller, settings }: SectionProps) {
   );
 }
 
-function CheckingSettings({ controller, settings }: SectionProps) {
+function CheckingSettings({ controller, settings, onOpenDictionary }: SectionProps & { onOpenDictionary(): void }) {
   const t = useT();
   const setAutoApply = (kind: string, on: boolean) => {
     const tierOverrides = { ...settings.tierOverrides };
@@ -199,20 +201,12 @@ function CheckingSettings({ controller, settings }: SectionProps) {
         </ul>
       </fieldset>
 
-      <fieldset>
-        <legend>{t.t('settings.dictionary', { count: settings.dictionary.length })}</legend>
-        {settings.dictionary.length === 0 && <p className="hint">{t.t('settings.dictionaryEmpty')}</p>}
-        <ul className="dictionary">
-          {settings.dictionary.map((word) => (
-            <li key={word}>
-              <span lang="en">{word}</span>
-              <button className="quiet" aria-label={t.t('settings.removeLabel', { word })} onClick={() => void controller.removeWord(word)}>
-                {t.t('settings.remove')}
-              </button>
-            </li>
-          ))}
-        </ul>
-      </fieldset>
+      {/* The words themselves live in their own panel (F22 item 1). */}
+      <p>
+        <button className="link" onClick={onOpenDictionary}>
+          {t.t('settings.openDictionary', { count: settings.dictionary.length })}
+        </button>
+      </p>
     </>
   );
 }

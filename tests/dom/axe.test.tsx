@@ -181,6 +181,16 @@ describe('axe-core: no serious or critical violations', () => {
     await audit('delete all saved reviews: confirmation');
   });
 
+  it('the Dictionary panel: words, a search with no match, and after Merge duplicates', async () => {
+    renderShell(makeController({ dictionary: ['Vantix', 'vantix', 'Nashik'] }).controller);
+    chooseFromMore('Dictionary…');
+    await audit('dictionary panel');
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search the dictionary' }), { target: { value: 'zzz' } });
+    await audit('dictionary panel: no match');
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Merge duplicates' })));
+    await audit('dictionary panel: merged');
+  });
+
   it('Settings without a local voice', async () => {
     renderShell(makeController().controller);
     chooseFromMore('Settings');

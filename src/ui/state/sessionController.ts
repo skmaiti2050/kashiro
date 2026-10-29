@@ -594,6 +594,16 @@ export class SessionController {
     await settingsActions.removeWord(this.settingsHost, word);
   }
 
+  /** See settingsActions.addTypedWord. */
+  async addDictionaryWord(word: string): Promise<void> {
+    await settingsActions.addTypedWord(this.settingsHost, word);
+  }
+
+  /** See settingsActions.mergeDictionaryDuplicates. */
+  mergeDictionaryDuplicates(): Promise<number> {
+    return settingsActions.mergeDictionaryDuplicates(this.settingsHost);
+  }
+
   /** See settingsActions.setModule. */
   setModule(name: keyof ModuleSwitches, on: boolean): void {
     settingsActions.setModule(this.settingsHost, name, on);

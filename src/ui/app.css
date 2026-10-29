@@ -1083,6 +1083,26 @@ legend {
   border-bottom: 1px solid var(--line);
 }
 
+/* The Dictionary panel (F22 item 1): the word on the start, Remove on the end. */
+.dictionary-panel .dictionary li {
+  justify-content: space-between;
+}
+
+.dictionary-add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+}
+
+.dictionary-merge {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+}
+
 /* Rows with text and actions: the text column wraps and shrinks, the action column keeps its width. */
 .members li,
 .more li {

@@ -324,6 +324,60 @@ describe('SessionController: review', () => {
   });
 });
 
+describe('SessionController: the Dictionary panel (F22 item 1)', () => {
+  it('Add with no document: saved as withWordAdded stores it (one entry per word, composed), and the next linter has it', async () => {
+    const created: string[][] = [];
+    const { controller, saved } = makeController({
+      settings: { dictionary: ['Vantix', 'Nashik'] },
+      createLinter: (v, words) => {
+        created.push(words);
+        return createLinter(v, words);
+      },
+    });
+    await controller.addDictionaryWord('  vantix ');
+    expect(saved.at(-1)!.dictionary).toEqual(['Nashik', 'vantix']);
+    await controller.addDictionaryWord('Café');
+    expect(saved.at(-1)!.dictionary).toEqual(['Nashik', 'vantix', 'Café']);
+    await controller.addDictionaryWord('   ');
+    expect(saved.at(-1)!.dictionary).toEqual(['Nashik', 'vantix', 'Café']);
+    await controller.openText('We met Anjali in Nashik today.');
+    expect(created.at(-1)).toEqual(['Nashik', 'vantix', 'Café']);
+  });
+
+  it('Add with a document open: its flags go, as a card’s Add to dictionary', async () => {
+    const { controller, saved } = makeController({ createLinter: (v, words) => createLinter(v, words) });
+    await controller.openText('We met Anjali in Nashik today.');
+    const flagged = () => controller.getState().session!.decisions().top.some((d) => d.kind === 'names');
+    expect(flagged()).toBe(true);
+    await controller.addDictionaryWord('Anjali');
+    await controller.addDictionaryWord('Nashik');
+    expect(flagged()).toBe(false);
+    expect(saved.at(-1)!.dictionary).toEqual(['Anjali', 'Nashik']);
+  });
+
+  it('Merge duplicates: the merged list is saved and checked with; it says how many; nothing else changes', async () => {
+    const created: string[][] = [];
+    const OWNER = ['Vantix', 'vantix', 'VPC', 'vpc', 'Nashik'];
+    const { controller, saved } = makeController({
+      settings: { dictionary: OWNER },
+      createLinter: (v, words) => {
+        created.push(words);
+        return createLinter(v, words);
+      },
+    });
+    await controller.openText('We met Vantix in Nashik about the VPC.');
+    const before = controller.getState();
+    expect(await controller.mergeDictionaryDuplicates()).toBe(2);
+    const after = controller.getState();
+    expect(saved.at(-1)!.dictionary).toEqual(['vantix', 'vpc', 'Nashik']);
+    expect({ ...saved.at(-1)!, dictionary: OWNER }).toEqual(before.settings);
+    expect(created.at(-1)).toEqual(['vantix', 'vpc', 'Nashik']);
+    expect(after.document!.text).toBe(before.document!.text);
+    expect(after.session!.decisionCount()).toBe(before.session!.decisionCount());
+    expect(await controller.mergeDictionaryDuplicates()).toBe(0);
+  });
+});
+
 describe('SessionController: save', () => {
   const DOCX_BODY = '<w:p><w:r><w:t xml:space="preserve">I can\'t go. You can\'t stay.</w:t></w:r></w:p>';
 

@@ -2,7 +2,7 @@ import type { ReviewDepth } from '@/engine/depth';
 import type { ModuleSwitches } from '@/engine/modules';
 import type { PresetId } from '@/engine/presets';
 import type { CheckSession } from '@/engine/session';
-import { withWordAdded } from '@/engine/dictionaryWords';
+import { withDuplicatesMerged, withWordAdded } from '@/engine/dictionaryWords';
 import type { Variant } from '@/engine/types';
 import { msg, type Message } from '../i18n/message';
 import { plainError } from './errors';
@@ -137,9 +137,34 @@ export function useModulesForPreset(host: SettingsHost, on: boolean, preset: Pre
   void host.modulesChanged();
 }
 
+/**
+ * Dictionary › Add (F22 item 1). With a document open it is a card's Add to dictionary (its flags rejected, a fix of
+ * it the user applied taken back); without one the word is only saved, and the next linter is built with it.
+ */
+export async function addTypedWord(host: SettingsHost, word: string): Promise<void> {
+  const composed = word.trim().normalize('NFC');
+  if (composed === '') return;
+  if (host.state().session) return addWords(host, (s) => s.addTypedWord(composed));
+  updateSettings(host, { dictionary: withWordAdded(host.state().settings.dictionary, composed) });
+  host.dropLinter(); // a warmed-up linter would not know the word
+  host.announce(msg('verb.addedToDictionary'));
+}
+
 /** Harper can't forget an imported word, so the linter is rebuilt without it. */
 export async function removeWord(host: SettingsHost, word: string): Promise<void> {
-  updateSettings(host, { dictionary: host.state().settings.dictionary.filter((w) => w !== word) });
+  await replaceDictionary(host, host.state().settings.dictionary.filter((w) => w !== word));
+}
+
+/** Dictionary › Merge duplicates (see withDuplicatesMerged): how many entries went. */
+export async function mergeDictionaryDuplicates(host: SettingsHost): Promise<number> {
+  const { dictionary, merged } = withDuplicatesMerged(host.state().settings.dictionary);
+  if (merged > 0) await replaceDictionary(host, dictionary);
+  return merged;
+}
+
+/** A word left the dictionary: the linter is rebuilt from the saved list and the document checked again. */
+async function replaceDictionary(host: SettingsHost, dictionary: string[]): Promise<void> {
+  updateSettings(host, { dictionary });
   host.dropLinter();
   await host.recheck();
 }
