@@ -27,6 +27,8 @@ import { files, onFileDrop, setDialogLabels } from './platform/files';
 import { helperInstalled, modelFiles, startAppHelper, stopAppHelper } from './platform/helper';
 import { createAppLinter } from './platform/linter';
 import { sessionFiles } from './platform/sessions';
+import { rememberWindowPlacement } from './platform/windowPlacement';
+import { changeLogWasOpen, rememberChangeLogOpen } from './changeLogMemory';
 import { loadSettings, saveSettings } from './platform/settings';
 import { explain } from './state/errors';
 import { readingStyle } from './state/readingSettings';
@@ -52,6 +54,8 @@ export default function App() {
   const started = useRef(false);
 
   useShowWindowWhenDrawn();
+  // Started at once: the window is still hidden, so it appears where it was last time (F22 item 5).
+  useEffect(() => rememberWindowPlacement(), []);
   useEffect(() => {
     const slow = setTimeout(() => setSlowStart(true), SLOW_START_MS);
     return () => clearTimeout(slow);
@@ -115,7 +119,8 @@ function ShellView({ controller, state }: { controller: SessionController; state
   const caretReader = useRef<() => CaretText | null>(() => null);
   const improveAtCaret = useRef<() => void>(() => {});
   const lookUpAtCaret = useRef<() => boolean>(() => false);
-  const [logOpen, setLogOpen] = useState(false);
+  const [logOpen, setLogOpen] = useState(changeLogWasOpen);
+  useEffect(() => rememberChangeLogOpen(logOpen), [logOpen]);
   /** Bumped by "See the change log": the log then takes focus and is shown, even when already open (F20 item 8). */
   const [logReveals, setLogReveals] = useState(0);
   const [focus, setFocus] = useState<DocumentFocus | null>(null);
