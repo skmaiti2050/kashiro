@@ -26,6 +26,7 @@ export interface PaletteActions {
   onReportBug(): void;
   onCheckUpdates(): void;
   onAbout(): void;
+  onTour(): void;
   /** Null while word lookup is off (the entry is left out, as the ⋯ item is). */
   onLookUp: (() => void) | null;
   /** Null while AI rewrites are off or nothing is checked yet (left out, as the toolbar button is). */
@@ -84,6 +85,7 @@ export function paletteCommands(t: Translator, a: PaletteActions): PaletteComman
     { id: 'googleDocs', label: t.t('toolbar.googleDocs'), enabled: always, run: a.onHelp },
     { id: 'reportBug', label: t.t('toolbar.reportBug'), enabled: always, run: a.onReportBug },
     { id: 'checkUpdates', label: t.t('toolbar.checkUpdates'), enabled: always, run: a.onCheckUpdates },
+    { id: 'tour', label: t.t('toolbar.tour'), enabled: always, run: a.onTour },
     { id: 'about', label: t.t('toolbar.about'), enabled: always, run: a.onAbout },
   ];
 }

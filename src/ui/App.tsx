@@ -17,6 +17,7 @@ import { StatusBar } from './StatusBar';
 import { Toolbar } from './Toolbar';
 import { UndoToast } from './UndoToast';
 import { UnsavedChangesDialog } from './UnsavedChangesDialog';
+import { rememberTourSeen, tourSeen, WelcomeTour } from './WelcomeTour';
 import { PanelDivider } from './PanelDivider';
 import { useAppShortcuts } from './useKeys';
 import { usePanelSplit } from './usePanelSplit';
@@ -118,7 +119,7 @@ export function Shell({ controller }: { controller: SessionController }) {
 
 function ShellView({ controller, state }: { controller: SessionController; state: ControllerState }) {
   const t = useT();
-  const [panel, setPanel] = useState<'none' | 'settings' | 'dictionary' | 'bug' | 'help' | 'shortcuts' | 'about' | 'palette'>('none');
+  const [panel, setPanel] = useState<'none' | 'settings' | 'dictionary' | 'bug' | 'help' | 'shortcuts' | 'about' | 'palette' | 'tour'>('none');
   /** The tab Settings opens on when the command palette names one; else Settings' own remembered tab. */
   const [settingsTab, setSettingsTab] = useState<SettingsTab | undefined>(undefined);
   /** The review panel's actions for the command palette (null while the panel is folded). */
@@ -210,6 +211,12 @@ function ShellView({ controller, state }: { controller: SessionController; state
     setPanel('settings');
   };
   const dialogOpen = panel !== 'none' || afterUnsaved !== null || state.resumeOffer !== null || lookupState !== null;
+  // The welcome tour, once, when the first document's check is done and nothing else is open (F23 item 7).
+  useEffect(() => {
+    if (!state.session || dialogOpen || tourSeen()) return;
+    rememberTourSeen();
+    setPanel('tour');
+  }, [state.session, dialogOpen]);
   const lookUpOn = modulesFor(state.settings).wordLookup;
   const aiOn = controller.ai.available();
   const lookUpFromMenu = lookUpOn ? () => lookUpAtCaret.current() || controller.showNotice(msg('lookup.noWord')) : null;
@@ -245,6 +252,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
       onReportBug: () => setPanel('bug'),
       onCheckUpdates: checkForUpdates,
       onAbout: () => setPanel('about'),
+      onTour: () => setPanel('tour'),
       onLookUp: lookUpFromMenu,
       onImprove: improveFromToolbar,
       panel: split.collapsed ? null : panelCommands.current,
@@ -281,6 +289,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
           onHelp={() => setPanel('help')}
           onShortcuts={() => setPanel('shortcuts')}
           onAbout={() => setPanel('about')}
+          onTour={() => setPanel('tour')}
           onClose={onClose}
           onLookUp={lookUpFromMenu}
           onImprove={improveFromToolbar}
@@ -367,6 +376,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
           onClose={() => setPanel('none')}
         />
       )}
+      {panel === 'tour' && <WelcomeTour onClose={() => setPanel('none')} />}
       {panel === 'palette' && (
         <CommandPalette
           commands={commands()}

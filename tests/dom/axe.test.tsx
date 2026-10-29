@@ -283,6 +283,15 @@ describe('axe-core: no serious or critical violations', () => {
     await audit('command palette, no match');
   });
 
+  it('F23: the welcome tour, first and last tip', async () => {
+    renderShell(makeController().controller);
+    chooseFromMore('Welcome tour');
+    await audit('welcome tour, first tip');
+    const tour = screen.getByRole('dialog', { name: 'Welcome to Kashiro' });
+    for (let i = 0; i < 3; i++) fireEvent.click(within(tour).getByRole('button', { name: 'Next' }));
+    await audit('welcome tour, last tip');
+  });
+
   it('About: the list of notices, then each notice shown alone', async () => {
     renderShell(makeController().controller);
     chooseFromMore('About');

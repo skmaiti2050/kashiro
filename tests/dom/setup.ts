@@ -1,4 +1,4 @@
-import { afterEach } from 'vitest';
+import { afterEach, beforeEach } from 'vitest';
 import { cleanup } from '@testing-library/react';
 
 // React's act() warnings are only silenced when it knows it runs under a test environment.
@@ -23,6 +23,10 @@ globalThis.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
   const bytes = Buffer.from(input.slice(header[0].length), 'base64');
   return Promise.resolve(new Response(bytes, { headers: { 'content-type': header[1] } }));
 };
+
+// The welcome tour (F23 item 7) would open over the first checked document in every test: it starts as seen here,
+// and welcomeTour.test.tsx clears the mark.
+beforeEach(() => localStorage.setItem('kashiro.tourSeen', 'true'));
 
 afterEach(() => {
   cleanup();

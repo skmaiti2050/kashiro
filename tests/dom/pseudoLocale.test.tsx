@@ -5,6 +5,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { act, fireEvent, screen } from '@testing-library/react';
+import { EditorView } from '@codemirror/view';
 import { LANGUAGE_NAMES } from '@/ui/i18n/locale';
 import { createTranslator } from '@/ui/i18n/translator';
 import type { MessageKey } from '@/ui/i18n/catalogues';
@@ -267,6 +268,28 @@ describe('pseudo-locale (en-XA)', () => {
     for (let i = 0; i < 10 && !screen.queryByRole('button', { name: name('dismiss.button') }); i++) fireEvent.keyDown(panel, { key: 'j' });
     fireEvent.click(screen.getByRole('button', { name: name('dismiss.button') }));
     expect(screen.getByRole('menu')).toBeTruthy();
+    await expectTranslatedAndFitting(controller);
+  });
+
+  it('F23: the command palette, the quick fix, the folded panel and the welcome tour', async () => {
+    const { controller } = makeController({ uiLanguage: 'en-XA', preset: 'blog' });
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText('Each farmer should recieve water.'));
+    fireEvent.keyDown(document.body, { key: 'k', ctrlKey: true });
+    await expectTranslatedAndFitting(controller);
+    fireEvent.keyDown(screen.getByRole('combobox', { name: name('palette.search') }), { key: 'Escape' });
+    const view = EditorView.findFromDOM(document.querySelector<HTMLElement>('.cm-editor')!)!;
+    act(() => {
+      view.focus();
+      view.dispatch({ selection: { anchor: view.state.doc.toString().indexOf('recieve') + 1 } });
+    });
+    fireEvent.keyDown(view.contentDOM, { key: 'Enter', altKey: true });
+    expect(document.querySelector('.quick-fix')).not.toBeNull();
+    await expectTranslatedAndFitting(controller);
+    fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+    fireEvent.click(screen.getByRole('button', { name: name('split.hide') }));
+    await expectTranslatedAndFitting(controller);
+    chooseFromMore(name('toolbar.tour'), name('toolbar.more'));
     await expectTranslatedAndFitting(controller);
   });
 

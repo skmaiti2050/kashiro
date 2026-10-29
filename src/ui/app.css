@@ -536,6 +536,15 @@ summary:focus-visible,
   background: var(--bg);
 }
 
+/* The welcome tour (F23 item 7): a small dialog, one tip at a time. */
+.dialog.tour {
+  width: min(440px, 92vw);
+}
+
+.dialog.tour h3 {
+  margin: 4px 0 6px;
+}
+
 /* The command palette (F23 item 6): a search box over a list; the active entry carries the accent bar. */
 .dialog.palette {
   width: min(560px, 92vw);

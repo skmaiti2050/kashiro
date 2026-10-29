@@ -636,5 +636,19 @@
   "palette.changeLog": "Show or hide the change log",
   "palette.settingsTab": "Settings: {tab}",
   "palette.theme": "Theme: {name}",
-  "shortcuts.palette": "Command palette: type to run any action"
+  "shortcuts.palette": "Command palette: type to run any action",
+  "toolbar.tour": "Welcome tour",
+  "tour.title": "Welcome to Kashiro",
+  "tour.step": "Tip {at, number} of {count, number}",
+  "tour.cardsTitle": "Cards",
+  "tour.cards": "Each card on the right is one suggestion. Press Enter to accept it, Backspace to reject it, and J or K to move between cards. Click an underline in the text for its quick fix.",
+  "tour.depthTitle": "Review depth",
+  "tour.depth": "The depth slider sets how many cards you see up front. The rest wait under “More”, so a long document stays calm.",
+  "tour.tickAllTitle": "Tick all",
+  "tour.tickAll": "A card that fixes many places opens a preview first. “Tick all” ticks every place; nothing changes until you press Apply.",
+  "tour.logTitle": "The change log",
+  "tour.log": "Every change you make is listed in the change log at the bottom, each with its own Undo.",
+  "tour.next": "Next",
+  "tour.done": "Done",
+  "tour.skip": "Skip"
 }

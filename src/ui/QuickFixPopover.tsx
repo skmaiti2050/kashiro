@@ -57,7 +57,7 @@ export function QuickFixPopover({ controller, decision, candidate, at, onClose }
 
   return (
     <div ref={anchor} className="menu-anchor quick-fix-anchor" style={at} onKeyDown={onKeyDown}>
-      <div ref={box} className="menu quick-fix" role="dialog" aria-label={t.t('quickFix.label', { word: excerpt(candidate.original).text })} style={placement}>
+      <div ref={box} className="menu quick-fix" role="dialog" aria-label={t.t('quickFix.label', { word: t.t('quote', { text: excerpt(candidate.original).text }) })} style={placement}>
         {candidate.replacements.map((replacement, i) => (
           <button key={i} className={i === 0 ? 'primary' : ''} onClick={() => run(() => controller.accept(decision.id, i))}>
             {acceptLabel(t, candidate, replacement, false, 1)}

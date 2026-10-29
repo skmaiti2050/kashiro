@@ -43,6 +43,8 @@ interface Props {
   onHelp(): void;
   onShortcuts(): void;
   onAbout(): void;
+  /** Replays the welcome tour (F23 item 7). */
+  onTour(): void;
   /** Close document (Ctrl+W), through the app's unsaved-changes guard. */
   onClose(): void;
   /** Look up the word at the cursor (Ctrl+D); null while word lookup is off. */
@@ -73,9 +75,9 @@ function moveAlongToolbar(e: KeyboardEvent<HTMLElement>, dir: 'ltr' | 'rtl'): vo
 
 /**
  * Open · Paste · goal · English variant · Improve this sentence · ⋯ (Look up word, Close document, Google Docs,
- * Keyboard shortcuts, Settings, Dictionary, Report a bug, Check for updates, About) · Save (with its save-mode menu).
+ * Keyboard shortcuts, Settings, Dictionary, Report a bug, Check for updates, Welcome tour, About) · Save (with its save-mode menu).
  */
-export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onDictionary, onReportBug, onCheckUpdates, onHelp, onShortcuts, onAbout, onClose, onLookUp, onImprove }: Props) {
+export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onDictionary, onReportBug, onCheckUpdates, onHelp, onShortcuts, onAbout, onTour, onClose, onLookUp, onImprove }: Props) {
   const t = useT();
   const { session, settings, variantOverride, document } = state;
   const moreItems: MoreMenuItem[] = [
@@ -87,6 +89,7 @@ export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onDict
     { label: t.t('toolbar.dictionary'), onChoose: onDictionary },
     { label: t.t('toolbar.reportBug'), onChoose: onReportBug },
     { label: t.t('toolbar.checkUpdates'), onChoose: onCheckUpdates },
+    { label: t.t('toolbar.tour'), onChoose: onTour },
     { label: t.t('toolbar.about'), onChoose: onAbout },
   ];
   // Save ▾ is a <details> whose open state React holds, so usePopup can place it and close it (Task F20 item 7).
