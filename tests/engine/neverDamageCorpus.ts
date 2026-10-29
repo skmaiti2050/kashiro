@@ -513,6 +513,24 @@ export const TICK_TRUTH: readonly TickTruth[] = [
   // Task F21 item E (review M-18).
   { input: 'Attach sg-0a1b2c3d4e5f67890 to i-0abcd1234efgh5678 now.', mayTick: [] },
   { input: 'The role is arn:aws:iam::123456789012:role/deploy-role-prod and the bucket arn:aws:s3:::my-bucket-logs.', mayTick: [] },
+  // Task F21c (F21 adversarial review I-2): a doubling in command text the shape detector reads only as "maybe a
+  // command" is offered, never ticked. A capital Word gave the first word, a Windows prompt, crontab, python3, ./x,
+  // a compose value, "cat >" input, lowercase SQL, an ini file, and a command clause cut short by "," or ";".
+  { input: 'Echo the the > notes.txt', mayTick: [] },
+  { input: 'Make the the', mayTick: [] },
+  { input: 'C:\\> echo the the', mayTick: [] },
+  { input: '30 1 * * * echo the the', mayTick: [] },
+  { input: 'python3 app.py the the', mayTick: [] },
+  { input: './deploy.sh the the', mayTick: [] },
+  { input: 'services:\n  web:\n    image: nginx:latest\n    ports:\n      - "80:80"\n    command: echo the the', mayTick: [] },
+  { input: 'cat > app.conf\nname = the the app', mayTick: [] },
+  { input: '[database]\nhost = localhost\nport  = 5432\nname = the the db', mayTick: [] },
+  { input: "update users set name = 'a' where id = 1 and and active = true;", mayTick: [] },
+  { input: "select *\nfrom orders\nwhere status = 'paid'\nand and total > 5;", mayTick: [] },
+  { input: 'To build, run cd /app; make the the target and wait.', mayTick: [] },
+  { input: 'Clean up with sudo find /tmp -name a, the the b -delete before you leave.', mayTick: [] },
+  { input: 'Then run git commit -am wip, the the rest later.', mayTick: [] },
+  { input: 'Start it with docker run -e NAMES=a, b, the the c --rm img now.', mayTick: [] },
 ];
 
 /** Invisible characters sprinkled at random between ASCII characters. */

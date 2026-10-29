@@ -8,7 +8,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { CheckSession, type CheckOptions } from '@/engine/session';
 import { SIMPLE_FIXES_ID } from '@/engine/decisions';
 import { createLinter, type RulesLinter } from '@/engine/linter';
-import { COMMAND_WORDS, findCommandSpans, findCommandSpansInParagraphs, PROSE_COMMAND_WORDS } from '@/engine/commands';
+import { COMMAND_WORDS, ENGLISH_COMMAND_WORDS, findCommandSpans, findCommandSpansInParagraphs, findCommandText, PROSE_COMMAND_WORDS } from '@/engine/commands';
 import { WORD_REWRITE_KINDS } from '@/engine/wordFlags';
 import type { Paragraph, Span, Tier } from '@/engine/types';
 import { AUTO_APPLY_KINDS } from '@/ui/state/settings';
@@ -42,10 +42,16 @@ describe('findCommandSpans: what looks like a command', () => {
         'apt', 'apt-get', 'brew', 'cargo', 'cp', 'gh', 'go', 'journalctl', 'kill', 'make', 'mkdir', 'mv', 'node', 'openssl', 'ps', 'rg', 'rm', 'service', 'source', 'su', 'tail', 'tar', 'tee', 'touch', 'unzip', 'wget', 'yarn', 'yum',
       ].sort(),
     );
+    // Task F21c: "yum" is an English word ("That cake was yum", review M-22), so it no longer starts a command in a sentence.
     expect([...PROSE_COMMAND_WORDS].sort()).toEqual(
-      ['apt-get', 'aws', 'chmod', 'chown', 'docker', 'gh', 'git', 'grep', 'journalctl', 'kubectl', 'npm', 'npx', 'openssl', 'scp', 'sed', 'ssh', 'sudo', 'systemctl', 'terraform', 'wget', 'xargs', 'yum'].sort(),
+      ['apt-get', 'aws', 'chmod', 'chown', 'docker', 'gh', 'git', 'grep', 'journalctl', 'kubectl', 'npm', 'npx', 'openssl', 'scp', 'sed', 'ssh', 'sudo', 'systemctl', 'terraform', 'wget', 'xargs'].sort(),
     );
     for (const word of PROSE_COMMAND_WORDS) expect(COMMAND_WORDS.has(word), word).toBe(true);
+    // Task F21c (review M-20): the English ones start a surely-command line only when it is short or has a second sign.
+    expect([...ENGLISH_COMMAND_WORDS].sort()).toEqual(
+      ['brew', 'cargo', 'cat', 'echo', 'export', 'find', 'go', 'kill', 'make', 'node', 'ps', 'python', 'service', 'source', 'tail', 'tar', 'tee', 'touch', 'yarn', 'yum'].sort(),
+    );
+    for (const word of ENGLISH_COMMAND_WORDS) expect(COMMAND_WORDS.has(word) && !PROSE_COMMAND_WORDS.has(word), word).toBe(true);
   });
 
   it('an option token: --flag, --flag=value or -x, in prose too', () => {
@@ -110,8 +116,7 @@ describe('findCommandSpans: commands by their shape, not a word list (Task F21 i
     'brew install jq',
     'cargo build',
     'go run .',
-    // A comment line above or inside a command block; a make target over its recipe.
-    '# Install docker if not present\nsudo apt-get install -y docker.io',
+    // A make target over its recipe. (A comment line next to a command is maybe a command since Task F21c.)
     'build:\n\tgo build -o bin/app ./cmd/app\n\ttest:  lint\n\tgo test ./...',
     // A quoted argument that runs over several lines.
     "aws ec2 describe-instances --query 'Reservations[].Instances[].{\nId:InstanceId; Type:InstanceType;\nState:State.Name}' --output table",
@@ -119,9 +124,10 @@ describe('findCommandSpans: commands by their shape, not a word list (Task F21 i
     expect(covered(text, findCommandSpans(text))).toEqual([text]);
   });
 
-  it('a list label and a comment line under a command belong to the block', () => {
+  it('a list label belongs to the block; a comment line under a command is maybe a command (Task F21c)', () => {
     const text = 'Steps:\n1. until sudo docker pull ${SRC}; do sleep 5; done\n2. # install docker if not present\n3. gh secret set FOO --body "$X"';
-    expect(covered(text, findCommandSpans(text))).toEqual([text.slice('Steps:\n'.length)]);
+    expect(covered(text, findCommandSpans(text))).toEqual(['1. until sudo docker pull ${SRC}; do sleep 5; done', '3. gh secret set FOO --body "$X"']);
+    expect(covered(text, findCommandText([{ id: 0, text }]).maybe.get(0)!)).toEqual(['2. # install docker if not present']);
   });
 
   it('in a sentence: from a command word (or the shell keyword before it) to the end of its clause', () => {
@@ -129,8 +135,12 @@ describe('findCommandSpans: commands by their shape, not a word list (Task F21 i
     expect(spans('Scripts use sudo su ubuntu to switch user.')).toEqual(['sudo su ubuntu to switch user']);
     expect(spans('Switch user: sudo su ubuntu. then run the script.')).toEqual(['sudo su ubuntu']);
     expect(spans('The docker daemon must run. until sudo docker pull ${SRC}; do sleep 5; done')).toEqual(['until sudo docker pull ${SRC}; do sleep 5; done']);
-    expect(spans('Step 3: run apt-get update , then reboot.')).toEqual(['apt-get update']);
-    expect(spans('Use gh secret set FOO; we need it.')).toEqual(['gh secret set FOO']);
+    // Task F21c (review M-22, "git"/"aws" as nouns): with no second sign in its clause, a command word starts only a
+    // maybe-command span, which keeps every card.
+    expect(spans('Step 3: run apt-get update -y , then reboot.')).toEqual(['apt-get update -y']);
+    expect(spans('Use gh secret set FOO --body x; we need it.')).toEqual(['gh secret set FOO --body x']);
+    expect(spans('Step 3: run apt-get update , then reboot.')).toEqual([]);
+    expect(spans('I use git for work and and fun.')).toEqual([]);
     // After an article the word is a noun, not a command.
     expect(spans('Use the docker CLI. The docker daemon must run.')).toEqual([]);
   });
@@ -173,6 +183,118 @@ describe('findCommandSpans: commands by their shape, not a word list (Task F21 i
     // An option in a sentence is its own span only: the prose around it keeps its fixes.
     expect(covered('use the --verbose flag to see more; then retry.', findCommandSpans('use the --verbose flag to see more; then retry.'))).toEqual(['--verbose']);
     expect(covered('the value is $HOME/bin , and ${PATH} too.', findCommandSpans('the value is $HOME/bin , and ${PATH} too.'))).toEqual(['$HOME', '${PATH}']);
+  });
+});
+
+describe('two levels: surely a command, maybe a command (Task F21c)', () => {
+  /** What each level covers in `text` read as a plain-text file (blank lines split paragraphs). */
+  const levels = async (text: string) => {
+    const { paras } = await plaintextAdapter.read(new TextEncoder().encode(text));
+    const found = findCommandText(paras);
+    const of = (m: Map<number, Span[]>) => paras.flatMap((p) => covered(p.text, m.get(p.id)!));
+    return { surely: of(found.surely), maybe: of(found.maybe) };
+  };
+  /** True when some span covers all of the first `part` in the text it was cut from. */
+  const coversPart = (spans: string[], part: string) => spans.some((s) => s.includes(part));
+
+  it.each([
+    // Review I-2: shapes F21 missed.
+    ['Echo the the > notes.txt', 'the the'],
+    ['Make the the', 'the the'],
+    ['C:\\> echo the the', 'the the'],
+    ['30 1 * * * echo the the', 'the the'],
+    ['services:\n  web:\n    command: echo the the', 'the the'],
+    ['[database]\nhost = localhost\nname = the the db', 'the the'],
+    ["update users set name = 'a' where id = 1 and and active = true;", 'and and'],
+    ["select *\nfrom orders\nwhere status = 'paid'\nand and total > 5;", 'and and'],
+    ['To build, run cd /app; make the the target and wait.', 'the the'],
+    ['Clean up with sudo find /tmp -name a, the the b -delete before you leave.', 'the the'],
+    ['Then run git commit -am wip, the the rest later.', 'the the'],
+    // Reviews M-20 to M-22: prose with a weak sign.
+    ['ps i love you and and i miss you', 'and and'],
+    ['cat sat on the the mat', 'the the'],
+    ['make sure the the oven is hot', 'the the'],
+    ['> i think the the plan is fine', 'the the'],
+    ['This is a well -known fact and and everyone knows it.', 'and and'],
+    ['For more detail, use -v to see the the output.', 'the the'],
+    ['rahul: i went home -it was late and and dark', 'and and'],
+    ['home | about | the the contact page', 'the the'],
+    ['salt && pepper and and oil', 'and and'],
+    ['please contact priya <priya.k@corp.in> for the the details', 'the the'],
+    ['buy $AAPL and and hold it', 'and and'],
+    ['<<Back to the the home page', 'the the'],
+    ['if you can come; then call me and and we will go', 'and and'],
+    ['for those in need; do what you can and and more', 'and and'],
+    ['Run it with app.py and and wait.', 'and and'],
+    ['*/5 * * * * the the', 'the the'],
+  ])('maybe, not surely: %j', async (text, part) => {
+    const { surely, maybe } = await levels(text);
+    expect(coversPart(surely, part), 'surely').toBe(false);
+    expect(coversPart(maybe, part), 'maybe').toBe(true);
+  });
+
+  it.each(['python3 app.py the the', 'Python3 app.py the the', './deploy.sh the the', 'Set-ExecutionPolicy RemoteSigned -Scope CurrentUser'])(
+    'surely, a first token shaped like a program with a second sign: %j',
+    async (text) => {
+      expect((await levels(text)).surely).toEqual([text]);
+    },
+  );
+
+  it.each([
+    'We went to the the market.',
+    'It is part of of the plan.',
+    'We met on Monday; the plan changed.',
+    'The temperature was -5 degrees and and falling.',
+    'Pages 10-12 and pre- and post-war were lost.',
+    'I think the the plan is fine, and we we agree.',
+  ])('plain prose is neither: %j', async (text) => {
+    expect(await levels(text)).toEqual({ surely: [], maybe: [] });
+  });
+
+  it('surely does not run across a blank line, or to an indented line that reads as a sentence (review M-23)', async () => {
+    for (const text of ['sudo systemctl restart nginx\n\n    This restarts the the server.', 'sudo systemctl restart nginx\n    This restarts the the server.', 'sudo systemctl restart nginx\n\n\tIt takes a minute and and then it is up.']) {
+      const { surely } = await levels(text);
+      expect(surely, text).toEqual(['sudo systemctl restart nginx']);
+    }
+    // An indented line that is no sentence still belongs to the block.
+    expect((await levels('until sudo docker pull ${SRC}; do\n  sleep 5\ndone')).surely).toEqual(['until sudo docker pull ${SRC}; do\n  sleep 5\ndone']);
+  });
+
+  it('a "#" line next to a command is maybe, not surely (review M-23)', async () => {
+    for (const [text, line] of [
+      ['# Install the the tools\nsudo apt-get install -y curl', '# Install the the tools'],
+      ['sudo apt update\n# this this step is optional', '# this this step is optional'],
+    ]) {
+      const { surely, maybe } = await levels(text);
+      expect(coversPart(surely, line), text).toBe(false);
+      expect(coversPart(maybe, line), text).toBe(true);
+    }
+  });
+
+  it('a "> " line is a prompt only before a command word; a keyword line only in a block (reviews M-21, M-22)', async () => {
+    expect((await levels('> kubectl get pods')).surely).toEqual(['> kubectl get pods']);
+    expect((await levels('> i think the the plan is fine')).surely).toEqual([]);
+    expect((await levels('- done\n  the the next item is is pending')).surely).toEqual([]);
+    expect((await levels('if true; then echo hi; fi')).surely).toEqual(['if true; then echo hi; fi']);
+  });
+
+  it('an English command word starts a surely line only on a short line or with a second sign (review M-20)', async () => {
+    for (const text of ['make the the', 'make install', 'go run .', 'cat /etc/hosts and and more', 'find . -name x']) expect((await levels(text)).surely, text).toEqual([text]);
+    for (const text of ['ps i love you and and i miss you', 'make sure the the oven is hot', 'go tell it on the the mountain']) expect((await levels(text)).surely, text).toEqual([]);
+  });
+});
+
+describe('maybe a command: offered, never ticked, never changed without a click (Task F21c, review M-24)', () => {
+  it('spaces in ini, .env and config lines are not collapsed without a click, but the fix is offered', async () => {
+    const lines = ['[database]\nhost = localhost\nport  = 5432', 'NODE_ENV=production\nAPI_URL=https://api.example.com\nGREETING=hello  world', 'name: web\nretries:  3'];
+    const paras = lines.map((text, id) => ({ id, text }));
+    for (const tierOverrides of [undefined, EVERYTHING_AUTO]) {
+      const s = await CheckSession.start(paras, opts({ tierOverrides }), { linter });
+      expect(paras.map((p) => s.outputText(p.id))).toEqual(lines);
+      const { top, more } = s.decisions();
+      const offered = new Set([...top, ...more].flatMap((d) => d.candidateIds));
+      expect(s.candidates().filter((c) => offered.has(c.id) && c.original === '  ').length).toBe(3);
+    }
   });
 });
 

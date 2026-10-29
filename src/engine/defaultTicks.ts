@@ -19,6 +19,8 @@ export interface TickContext {
   paraText: ReadonlyMap<number, string>;
   /** A fix of a kind the user added in Settings, not a built-in simple fix: never ticked (owner decision 2026-10-25). */
   optedIn(c: Candidate): boolean;
+  /** A fix on text that may be a command (maybeCommands.ts): offered, never ticked (Task F21c). */
+  maybeCommand(c: Candidate): boolean;
 }
 
 /** The ids of `fixes` (the card's members) that start unticked, in card order. */
@@ -29,7 +31,7 @@ export function untickedByDefault(fixes: readonly Candidate[], ctx: TickContext)
 
 function startsTicked(c: Candidate, ctx: TickContext): boolean {
   const text = ctx.paraText.get(c.paraId);
-  if (text === undefined || c.replacements.length !== 1 || ctx.optedIn(c) || isLetterPair(c)) return false;
+  if (text === undefined || c.replacements.length !== 1 || ctx.optedIn(c) || ctx.maybeCommand(c) || isLetterPair(c)) return false;
   return text.slice(c.span.start, c.span.end) === c.original && isSlipDoubling(c, text);
 }
 

@@ -71,8 +71,12 @@ function split(text: string, markdown: boolean): { paras: Paragraph[]; offsets: 
   const paras: Paragraph[] = [];
   const offsets: number[] = [];
   const lengths: number[] = [];
+  /** A blank line came after the last paragraph added (Paragraph.afterBlankLine). */
+  let blankSince = false;
   const add = (start: number, end: number, tableCell = false) => {
-    paras.push({ id: paras.length, text: text.slice(start, end), ...(tableCell ? { tableCell } : {}) });
+    const afterBlankLine = blankSince && paras.length > 0;
+    paras.push({ id: paras.length, text: text.slice(start, end), ...(tableCell ? { tableCell } : {}), ...(afterBlankLine ? { afterBlankLine } : {}) });
+    blankSince = false;
     offsets.push(start);
     lengths.push(end - start);
   };
@@ -109,6 +113,7 @@ function split(text: string, markdown: boolean): { paras: Paragraph[]; offsets: 
       end = lines[i].end;
     } else if (fence === null) {
       flush(); // a blank line inside a code block belongs to the paragraph
+      blankSince = true;
     }
     if (closes) fence = null;
   }

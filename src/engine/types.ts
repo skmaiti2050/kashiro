@@ -15,6 +15,8 @@ export interface Paragraph {
   listItem?: boolean;
   /** Adapter-supplied: a table cell (Markdown) or a paragraph inside a Word table, where spaces may be layout. */
   tableCell?: boolean;
+  /** Adapter-supplied: the file has a blank line before this paragraph, so a command block above it ends there. */
+  afterBlankLine?: boolean;
 }
 
 export type Source = 'rules' | 'hygiene' | 'llm' | 'preset';

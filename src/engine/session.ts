@@ -179,6 +179,7 @@ export class CheckSession {
         untickedByDefault(fixes, {
           paraText: this.ctx.paraText ?? new Map(),
           optedIn: (c) => this.optedIn.has(c.id),
+          maybeCommand: (c) => overlapsLocked(c, this.ctx.maybeCommandSpans?.get(c.paraId)),
         }),
     });
     const topSize = upFrontCount(this.reviewDepth, this.words);
@@ -511,7 +512,9 @@ export class CheckSession {
     const tier = tierOf(c, this.ctx);
     if (tier !== 'safe') return tier;
     const p = this.paras.get(c.paraId)!;
-    if (isZeroClickChange(c, p, this.ctx.locked.get(c.paraId), this.alignedParas.has(c.paraId))) return 'safe';
+    // Maybe-command text is never changed without a click either (Task F21c, review M-24).
+    const untouched = [...(this.ctx.locked.get(c.paraId) ?? []), ...(this.ctx.maybeCommandSpans?.get(c.paraId) ?? [])];
+    if (isZeroClickChange(c, p, untouched, this.alignedParas.has(c.paraId))) return 'safe';
     // Safe only because the user added its kind in Settings: on the card, but never ticked (owner, 2026-10-25).
     if (this.ctx.userTierOverrides && tierOf(c, { ...this.ctx, userTierOverrides: undefined }) !== 'safe') this.optedIn.add(c.id);
     return 'batch';

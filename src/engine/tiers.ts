@@ -26,6 +26,8 @@ export interface TierContext {
   locked: Map<number, Span[]>;
   /** paraId → command-like text (findCommandSpans): only spelling is asked there (isSuggestionOnCommand). */
   commandSpans?: Map<number, Span[]>;
+  /** paraId → maybe-command spans (findCommandText): offered, never ticked, never changed without a click. */
+  maybeCommandSpans?: Map<number, Span[]>;
   /** Lowercased words in the document's own spelling variant (never auto-converted). */
   variantWords: Set<string>;
   preset: Preset;

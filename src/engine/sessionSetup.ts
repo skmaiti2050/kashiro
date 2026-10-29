@@ -2,7 +2,8 @@ import { createLinter, type RulesLinter } from './linter';
 import { detectVariant } from './variant';
 import { findInvisible, visibleText, type VisibleText } from './hygiene';
 import { findLockedSpans } from './factLock';
-import { findCommandSpansInParagraphs, withoutCaseOnlyFixOnCommand } from './commands';
+import { findCommandText, withoutCaseOnlyFixOnCommand } from './commands';
+import { withTechnicalWordRules } from './technicalWords';
 import { lintInChunks } from './chunks';
 import { isDictionaryWord } from './dictionaryWords';
 import { WORD_REWRITE_KINDS, withoutNonWordFixes } from './wordFlags';
@@ -56,7 +57,7 @@ export async function prepareCheck(
 
   // Commands are fact-locked too (never auto-applied, spelling asked on its own card); tierOf also hides every
   // other rule's flag on them (Task F20 item 1).
-  const commandSpans = findCommandSpansInParagraphs(paras);
+  const { surely: commandSpans, maybe: maybeCommandSpans } = findCommandText(paras);
   const locked = new Map<number, Span[]>();
   for (const p of paras) locked.set(p.id, [...findLockedSpans(p.text), ...commandSpans.get(p.id)!, ...(p.locked ?? [])]);
   // The linter reads each paragraph without its invisible junk; its spans are mapped back below.
@@ -84,7 +85,8 @@ export async function prepareCheck(
     )
     .map((c) => withoutFixOverKept(c, kept.get(c.paraId)!))
     .map(withoutNonWordFixes)
-    .map((c) => withoutCaseOnlyFixOnCommand(c, commandSpans.get(c.paraId)));
+    .map((c) => withoutCaseOnlyFixOnCommand(c, commandSpans.get(c.paraId)))
+    .flatMap((c) => withTechnicalWordRules(c, commandSpans.get(c.paraId), maybeCommandSpans.get(c.paraId)) ?? []);
   const confusables = paras.flatMap((p) => findConfusables(p, locked.get(p.id)));
   // The curated rule knows these words better than the linter ("intercast" → "inter cast"): its flag replaces the linter's word flag there.
   // A word the user's dictionary accepts is never flagged: Harper misses "VANTIX" for the entry "Vantix" (F20 item 9b).
@@ -103,6 +105,7 @@ export async function prepareCheck(
     modules,
     locked,
     commandSpans,
+    maybeCommandSpans,
     variantWords,
     preset,
     userTierOverrides: opts.tierOverrides,

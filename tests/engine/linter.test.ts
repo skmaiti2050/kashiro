@@ -150,7 +150,8 @@ describe('TECHNICAL_WORDS list (Task F21 item F: command and cloud words, "su â†
   });
 
   it('each entry is one Harper flags as a misspelling on its own', async () => {
-    const { TECHNICAL_WORDS } = await import('@/engine/wordlists/technical');
+    const { TECHNICAL_WORDS: long, SHORT_TECHNICAL_WORDS } = await import('@/engine/wordlists/technical');
+    const TECHNICAL_WORDS = [...long, ...SHORT_TECHNICAL_WORDS];
     const { LocalLinter, Dialect } = await import('harper.js');
     const { binaryInlined } = await import('harper.js/binaryInlined');
     const harper = new LocalLinter({ binary: binaryInlined, dialect: Dialect.Indian });
@@ -168,10 +169,11 @@ describe('TECHNICAL_WORDS list (Task F21 item F: command and cloud words, "su â†
     expect(unflagged).toEqual([]);
   });
 
-  it.each(['Indian', 'American', 'British'] as const)('none is flagged once loaded (%s): "su â†’ so" is gone', async (variant) => {
+  // The short ones ("su", "aws") are known only in command text (Task F21c): technicalWords.test.ts.
+  it.each(['Indian', 'American', 'British'] as const)('none is flagged once loaded (%s)', async (variant) => {
     const { TECHNICAL_WORDS } = await import('@/engine/wordlists/technical');
     const l = await createLinter(variant);
-    const text = TECHNICAL_WORDS.map((w) => `We use ${w} here.`).join(' ') + ' Scripts use sudo su ubuntu to switch user.';
+    const text = TECHNICAL_WORDS.map((w) => `We use ${w} here.`).join(' ') + ' Scripts use sudo to switch user.';
     const c = await l.lintParagraphs([para(text)], 'plaintext');
     expect(c.filter((x) => x.kind === 'Spelling' || x.kind === 'Typo').map((x) => x.original)).toEqual([]);
   });
