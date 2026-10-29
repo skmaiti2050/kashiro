@@ -29,7 +29,10 @@ import type { ReadAloud } from './useReadAloud';
 export interface CardRequest {
   candidateId: string;
   seq: number;
-  /** Move keyboard focus to the card (Ctrl+. in the text); by default only in a read-only document. */
+  /**
+   * Move keyboard focus to the card (Ctrl+. in the text); by default only in a read-only document. False when the
+   * word's quick fix opened: focus stays where it is, or the popover would close (Task F24).
+   */
   focus?: boolean;
 }
 
@@ -93,11 +96,13 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
 
   // The current card's text is outlined in the document. When the decided card's button took the focus
   // with it (focus fell back to the page), it returns to the card slot so Enter-Enter-Enter keeps going.
+  // Not when a request asked to keep the focus where it is (a quick fix opened on the word): reset by the reveal.
+  const keepFocus = useRef(false);
   useEffect(() => {
     if (!current) return;
     onLocate(firstOf(current));
     const active = document.activeElement;
-    if (!active || active === document.body) cardSlot.current?.focus({ preventScroll: true });
+    if (!keepFocus.current && (!active || active === document.body)) cardSlot.current?.focus({ preventScroll: true });
   }, [current?.id]);
 
   useEffect(() => {
@@ -107,6 +112,7 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
     if (!filtered) setFilter(null);
     const d = filtered ?? decisionWith(all.top, all.more, request.candidateId);
     if (!d) return;
+    keepFocus.current = request.focus === false;
     setCursor((c) => cursorAt(top, d.id, c));
     setReveal((r) => ({ seq: r.seq + 1, focus: request.focus ?? !state.document?.editable }));
   }, [request?.seq]);
@@ -123,6 +129,7 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
 
   useEffect(() => {
     if (reveal.seq === 0) return;
+    keepFocus.current = false;
     cardSlot.current?.scrollIntoView({ block: 'nearest', behavior: reduceMotion() ? 'auto' : 'smooth' });
     if (reveal.focus) cardSlot.current?.focus({ preventScroll: true });
   }, [reveal.seq]);

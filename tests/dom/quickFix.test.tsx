@@ -6,6 +6,7 @@ import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { act, fireEvent, screen, within } from '@testing-library/react';
 import { EditorView } from '@codemirror/view';
 import type { SessionController } from '@/ui/state/sessionController';
+import { buildDocx } from '../fixtures/make_docx';
 import { makeController, warmLinter } from './harness';
 import { openAndWait, renderShell, reviewPanel } from './shell';
 
@@ -77,6 +78,44 @@ describe('the quick-fix popover (F23 item 5)', () => {
     vi.spyOn(view, 'posAtCoords').mockReturnValue(view.state.doc.toString().indexOf('recieve') + 2);
     fireEvent.click(view.contentDOM, { clientX: 5, clientY: 5 });
     expect(popover()).not.toBeNull();
+  });
+
+  // Task F24 (F23 adversarial review I-6): a click to type in the word must not hand the next Space or Enter to the
+  // popover's first button. Only the keyboard opener, Alt+Enter, moves focus into it.
+  it('a click in an editable document opens it without moving focus: the caret stays in the text', async () => {
+    const controller = await opened();
+    const view = editor();
+    act(() => view.focus());
+    vi.spyOn(view, 'posAtCoords').mockReturnValue(view.state.doc.toString().indexOf('recieve') + 3);
+    fireEvent.click(view.contentDOM, { clientX: 5, clientY: 5 });
+    expect(popover()).not.toBeNull();
+    expect(view.contentDOM.contains(document.activeElement)).toBe(true);
+    // Typing goes on in the text, and the popover goes with the change.
+    act(() => view.dispatch({ changes: { from: view.state.doc.toString().indexOf('recieve'), insert: 'x' } }));
+    expect(popover()).toBeNull();
+    expect(controller.getState().session!.outputText(0)).not.toContain('receive');
+  });
+
+  it('a click in a read-only document opens it without moving focus; Alt+Enter there moves focus in', async () => {
+    const { controller } = makeController({ preset: 'blog' });
+    renderShell(controller);
+    const bytes = await buildDocx(`<w:p><w:r><w:t>${TEXT}</w:t></w:r></w:p>`);
+    await openAndWait(controller, () => controller.openFile({ name: 'essay.docx', path: '/docs/essay.docx', bytes }));
+    expect(controller.getState().document!.editable).toBe(false);
+    const view = editor();
+    // A click on read-only text, which takes no focus, leaves the focus on the page.
+    act(() => (document.activeElement as HTMLElement | null)?.blur());
+    vi.spyOn(view, 'posAtCoords').mockReturnValue(view.state.doc.toString().indexOf('recieve') + 3);
+    fireEvent.click(view.contentDOM, { clientX: 5, clientY: 5 });
+    // Its card comes up in the panel without taking the focus, which would close the popover.
+    expect(reviewPanel().querySelector('.card-title')!.textContent).toMatch(/recieve/);
+    expect(popover()).not.toBeNull();
+    expect(document.activeElement).toBe(document.body);
+
+    // Alt+Enter on the same word, with the popover still open.
+    act(() => view.dispatch({ selection: { anchor: view.state.doc.toString().indexOf('recieve') + 1 } }));
+    fireEvent.keyDown(view.contentDOM, { key: 'Enter', altKey: true });
+    expect(popover()!.contains(document.activeElement)).toBe(true);
   });
 
   it('accepting from the popover and from the card give the same text, log and outcomes', async () => {

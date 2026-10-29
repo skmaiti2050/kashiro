@@ -312,9 +312,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
           controller={controller}
           state={state}
           focus={focus}
-          onUnderlineClick={(candidateId, fromKeyboard) =>
-            setCardRequest((r) => ({ candidateId, seq: (r?.seq ?? 0) + 1, focus: fromKeyboard || undefined }))
-          }
+          onUnderlineClick={(candidateId, focusCard) => setCardRequest((r) => ({ candidateId, seq: (r?.seq ?? 0) + 1, focus: focusCard }))}
           onOpen={onOpen}
           onPaste={onPaste}
           onSample={() => unlessUnsaved(() => void controller.openSample())}

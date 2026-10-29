@@ -163,8 +163,11 @@ interface Props {
   controller: SessionController;
   state: ControllerState;
   focus: DocumentFocus | null;
-  /** Clicking an underline (or Ctrl+. on it, `fromKeyboard`) brings up its card. */
-  onUnderlineClick(candidateId: string, fromKeyboard: boolean): void;
+  /**
+   * Clicking an underline brings up its card. `focusCard` (CardRequest.focus): true for Ctrl+. on it, false when its
+   * quick fix opened, undefined for the default.
+   */
+  onUnderlineClick(candidateId: string, focusCard: boolean | undefined): void;
   onOpen(): void;
   onPaste(): void;
   onSample(): void;
@@ -220,7 +223,7 @@ export function DocumentView({
   const [flagAtCursor, setFlagAtCursor] = useState('');
   const spokenFlag = useRef('');
   /** The underline whose quick fix is open (F23 item 5), with the element that had focus before it. */
-  const [quickFix, setQuickFix] = useState<{ candidateId: string; at: WordBox; returnTo: Element | null } | null>(null);
+  const [quickFix, setQuickFix] = useState<{ candidateId: string; at: WordBox; returnTo: Element | null; takeFocus: boolean } | null>(null);
   const doc = state.document;
   // Any change to the text or a new check moves the words: the popover goes.
   useEffect(() => setQuickFix(null), [state.textChanges, state.session]);
@@ -267,8 +270,8 @@ export function DocumentView({
             click(event, editor) {
               const flag = flagClicked(editor, event);
               if (!flag) return false;
-              underlineClick.current(flag.candidateId, false);
-              openQuickFix(editor, flag);
+              const opened = openQuickFix(editor, flag, false);
+              underlineClick.current(flag.candidateId, opened ? false : undefined);
               return false;
             },
             contextmenu: openTextMenu,
@@ -379,7 +382,9 @@ export function DocumentView({
       if (open.returnTo instanceof HTMLElement && open.returnTo.isConnected) open.returnTo.focus();
       else view.current?.focus();
     };
-    return <QuickFixPopover key={open.candidateId} controller={controller} decision={decision} candidate={candidate} at={open.at} onClose={close} />;
+    return (
+      <QuickFixPopover key={open.candidateId} controller={controller} decision={decision} candidate={candidate} at={open.at} takeFocus={open.takeFocus} onClose={close} />
+    );
   }
 
   /** The single card holding `candidateId`; null for a batch (the simple-fixes card too) or the word cards. */
@@ -389,18 +394,22 @@ export function DocumentView({
     return decision && decision.kind === 'single' ? decision : null;
   }
 
-  /** Opens the quick fix of `flag`'s underline, when its card is a single one. */
-  function openQuickFix(editor: EditorView, flag: FlagMark): void {
-    if (!quickFixDecision(flag.candidateId)) return;
-    setQuickFix({ candidateId: flag.candidateId, at: wordBox(editor, flag.from, flag.to), returnTo: document.activeElement });
+  /**
+   * Opens the quick fix of `flag`'s underline, when its card is a single one. Only the keyboard opener moves focus
+   * into it (`takeFocus`); after a click, focus stays where it was (Task F24, F23 review I-6).
+   */
+  function openQuickFix(editor: EditorView, flag: FlagMark, takeFocus: boolean): boolean {
+    if (!quickFixDecision(flag.candidateId)) return false;
+    setQuickFix({ candidateId: flag.candidateId, at: wordBox(editor, flag.from, flag.to), returnTo: document.activeElement, takeFocus });
+    return true;
   }
 
   /** Alt+Enter in the text: the quick fix of the underline at the cursor, and its card in the panel. */
   function quickFixAtCursor(editor: EditorView): boolean {
     const flag = flagAt(editor.state, editor.state.selection.main.head);
     if (!flag) return false;
-    underlineClick.current(flag.candidateId, false);
-    openQuickFix(editor, flag);
+    const opened = openQuickFix(editor, flag, true);
+    underlineClick.current(flag.candidateId, opened ? false : undefined);
     return true;
   }
 

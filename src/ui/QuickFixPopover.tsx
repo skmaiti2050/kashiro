@@ -22,24 +22,30 @@ interface Props {
   decision: Decision;
   candidate: Candidate;
   at: WordBox;
+  /**
+   * True when the keyboard opened it (Alt+Enter): focus moves to its first button. A click leaves focus in the text,
+   * so typing goes on and Space or Enter can't apply a fix unasked (Task F24, F23 review I-6).
+   */
+  takeFocus: boolean;
   /** `returnFocus`: after an action or Escape; not when a click or focus elsewhere closed it. */
   onClose(returnFocus: boolean): void;
 }
 
 /**
  * The quick-fix popover on an underline (F23 item 5): the card's own actions next to the word, calling the card's
- * own handlers, so the text, the change log and Undo come out the same. Focus moves into it; Escape closes it.
- * Placed and kept on screen by usePopup, like the menus.
+ * own handlers, so the text, the change log and Undo come out the same. Focus moves into it when the keyboard opened
+ * it (takeFocus); Escape closes it. Placed and kept on screen by usePopup, like the menus.
  */
-export function QuickFixPopover({ controller, decision, candidate, at, onClose }: Props) {
+export function QuickFixPopover({ controller, decision, candidate, at, takeFocus, onClose }: Props) {
   const t = useT();
   const anchor = useRef<HTMLDivElement>(null);
   const box = useRef<HTMLDivElement>(null);
   const closeQuietly = useCallback(() => onClose(false), [onClose]);
   const placement = usePopup({ open: true, close: closeQuietly, anchor, menu: box, prefer: 'end' });
+  // Also when Alt+Enter comes after a click opened it on the same word.
   useEffect(() => {
-    box.current?.querySelector('button')?.focus();
-  }, []);
+    if (takeFocus) box.current?.querySelector('button')?.focus();
+  }, [takeFocus]);
 
   const flagOnly = candidate.replacements.length === 0;
   const isWordFlag = WORD_REWRITE_KINDS.has(candidate.kind);
