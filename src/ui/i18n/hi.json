@@ -363,6 +363,12 @@
   "about.back": "सूची पर वापस जाएँ",
 
   "settings.title": "सेटिंग्स",
+  "settings.tabs": "सेटिंग्स के हिस्से",
+  "settings.tabReading": "पढ़ना",
+  "settings.tabChecking": "जाँच",
+  "settings.tabSaving": "सहेजना",
+  "settings.tabModules": "मॉड्यूल",
+  "settings.tabLanguage": "भाषा",
   "settings.variant": "अंग्रेज़ी का डिफ़ॉल्ट प्रकार",
   "settings.saving": "सेव करना",
   "settings.trackedLabel": "ट्रैक किए गए बदलाव: आपके समीक्षक Word में हर बदलाव को स्वीकार या अस्वीकार कर सकते हैं (नहीं तो साफ़ कॉपी)",

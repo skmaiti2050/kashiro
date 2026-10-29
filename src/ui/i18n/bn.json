@@ -363,6 +363,12 @@
   "about.back": "তালিকায় ফিরে যান",
 
   "settings.title": "সেটিংস",
+  "settings.tabs": "সেটিংসের অংশ",
+  "settings.tabReading": "পড়া",
+  "settings.tabChecking": "যাচাই",
+  "settings.tabSaving": "সংরক্ষণ",
+  "settings.tabModules": "মডিউল",
+  "settings.tabLanguage": "ভাষা",
   "settings.variant": "ইংরেজির ডিফল্ট ধরন",
   "settings.saving": "সেভ করা",
   "settings.trackedLabel": "ট্র্যাক করা পরিবর্তন: আপনার রিভিউয়ার Word-এ প্রতিটি পরিবর্তন মেনে নিতে বা বাদ দিতে পারবেন (না হলে পরিষ্কার কপি)",

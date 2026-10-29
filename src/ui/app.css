@@ -1345,6 +1345,41 @@ button.link {
   margin-bottom: 6px;
 }
 
+/* Tabs (Settings): the selected tab is bold with an accent bar under it, not colour alone. */
+.tablist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--control-edge);
+}
+
+.tablist [role='tab'] {
+  border: none;
+  border-bottom: 3px solid transparent;
+  border-radius: 6px 6px 0 0;
+  margin-bottom: -1px;
+  padding: 6px 12px;
+  background: none;
+  color: var(--muted);
+}
+
+.tablist [role='tab']:hover {
+  color: var(--ink);
+}
+
+.tablist [role='tab'][aria-selected='true'] {
+  border-bottom-color: var(--accent);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+@media (forced-colors: active) {
+  .tablist [role='tab'][aria-selected='true'] {
+    border-bottom-color: Highlight;
+  }
+}
+
 /* Word lookup (side by side for a review item) and About's notices */
 .dialog.lookup {
   width: min(760px, 92vw);

@@ -4,7 +4,7 @@ import axe from 'axe-core';
 import { act, fireEvent, screen, within } from '@testing-library/react';
 import { makeController, warmLinter } from './harness';
 import { createTranslator } from '@/ui/i18n/translator';
-import { chooseFromMore, installSpeech, LOCAL_VOICE, openAndWait, renderShell } from './shell';
+import { chooseFromMore, installSpeech, LOCAL_VOICE, openAndWait, renderShell, settingsTab } from './shell';
 
 vi.mock('@tauri-apps/api/window', async () => (await import('./platformMocks')).tauriWindow);
 vi.mock('@/ui/platform/files', async () => (await import('./platformMocks')).platformFiles);
@@ -33,6 +33,7 @@ describe('app language', () => {
       candidates: before.session!.candidates().map((c) => c.id),
     };
     chooseFromMore('Settings');
+    settingsTab('Language');
     fireEvent.change(within(screen.getByRole('dialog')).getByRole('combobox', { name: 'App language' }), { target: { value: 'hi' } });
 
     // The UI language changes nothing about the check: same session, English variant and candidates.
@@ -59,6 +60,7 @@ describe('app language', () => {
     const { container } = renderShell(controller);
     await openAndWait(controller, () => controller.openSample());
     chooseFromMore('Settings');
+    settingsTab('Language');
     fireEvent.change(within(screen.getByRole('dialog')).getByRole('combobox', { name: 'App language' }), { target: { value: 'bn' } });
 
     expect(screen.getByRole('dialog', { name: 'সেটিংস' })).toBeTruthy();

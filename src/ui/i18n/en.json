@@ -362,6 +362,12 @@
   "about.back": "Back to the list",
 
   "settings.title": "Settings",
+  "settings.tabs": "Settings sections",
+  "settings.tabReading": "Reading",
+  "settings.tabChecking": "Checking",
+  "settings.tabSaving": "Saving",
+  "settings.tabModules": "Modules",
+  "settings.tabLanguage": "Language",
   "settings.variant": "Default English variant",
   "settings.saving": "Saving",
   "settings.trackedLabel": "Tracked changes: your reviewer can accept or reject each change in Word (otherwise a clean copy)",

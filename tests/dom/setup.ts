@@ -24,4 +24,8 @@ globalThis.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
   return Promise.resolve(new Response(bytes, { headers: { 'content-type': header[1] } }));
 };
 
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  // Per-viewer memory (the theme's first frame, the last Settings tab) must not leak from one test to the next.
+  localStorage.clear();
+});

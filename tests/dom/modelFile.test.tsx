@@ -7,7 +7,7 @@ import { DEFAULT_MODULES } from '@/engine/modules';
 import { SessionController } from '@/ui/state/sessionController';
 import { defaultSettings } from '@/ui/state/settings';
 import { makeController, noFiles } from './harness';
-import { chooseFromMore, renderShell } from './shell';
+import { chooseFromMore, renderShell, settingsTab } from './shell';
 
 vi.mock('@tauri-apps/api/window', async () => (await import('./platformMocks')).tauriWindow);
 vi.mock('@/ui/platform/files', async () => (await import('./platformMocks')).platformFiles);
@@ -19,6 +19,7 @@ const QWEN = 'ff5c3e9740a5aa53f04fdf3b0b8cc75da556bf8948cdb19d61c512d3a43465d9';
 function openModelFile(settings: Parameters<typeof makeController>[0]) {
   renderShell(makeController(settings).controller);
   chooseFromMore('Settings');
+  settingsTab('Modules');
   return screen.getByRole('group', { name: /Model file/ });
 }
 
@@ -66,6 +67,7 @@ describe('without the AI helper installed (the version without AI, Task 14 fix r
     const c = controller();
     renderShell(c);
     chooseFromMore('Settings');
+    settingsTab('Modules');
     const ai = screen.getByRole('switch', { name: /AI rewrites/ }) as HTMLInputElement;
     expect(ai.disabled).toBe(true);
     expect(ai.checked).toBe(false);

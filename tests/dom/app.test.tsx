@@ -3,7 +3,7 @@ import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { english } from '../ui/english';
 import { makeController, noFiles, warmLinter } from './harness';
-import { chooseFromMore, installSpeech, LOCAL_VOICE, ONLINE_VOICE, openAndWait, renderShell, reviewPanel } from './shell';
+import { chooseFromMore, installSpeech, LOCAL_VOICE, ONLINE_VOICE, openAndWait, renderShell, reviewPanel, settingsTab } from './shell';
 
 vi.mock('@tauri-apps/api/window', async () => (await import('./platformMocks')).tauriWindow);
 vi.mock('@/ui/platform/files', async () => (await import('./platformMocks')).platformFiles);
@@ -165,6 +165,7 @@ describe('keyboard: shortcuts sheet and Settings', () => {
     const { controller } = makeController();
     renderShell(controller);
     chooseFromMore('Settings');
+    settingsTab('Modules');
     expect(screen.getByRole('switch', { name: /Names card/ })).toBeTruthy();
     expect(screen.getByRole('switch', { name: /your spelling of such words is never auto-changed/ })).toBeTruthy();
   });

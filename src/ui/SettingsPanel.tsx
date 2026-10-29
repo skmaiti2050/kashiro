@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { DEFAULT_DEPTH } from '@/engine/depth';
 import { PRESETS } from '@/engine/presets';
 import type { Variant } from '@/engine/types';
@@ -6,6 +7,7 @@ import { Dialog } from './Dialog';
 import { ModulesSettings } from './ModulesSettings';
 import { ReadingSettings } from './ReadingSettings';
 import { SavedReviewsSettings } from './SavedReviewsSettings';
+import { Tabs } from './Tabs';
 import type { ReadAloud } from './useReadAloud';
 import { PRESET_KEYS, VARIANT_KEYS, VARIANTS } from './Toolbar';
 import type { UiLocale } from './i18n/catalogues';
@@ -13,13 +15,45 @@ import { LANGUAGE_NAMES, systemLanguage, UI_LANGUAGES, type UiLanguageSetting } 
 import { useT } from './i18n/useT';
 import { kindLabel } from './state/kindLabels';
 import type { ControllerState, SessionController } from './state/sessionController';
-import { AUTO_APPLY_KINDS } from './state/settings';
+import { AUTO_APPLY_KINDS, type Settings } from './state/settings';
 
 /** The terms card's repeat count (the engine accepts 2–5). */
 const TERM_REPEAT_CHOICES = [2, 3, 4, 5];
 
 /** The pseudo-locale is offered only in development builds (layout testing). */
 const LANGUAGES: UiLocale[] = import.meta.env.DEV ? [...UI_LANGUAGES, 'en-XA'] : UI_LANGUAGES;
+
+/** Settings' tabs (F22 item 6 of the F21 list), one per group of today's sections. */
+const SETTINGS_TABS = ['reading', 'checking', 'saving', 'modules', 'language'] as const;
+type SettingsTab = (typeof SETTINGS_TABS)[number];
+const TAB_KEYS = {
+  reading: 'settings.tabReading',
+  checking: 'settings.tabChecking',
+  saving: 'settings.tabSaving',
+  modules: 'settings.tabModules',
+  language: 'settings.tabLanguage',
+} as const;
+
+/** Where the last tab is remembered: a per-PC convenience, not a setting, so it stays out of the settings file. */
+const TAB_STORAGE_KEY = 'kashiro.settingsTab';
+
+function rememberedTab(): SettingsTab {
+  try {
+    const saved = localStorage.getItem(TAB_STORAGE_KEY);
+    return SETTINGS_TABS.includes(saved as SettingsTab) ? (saved as SettingsTab) : 'reading';
+  } catch {
+    // Storage can be off: Settings then opens on its first tab.
+    return 'reading';
+  }
+}
+
+function rememberTab(tab: SettingsTab): void {
+  try {
+    localStorage.setItem(TAB_STORAGE_KEY, tab);
+  } catch {
+    // Only the next opening's first tab depends on it.
+  }
+}
 
 interface Props {
   controller: SessionController;
@@ -31,17 +65,38 @@ interface Props {
 
 export function SettingsPanel({ controller, state, readAloud, onClose }: Props) {
   const t = useT();
+  const [tab, setTab] = useState<SettingsTab>(rememberedTab);
   const { settings } = state;
-  const setAutoApply = (kind: string, on: boolean) => {
-    const tierOverrides = { ...settings.tierOverrides };
-    if (on) tierOverrides[kind] = 'safe';
-    else delete tierOverrides[kind];
-    controller.changeSettings({ tierOverrides });
+  const choose = (next: SettingsTab) => {
+    setTab(next);
+    rememberTab(next);
   };
-  const windowsLanguage = LANGUAGE_NAMES[systemLanguage(typeof navigator === 'undefined' ? [] : navigator.languages)];
 
   return (
     <Dialog title={t.t('settings.title')} className="settings" onClose={onClose}>
+      <Tabs label={t.t('settings.tabs')} tabs={SETTINGS_TABS.map((id) => ({ id, label: t.t(TAB_KEYS[id]) }))} selected={tab} onSelect={choose}>
+        {tab === 'reading' && <ReadingSettings controller={controller} reading={settings.reading} readAloud={readAloud} />}
+        {tab === 'checking' && <CheckingSettings controller={controller} settings={settings} />}
+        {tab === 'saving' && <SavingSettings controller={controller} settings={settings} />}
+        {tab === 'modules' && (
+          <ModulesSettings controller={controller} settings={settings} checkingModel={state.checkingModel} helperBackend={state.helperBackend} />
+        )}
+        {tab === 'language' && <LanguageSettings controller={controller} settings={settings} />}
+      </Tabs>
+    </Dialog>
+  );
+}
+
+interface SectionProps {
+  controller: SessionController;
+  settings: Settings;
+}
+
+function LanguageSettings({ controller, settings }: SectionProps) {
+  const t = useT();
+  const windowsLanguage = LANGUAGE_NAMES[systemLanguage(typeof navigator === 'undefined' ? [] : navigator.languages)];
+  return (
+    <>
       <label className="field">
         <span>{t.t('language.label')}</span>
         <select value={settings.uiLanguage} onChange={(e) => controller.changeSettings({ uiLanguage: e.target.value as UiLanguageSetting })}>
@@ -55,20 +110,14 @@ export function SettingsPanel({ controller, state, readAloud, onClose }: Props) 
         </select>
       </label>
       <p className="hint">{t.t('language.hint')}</p>
+    </>
+  );
+}
 
-      <ReadingSettings controller={controller} reading={settings.reading} readAloud={readAloud} />
-
-      <label className="field">
-        <span>{t.t('settings.variant')}</span>
-        <select value={settings.fallbackVariant} onChange={(e) => controller.changeSettings({ fallbackVariant: e.target.value as Variant })}>
-          {VARIANTS.map((v) => (
-            <option key={v} value={v}>
-              {t.t(VARIANT_KEYS[v])}
-            </option>
-          ))}
-        </select>
-      </label>
-
+function SavingSettings({ controller, settings }: SectionProps) {
+  const t = useT();
+  return (
+    <>
       <fieldset>
         <legend>{t.t('settings.saving')}</legend>
         <label>
@@ -80,6 +129,31 @@ export function SettingsPanel({ controller, state, readAloud, onClose }: Props) 
           {t.t('settings.overwriteLabel')}
         </label>
       </fieldset>
+      <SavedReviewsSettings controller={controller} settings={settings} />
+    </>
+  );
+}
+
+function CheckingSettings({ controller, settings }: SectionProps) {
+  const t = useT();
+  const setAutoApply = (kind: string, on: boolean) => {
+    const tierOverrides = { ...settings.tierOverrides };
+    if (on) tierOverrides[kind] = 'safe';
+    else delete tierOverrides[kind];
+    controller.changeSettings({ tierOverrides });
+  };
+  return (
+    <>
+      <label className="field">
+        <span>{t.t('settings.variant')}</span>
+        <select value={settings.fallbackVariant} onChange={(e) => controller.changeSettings({ fallbackVariant: e.target.value as Variant })}>
+          {VARIANTS.map((v) => (
+            <option key={v} value={v}>
+              {t.t(VARIANT_KEYS[v])}
+            </option>
+          ))}
+        </select>
+      </label>
 
       <fieldset>
         <legend>{t.t('settings.depth')}</legend>
@@ -110,10 +184,6 @@ export function SettingsPanel({ controller, state, readAloud, onClose }: Props) 
         <p className="hint">{t.t('settings.autoApplyHint')}</p>
       </fieldset>
 
-      <ModulesSettings controller={controller} settings={settings} checkingModel={state.checkingModel} helperBackend={state.helperBackend} />
-
-      <SavedReviewsSettings controller={controller} settings={settings} />
-
       <fieldset>
         <legend>{t.t('settings.ignored', { count: settings.ignoredRules.length })}</legend>
         {settings.ignoredRules.length === 0 && <p className="hint">{t.t('settings.ignoredEmpty')}</p>}
@@ -143,6 +213,6 @@ export function SettingsPanel({ controller, state, readAloud, onClose }: Props) 
           ))}
         </ul>
       </fieldset>
-    </Dialog>
+    </>
   );
 }

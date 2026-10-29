@@ -226,7 +226,10 @@ describe('pseudo-locale (en-XA)', () => {
       renderShell(controller);
       await openAndWait(controller, () => controller.openSample());
       chooseFromMore(name('toolbar.settings'), name('toolbar.more'));
-      await expectTranslatedAndFitting(controller);
+      for (const tab of ['settings.tabReading', 'settings.tabChecking', 'settings.tabSaving', 'settings.tabModules', 'settings.tabLanguage'] as const) {
+        fireEvent.click(screen.getByRole('tab', { name: name(tab) }));
+        await expectTranslatedAndFitting(controller);
+      }
       fireEvent.click(screen.getByRole('button', { name: name('dialog.close') }));
       chooseFromMore(name('toolbar.shortcuts'), name('toolbar.more'));
       await expectTranslatedAndFitting(controller);

@@ -22,6 +22,11 @@ export function chooseFromMore(item: string | RegExp, moreLabel = 'More'): void 
   fireEvent.click(screen.getByRole('menuitem', { name: item }));
 }
 
+/** In the open Settings dialog, chooses the tab named `tab` (F22: Settings in tabs). */
+export function settingsTab(tab: string | RegExp): void {
+  fireEvent.click(screen.getByRole('tab', { name: tab }));
+}
+
 interface FakeVoice {
   voiceURI: string;
   name: string;

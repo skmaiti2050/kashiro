@@ -12,7 +12,7 @@ import { defaultSettings, type Settings } from '@/ui/state/settings';
 import { buildDocx } from '../fixtures/make_docx';
 import { deferred } from './fakeDictionary';
 import { noFiles, warmLinter } from './harness';
-import { openAndWait, renderShell, reviewPanel } from './shell';
+import { openAndWait, renderShell, reviewPanel, settingsTab } from './shell';
 
 vi.mock('@tauri-apps/api/window', async () => (await import('./platformMocks')).tauriWindow);
 vi.mock('@/ui/platform/files', async () => (await import('./platformMocks')).platformFiles);
@@ -499,6 +499,7 @@ describe('Settings', () => {
     const { controller } = aiController(() => null);
     await openText(controller);
     fireEvent.keyDown(document.body, { key: ',', ctrlKey: true });
+    settingsTab('Modules');
     expect(within(screen.getByRole('dialog')).getByText('AI suggestions already shown stay until you decide them, even with AI rewrites off.')).toBeTruthy();
   });
 });
@@ -512,6 +513,7 @@ describe('speed advice', () => {
     expect(within(aiGroup()).getByText(advice)).toBeTruthy();
     await audit('speed advice');
     fireEvent.keyDown(document.body, { key: ',', ctrlKey: true });
+    settingsTab('Modules');
     const dialog = screen.getByRole('dialog');
     expect(within(dialog).getByText(advice)).toBeTruthy();
     expect(within(dialog).getByText('About 7 s per sentence on this PC.')).toBeTruthy();

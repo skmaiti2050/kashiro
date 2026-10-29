@@ -10,7 +10,7 @@ import { deferred, fakeDictionary } from './fakeDictionary';
 import { DEFAULT_READING } from '@/ui/state/readingSettings';
 import { memorySessionFiles } from '../fixtures/memorySessionFiles';
 import { makeController, warmLinter } from './harness';
-import { chooseFromMore, installSpeech, LOCAL_VOICE, openAndWait, renderShell, reviewPanel } from './shell';
+import { chooseFromMore, installSpeech, LOCAL_VOICE, openAndWait, renderShell, reviewPanel, settingsTab } from './shell';
 
 vi.mock('@tauri-apps/api/window', async () => (await import('./platformMocks')).tauriWindow);
 vi.mock('@/ui/platform/files', async () => (await import('./platformMocks')).platformFiles);
@@ -134,7 +134,10 @@ describe('axe-core: no serious or critical violations', () => {
       await audit('review panel with read aloud');
 
       chooseFromMore('Settings');
-      await audit('settings dialog (read aloud available)');
+      for (const tab of ['Reading', 'Checking', 'Saving', 'Modules', 'Language']) {
+        settingsTab(tab);
+        await audit(`settings dialog › ${tab} (read aloud available)`);
+      }
       fireEvent.click(screen.getByRole('button', { name: 'Close' }));
 
       chooseFromMore('Google Docs');
@@ -172,6 +175,7 @@ describe('axe-core: no serious or critical violations', () => {
     await audit('resume prompt');
     fireEvent.click(screen.getByRole('button', { name: 'Start fresh' }));
     chooseFromMore('Settings');
+    settingsTab('Saving');
     fireEvent.click(screen.getByRole('button', { name: 'Delete all saved reviews' }));
     expect(screen.getByRole('alertdialog', { name: 'Delete all saved reviews?' })).toBeTruthy();
     await audit('delete all saved reviews: confirmation');
