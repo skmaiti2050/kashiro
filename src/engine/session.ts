@@ -183,15 +183,28 @@ export class CheckSession {
       foreignSentences: this.ctx.foreignSentences,
       modules: this.modules,
       onCommand: (c) => overlapsLocked(c, this.ctx.commandSpans?.get(c.paraId)),
-      untickedOnCard: (fixes) =>
-        untickedByDefault(fixes, {
+      untickedOnCard: (fixes) => {
+        const unknownWords = this.spellingFlagSpans();
+        return untickedByDefault(fixes, {
           paraText: this.ctx.paraText ?? new Map(),
           optedIn: (c) => this.optedIn.has(c.id),
           commandText: (paraId) => [...(this.ctx.commandSpans?.get(paraId) ?? []), ...(this.ctx.maybeCommandSpans?.get(paraId) ?? [])],
-        }),
+          unknownWords: (paraId) => unknownWords.get(paraId) ?? [],
+        });
+      },
     });
     const topSize = upFrontCount(this.reviewDepth, this.words);
     return { top: decisions.slice(0, topSize), more: [...decisions.slice(topSize), ...blocked] };
+  }
+
+  /**
+   * paraId → the spans of every spelling flag, whatever its status (a word the user rejected or fixed is still no
+   * known word): a line starting with one is never joined to the prose above it (Task F24, clearProse.ts).
+   */
+  private spellingFlagSpans(): Map<number, Span[]> {
+    const out = new Map<number, Span[]>();
+    for (const c of this.cands.values()) if (c.kind === 'Spelling') out.set(c.paraId, [...(out.get(c.paraId) ?? []), c.span]);
+    return out;
   }
 
   get depth(): ReviewDepth {

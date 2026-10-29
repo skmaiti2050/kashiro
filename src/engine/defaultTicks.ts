@@ -22,6 +22,8 @@ export interface TickContext {
   optedIn(c: Candidate): boolean;
   /** The command text of a paragraph, surely and maybe (commands.ts): a sentence touching it is no clear prose. */
   commandText(paraId: number): readonly Span[];
+  /** The words of a paragraph with a spelling flag: a line starting with one isn't joined to the prose above it. */
+  unknownWords(paraId: number): readonly Span[];
 }
 
 /** The ids of `fixes` (the card's members) that start unticked, in card order. */
@@ -35,7 +37,7 @@ function startsTicked(c: Candidate, ctx: TickContext): boolean {
   if (text === undefined || c.replacements.length !== 1 || ctx.optedIn(c) || isLetterPair(c)) return false;
   if (text.slice(c.span.start, c.span.end) !== c.original || !isSlipDoubling(c, text)) return false;
   // Only in a clear prose sentence (Task F21d, owner decision 2026-10-29): elsewhere it may be command text.
-  return isClearProseSentence(text, c.span, ctx.commandText(c.paraId));
+  return isClearProseSentence(text, c.span, { commandText: ctx.commandText(c.paraId), unknownWords: ctx.unknownWords(c.paraId) });
 }
 
 /** The doubled words that are also letters or sounds on a worksheet. */

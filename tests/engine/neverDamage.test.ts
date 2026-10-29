@@ -24,6 +24,8 @@ import { DEFAULT_MODULES } from '@/engine/modules';
 import { PRESETS, type PresetId } from '@/engine/presets';
 import type { Candidate, Tier } from '@/engine/types';
 import { markdownAdapter, plaintextAdapter } from '@/formats/text';
+import { docxAdapter } from '@/formats/docx';
+import { buildDocx } from '../fixtures/make_docx';
 import { AUTO_APPLY_KINDS } from '@/ui/state/settings';
 import { acceptAllRules } from '../../cli/run';
 import { sentenceCount, stressDocument, TICK_TRUTH, type StressParagraph, type TickTruth } from './neverDamageCorpus';
@@ -386,6 +388,17 @@ const TRUTH_RUNS = (Object.keys(PRESETS) as PresetId[]).flatMap((preset) =>
   (['default settings', 'every auto-apply kind on'] as const).map((setting) => ({ preset, setting })),
 );
 
+function formatOf(row: TickTruth): 'plain' | 'markdown' | 'docx' {
+  return row.docx ? 'docx' : row.markdown ? 'markdown' : 'plain';
+}
+
+/** A .docx paragraph holding `row.input`, each "\n" a soft break ("Run this:<w:br/>pnpm add …"). */
+function softBreakParagraph(row: TickTruth): string {
+  const escaped = row.input.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const runs = escaped.split('\n').map((line) => `<w:t xml:space="preserve">${line}</w:t>`);
+  return `<w:p><w:r>${runs.join('<w:br/>')}</w:r></w:p>`;
+}
+
 /** A truth-table fix: "a → an @ 7". */
 const TRUTH_FIX = /^(.*) → (.*) @ (\d+)$/su;
 /** A Markdown table cell's text, between its pipes ("a ,b" in "| a ,b | c |"). */
@@ -419,10 +432,11 @@ describe('the simple-fixes card ticks only what the truth table allows, and no o
   it.each(TRUTH_RUNS)('$preset preset, $setting', async ({ preset, setting }) => {
     const problems: string[] = [];
     const tickedOn = new Map<TickTruth, string[]>();
-    for (const markdown of [false, true]) {
-      const rows = TICK_TRUTH.filter((r) => (r.markdown ?? false) === markdown);
-      const adapter = markdown ? markdownAdapter : plaintextAdapter;
-      const { paras } = await adapter.read(new TextEncoder().encode(rows.map((r) => r.input).join('\n\n') + '\n'));
+    for (const format of ['plain', 'markdown', 'docx'] as const) {
+      const rows = TICK_TRUTH.filter((r) => formatOf(r) === format);
+      const adapter = format === 'markdown' ? markdownAdapter : format === 'docx' ? docxAdapter : plaintextAdapter;
+      const bytes = format === 'docx' ? await buildDocx(rows.map(softBreakParagraph).join('')) : new TextEncoder().encode(rows.map((r) => r.input).join('\n\n') + '\n');
+      const { paras } = await adapter.read(bytes);
       const session = await CheckSession.start(
         paras,
         {

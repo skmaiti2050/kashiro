@@ -30,8 +30,26 @@ const MIN_WORDS = 4;
 const LINE_BREAK = /\r?\n/g;
 /** A Markdown heading line: "## Setup". */
 const HEADING = /^[ \t]*#{1,6}[ \t]/;
-/** A line that starts a block of its own: indented ("    make"), a Markdown heading or a quote ("## ", "> "). */
-const BLOCK_START = /^(?:[ \t]|#{1,6}[ \t]|>)/;
+/**
+ * A line that starts a block of its own: indented ("    make"), a Markdown heading, a quote, a table row or a "$ "
+ * prompt ("## ", "> ", "| One |", "$ make"). A Windows prompt is maybe command text (maybeCommands.ts).
+ */
+const BLOCK_START = /^(?:[ \t]|#{1,6}[ \t]|>|\||\$[ \t])/;
+/** A line that ends with a colon, so the next line is no continuation of its sentence ("Install it with:"). */
+const ENDS_WITH_COLON = /:[ \t]*$/;
+/**
+ * A line's first word, after any opening quotes, brackets or emphasis, when it is a plain word followed by a space,
+ * a closing mark or the line's end ("saw" in "saw the stall", "Who" in "“Who"; none in "./sync", "x=1", "3,912").
+ */
+const FIRST_PLAIN_WORD = /^["'“‘([*_]*(\p{L}+(?:['’-]\p{L}+)*)(?=[\s,.;:!?"'”’)\]*_]|$)/u;
+
+/** Command text and words with a spelling flag in a paragraph: both are signs a line isn't prose. */
+export interface LineSigns {
+  /** Command text, surely and maybe (commands.ts). */
+  commandText: readonly Span[];
+  /** Words Harper flagged as spelling ("pnpm", "xcopy"). */
+  unknownWords: readonly Span[];
+}
 
 /** The sentence of `text` that holds `at`, or null when `at` is in none (between sentences). */
 function sentenceAt(text: string, at: number): Span | null {
@@ -52,24 +70,32 @@ function lineAt(text: string, at: number): string {
 
 /**
  * `text` with each line break that only wraps prose replaced by spaces of the same length, so offsets stay exact
- * (Task F21b E1: hard-wrapped plain text and Markdown, such as an email at 72 columns). A break still ends the
- * sentence before or after a blank line, a heading, a list label, a quote or an indented line, and next to any line
- * that touches command text: that line stays a line of its own.
+ * (Task F21b E1: hard-wrapped plain text and Markdown, such as an email at 72 columns). Joining only lets a doubling
+ * tick, so it needs positive evidence (Task F24, F23 review I-5): the line above has text, no heading and no colon at
+ * its end; the next line starts with a known word (no spelling flag: not "pnpm", "xcopy"), not with a block start
+ * or a list label; and neither line touches command text. Otherwise each line stays a sentence of its own.
  */
-function joinWrappedLines(text: string, commandText: readonly Span[]): string {
-  const touchesCommand = (line: Span) => commandText.some((c) => c.start < line.end && c.end > line.start);
+function joinWrappedLines(text: string, signs: LineSigns): string {
+  const touches = (spans: readonly Span[], part: Span) => spans.some((s) => s.start < part.end && s.end > part.start);
+  const startsWithKnownWord = (line: Span) => {
+    const word = FIRST_PLAIN_WORD.exec(text.slice(line.start, line.end));
+    if (word === null) return false;
+    const start = line.start + word[0].length - word[1].length;
+    return !touches(signs.unknownWords, { start, end: start + word[1].length });
+  };
   return text.replace(LINE_BREAK, (lineBreak: string, at: number) => {
     const before = lineSpanAt(text, at);
     const after = lineSpanAt(text, at + lineBreak.length);
     const [previous, next] = [text.slice(before.start, before.end), text.slice(after.start, after.end)];
     const wraps =
       previous.trim() !== '' &&
-      next.trim() !== '' &&
       !HEADING.test(previous) &&
+      !ENDS_WITH_COLON.test(previous) &&
       !BLOCK_START.test(next) &&
       !LIST_LABEL.test(next) &&
-      !touchesCommand(before) &&
-      !touchesCommand(after);
+      startsWithKnownWord(after) &&
+      !touches(signs.commandText, before) &&
+      !touches(signs.commandText, after);
     return wraps ? ' '.repeat(lineBreak.length) : lineBreak;
   });
 }
@@ -84,11 +110,13 @@ function tellsToRunSomething(sentence: string): boolean {
  * True when the sentence of `text` holding `at` is a clear prose sentence, so a doubling in it may start ticked: it
  * ends with ".", "!" or "?" (and any closing quotes or brackets), starts with a capital or a digit (after any opening
  * quote, bracket or Markdown emphasis), has at least four words, isn't on a line with a list label, doesn't tell
- * the reader to run or type something, and touches no command text, surely or maybe (`commandText`: a weak sign
- * anywhere in the sentence makes it maybe). A sentence hard-wrapped over several lines is read whole (joinWrappedLines).
+ * the reader to run or type something, and touches no command text, surely or maybe (`signs.commandText`: a weak
+ * sign anywhere in the sentence makes it maybe). A sentence hard-wrapped over several lines is read whole
+ * (joinWrappedLines).
  */
-export function isClearProseSentence(text: string, at: Span, commandText: readonly Span[]): boolean {
-  const joined = joinWrappedLines(text, commandText);
+export function isClearProseSentence(text: string, at: Span, signs: LineSigns): boolean {
+  const { commandText } = signs;
+  const joined = joinWrappedLines(text, signs);
   const span = sentenceAt(joined, at.start);
   if (span === null || at.end > span.end) return false;
   const sentence = joined.slice(span.start, span.end);

@@ -322,13 +322,15 @@ const PLANTED = [
  * fails (F6 re-review 5, M-6). No other batch card may tick anything on any input (Task F10).
  * - `ticked`: the closed tick set covers every fix in `mayTick`, so with default settings they all start ticked
  *   (the table can't pass by the card ticking nothing);
- * - `markdown`: the input is read as Markdown (a table cell), otherwise as plain text.
+ * - `markdown`: the input is read as Markdown (a table cell), otherwise as plain text;
+ * - `docx`: the input is read as one .docx paragraph, each "\n" written as a soft break (`<w:br/>`).
  */
 export interface TickTruth {
   input: string;
   mayTick: readonly string[];
   ticked?: boolean;
   markdown?: boolean;
+  docx?: boolean;
 }
 
 export const TICK_TRUTH: readonly TickTruth[] = [
@@ -570,6 +572,28 @@ export const TICK_TRUTH: readonly TickTruth[] = [
   { input: 'Steps to build:\nmake the the build now.', mayTick: [] },
   { input: 'To update it we run\nsudo apt-get the the update.', mayTick: [] },
   { input: 'Then run the build with\nnpm run the the build --watch.', mayTick: [] },
+  // Task F24 (F23 adversarial review I-5, M-38): a line joins the one above only on positive evidence of prose. A
+  // colon ends the line above; a line starting with "|", a list label or a prompt, or with an unknown first word
+  // ("pnpm", "xcopy"), stays a line of its own.
+  { input: 'Install it with:\npnpm add the the lodash.', mayTick: [] },
+  { input: 'Install it with:\npnpm add the the lodash.', mayTick: [], markdown: true },
+  { input: 'Install it with:\npnpm add the the lodash.', mayTick: [], docx: true },
+  { input: 'Run this:\npnpm add the the lodash.', mayTick: [], docx: true },
+  { input: 'Steps\npnpm add the the lodash.', mayTick: [], docx: true },
+  { input: 'We install the dependencies with this\npnpm add the the lodash.', mayTick: [] },
+  { input: 'Then we ran the tests with\ngradle test the the build.', mayTick: [] },
+  { input: 'Our build command is\nmvn the the package.', mayTick: [] },
+  { input: 'Copy the folder with\nxcopy the the /E.', mayTick: [] },
+  { input: 'Then copy the files across using\nrobocopy the the /MIR.', mayTick: [] },
+  { input: 'The list of packages:\nlodash the the react.', mayTick: [] },
+  { input: 'The table follows\n| One | the the mat. |', mayTick: [] },
+  { input: 'The table follows\n| One | the the mat. |', mayTick: [], markdown: true },
+  { input: 'Start the shell and type\n$ make the the build.', mayTick: [] },
+  // Not here: an unlisted program that is also an English word ("bun add the the lodash.", "awk the the file.",
+  // "name the the app") still joins, as Harper knows the word (the F21c I-3 residue, Task F24 report).
+  // The F23 review's wrapped email still ticks: a colon ends "wrote:", and "the" is a known word.
+  { input: 'On Monday Rahul wrote:\nWe met on Monday and\nthe the plan changed, i think.', mayTick: ['the the → the @ 44'], ticked: true },
+  { input: 'We went to the market early and\nsaw the the cardamom stall.', mayTick: ['the the → the @ 36'], ticked: true, docx: true },
 ];
 
 /** Invisible characters sprinkled at random between ASCII characters. */

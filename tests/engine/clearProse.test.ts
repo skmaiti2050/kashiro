@@ -7,11 +7,18 @@ import { describe, it, expect } from 'vitest';
 import { isClearProseSentence } from '@/engine/clearProse';
 import type { Span } from '@/engine/types';
 
-/** isClearProseSentence for the first `word word` doubling in `text`, with `command` (a part of `text`) as command text. */
-function clear(text: string, doubling = 'the the', command?: string): boolean {
-  const start = text.indexOf(doubling);
-  const commandText: Span[] = command === undefined ? [] : [{ start: text.indexOf(command), end: text.indexOf(command) + command.length }];
-  return isClearProseSentence(text, { start, end: start + doubling.length }, commandText);
+/** The span of the first `part` in `text`. */
+function spanOf(text: string, part: string): Span {
+  return { start: text.indexOf(part), end: text.indexOf(part) + part.length };
+}
+
+/**
+ * isClearProseSentence for the first `word word` doubling in `text`, with `command` (a part of `text`) as command
+ * text and `unknown` (words of `text`) as the words with a spelling flag.
+ */
+function clear(text: string, doubling = 'the the', command?: string, unknown: readonly string[] = []): boolean {
+  const commandText: Span[] = command === undefined ? [] : [spanOf(text, command)];
+  return isClearProseSentence(text, spanOf(text, doubling), { commandText, unknownWords: unknown.map((w) => spanOf(text, w)) });
 }
 
 describe('isClearProseSentence (Task F21d)', () => {
@@ -68,6 +75,28 @@ describe('isClearProseSentence (Task F21d)', () => {
     ['a wrapped line with no end mark', 'We went to the market and\nsaw the the stall'],
   ])('not clear across a break: %s', (_name, text) => {
     expect(clear(text)).toBe(false);
+  });
+
+  // Task F24 (F23 adversarial review I-5, M-38): a join needs positive evidence that the next line is prose.
+  it.each([
+    ['a colon ends the line above', 'Install it with:\nthe the lodash is here.'],
+    ['a line starting with a pipe', 'The table follows\n| One | the the mat. |'],
+    ['a "$ " prompt', 'Start the shell and type\n$ the the build.'],
+    ['a first word that starts with no letter', 'We copied it with\n./sync the the files.'],
+    ['a first word that is no plain word', 'We copied it with\nx=sync the the files.'],
+  ])('not joined: %s', (_name, text) => {
+    expect(clear(text)).toBe(false);
+  });
+
+  it('not joined when the next line starts with a word that has a spelling flag ("pnpm", "xcopy")', () => {
+    expect(clear('We install the dependencies with this\npnpm add the the lodash.', 'the the', undefined, ['pnpm'])).toBe(false);
+    expect(clear('Copy the folder with\nxcopy the the /E.', 'the the', undefined, ['xcopy'])).toBe(false);
+    // A flag on a later word of the line doesn't stop the join: only the first word tells a command line.
+    expect(clear('We went to the market early and\nsaw the the cardamom stal.', 'the the', undefined, ['stal'])).toBe(true);
+  });
+
+  it('a wrapped email after a "wrote:" line still joins', () => {
+    expect(clear('On Monday Rahul wrote:\nWe met on Monday and\nthe the plan changed, i think.')).toBe(true);
   });
 
   it('a line of command text is never joined to the prose next to it', () => {
