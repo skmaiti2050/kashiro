@@ -138,6 +138,45 @@ describe('TECH_WORDS list', () => {
   });
 });
 
+describe('TECHNICAL_WORDS list (Task F21 item F: command and cloud words, "su → so")', () => {
+  it('is a plain sorted list of at most 200 unique lowercase words, none already in TECH_WORDS', async () => {
+    const { TECHNICAL_WORDS } = await import('@/engine/wordlists/technical');
+    const { TECH_WORDS } = await import('@/engine/wordlists/tech');
+    expect(TECHNICAL_WORDS.length).toBeLessThanOrEqual(200);
+    expect(new Set(TECHNICAL_WORDS).size).toBe(TECHNICAL_WORDS.length);
+    expect([...TECHNICAL_WORDS].sort()).toEqual(TECHNICAL_WORDS);
+    for (const w of TECHNICAL_WORDS) expect(w).toMatch(/^\p{Ll}[\p{Ll}\p{N}]*$/u);
+    expect(TECHNICAL_WORDS.filter((w) => TECH_WORDS.includes(w))).toEqual([]);
+  });
+
+  it('each entry is one Harper flags as a misspelling on its own', async () => {
+    const { TECHNICAL_WORDS } = await import('@/engine/wordlists/technical');
+    const { LocalLinter, Dialect } = await import('harper.js');
+    const { binaryInlined } = await import('harper.js/binaryInlined');
+    const harper = new LocalLinter({ binary: binaryInlined, dialect: Dialect.Indian });
+    await harper.setup();
+    const unflagged: string[] = [];
+    for (const word of TECHNICAL_WORDS) {
+      const lints = await harper.lint(`We use ${word} here.`, { language: 'plaintext' });
+      const kinds = lints.map((l) => {
+        const kind = l.lint_kind();
+        l.free();
+        return kind;
+      });
+      if (!kinds.some((k) => k === 'Spelling' || k === 'Typo')) unflagged.push(word);
+    }
+    expect(unflagged).toEqual([]);
+  });
+
+  it.each(['Indian', 'American', 'British'] as const)('none is flagged once loaded (%s): "su → so" is gone', async (variant) => {
+    const { TECHNICAL_WORDS } = await import('@/engine/wordlists/technical');
+    const l = await createLinter(variant);
+    const text = TECHNICAL_WORDS.map((w) => `We use ${w} here.`).join(' ') + ' Scripts use sudo su ubuntu to switch user.';
+    const c = await l.lintParagraphs([para(text)], 'plaintext');
+    expect(c.filter((x) => x.kind === 'Spelling' || x.kind === 'Typo').map((x) => x.original)).toEqual([]);
+  });
+});
+
 describe('EN_IN_WORDS list', () => {
   it('is a plain sorted list of 600-800 unique lowercase words', async () => {
     const { EN_IN_WORDS } = await import('@/engine/wordlists/en-IN');

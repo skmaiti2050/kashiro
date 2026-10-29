@@ -242,8 +242,9 @@ describe('commands in a runbook are never formatted, punctuated or capitalised (
     const card = [...s.decisions().top, ...s.decisions().more].find((d) => d.id === SIMPLE_FIXES_ID);
     const onCard = new Set(card?.candidateIds ?? []);
     const onCommands = s.candidates().filter((c) => onCommand(c.paraId, c.span));
-    const nginx = onCommands.find((c) => c.original === 'nginx');
-    expect(nginx && s.tier(nginx.id)).toBe('review');
+    // "nginx" was the word here until it joined the technical words (Task F21 item F).
+    const jq = onCommands.find((c) => c.original === 'jq');
+    expect(jq && s.tier(jq.id)).toBe('review');
     expect(onCommands.filter((c) => onCard.has(c.id)).map((c) => c.original)).toEqual([]);
   });
 
@@ -265,7 +266,8 @@ describe('commands in a runbook are never formatted, punctuated or capitalised (
       const { top, more } = s.decisions();
       const batched = [...top, ...more].filter((d) => d.kind === 'batch').flatMap((d) => d.candidateIds.map((id) => `${d.label}: ${byId.get(id)!.original}`));
       expect(batched).toEqual([]);
-      const caseOnly = s.candidates().filter((c) => c.replacements.some((r) => r !== c.original && r.toLowerCase() === c.original.toLowerCase()));
+      const offered = new Set([...top, ...more].flatMap((d) => d.candidateIds));
+      const caseOnly = s.candidates().filter((c) => offered.has(c.id) && c.replacements.some((r) => r !== c.original && r.toLowerCase() === c.original.toLowerCase()));
       expect(caseOnly.map((c) => `${c.original} → ${c.replacements.join(' / ')}`)).toEqual([]);
       applyEveryBatch(s, true);
       expect(paras.map((p) => s.outputText(p.id))).toEqual(lines);
