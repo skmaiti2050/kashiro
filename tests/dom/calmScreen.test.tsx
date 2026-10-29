@@ -150,6 +150,10 @@ describe('done state', () => {
     expect(controller.getState().session!.uncheckedParagraphs()).toEqual([1]);
     expect(within(reviewPanel()).getByText('All clear: 1 fix applied, nothing left to decide.')).toBeTruthy();
     expect(within(reviewPanel()).getByText('One paragraph couldn’t be checked and was left as written.')).toBeTruthy();
+    // Task F21b E2: the screen-reader announcement says so too.
+    expect(english(controller.getState().announcement!.message)).toBe(
+      'Check finished: nothing to decide. One paragraph couldn’t be checked and was left as written.',
+    );
   });
 
   it('a mostly English document with a Hindi paragraph is all clear, with the same notice under it', async () => {

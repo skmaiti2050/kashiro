@@ -224,6 +224,7 @@
   "announce.checking": "Checking document…",
   "announce.checked": "Check finished: {count, plural, =0 {nothing to decide} one {# suggestion to decide} other {# suggestions to decide}}.",
   "announce.checkedEnglishOnly": "Check finished: {count, plural, =0 {nothing to decide} one {# suggestion to decide} other {# suggestions to decide}}. This document has text in a language Kashiro can't check yet. Only English text was checked.",
+  "announce.withNote": "{announcement} {note}",
   "verb.accepted": "Accepted",
   "verb.rejected": "Rejected",
   "verb.ignored": "Ignored",

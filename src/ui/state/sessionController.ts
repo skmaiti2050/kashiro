@@ -10,7 +10,7 @@ import type { Variant } from '@/engine/types';
 import { uncheckedText } from '@/engine/uncheckedScripts';
 import { adapterFor as registryAdapterFor } from '@/formats/registry';
 import type { FormatAdapter } from '@/formats/types';
-import { afterAction } from './announce';
+import { afterAction, withNotChecked } from './announce';
 import type { MessageKey } from '../i18n/catalogues';
 import { msg, type Message } from '../i18n/message';
 import { UnreadableFileError } from '@/formats/fileProblems';
@@ -404,7 +404,8 @@ export class SessionController {
       // A new document's result is announced; a re-check while typing stays quiet.
       // Hindi or Bengali text was skipped: never let "nothing to decide" read as an all-clear for it.
       const checked = uncheckedText(loaded.paras).paragraphs > 0 ? 'announce.checkedEnglishOnly' : 'announce.checked';
-      const announcement = before ? {} : { announcement: { message: msg(checked, { count: session.rankedDecisionCount() }), seq: ++this.announcements } };
+      const finished = withNotChecked(msg(checked, { count: session.rankedDecisionCount() }), session.uncheckedParagraphs().length);
+      const announcement = before ? {} : { announcement: { message: finished, seq: ++this.announcements } };
       // "Nothing can be saved until the text is checked" (or a save refused for it) is no longer true.
       const error = this.state.error;
       const outdated = error !== null && (error === this.checkFailure || error.key === 'error.saveNotChecked');

@@ -13,6 +13,15 @@ export function cardLabel(t: Translator, decision: Decision, candidates: Map<str
   return t.t('speech.card', { position, left, speech: suggestionSpeech(t, decision, candidates) });
 }
 
+/**
+ * The check-finished announcement with the "couldn't be checked" note after it when the checker skipped paragraphs
+ * (Task F21b E2): the panel shows that note, so a screen-reader user hears it too.
+ */
+export function withNotChecked(finished: Message, notChecked: number): Message {
+  if (notChecked === 0) return finished;
+  return msg('announce.withNote', { announcement: finished, note: msg('panel.notChecked', { count: notChecked }) });
+}
+
 /** The polite announcement after a decision: "Accepted. 4 of 9 left." or "Rejected. All reviewed." */
 export function afterAction(verb: Message, progress: ReviewProgress): Message {
   if (progress.left === 0) return msg('announce.afterAll', { verb });
