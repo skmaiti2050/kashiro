@@ -203,5 +203,8 @@ function chooseLabel(t: Translator, first: Candidate, replacement: string): stri
 
 /** A fix as a button names it: "“receive”", or "delete" for an empty replacement. */
 function fixName(t: Translator, replacement: string): string {
-  return replacement === '' ? t.t('card.deleteWord') : t.t('quote', { text: excerpt(replacement).text });
+  if (replacement === '') return t.t('card.deleteWord');
+  // The label names the word, not the spaces the insertion carries around it (Task F21b item 1): Use “the”.
+  const word = replacement.trim() === '' ? replacement : replacement.trim();
+  return t.t('quote', { text: excerpt(word).text });
 }

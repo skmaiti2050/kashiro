@@ -23,13 +23,13 @@ const decision: Decision = { id: 'c1', kind: 'single', candidateIds: ['c1'], lab
 /** These cards are rendered alone: no check runs, so the session is only compared by identity. */
 const NO_SESSION = {} as CheckSession;
 
-function renderCard(language: 'en' | 'hi' | 'bn') {
+function renderCard(language: 'en' | 'hi' | 'bn', candidate: Candidate = repeated) {
   render(
     <TranslatorProvider translator={createTranslator(language, ['en-IN'])}>
       <DecisionCard
         controller={{} as SessionController}
         decision={decision}
-        candidates={new Map([['c1', repeated]])}
+        candidates={new Map([['c1', candidate]])}
         paraText={new Map([[0, PARA]])}
         touchesLocked={false}
         session={NO_SESSION}
@@ -190,5 +190,15 @@ describe('DecisionCard: a choice that deletes the text (Task F2)', () => {
     renderCard(language);
     const names = screen.getAllByRole('button').map((b) => b.textContent ?? '');
     expect(names.some((name) => name.startsWith(label))).toBe(true);
+  });
+});
+
+describe('DecisionCard: a choice with spaces around the word (Task F21b item 1)', () => {
+  it('the button label shows the word without its surrounding spaces: Use “the”', () => {
+    const spaced: Candidate = { ...repeated, span: { start: 6, end: 15 }, original: ' the the ', replacements: [' the ', ' a '] };
+    renderCard('en', spaced);
+    // The first choice also shows its shortcut hint, "Enter".
+    const names = screen.getAllByRole('button').map((b) => (b.textContent ?? '').replace(/Enter$/, ''));
+    expect(names.filter((name) => name.startsWith('Use'))).toEqual(['Use “the”', 'Use “a”']);
   });
 });
