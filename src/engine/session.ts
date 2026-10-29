@@ -74,6 +74,8 @@ export class CheckSession {
   private readonly optedIn = new Set<string>();
   /** One-line paragraphs lined up with their neighbours (findAlignedParagraphs): their spaces are layout. */
   private readonly alignedParas: Set<number>;
+  /** Paragraphs the linter threw on, so their rules weren't checked (Task F21d, review I-4). */
+  private unchecked: readonly number[] = [];
 
   private constructor(
     paras: Paragraph[],
@@ -119,10 +121,11 @@ export class CheckSession {
   static async start(paras: Paragraph[], opts: CheckOptions, deps: SessionDeps = {}): Promise<CheckSession> {
     const termMinRepeats = opts.termMinRepeats ?? DEFAULT_TERM_MIN_REPEATS;
     checkTermMinRepeats(termMinRepeats);
-    const { linter, variant, mixedVariant, variantFromFallback, ctx, found } = await prepareCheck(paras, opts, deps);
+    const { linter, variant, mixedVariant, variantFromFallback, ctx, found, uncheckedParagraphs } = await prepareCheck(paras, opts, deps);
     const now = deps.now ?? (() => new Date());
     const depth = opts.depth ?? DEFAULT_DEPTH;
     const session = new CheckSession(paras, variant, mixedVariant, variantFromFallback, ctx, now, linter, depth, termMinRepeats);
+    session.unchecked = uncheckedParagraphs;
     session.addCandidates(found);
     session.autoApply();
     session.holdBackChangedTokens();
@@ -138,6 +141,11 @@ export class CheckSession {
   /** The paragraphs as given to start(), in document order. */
   paragraphs(): Paragraph[] {
     return [...this.paras.values()].map((p) => ({ ...p }));
+  }
+
+  /** The ids of the paragraphs the rules couldn't check (the linter threw on them), in document order. */
+  uncheckedParagraphs(): number[] {
+    return [...this.unchecked];
   }
 
   /** True once addRewrite recorded this sentence, whatever the helper answered. */

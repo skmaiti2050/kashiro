@@ -134,6 +134,9 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
   const unchecked = uncheckedText(session.paragraphs());
   const englishOnly = unchecked.paragraphs > 0 ? t.t('panel.englishOnly') : null;
   const doneLine = unchecked.mostly ? englishOnly : t.t('panel.allClear', { count: fixesApplied });
+  /** Paragraphs the linter threw on (Task F21d, review I-4): left as written, and said so. */
+  const failed = session.uncheckedParagraphs().length;
+  const notChecked = failed > 0 ? t.t('panel.notChecked', { count: failed }) : null;
   const pick = (d: Decision) => {
     setCursor((c) => cursorAt(top, d.id, c));
     setReveal((r) => ({ seq: r.seq + 1, focus: true }));
@@ -173,6 +176,7 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
           </>
         )}
         {englishOnly && doneLine !== englishOnly && <p className="hint english-only">{englishOnly}</p>}
+        {notChecked && <p className="hint english-only">{notChecked}</p>}
       </header>
 
       <div ref={cardSlot} className="card-slot" role="group" tabIndex={-1} aria-label={slotLabel}>

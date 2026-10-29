@@ -94,6 +94,7 @@
   "panel.keyNextPrevious": "next / previous",
   "panel.allClear": "{count, plural, =0 {All clear: nothing to fix, nothing left to decide.} one {All clear: # fix applied, nothing left to decide.} other {All clear: # fixes applied, nothing left to decide.}}",
   "panel.englishOnly": "This document has text in a language Kashiro can't check yet. Only English text was checked.",
+  "panel.notChecked": "{count, plural, one {One paragraph couldn’t be checked and was left as written.} other {# paragraphs couldn’t be checked and were left as written.}}",
   "panel.seeLog": "See the change log",
 
   "progress.left": "{left, number} of {total, number} left · ~{minutes, number} min",

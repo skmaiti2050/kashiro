@@ -7,9 +7,12 @@ import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { EditorView } from '@codemirror/view';
 import { DEFAULT_MODULES } from '@/engine/modules';
 import { fakeDictionary } from './fakeDictionary';
-import { makeController, warmLinter } from './harness';
+import { makeController, noFiles, warmLinter } from './harness';
 import { chooseFromMore, openAndWait, renderShell, reviewPanel } from './shell';
 import { english } from '../ui/english';
+import { createLinter, type RulesLinter } from '@/engine/linter';
+import { SessionController } from '@/ui/state/sessionController';
+import { defaultSettings } from '@/ui/state/settings';
 
 vi.mock('@tauri-apps/api/window', async () => (await import('./platformMocks')).tauriWindow);
 vi.mock('@/ui/platform/files', async () => (await import('./platformMocks')).platformFiles);
@@ -120,6 +123,33 @@ describe('done state', () => {
     expect(within(reviewPanel()).getByRole('heading', { name: UNCHECKED })).toBeTruthy();
     expect(within(reviewPanel()).queryByText(/All clear/)).toBeNull();
     expect(english(controller.getState().announcement!.message)).toBe(`Check finished: nothing to decide. ${UNCHECKED}`);
+  });
+
+  it('a paragraph the checker threw on is named in a notice, and the rest is checked (Task F21d, review I-4)', async () => {
+    /** The real linter, except that it throws (as Harper does when it panics) on a paragraph holding "BOOM". */
+    const throwing = (l: RulesLinter): RulesLinter => ({
+      get variant() {
+        return l.variant;
+      },
+      lintParagraphs: async (paras, language) => {
+        if (paras.some((p) => p.text.includes('BOOM'))) throw new Error('RuntimeError: unreachable');
+        return l.lintParagraphs(paras, language);
+      },
+      lintSpelling: (paras, variant) => l.lintSpelling(paras, variant),
+      addWords: (w) => l.addWords(w),
+      setVariant: (v) => l.setVariant(v),
+    });
+    const controller = new SessionController({
+      files: noFiles,
+      createLinter: async (variant, words) => throwing(await createLinter(variant, words)),
+      saveSettings: async () => {},
+      settings: { ...defaultSettings('en-US'), preset: 'academic' },
+    });
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText('I think the  cat sat on the mat.\n\nBOOM went the paragraph.'));
+    expect(controller.getState().session!.uncheckedParagraphs()).toEqual([1]);
+    expect(within(reviewPanel()).getByText('All clear: 1 fix applied, nothing left to decide.')).toBeTruthy();
+    expect(within(reviewPanel()).getByText('One paragraph couldn’t be checked and was left as written.')).toBeTruthy();
   });
 
   it('a mostly English document with a Hindi paragraph is all clear, with the same notice under it', async () => {

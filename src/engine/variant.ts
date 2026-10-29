@@ -30,7 +30,8 @@ export async function detectVariant(
   const counts = new Map<Variant, number>();
   for (const v of ORDER) {
     // A long text is read a chunk at a time, with `pause` between (lintInChunks, Task F20 item 6).
-    const cands = await lintInChunks(paras, (chunk) => linter.lintSpelling(chunk, v), opts.pause);
+    // A paragraph the linter throws on only leaves out its words here; the main pass reports it as unchecked.
+    const cands = await lintInChunks(paras, (chunk) => linter.lintSpelling(chunk, v), () => {}, opts.pause);
     const spelling = cands.filter((c) => c.kind === 'Spelling');
     counts.set(v, spelling.length);
     flagged.set(v, new Set(spelling.map((c) => c.original.toLowerCase())));

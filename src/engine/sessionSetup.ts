@@ -51,7 +51,16 @@ export async function prepareCheck(
   paras: Paragraph[],
   opts: CheckOptions,
   deps: SessionDeps,
-): Promise<{ linter: RulesLinter; variant: Variant; mixedVariant: boolean; variantFromFallback: boolean; ctx: TierContext; found: Candidate[] }> {
+): Promise<{
+  linter: RulesLinter;
+  variant: Variant;
+  mixedVariant: boolean;
+  variantFromFallback: boolean;
+  ctx: TierContext;
+  found: Candidate[];
+  /** Paragraph ids the linter threw on (lintInChunks). */
+  uncheckedParagraphs: number[];
+}> {
   const linter = deps.linter ?? (await createLinter(opts.variant ?? opts.fallbackVariant, opts.dictionary));
   if (deps.linter && opts.dictionary.length) await syncDictionary(linter, opts.dictionary);
 
@@ -78,7 +87,9 @@ export async function prepareCheck(
   const modules = resolveModules(opts.modules);
 
   const kept = new Map(paras.map((p) => [p.id, invisible.get(p.id)!.filter((c) => c.replacements.length === 0).map((c) => c.span.start)]));
-  const linted: Candidate[] = (await lintInChunks(asSeen, (chunk) => linter.lintParagraphs(chunk, opts.language), deps.pause))
+  const uncheckedParagraphs: number[] = [];
+  const lint = (chunk: Paragraph[]) => linter.lintParagraphs(chunk, opts.language);
+  const linted: Candidate[] = (await lintInChunks(asSeen, lint, (p) => uncheckedParagraphs.push(p.id), deps.pause))
     .map((c) => inParagraph(c, visible.get(c.paraId)!, paraText.get(c.paraId)!))
     .map((c) =>
       modules.betterSuggestions ? improveSuggestions(c, paraText.get(c.paraId), locked.get(c.paraId)) : withoutOffensiveSuggestions(c),
@@ -116,5 +127,5 @@ export async function prepareCheck(
     romanisedSentences,
     listParagraphs: new Set(paras.filter((p) => p.listItem).map((p) => p.id)),
   };
-  return { linter, variant, mixedVariant: mixed, variantFromFallback: fromFallback, ctx, found };
+  return { linter, variant, mixedVariant: mixed, variantFromFallback: fromFallback, ctx, found, uncheckedParagraphs };
 }
