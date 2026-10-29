@@ -79,7 +79,14 @@
  * past half the workspace: on a 2,000 px window its cards no longer wrap at 380 px (F20 item 4).
  */
 .workspace {
-  grid-template-columns: minmax(0, 1fr) clamp(300px, calc(clamp(380px, 26vw, 520px) * var(--ui-zoom, 1)), 50%);
+  grid-template-columns: minmax(0, 1fr) auto var(--panel-width, clamp(300px, calc(clamp(380px, 26vw, 520px) * var(--ui-zoom, 1)), 50%));
+}
+
+/* The divider's column holds it; once moved, --panel-width is the user's width (F23 item 3). Folded: a thin strip. */
+@media (min-width: 721px) {
+  .workspace[data-panel='collapsed'] {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
 }
 
 .toolbar {
@@ -99,6 +106,11 @@
   .workspace {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(50vh, auto) auto;
+  }
+
+  /* Stacked: the panel takes the full width under the text, so there is nothing to resize. */
+  .panel-divider {
+    display: none;
   }
 
   .review {

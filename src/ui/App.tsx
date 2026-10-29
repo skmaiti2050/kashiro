@@ -15,7 +15,9 @@ import { StatusBar } from './StatusBar';
 import { Toolbar } from './Toolbar';
 import { UndoToast } from './UndoToast';
 import { UnsavedChangesDialog } from './UnsavedChangesDialog';
+import { PanelDivider } from './PanelDivider';
 import { useAppShortcuts } from './useKeys';
+import { usePanelSplit } from './usePanelSplit';
 import { useReadAloud } from './useReadAloud';
 import { useWordLookup } from './useWordLookup';
 import { useShowWindowWhenDrawn } from './useShowWindowWhenDrawn';
@@ -127,6 +129,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
   const [cardRequest, setCardRequest] = useState<CardRequest | null>(null);
   /** What to do once the user has answered "Save, Discard, or Cancel?". */
   const [afterUnsaved, setAfterUnsaved] = useState<(() => void) | null>(null);
+  const split = usePanelSplit();
 
   /** Runs `action` now, or after the unsaved-changes dialog when it would drop unsaved work. */
   const unlessUnsaved = useCallback(
@@ -248,7 +251,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
           {lookupState?.announcement && <span key={lookupState.announcement.seq}>{t.format(lookupState.announcement.message)}</span>}
         </p>
       </header>
-      <main className="workspace">
+      <main className="workspace" data-panel={split.collapsed ? 'collapsed' : 'open'} style={split.style}>
         <DocumentView
           controller={controller}
           state={state}
@@ -266,22 +269,34 @@ function ShellView({ controller, state }: { controller: SessionController; state
           improveAtCaret={improveAtCaret}
           lookUpAtCaret={lookUpAtCaret}
         />
-        <ReviewPanel
-          key={state.document?.id ?? 0}
-          controller={controller}
-          state={state}
-          onLocate={(candidate) => setFocus((f) => ({ candidate, seq: (f?.seq ?? 0) + 1 }))}
-          request={cardRequest}
-          keysEnabled={!dialogOpen}
-          onShowLog={() => {
-            setLogOpen(true);
-            setLogReveals((n) => n + 1);
-          }}
-          onSave={() => void controller.save()}
-          readAloud={readAloud}
-          readCaret={() => caretReader.current()}
-          onLookUp={lookUpOn ? (words) => void lookup.open(words) : undefined}
-        />
+        {split.collapsed ? (
+          <div className="review-strip">
+            <button className="quiet" aria-label={t.t('split.show')} title={t.t('split.show')} onClick={() => split.setCollapsed(false)}>
+              <span aria-hidden="true">‹</span>
+            </button>
+          </div>
+        ) : (
+          <>
+            <PanelDivider width={split.width} onResize={split.resize} />
+            <ReviewPanel
+              key={state.document?.id ?? 0}
+              controller={controller}
+              state={state}
+              onLocate={(candidate) => setFocus((f) => ({ candidate, seq: (f?.seq ?? 0) + 1 }))}
+              request={cardRequest}
+              keysEnabled={!dialogOpen}
+              onShowLog={() => {
+                setLogOpen(true);
+                setLogReveals((n) => n + 1);
+              }}
+              onSave={() => void controller.save()}
+              readAloud={readAloud}
+              readCaret={() => caretReader.current()}
+              onLookUp={lookUpOn ? (words) => void lookup.open(words) : undefined}
+              onCollapse={() => split.setCollapsed(true)}
+            />
+          </>
+        )}
       </main>
       <StatusBar state={state} />
       <ChangeLog controller={controller} state={state} open={logOpen} onToggle={() => setLogOpen((v) => !v)} reveals={logReveals} />

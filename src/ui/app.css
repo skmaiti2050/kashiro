@@ -818,6 +818,52 @@ legend {
   scroll-padding-block: 16px;
 }
 
+/*
+ * The divider between the document and the panel (F23 item 3): a thin line in an 8 px handle that the pointer drags
+ * and the keyboard moves. The panel's own edge gives way to it.
+ */
+.panel-divider {
+  width: 8px;
+  cursor: col-resize;
+  touch-action: none;
+  background: linear-gradient(to right, transparent 3px, var(--line) 3px, var(--line) 5px, transparent 5px);
+}
+
+.panel-divider:hover {
+  background: linear-gradient(to right, transparent 2px, var(--control-edge) 2px, var(--control-edge) 6px, transparent 6px);
+}
+
+.panel-divider + .review {
+  border-inline-start: none;
+}
+
+/* "Hide the review panel" at the top of the panel, and the strip with "Show the review panel" when it is folded. */
+.panel-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.panel-top .category-filters {
+  flex: 1;
+}
+
+.panel-collapse {
+  margin-inline-start: auto;
+}
+
+.review-strip {
+  border-inline-start: 1px solid var(--line);
+  background: var(--panel);
+  padding: 12px 4px;
+}
+
+[dir='rtl'] .panel-collapse span,
+[dir='rtl'] .review-strip span {
+  display: inline-block;
+  transform: scaleX(-1);
+}
+
 /* Progress header (Body Large 18/24): "4 of 9 left · ~1 min", never a score. */
 .review header h2 {
   margin: 0 0 6px;

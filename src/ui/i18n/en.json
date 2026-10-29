@@ -618,5 +618,8 @@
   "ai.noCaret": "Click in a sentence first, then choose “Improve this sentence”.",
   "ai.waitForCheck": "Wait for the check to catch up with your typing, then try again.",
   "shortcuts.improve": "Improve the sentence at the cursor (AI helper)",
-  "filter.label": "Filter by category"
+  "filter.label": "Filter by category",
+  "split.resize": "Resize the review panel",
+  "split.hide": "Hide the review panel",
+  "split.show": "Show the review panel"
 }

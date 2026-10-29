@@ -55,13 +55,14 @@ interface Props {
   readCaret(): CaretText | null;
   /** "Look up" on a card; absent while word lookup is off. */
   onLookUp?: (words: string[]) => void;
+  /** Folds the panel to a strip (F23 item 3); absent hides the button. */
+  onCollapse?: () => void;
 }
-
 
 const reduceMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 
 /** The review queue: a progress header, one card at a time (Enter / Backspace / J / K), the rest under "More (N)". */
-export function ReviewPanel({ controller, state, onLocate, request, keysEnabled, onShowLog, onSave, readAloud, readCaret, onLookUp }: Props) {
+export function ReviewPanel({ controller, state, onLocate, request, keysEnabled, onShowLog, onSave, readAloud, readCaret, onLookUp, onCollapse }: Props) {
   const t = useT();
   const [cursor, setCursor] = useState(START);
   /**
@@ -125,9 +126,16 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
     cardSlot.current?.querySelector<HTMLButtonElement>(`[data-key~="${action}"]`)?.click();
   });
 
+  const collapseButton = onCollapse && (
+    <button className="quiet panel-collapse" aria-label={t.t('split.hide')} title={t.t('split.hide')} onClick={onCollapse}>
+      <span aria-hidden="true">›</span>
+    </button>
+  );
+
   if (!session) {
     return (
       <aside className="review">
+        <div className="panel-top">{collapseButton}</div>
         <p className="hint">{state.opening ? t.t('panel.opening') : state.phase === 'checking' ? t.t('panel.checking') : t.t('panel.emptyHint')}</p>
       </aside>
     );
@@ -172,14 +180,17 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
     // tabIndex -1: a click on the panel's background keeps focus in the panel, so the review keys work.
     <aside className="review" aria-label={t.t('panel.label')} tabIndex={-1}>
       <header>
-        <CategoryFilters
-          counts={counts}
-          active={active}
-          onToggle={(category) => {
-            setFilter(active === category ? null : category);
-            setCursor(START);
-          }}
-        />
+        <div className="panel-top">
+          <CategoryFilters
+            counts={counts}
+            active={active}
+            onToggle={(category) => {
+              setFilter(active === category ? null : category);
+              setCursor(START);
+            }}
+          />
+          {collapseButton}
+        </div>
         {/* Not a live region: the app's announcer says "Accepted. 4 of 9 left." once per decision. */}
         {allClear ? (
           // Done: one calm line, and no depth controls, since there is nothing left to show more or less of.

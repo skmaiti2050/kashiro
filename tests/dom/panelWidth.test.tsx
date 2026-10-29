@@ -51,7 +51,8 @@ describe('the review panel grows with the window on large screens (Task F20 item
 
   it('its column is 26 per cent of the window between 380 px and 520 px, times the text size, never past half', () => {
     const tracks = gridTracks(getComputedStyle(build('workspace')).gridTemplateColumns);
-    expect(tracks).toEqual(['minmax(0, 1fr)', 'clamp(300px, calc(clamp(380px, 26vw, 520px) * var(--ui-zoom, 1)), 50%)']);
+    // F23 item 3: the divider's column sits between them, and a width the user chose (--panel-width) replaces the default.
+    expect(tracks).toEqual(['minmax(0, 1fr)', 'auto', 'var(--panel-width, clamp(300px, calc(clamp(380px, 26vw, 520px) * var(--ui-zoom, 1)), 50%))']);
   });
 
   it('the document text keeps its centred 70-character measure', () => {

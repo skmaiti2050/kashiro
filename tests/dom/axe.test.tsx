@@ -245,6 +245,17 @@ describe('axe-core: no serious or critical violations', () => {
     await audit('lookup: failed load');
   });
 
+  it('F23: a category filter pressed, the divider moved, and the panel folded to its strip', async () => {
+    const { controller } = makeController();
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openSample());
+    fireEvent.click(within(screen.getByRole('group', { name: 'Filter by category' })).getAllByRole('button')[0]);
+    fireEvent.keyDown(screen.getByRole('separator', { name: 'Resize the review panel' }), { key: 'ArrowLeft' });
+    await audit('category filter pressed, divider moved');
+    fireEvent.click(screen.getByRole('button', { name: 'Hide the review panel' }));
+    await audit('review panel folded');
+  });
+
   it('About: the list of notices, then each notice shown alone', async () => {
     renderShell(makeController().controller);
     chooseFromMore('About');
