@@ -157,8 +157,9 @@ function ShellView({ controller, state }: { controller: SessionController; state
     );
   }, [controller]);
 
-  // An opened file names the window; a paste or the sample keeps the app's name (F20 item 11).
-  const title = windowTitle(state.document);
+  // An opened file names the window; a paste or the sample keeps the app's name (F20 item 11). "● " marks work
+  // the unsaved-changes prompt would ask about (F21b item 7); the controller's state changes with every such change.
+  const title = windowTitle(state.document, state.document !== null && controller.hasUnsavedWork());
   useEffect(() => {
     void getCurrentWindow().setTitle(title);
   }, [title]);

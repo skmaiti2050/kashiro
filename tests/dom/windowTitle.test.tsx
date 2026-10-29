@@ -29,6 +29,12 @@ describe('the window title text', () => {
     expect(windowTitle(null)).toBe('Kashiro');
   });
 
+  it('unsaved changes put a dot before the name (Task F21b item 7)', () => {
+    expect(windowTitle({ name: 'runbook.md', path: 'C:/docs/runbook.md' }, true)).toBe('● runbook.md - Kashiro');
+    expect(windowTitle({ name: 'runbook.md', path: 'C:/docs/runbook.md' }, false)).toBe('runbook.md - Kashiro');
+    expect(windowTitle({ name: 'Untitled.txt', path: null }, true)).toBe('● Kashiro');
+  });
+
   it('a long name is cut in the middle to 48 characters, keeping its start and its extension', () => {
     const cut = middleTruncate(LONG);
     expect([...cut]).toHaveLength(48);
@@ -61,6 +67,27 @@ describe('the window title follows the open document (Task F20 item 11)', () => 
     await openAndWait(controller, () => controller.openText('Pasted words here.'));
     await waitFor(() => expect(setTitle).toHaveBeenLastCalledWith('Kashiro'));
     expect(screen.getByRole('toolbar').querySelector('.doc-name')).toBeNull();
+  });
+
+  it('an applied change that is not saved yet shows "● name - Kashiro" (Task F21b item 7)', async () => {
+    const { controller } = makeController();
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openFile({ name: 'notes.md', path: 'C:/docs/notes.md', bytes: new TextEncoder().encode('I recieve the letter today.') }));
+    await waitFor(() => expect(setTitle).toHaveBeenLastCalledWith('notes.md - Kashiro'));
+    const decision = controller.getState().session!.decisions().top[0];
+    act(() => controller.accept(decision.id));
+    await waitFor(() => expect(setTitle).toHaveBeenLastCalledWith('● notes.md - Kashiro'));
+  });
+
+  it('saving takes the dot away at once (Task F21b item 7)', async () => {
+    const files = { open: async () => null, save: async (path: string) => ({ path, backup: null }) };
+    const { controller } = makeController({}, files);
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openFile({ name: 'notes.md', path: 'C:/docs/notes.md', bytes: new TextEncoder().encode('I recieve the letter today.') }));
+    act(() => controller.accept(controller.getState().session!.decisions().top[0].id));
+    await waitFor(() => expect(setTitle).toHaveBeenLastCalledWith('● notes.md - Kashiro'));
+    await act(async () => void (await controller.save()));
+    await waitFor(() => expect(setTitle).toHaveBeenLastCalledWith('notes.md - Kashiro'));
   });
 
   it('the sample keeps "Kashiro"', async () => {
