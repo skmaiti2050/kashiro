@@ -1378,6 +1378,45 @@ describe('SessionController: a word added to the dictionary holds after a reopen
   });
 });
 
+// Task F24 (F23 adversarial review M-37): the undo toast lived through a dictionary Add, and its Undo brought the
+// word's card back or failed with "unknown batch".
+describe('SessionController: a dictionary change takes the undo toast away', () => {
+  // The tests share one linter, which keeps added words: each test adds a word of its own.
+  it.each([
+    ['Reject, then Add', 'recieve', (c: SessionController, id: string) => c.reject(id)],
+    ['Apply, then Add', 'occured', (c: SessionController, id: string, ids: string[]) => c.applyBatch(id, ids)],
+  ])('%s: no toast after the Add, so no Undo can bring the card back', async (_name, word, bigAction) => {
+    const { controller } = makeController({ settings: { preset: 'business', fallbackVariant: 'Indian' } });
+    await controller.openText(`It ${word} today. It ${word} later. It ${word} never.`);
+    const card = [...controller.getState().session!.decisions().top].find((d) => d.candidateIds.length === 3)!;
+    bigAction(controller, card.id, card.candidateIds);
+    expect(controller.getState().undoOffer).not.toBeNull();
+
+    await controller.addDictionaryWord(word);
+    expect(controller.getState().undoOffer).toBeNull();
+    expect(controller.undoBigAction()).toBeNull();
+    expect(controller.getState().error).toBeNull();
+    const { top, more } = controller.getState().session!.decisions();
+    expect([...top, ...more].filter((d) => d.label.includes(word))).toEqual([]);
+  });
+
+  it("another card's Add to dictionary takes it away too", async () => {
+    const { controller } = makeController({ settings: { preset: 'business', fallbackVariant: 'Indian' } });
+    await controller.openText('We will seperate it today. You seperate it later. I beleive it.');
+    const session = controller.getState().session!;
+    const cardOf = (word: string) => {
+      const flag = session.candidates().find((c) => c.original === word)!;
+      const { top, more } = session.decisions();
+      return [...top, ...more].find((d) => d.candidateIds.includes(flag.id))!;
+    };
+    const believe = cardOf('beleive');
+    controller.reject(cardOf('seperate').id);
+    expect(controller.getState().undoOffer).not.toBeNull();
+    await controller.addToDictionary(believe.id);
+    expect(controller.getState().undoOffer).toBeNull();
+  });
+});
+
 // Task F20 item 6 (owner: "v1.0: yield"): a long check let no click, scroll or keypress through until it ended.
 describe('SessionController: a long check yields to the browser between chunks', () => {
   /** About 60 paragraphs, several chunks. */

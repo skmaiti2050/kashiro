@@ -168,7 +168,8 @@ export class SessionController {
     },
     decisionMade: (patch) => {
       this.tally.made(1);
-      this.set({ ...patch, decided: this.tally.decided });
+      // Like any other change to the review: the toast's Undo would no longer match (Task F24, F23 review M-37).
+      this.set({ ...patch, decided: this.tally.decided, undoOffer: null });
       this.reviews.changed();
     },
     markUnsaved: () => this.changes++,
