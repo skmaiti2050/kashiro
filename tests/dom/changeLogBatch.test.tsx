@@ -83,6 +83,23 @@ describe('ChangeLog: the batch row opens to one change per line (Task F20 item 2
     expect(row.querySelectorAll('.batch-changes > li')).toHaveLength(2);
   });
 
+  // Task F21 item C (owner): "1 fix … applied together · Show 1 change · Undo all 1" read as a batch of nothing.
+  it('a batch of one change is a normal single row, with its own Undo', () => {
+    const undo = vi.fn();
+    const { container, update } = view([CARD[1]], { undo });
+    expect(container.querySelector('li.batch')).toBeNull();
+    const row = container.querySelector<HTMLElement>('.entries > li')!;
+    expect(row.querySelector('del')!.textContent).toBe('of of');
+    expect(row.querySelector('.status')!.textContent).toMatch(/^Repeated words · /);
+    expect(within(row).queryByRole('button', { name: /Undo all|changes/ })).toBeNull();
+    fireEvent.click(within(row).getByRole('button', { name: 'Undo' }));
+    expect(undo.mock.calls).toEqual([['o']]);
+    // Undoing two of three leaves one: it becomes a single row too.
+    update([{ ...CARD[0], status: 'rejected', reason: 'undone', batch: undefined }, { ...CARD[1], status: 'rejected', reason: 'undone', batch: undefined }, CARD[2]]);
+    expect(container.querySelector('li.batch')).toBeNull();
+    expect(container.querySelectorAll('.entries > li')).toHaveLength(3);
+  });
+
   it('"Undo all" still undoes the whole batch', () => {
     const undoBatch = vi.fn();
     const { container } = view(CARD, { undoBatch });
@@ -149,7 +166,9 @@ describe('ChangeLog: a change\'s place reads "P 226", and "Paragraph 226" on hov
     ['bn', 'অনু. 226', 'অনুচ্ছেদ 226'],
   ] as const)('%s, on a single row and on each line of a batch', (language, shown, full) => {
     const single = { ...applied('s', 'plan', 'plan', 'Spelling', 226), batch: undefined };
-    const session = { outcomes: () => [single, CARD[2]], paragraphs: () => [{ id: 0, text: TEXT }] } as unknown as CheckSession;
+    // Two changes, so the batch stays a batch (a batch of one is a single row, Task F21 item C).
+    const batch = [applied('a', 'a', 'an', 'Miscellaneous', 226, TEXT.indexOf(' a apple') + 1), applied('t', 'teh', 'the', 'Typo', 226)];
+    const session = { outcomes: () => [single, ...batch], paragraphs: () => [{ id: 0, text: TEXT }] } as unknown as CheckSession;
     const { container } = render(
       <TranslatorProvider translator={createTranslator(language, ['en-IN'])}>
         <ChangeLog controller={{} as SessionController} state={{ session } as ControllerState} open onToggle={() => {}} />
@@ -157,7 +176,7 @@ describe('ChangeLog: a change\'s place reads "P 226", and "Paragraph 226" on hov
     );
     fireEvent.click(container.querySelector('.batch-toggle')!);
     const places = [...container.querySelectorAll('.where')];
-    expect(places).toHaveLength(2);
+    expect(places).toHaveLength(3);
     for (const place of places) {
       expect(place.textContent).toBe(shown);
       expect(place.getAttribute('title')).toBe(full);

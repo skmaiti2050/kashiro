@@ -31,7 +31,12 @@ function statusLabel(t: Translator, o: Outcome): string {
 /** One log row: a single change, or every change of one "Apply all" (undone together). */
 type Row = { outcome: Outcome } | { batch: string; outcomes: Outcome[] };
 
+/** The log's rows in order; a batch of one change is a single row (Task F21 item C, owner). */
 function rowsOf(entries: Outcome[]): Row[] {
+  return groupedRows(entries).map((row) => ('batch' in row && row.outcomes.length === 1 ? { outcome: row.outcomes[0] } : row));
+}
+
+function groupedRows(entries: Outcome[]): Row[] {
   const rows: Row[] = [];
   const batches = new Map<string, Outcome[]>();
   for (const o of entries) {
