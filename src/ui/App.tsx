@@ -11,6 +11,7 @@ import { SettingsPanel } from './SettingsPanel';
 import { ShortcutsSheet } from './ShortcutsSheet';
 import { StatusBar } from './StatusBar';
 import { Toolbar } from './Toolbar';
+import { UndoToast } from './UndoToast';
 import { UnsavedChangesDialog } from './UnsavedChangesDialog';
 import { useAppShortcuts } from './useKeys';
 import { useReadAloud } from './useReadAloud';
@@ -193,6 +194,8 @@ function ShellView({ controller, state }: { controller: SessionController; state
 
   const { reading } = state.settings;
   useTheme(reading.theme);
+  // Stable, so a re-render doesn't restart the toast's timer.
+  const dismissUndoOffer = useCallback(() => controller.dismissUndoOffer(), [controller]);
   useEffect(() => {
     // The whole page, so text outside .app (none yet) and the native spell-check language follow too.
     document.documentElement.lang = t.language;
@@ -268,6 +271,19 @@ function ShellView({ controller, state }: { controller: SessionController; state
       </main>
       <StatusBar state={state} />
       <ChangeLog controller={controller} state={state} open={logOpen} onToggle={() => setLogOpen((v) => !v)} reveals={logReveals} />
+      {state.undoOffer && (
+        <UndoToast
+          key={state.undoOffer.seq}
+          message={t.format(state.undoOffer.message)}
+          undoLabel={t.t('toast.undo')}
+          onUndo={() => {
+            const back = controller.undoBigAction();
+            // The places are back in review: show their card, with focus, so focus doesn't fall to the page.
+            if (back) setCardRequest((r) => ({ candidateId: back, seq: (r?.seq ?? 0) + 1, focus: true }));
+          }}
+          onDismiss={dismissUndoOffer}
+        />
+      )}
       {panel === 'settings' && <SettingsPanel controller={controller} state={state} readAloud={readAloud} onClose={() => setPanel('none')} />}
       {panel === 'help' && <GoogleDocsHelp onOpen={openFromHelp} onClose={() => setPanel('none')} />}
       {panel === 'shortcuts' && <ShortcutsSheet readAloud={readAloud !== null} lookUp={lookUpOn} improve={aiOn} onClose={() => setPanel('none')} />}

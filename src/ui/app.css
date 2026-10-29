@@ -1306,6 +1306,31 @@ button.link {
   color: var(--muted);
 }
 
+/* The undo toast after a big action (F21b item 8): above the status bar, centred, out of the text's way. */
+.undo-toast {
+  position: fixed;
+  inset-block-end: 44px;
+  inset-inline-start: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  max-width: min(520px, calc(100vw - 32px));
+  padding: 8px 8px 8px 16px;
+  border: 1px solid var(--muted);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 18%);
+  zoom: var(--ui-zoom, 1);
+}
+
+[dir='rtl'] .undo-toast {
+  transform: translateX(50%);
+}
+
 /*
  * Windows contrast themes: the system picks every colour, so underlines use CanvasText and the current
  * one Highlight; the category stays readable from the line style and the card's glyph.

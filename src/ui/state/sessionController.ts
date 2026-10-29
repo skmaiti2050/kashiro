@@ -33,6 +33,7 @@ import { NO_AI, type AiState } from './aiState';
 import { modulesFor, type Settings } from './settings';
 import * as settingsActions from './settingsActions';
 import { yieldToBrowser } from './yieldToBrowser';
+import { appliedInBatch, appliedOffer, rejectedOffer, type UndoOffer } from './undoOffer';
 
 export type { Files, OpenedFile, SavedFile } from './saveFlow';
 export { DOCX_NOTE, type OpenDocument } from './openDocument';
@@ -98,6 +99,8 @@ export interface ControllerState extends SavedReviewsState {
   documentIgnoredRules: string[];
   /** What the screen reader says after a decision ("Accepted. 4 of 9 left."); `seq` is new each time. */
   announcement: Announcement | null;
+  /** The undo toast after a big action, until the next change to the review (undoOffer.ts). */
+  undoOffer: UndoOffer | null;
   /** A chosen model file is being hashed (a few seconds for gigabytes). */
   checkingModel: boolean;
   /** The build running the writing helper (Settings shows it), or null while none runs. */
@@ -149,6 +152,8 @@ export class SessionController {
   private checkFailure: Message | null = null;
   private readonly tally = new DecisionTally();
   private announcements = 0;
+  /** Undo toasts shown: each new one is a new `seq`, so its timer starts again. */
+  private offers = 0;
   private readonly settingsHost: settingsActions.SettingsHost = {
     state: () => this.state,
     set: (patch) => this.set(patch),
@@ -218,6 +223,7 @@ export class SessionController {
       decided: 0,
       documentIgnoredRules: [],
       announcement: null,
+      undoOffer: null,
       resumeOffer: null,
       recentReviews: [],
       checkingModel: false,
@@ -245,7 +251,7 @@ export class SessionController {
       showSession: (session) => {
         ++this.checks; // a check still running would replace the resumed session
         this.ai.reset(); // AI answers are not saved, and none are replayed
-        this.set({ phase: 'ready', session, decided: this.tally.decided, checking: this.queue.waiting });
+        this.set({ phase: 'ready', session, decided: this.tally.decided, checking: this.queue.waiting, undoOffer: null });
       },
       announce: (message) => this.set({ announcement: { message, seq: ++this.announcements } }),
       opener: this,
@@ -336,6 +342,7 @@ export class SessionController {
       decided: this.tally.decided,
       documentIgnoredRules: [],
       announcement: { message: msg('announce.checking'), seq: ++this.announcements },
+      undoOffer: null,
     });
     await this.queue.track(this.check(false));
     await this.reviews.opened(document, bytes);
@@ -348,7 +355,7 @@ export class SessionController {
     if (!this.state.document?.editable) return;
     this.changes++;
     this.queue.push(text);
-    this.set({ checking: true, textChanges: this.state.textChanges + 1 });
+    this.set({ checking: true, textChanges: this.state.textChanges + 1, undoOffer: null });
   }
 
   private async checkTypedText(text: string): Promise<void> {
@@ -410,7 +417,8 @@ export class SessionController {
       const error = this.state.error;
       const outdated = error !== null && (error === this.checkFailure || error.key === 'error.saveNotChecked');
       this.checkFailure = null;
-      this.set({ phase: 'ready', session, checking: this.queue.waiting, ...announcement, ...(outdated ? { error: null } : {}) });
+      // A new session: an undo toast's places and batch belong to the old one.
+      this.set({ phase: 'ready', session, checking: this.queue.waiting, undoOffer: null, ...announcement, ...(outdated ? { error: null } : {}) });
       if (before) this.reviews.changed();
       // After every check, so a goal switch (whose own modules may differ) releases too.
       this.releaseModules(session.modules);
@@ -457,12 +465,54 @@ export class SessionController {
     const places = [...top, ...more].find((d) => d.id === decisionId)?.candidateIds ?? [decisionId];
     const replacements = new Map(session.candidates().map((c) => [c.id, c.replacements.length]));
     const flagOnly = places.every((id) => replacements.get(id) === 0);
-    this.act(change, () => this.tally.rejected(decisionId, places), flagOnly ? 'verb.dismissed' : verb);
+    const said = flagOnly ? 'verb.dismissed' : verb;
+    this.act(change, () => this.tally.rejected(decisionId, places), said, () => rejectedOffer(places, said, ++this.offers));
   }
 
   /** "Apply" after the batch preview: the chosen places as one change, undone together by undoBatch. */
   applyBatch(decisionId: string, candidateIds: string[], replacementIndex = 0): void {
-    this.act((s) => s.applyBatch(decisionId, candidateIds, replacementIndex), () => this.tally.made(1), 'verb.applied');
+    let batchId = '';
+    this.act(
+      (s) => (batchId = s.applyBatch(decisionId, candidateIds, replacementIndex)),
+      () => this.tally.made(1),
+      'verb.applied',
+      (s) => appliedOffer(s, batchId, ++this.offers),
+    );
+  }
+
+  /**
+   * The undo toast's Undo (Task F21b item 8): takes back exactly what its action did, with the engine's own undo. An
+   * applied batch is undone (applied → rejected) and then sent back to review, as it was before the Apply; rejected
+   * places go back to review, as "Review again" in the change log does. Returns the first place back in review, for
+   * the panel to show, or null when there was nothing to undo.
+   */
+  undoBigAction(): string | null {
+    const offer = this.state.undoOffer;
+    const session = this.state.session;
+    if (!offer || !session) return null;
+    if (offer.kind === 'applied') {
+      const ids = appliedInBatch(session, offer.batchId);
+      this.act(
+        (s) => {
+          s.undoBatch(offer.batchId);
+          for (const id of ids) s.undo(id);
+        },
+        () => this.tally.made(-1),
+        'verb.undone',
+      );
+      return ids[0] ?? null;
+    }
+    this.act(
+      (s) => offer.ids.forEach((id) => s.undo(id)),
+      () => offer.ids.forEach((id) => this.tally.reopen(id)),
+      'verb.backToReview',
+    );
+    return offer.ids[0];
+  }
+
+  /** The undo toast timed out or was dismissed. */
+  dismissUndoOffer(): void {
+    if (this.state.undoOffer) this.set({ undoOffer: null });
   }
 
   undoBatch(batchId: string): void {
@@ -580,7 +630,11 @@ export class SessionController {
    * Runs a review action and, only once it succeeded, `count` (how it moves the tally of decisions made) and
    * the announcement "<verb>. N of M left.". A failure is shown, not thrown.
    */
-  private act(change: (s: CheckSession) => void, count: () => void, verb: MessageKey): void {
+  /**
+   * Makes a change to the review: `change` on the session, then `count` on the tally. `offer` gives the undo toast
+   * a big action shows; any other change takes an earlier toast away.
+   */
+  private act(change: (s: CheckSession) => void, count: () => void, verb: MessageKey, offer?: (s: CheckSession) => UndoOffer | null): void {
     const session = this.state.session;
     if (!session) return;
     const editsBefore = editsOf(session);
@@ -594,7 +648,8 @@ export class SessionController {
     count();
     // A reject or "Review again" changes no text, so an open preview stays.
     const textChanges = this.state.textChanges + (editsOf(session) === editsBefore ? 0 : 1);
-    this.set({ error: null, decided: this.tally.decided, announcement: this.announcement(msg(verb)), textChanges });
+    const undoOffer = offer?.(session) ?? null;
+    this.set({ error: null, decided: this.tally.decided, announcement: this.announcement(msg(verb)), textChanges, undoOffer });
     this.reviews.changed();
   }
 
@@ -661,6 +716,7 @@ export class SessionController {
       decided: this.tally.decided,
       documentIgnoredRules: [],
       announcement: null,
+      undoOffer: null,
     });
     await this.reviews.refresh();
   }

@@ -233,7 +233,8 @@ button.link {
   .menu,
   .chip,
   .banner,
-  .dropzone {
+  .dropzone,
+  .undo-toast {
     border: 1px solid CanvasText;
   }
 
