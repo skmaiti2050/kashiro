@@ -73,6 +73,7 @@
       "allow-llm-stop",
       "allow-llm-installed",
       "allow-os-locale",
+      "allow-open-project-page",
       "platforms all",
       "local true"
     ]

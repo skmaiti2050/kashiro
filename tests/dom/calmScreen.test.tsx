@@ -43,7 +43,7 @@ describe('toolbar', () => {
     fireEvent.click(more);
     const menu = screen.getByRole('menu', { name: 'More' });
     const items = within(menu).getAllByRole('menuitem').map((i) => i.textContent!.replace(/Ctrl\+\S+|F1/, '').trim());
-    expect(items).toEqual(['Look up word', 'Close document', 'Google Docs', 'Keyboard shortcuts', 'Settings', 'Dictionary…', 'About']);
+    expect(items).toEqual(['Look up word', 'Close document', 'Google Docs', 'Keyboard shortcuts', 'Settings', 'Dictionary…', 'Report a bug…', 'About']);
     expect(document.activeElement).toBe(within(menu).getAllByRole('menuitem')[0]);
     fireEvent.keyDown(document.activeElement!, { key: 'ArrowUp' });
     expect(document.activeElement!.textContent).toMatch(/^About/);

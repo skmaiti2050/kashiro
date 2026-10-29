@@ -20,6 +20,7 @@ describe('app commands (src-tauri)', () => {
       'llm_installed',
       'llm_start',
       'llm_stop',
+      'open_project_page',
       'os_locale',
       'overwrite_with_backup',
       'save_copy',

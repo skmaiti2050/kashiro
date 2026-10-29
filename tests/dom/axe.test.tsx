@@ -191,6 +191,13 @@ describe('axe-core: no serious or critical violations', () => {
     await audit('dictionary panel: merged');
   });
 
+  it('Report a bug', async () => {
+    renderShell(makeController().controller);
+    chooseFromMore('Report a bug…');
+    await screen.findByDisplayValue(/Kashiro bug report/);
+    await audit('report a bug');
+  });
+
   it('Settings without a local voice', async () => {
     renderShell(makeController().controller);
     chooseFromMore('Settings');

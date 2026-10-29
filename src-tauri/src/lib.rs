@@ -7,6 +7,7 @@ use tauri_plugin_fs::FsExt;
 
 #[cfg(windows)]
 mod job;
+mod links;
 mod llm;
 mod locale;
 mod migrate;
@@ -218,7 +219,8 @@ pub fn run() {
             llm::llm_start,
             llm::llm_stop,
             llm::llm_installed,
-            locale::os_locale
+            locale::os_locale,
+            links::open_project_page
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

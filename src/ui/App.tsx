@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Banners } from './Banners';
+import { BugReportDialog } from './BugReportDialog';
 import { ChangeLog } from './ChangeLog';
 import { DictionaryPanel } from './DictionaryPanel';
 import { DocumentView, type DocumentFocus } from './DocumentView';
@@ -108,7 +109,7 @@ export function Shell({ controller }: { controller: SessionController }) {
 
 function ShellView({ controller, state }: { controller: SessionController; state: ControllerState }) {
   const t = useT();
-  const [panel, setPanel] = useState<'none' | 'settings' | 'dictionary' | 'help' | 'shortcuts' | 'about'>('none');
+  const [panel, setPanel] = useState<'none' | 'settings' | 'dictionary' | 'bug' | 'help' | 'shortcuts' | 'about'>('none');
   const { lookup, state: lookupState } = useWordLookup(controller);
   const readAloud = useReadAloud(state.settings.reading, state.document?.id ?? null);
   const caretReader = useRef<() => CaretText | null>(() => null);
@@ -226,6 +227,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
           onPaste={onPaste}
           onSettings={() => setPanel('settings')}
           onDictionary={() => setPanel('dictionary')}
+          onReportBug={() => setPanel('bug')}
           onHelp={() => setPanel('help')}
           onShortcuts={() => setPanel('shortcuts')}
           onAbout={() => setPanel('about')}
@@ -296,6 +298,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
         <SettingsPanel controller={controller} state={state} readAloud={readAloud} onOpenDictionary={() => setPanel('dictionary')} onClose={() => setPanel('none')} />
       )}
       {panel === 'dictionary' && <DictionaryPanel controller={controller} dictionary={state.settings.dictionary} onClose={() => setPanel('none')} />}
+      {panel === 'bug' && <BugReportDialog controller={controller} onClose={() => setPanel('none')} />}
       {panel === 'help' && <GoogleDocsHelp onOpen={openFromHelp} onClose={() => setPanel('none')} />}
       {panel === 'shortcuts' && <ShortcutsSheet readAloud={readAloud !== null} lookUp={lookUpOn} improve={aiOn} onClose={() => setPanel('none')} />}
       {panel === 'about' && (

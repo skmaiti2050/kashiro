@@ -20,6 +20,7 @@ import { DecisionTally } from './decisionTally';
 import { matchParagraphs, sameParagraphs } from './documentText';
 import { readDocument, readTypedText, type LoadedFile, type OpenDocument } from './openDocument';
 import { progressOf } from './progress';
+import { RecentProblems } from './recentProblems';
 import { RecheckQueue } from './recheckQueue';
 import { SAMPLE_NAME, SAMPLE_TEXT } from './sample';
 import type { Files, OpenedFile } from './saveFlow';
@@ -151,6 +152,8 @@ export class SessionController {
   /** The error the last failed check showed; a check that works takes it down. */
   private checkFailure: Message | null = null;
   private readonly tally = new DecisionTally();
+  /** The last errors and notices shown, for ⋯ › Report a bug (F22 item 4); in memory only. */
+  readonly problems = new RecentProblems();
   private announcements = 0;
   /** Undo toasts shown: each new one is a new `seq`, so its timer starts again. */
   private offers = 0;
@@ -737,6 +740,9 @@ export class SessionController {
   }
 
   private set(patch: Partial<ControllerState>): void {
+    // Every error and notice shown passes here: Report a bug lists the last ones, by key only.
+    if (patch.error && patch.error !== this.state.error) this.problems.record('error', patch.error);
+    if (patch.notice && patch.notice !== this.state.notice) this.problems.record('notice', patch.notice);
     this.state = { ...this.state, ...patch, revision: this.state.revision + 1 };
     for (const listener of this.listeners) listener();
   }

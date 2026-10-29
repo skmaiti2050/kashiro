@@ -45,11 +45,12 @@ beforeAll(async () => {
 
 /**
  * Text to check: in the UI language (en-XA), or marked English (lang="en": checked unless it is the
- * document's own words, see isDocumentText). Endonyms (lang="hi", "bn"), key caps and the editor are skipped.
+ * document's own words, see isDocumentText). Endonyms (lang="hi", "bn"), key caps, the editor and the bug report
+ * (English by design: it goes to the issue tracker) are skipped.
  */
 const isUiText = (el: Element | null): el is Element => {
   const lang = el?.closest('[lang]')?.getAttribute('lang');
-  return el !== null && (lang === 'en-XA' || lang === 'en') && !el.closest('kbd, .cm-content');
+  return el !== null && (lang === 'en-XA' || lang === 'en') && !el.closest('kbd, .cm-content, .bug-report-text');
 };
 
 /** "button.primary": where a finding is, for the failure message. */
@@ -235,6 +236,9 @@ describe('pseudo-locale (en-XA)', () => {
       fireEvent.click(screen.getByRole('button', { name: name('dictionary.merge') }));
       await expectTranslatedAndFitting(controller);
       fireEvent.change(screen.getByRole('searchbox', { name: name('dictionary.search') }), { target: { value: 'zzz' } });
+      await expectTranslatedAndFitting(controller);
+      fireEvent.click(screen.getByRole('button', { name: name('dialog.close') }));
+      chooseFromMore(name('toolbar.reportBug'), name('toolbar.more'));
       await expectTranslatedAndFitting(controller);
       fireEvent.click(screen.getByRole('button', { name: name('dialog.close') }));
       chooseFromMore(name('toolbar.shortcuts'), name('toolbar.more'));

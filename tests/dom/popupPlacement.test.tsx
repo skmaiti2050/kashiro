@@ -124,7 +124,7 @@ function renderAll() {
   const noop = () => {};
   render(
     <TranslatorProvider translator={createTranslator('en', ['en-IN'])}>
-      <Toolbar controller={{} as SessionController} state={state} onOpen={noop} onPaste={noop} onSettings={noop} onDictionary={noop} onHelp={noop} onShortcuts={noop} onAbout={noop} onClose={noop} onLookUp={null} onImprove={null} />
+      <Toolbar controller={{} as SessionController} state={state} onOpen={noop} onPaste={noop} onSettings={noop} onDictionary={noop} onReportBug={noop} onHelp={noop} onShortcuts={noop} onAbout={noop} onClose={noop} onLookUp={null} onImprove={null} />
       <aside className="review">
         <DismissMenu kind="Formatting" thisOneLabel="This one" onThisOne={noop} onRule={noop} />
         <button>Outside</button>
