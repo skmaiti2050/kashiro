@@ -33,7 +33,6 @@ import { helperInstalled, modelFiles, startAppHelper, stopAppHelper } from './pl
 import { createAppLinter } from './platform/linter';
 import { openProjectPage } from './platform/links';
 import { sessionFiles } from './platform/sessions';
-import { rememberWindowPlacement } from './platform/windowPlacement';
 import { changeLogWasOpen, rememberChangeLogOpen } from './changeLogMemory';
 import { loadSettings, saveSettings } from './platform/settings';
 import { explain } from './state/errors';
@@ -59,9 +58,8 @@ export default function App() {
   const [slowStart, setSlowStart] = useState(false);
   const started = useRef(false);
 
+  // Puts the window back where it was (F22 item 5), then shows it.
   useShowWindowWhenDrawn();
-  // Started at once: the window is still hidden, so it appears where it was last time (F22 item 5).
-  useEffect(() => rememberWindowPlacement(), []);
   useEffect(() => {
     const slow = setTimeout(() => setSlowStart(true), SLOW_START_MS);
     return () => clearTimeout(slow);

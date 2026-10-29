@@ -17,11 +17,11 @@ const workAreaOf = (monitor: Monitor): ScreenArea => {
 /**
  * Remember the window (F22 item 5): puts the window back where it was at the last close (its size, place and
  * maximised state; centred when that place is on no monitor now), then saves it whenever it moves or resizes.
- * The window starts hidden and this runs before it is shown. Returns the stop function. Outside Tauri (tests,
- * a browser) it does nothing.
+ * The window starts hidden and is shown once `restored` settles (F26 item 4). `restored` never rejects: a failed
+ * restore is logged. Outside Tauri (tests, a browser) it does nothing.
  */
-export function rememberWindowPlacement(): () => void {
-  if (!isTauri()) return () => {};
+export function rememberWindowPlacement(): { restored: Promise<void>; stop: () => void } {
+  if (!isTauri()) return { restored: Promise.resolve(), stop: () => {} };
   let stopped = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const unlisteners: (() => void)[] = [];
@@ -42,6 +42,9 @@ export function rememberWindowPlacement(): () => void {
     return normal;
   };
 
+  let placed = () => {};
+  const restored = new Promise<void>((resolve) => (placed = resolve));
+
   const start = async () => {
     const appWindow = getCurrentWindow();
     const store = await load(STORE_FILE, { autoSave: false, defaults: {} });
@@ -52,6 +55,7 @@ export function rememberWindowPlacement(): () => void {
       console.error('Could not restore the window placement:', e);
       return null;
     });
+    placed();
 
     const save = async () => {
       if (await appWindow.isMinimized()) return;
@@ -75,10 +79,13 @@ export function rememberWindowPlacement(): () => void {
   };
 
   // Not fatal: the window opens where Windows puts it.
-  start().catch((e: unknown) => console.error('Could not remember the window placement:', e));
-  return () => {
+  start()
+    .catch((e: unknown) => console.error('Could not remember the window placement:', e))
+    .finally(placed);
+  const stop = () => {
     stopped = true;
     clearTimeout(timer);
     unlisteners.forEach((unlisten) => unlisten());
   };
+  return { restored, stop };
 }

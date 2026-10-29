@@ -77,7 +77,7 @@ const { rememberWindowPlacement, SAVE_AFTER_MS } = await import('@/ui/platform/w
 
 /** One app run: restores, then the user moves the window to `position` and gives it `size`. */
 async function run(change?: { position?: { x: number; y: number }; size?: { width: number; height: number }; maximized?: boolean }) {
-  const stop = rememberWindowPlacement();
+  const { stop } = rememberWindowPlacement();
   await vi.waitFor(() => expect(fake.handlers.moved).not.toBeNull());
   if (change) {
     Object.assign(fake.window, { ...(change.position && { position: change.position }), ...(change.size && { size: change.size }) });
