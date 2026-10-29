@@ -56,4 +56,17 @@ describe('the Settings dialog is the same size on every tab (F26 item 3)', () =>
     // .dialog itself scrolls (overflow-y: auto) and is never taller than 86vh.
     expect(rule('.dialog')).toMatch(/max-height: 86vh;[^}]*overflow-y: auto;/);
   });
+
+  // F27 item 3: a box's own scrollbar isn't cut by its border-radius or its overflow, so at 200% text the dialog's
+  // scrollbar ran square past its rounded corners. Measured in Chrome at 760×480: the top-right and bottom-right
+  // corner pixels hit the dialog (its scrollbar) before, and the backdrop after.
+  it('the dialog is clipped to its rounded corners, its scrollbar with it', () => {
+    renderShell(makeController().controller);
+    chooseFromMore('Settings');
+    const dialog = screen.getByRole('dialog', { name: 'Settings' });
+    const radius = /border-radius: (\d+px);/.exec(rule('.dialog'))![1];
+    expect(rule('.dialog')).toMatch(new RegExp(`clip-path: inset\\(0 round ${radius}\\);`));
+    expect(getComputedStyle(dialog).clipPath).toBe(`inset(0 round ${radius})`);
+    expect(getComputedStyle(dialog).overflowY).toBe('auto');
+  });
 });

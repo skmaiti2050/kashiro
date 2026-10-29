@@ -1667,7 +1667,11 @@ button.link {
   z-index: 1000;
 }
 
-/* Positioned like every scrolling box (F19; see .document). */
+/*
+ * Positioned like every scrolling box (F19; see .document). Clipped to its rounded corners (F27 item 3): a box's own
+ * scrollbar isn't cut by its border-radius or its overflow, so at 200% text Settings' scrollbar ran square past the
+ * corners. The controls sit inside the 16 px padding, so their focus rings are never cut.
+ */
 .dialog {
   position: relative;
   width: min(560px, 92vw);
@@ -1675,6 +1679,7 @@ button.link {
   overflow-y: auto;
   background: var(--panel);
   border-radius: 10px;
+  clip-path: inset(0 round 10px);
   padding: 16px 20px;
 }
 
