@@ -52,9 +52,10 @@ export const HEREDOC = /(?<!<)<<-?[ \t]*(['"]?)([A-Za-z_]\w*)\1/;
 export const SHELL_KEYWORD_LINE = /^(?:(?:for|while|until|if|elif|select)[ \t][^\n]*;[ \t]*(?:do|then)\b|(?:do|done|fi|esac|then|else)[ \t]*(?:$|[;<>|&#]))/;
 /**
  * A path: "/etc/hosts", "./deploy.sh", "~/x", "/app", "venv/bin/activate" (not "and/or", "w/ ", "1/2/2024", or the
- * "//" of a URL).
+ * "//" of a URL). The letter is checked by a look-ahead, so one long token is read once, not once per letter
+ * (review M-29).
  */
-export const PATH = /(?<![\p{L}\p{N}_/.:~-])(?:\.{1,2}\/|~\/|\/(?=[a-z_]))[^\s,;)]*|(?<![\p{L}\p{N}_/.-])[\w-]*[A-Za-z][\w-]*\/[\w-]+(?:[./][\w-]+)+/gu;
+export const PATH = /(?<![\p{L}\p{N}_/.:~-])(?:\.{1,2}\/|~\/|\/(?=[a-z_]))[^\s,;)]*|(?<![\p{L}\p{N}_/.-])(?=[\w-]*[A-Za-z])[\w-]+\/[\w-]+(?:[./][\w-]+)+/gu;
 /** A file name or a glob, by a code, config or archive extension: "app.py", "deploy.sh", "*.json", "notes.txt". */
 export const FILE_NAME =
   /(?:\*|(?<![\p{L}\p{N}_.-])[\w-]+)\.(?:sh|bash|py|js|mjs|cjs|ts|tsx|jsx|json|ya?ml|toml|ini|conf|cfg|env|txt|log|md|csv|sql|rb|php|go|rs|java|kt|c|h|cpp|cs|html|css|xml|lock|tgz|tar|gz|zip|exe|bat|cmd|ps1|pem|crt|key|service)(?![\p{L}\p{N}_-])/giu;
