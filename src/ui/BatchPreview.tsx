@@ -3,6 +3,7 @@ import type { Candidate } from '@/engine/types';
 import { Diff } from './Diff';
 import { Kbd } from './Kbd';
 import { useT } from './i18n/useT';
+import { kindLabel } from './state/kindLabels';
 
 interface Props {
   members: Candidate[];
@@ -61,6 +62,8 @@ export function BatchPreview({ members, replacementIndex, paraText, onApply, onC
             <label className="member-check">
               <input type="checkbox" checked={ticked.has(c.id)} onChange={() => toggle(c.id)} />
               <Diff candidate={c} replacement={c.replacements[replacementIndex]} paraText={paraText} />
+              {/* Inside the label, so it is part of the checkbox's name (Task F21 item D: spelling or capitals?). */}
+              <span className="member-kind">{kindLabel(t, c.kind)}</span>
             </label>
           </li>
         ))}

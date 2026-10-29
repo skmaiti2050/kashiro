@@ -725,6 +725,13 @@ legend {
   margin: 0;
 }
 
+/* The row's kind ("Capital letters"), muted under its diff (Task F21 item D). */
+.member-kind {
+  grid-column: 2;
+  color: var(--muted);
+  font-size: 0.85em;
+}
+
 /* Status bar (Caption 12/16): the offline promise, word count, variant, check status. */
 .statusbar {
   display: flex;
