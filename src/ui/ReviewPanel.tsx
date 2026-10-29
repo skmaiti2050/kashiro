@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type MutableRefObject } from 'react';
 import type { Decision } from '@/engine/decisions';
 import type { Candidate } from '@/engine/types';
 import { uncheckedText } from '@/engine/uncheckedScripts';
@@ -10,7 +10,7 @@ import { MoreList } from './MoreList';
 import { NamesCard } from './NamesCard';
 import { OtherLanguageCard } from './OtherLanguageCard';
 import { TermsCard } from './TermsCard';
-import { ReadAloudBar } from './ReadAloudBar';
+import { canReadAloud, ReadAloudBar, readAloudTarget } from './ReadAloudBar';
 import { translatorFor } from './i18n/translatorFor';
 import { useT } from './i18n/useT';
 import { CategoryFilters } from './CategoryFilters';
@@ -57,12 +57,21 @@ interface Props {
   onLookUp?: (words: string[]) => void;
   /** Folds the panel to a strip (F23 item 3); absent hides the button. */
   onCollapse?: () => void;
+  /** Set to the panel's actions for the command palette (F23 item 6) while it is mounted. */
+  commands?: MutableRefObject<PanelCommands | null>;
+}
+
+/** What the command palette runs in the panel: the same functions as J / K and the read-aloud buttons. */
+export interface PanelCommands {
+  move(step: 1 | -1): void;
+  canRead(target: ReadTarget): boolean;
+  read(target: ReadTarget): void;
 }
 
 const reduceMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 
 /** The review queue: a progress header, one card at a time (Enter / Backspace / J / K), the rest under "More (N)". */
-export function ReviewPanel({ controller, state, onLocate, request, keysEnabled, onShowLog, onSave, readAloud, readCaret, onLookUp, onCollapse }: Props) {
+export function ReviewPanel({ controller, state, onLocate, request, keysEnabled, onShowLog, onSave, readAloud, readCaret, onLookUp, onCollapse, commands }: Props) {
   const t = useT();
   const [cursor, setCursor] = useState(START);
   /**
@@ -118,9 +127,23 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
     if (reveal.focus) cardSlot.current?.focus({ preventScroll: true });
   }, [reveal.seq]);
 
+  /** J / K, "Next card" and the palette's Next and Previous card. */
+  const move = (step: 1 | -1) => setCursor((c) => moveCursor(top, more, c, step));
+  /** The read-aloud text for each target, set once the panel's text is known (see textFor below). */
+  const readText = useRef<(target: ReadTarget) => { text: string; language: string }>(() => ({ text: '', language: 'en' }));
+  useEffect(() => {
+    if (!commands) return;
+    commands.current = {
+      move,
+      canRead: (target) => readAloud !== null && session !== null && canReadAloud(readAloud, t.language, target),
+      read: (target) => readAloud && readAloudTarget(readAloud, t.language, readText.current, target),
+    };
+  });
+  useEffect(() => () => void (commands && (commands.current = null)), []);
+
   useReviewKeys(keysEnabled && session !== null, state.document?.editable ?? false, (action: ReviewKeyAction) => {
     if (action === 'next' || action === 'previous') {
-      setCursor((c) => moveCursor(top, more, c, action === 'next' ? 1 : -1));
+      move(action === 'next' ? 1 : -1);
       return;
     }
     cardSlot.current?.querySelector<HTMLButtonElement>(`[data-key~="${action}"]`)?.click();
@@ -175,6 +198,7 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
     if (!at) return { text: '', language: 'en' };
     return { text: target === 'sentence' ? sentenceAt(at.text, at.offset) : paragraphAt(at.text, at.offset), language: 'en' };
   };
+  readText.current = textFor;
 
   return (
     // tabIndex -1: a click on the panel's background keeps focus in the panel, so the review keys work.
@@ -254,7 +278,7 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
         candidates={candidates}
         paraText={paraText}
         touchesLocked={d.candidateIds.some((id) => session!.touchesLocked(id))}
-        onNext={() => setCursor((c) => moveCursor(top, more, c, 1))}
+        onNext={() => move(1)}
         onLocate={onLocate}
         onLookUp={onLookUp}
         onImprove={aiOn ? (c) => controller.ai.improveSentence(c.paraId, c.span.start) : undefined}

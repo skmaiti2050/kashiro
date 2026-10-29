@@ -24,9 +24,9 @@ const TERM_REPEAT_CHOICES = [2, 3, 4, 5];
 const LANGUAGES: UiLocale[] = import.meta.env.DEV ? [...UI_LANGUAGES, 'en-XA'] : UI_LANGUAGES;
 
 /** Settings' tabs (F22 item 6 of the F21 list), one per group of today's sections. */
-const SETTINGS_TABS = ['reading', 'checking', 'saving', 'modules', 'language'] as const;
-type SettingsTab = (typeof SETTINGS_TABS)[number];
-const TAB_KEYS = {
+export const SETTINGS_TABS = ['reading', 'checking', 'saving', 'modules', 'language'] as const;
+export type SettingsTab = (typeof SETTINGS_TABS)[number];
+export const TAB_KEYS = {
   reading: 'settings.tabReading',
   checking: 'settings.tabChecking',
   saving: 'settings.tabSaving',
@@ -63,11 +63,13 @@ interface Props {
   /** Settings › Checking's link to the Dictionary panel (Settings closes, the panel opens). */
   onOpenDictionary(): void;
   onClose(): void;
+  /** The tab to open on (the command palette's "Settings: Reading", F23 item 6); the last one used by default. */
+  initialTab?: SettingsTab;
 }
 
-export function SettingsPanel({ controller, state, readAloud, onOpenDictionary, onClose }: Props) {
+export function SettingsPanel({ controller, state, readAloud, onOpenDictionary, onClose, initialTab }: Props) {
   const t = useT();
-  const [tab, setTab] = useState<SettingsTab>(rememberedTab);
+  const [tab, setTab] = useState<SettingsTab>(() => initialTab ?? rememberedTab());
   const { settings } = state;
   const choose = (next: SettingsTab) => {
     setTab(next);

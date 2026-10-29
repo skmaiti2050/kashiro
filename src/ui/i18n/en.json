@@ -627,5 +627,14 @@
   "about.checkUpdatesHint": "Opens the Releases page on GitHub in your browser. Kashiro never checks or downloads anything on its own.",
   "updates.openFailed": "Couldn’t open the browser to check for updates.",
   "quickFix.label": "Quick fix for {word}",
-  "shortcuts.quickFix": "Quick fix for the underline at the cursor (or click the underline)"
+  "shortcuts.quickFix": "Quick fix for the underline at the cursor (or click the underline)",
+  "palette.title": "Command palette",
+  "palette.search": "Type a command",
+  "palette.noMatch": "No command matches.",
+  "palette.previousCard": "Previous card",
+  "palette.read": "Read aloud: {what}",
+  "palette.changeLog": "Show or hide the change log",
+  "palette.settingsTab": "Settings: {tab}",
+  "palette.theme": "Theme: {name}",
+  "shortcuts.palette": "Command palette: type to run any action"
 }

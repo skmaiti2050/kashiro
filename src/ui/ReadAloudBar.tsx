@@ -20,17 +20,24 @@ const BUTTONS: { target: ReadTarget; label: MessageKey; keys: string }[] = [
   { target: 'paragraph', label: 'read.paragraph', keys: 'Alt+P' },
 ];
 
+/** The sentence and paragraph are the English document; a card can also be read in the UI language. */
+export function canReadAloud(readAloud: ReadAloud, uiLanguage: string, target: ReadTarget): boolean {
+  return readAloud.speaks('en') || (target === 'suggestion' && readAloud.speaks(uiLanguage));
+}
+
+/** Reads `target` aloud, when this PC has a voice for it: the bar's buttons and the command palette (F23 item 6). */
+export function readAloudTarget(readAloud: ReadAloud, uiLanguage: string, textFor: Props['textFor'], target: ReadTarget): void {
+  if (!canReadAloud(readAloud, uiLanguage, target)) return;
+  const { text, language } = textFor(target);
+  readAloud.read(text, language);
+}
+
 /** "Read: Sentence · Suggestion · Paragraph", with Alt+S / Alt+R / Alt+P from anywhere. */
 export function ReadAloudBar({ readAloud, textFor, keysEnabled }: Props) {
   const t = useT();
-  // The sentence and paragraph are the English document; a card can also be read in the UI language.
   const english = readAloud.speaks('en');
-  const canRead = (target: ReadTarget) => english || (target === 'suggestion' && readAloud.speaks(t.language));
-  const read = (target: ReadTarget) => {
-    if (!canRead(target)) return;
-    const { text, language } = textFor(target);
-    readAloud.read(text, language);
-  };
+  const canRead = (target: ReadTarget) => canReadAloud(readAloud, t.language, target);
+  const read = (target: ReadTarget) => readAloudTarget(readAloud, t.language, textFor, target);
   const latest = useRef(read);
   useEffect(() => {
     latest.current = read;

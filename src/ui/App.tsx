@@ -3,13 +3,15 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Banners } from './Banners';
 import { BugReportDialog } from './BugReportDialog';
 import { ChangeLog } from './ChangeLog';
+import { CommandPalette } from './CommandPalette';
+import { paletteCommands } from './paletteCommands';
 import { DictionaryPanel } from './DictionaryPanel';
 import { DocumentView, type DocumentFocus } from './DocumentView';
 import { GoogleDocsHelp } from './GoogleDocsHelp';
 import { LookupPanel } from './LookupPanel';
 import { ResumeDialog } from './ResumeDialog';
-import { ReviewPanel, type CardRequest, type CaretText } from './ReviewPanel';
-import { SettingsPanel } from './SettingsPanel';
+import { ReviewPanel, type CardRequest, type CaretText, type PanelCommands } from './ReviewPanel';
+import { SettingsPanel, type SettingsTab } from './SettingsPanel';
 import { ShortcutsSheet } from './ShortcutsSheet';
 import { StatusBar } from './StatusBar';
 import { Toolbar } from './Toolbar';
@@ -116,7 +118,11 @@ export function Shell({ controller }: { controller: SessionController }) {
 
 function ShellView({ controller, state }: { controller: SessionController; state: ControllerState }) {
   const t = useT();
-  const [panel, setPanel] = useState<'none' | 'settings' | 'dictionary' | 'bug' | 'help' | 'shortcuts' | 'about'>('none');
+  const [panel, setPanel] = useState<'none' | 'settings' | 'dictionary' | 'bug' | 'help' | 'shortcuts' | 'about' | 'palette'>('none');
+  /** The tab Settings opens on when the command palette names one; else Settings' own remembered tab. */
+  const [settingsTab, setSettingsTab] = useState<SettingsTab | undefined>(undefined);
+  /** The review panel's actions for the command palette (null while the panel is folded). */
+  const panelCommands = useRef<PanelCommands | null>(null);
   const { lookup, state: lookupState } = useWordLookup(controller);
   const readAloud = useReadAloud(state.settings.reading, state.document?.id ?? null);
   const caretReader = useRef<() => CaretText | null>(() => null);
@@ -199,18 +205,50 @@ function ShellView({ controller, state }: { controller: SessionController; state
     setPanel('none');
     onOpen();
   };
+  const openSettings = (tab?: SettingsTab) => {
+    setSettingsTab(tab);
+    setPanel('settings');
+  };
   const dialogOpen = panel !== 'none' || afterUnsaved !== null || state.resumeOffer !== null || lookupState !== null;
   const lookUpOn = modulesFor(state.settings).wordLookup;
   const aiOn = controller.ai.available();
+  const lookUpFromMenu = lookUpOn ? () => lookUpAtCaret.current() || controller.showNotice(msg('lookup.noWord')) : null;
+  const improveFromToolbar = aiOn && state.session ? () => improveAtCaret.current() : null;
   useAppShortcuts(state.document !== null, (shortcut) => {
     if (dialogOpen) return;
     if (shortcut === 'open') onOpen();
     else if (shortcut === 'paste') onPaste();
     else if (shortcut === 'close') onClose();
+    else if (shortcut === 'settings') openSettings();
     else setPanel(shortcut);
   });
 
   const { reading } = state.settings;
+  /** Built when the palette opens: each entry calls the same function as its button or menu item (F23 item 6). */
+  const commands = () =>
+    paletteCommands(t, {
+      hasDocument: state.document !== null,
+      hasSession: state.session !== null,
+      onOpen,
+      onPaste,
+      onSave: () => void controller.save(),
+      onClose,
+      onSettings: openSettings,
+      onDictionary: () => setPanel('dictionary'),
+      onTheme: (theme) => controller.changeSettings({ reading: { ...reading, theme } }),
+      onToggleLog: () => setLogOpen((v) => !v),
+      onExportReport: () => void controller.exportReport(),
+      panelCollapsed: split.collapsed,
+      onTogglePanel: () => split.setCollapsed(!split.collapsed),
+      onShortcuts: () => setPanel('shortcuts'),
+      onHelp: () => setPanel('help'),
+      onReportBug: () => setPanel('bug'),
+      onCheckUpdates: checkForUpdates,
+      onAbout: () => setPanel('about'),
+      onLookUp: lookUpFromMenu,
+      onImprove: improveFromToolbar,
+      panel: split.collapsed ? null : panelCommands.current,
+    });
   useTheme(reading.theme);
   // Stable, so a re-render doesn't restart the toast's timer.
   const dismissUndoOffer = useCallback(() => controller.dismissUndoOffer(), [controller]);
@@ -236,7 +274,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
           state={state}
           onOpen={onOpen}
           onPaste={onPaste}
-          onSettings={() => setPanel('settings')}
+          onSettings={() => openSettings()}
           onDictionary={() => setPanel('dictionary')}
           onReportBug={() => setPanel('bug')}
           onCheckUpdates={checkForUpdates}
@@ -244,8 +282,8 @@ function ShellView({ controller, state }: { controller: SessionController; state
           onShortcuts={() => setPanel('shortcuts')}
           onAbout={() => setPanel('about')}
           onClose={onClose}
-          onLookUp={lookUpOn ? () => lookUpAtCaret.current() || controller.showNotice(msg('lookup.noWord')) : null}
-          onImprove={aiOn && state.session ? () => improveAtCaret.current() : null}
+          onLookUp={lookUpFromMenu}
+          onImprove={improveFromToolbar}
         />
         <Banners controller={controller} state={state} />
         <p className="visually-hidden" role="status" aria-atomic="true" data-live-regions>
@@ -298,6 +336,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
               readCaret={() => caretReader.current()}
               onLookUp={lookUpOn ? (words) => void lookup.open(words) : undefined}
               onCollapse={() => split.setCollapsed(true)}
+              commands={panelCommands}
             />
           </>
         )}
@@ -319,7 +358,24 @@ function ShellView({ controller, state }: { controller: SessionController; state
         />
       )}
       {panel === 'settings' && (
-        <SettingsPanel controller={controller} state={state} readAloud={readAloud} onOpenDictionary={() => setPanel('dictionary')} onClose={() => setPanel('none')} />
+        <SettingsPanel
+          controller={controller}
+          state={state}
+          readAloud={readAloud}
+          initialTab={settingsTab}
+          onOpenDictionary={() => setPanel('dictionary')}
+          onClose={() => setPanel('none')}
+        />
+      )}
+      {panel === 'palette' && (
+        <CommandPalette
+          commands={commands()}
+          onRun={(command) => {
+            setPanel('none');
+            command.run();
+          }}
+          onClose={() => setPanel('none')}
+        />
       )}
       {panel === 'dictionary' && <DictionaryPanel controller={controller} dictionary={state.settings.dictionary} onClose={() => setPanel('none')} />}
       {panel === 'bug' && <BugReportDialog controller={controller} onClose={() => setPanel('none')} />}

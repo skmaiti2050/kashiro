@@ -270,6 +270,19 @@ describe('axe-core: no serious or critical violations', () => {
     await audit('quick-fix popover');
   });
 
+  it('F23: the command palette, filtered and with no match', async () => {
+    const { controller } = makeController();
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openSample());
+    fireEvent.keyDown(document.body, { key: 'k', ctrlKey: true });
+    const box = screen.getByRole('combobox', { name: 'Type a command' });
+    await audit('command palette');
+    fireEvent.change(box, { target: { value: 'settings' } });
+    await audit('command palette filtered');
+    fireEvent.change(box, { target: { value: 'zzzz' } });
+    await audit('command palette, no match');
+  });
+
   it('About: the list of notices, then each notice shown alone', async () => {
     renderShell(makeController().controller);
     chooseFromMore('About');

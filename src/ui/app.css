@@ -536,6 +536,46 @@ summary:focus-visible,
   background: var(--bg);
 }
 
+/* The command palette (F23 item 6): a search box over a list; the active entry carries the accent bar. */
+.dialog.palette {
+  width: min(560px, 92vw);
+}
+
+.dialog.palette input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+}
+
+/* Positioned like every scrolling box (F19; see .document). */
+.palette-list {
+  position: relative;
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  max-height: min(420px, 60vh);
+  overflow-y: auto;
+}
+
+.palette-list [role='option'] {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 10px;
+  border-inline-start: 3px solid transparent;
+  cursor: pointer;
+}
+
+.palette-list [role='option'][aria-selected='true'] {
+  border-inline-start-color: var(--accent);
+  background: var(--bg);
+}
+
+.palette-list [role='option'][aria-disabled='true'] {
+  color: var(--muted);
+  cursor: default;
+}
+
 /* The quick fix (F23 item 5): an anchor laid over the underlined word, its actions under it. */
 .menu-anchor.quick-fix-anchor {
   position: absolute;
@@ -1521,6 +1561,14 @@ button.link {
     forced-color-adjust: none;
     background: Highlight;
     color: HighlightText;
+  }
+
+  .palette-list [role='option'][aria-selected='true'] {
+    border-inline-start-color: Highlight;
+  }
+
+  .palette-list [role='option'][aria-disabled='true'] {
+    color: GrayText;
   }
 }
 

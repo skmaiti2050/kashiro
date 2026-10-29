@@ -61,6 +61,12 @@ describe('appShortcut', () => {
     expect(appShortcut(press('O', { ctrlKey: true }), false, 'none')).toBe('open');
   });
 
+  it('Ctrl+K opens the command palette from anywhere, also in text (F23 item 6); Ctrl+Shift+K does not', () => {
+    expect(appShortcut(press('k', { ctrlKey: true }), true, 'text-entry')).toBe('palette');
+    expect(appShortcut(press('K', { ctrlKey: true }), false, 'none')).toBe('palette');
+    expect(appShortcut(press('k', { ctrlKey: true, shiftKey: true }), true, 'none')).toBeNull();
+  });
+
   it('Ctrl+V pastes a new document only on the empty start screen', () => {
     expect(appShortcut(press('v', { ctrlKey: true }), false, 'none')).toBe('paste');
     expect(appShortcut(press('v', { ctrlKey: true }), true, 'none')).toBeNull();
