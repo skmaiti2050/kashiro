@@ -226,6 +226,19 @@ function isSuggestionOnCommand(c: Candidate, ctx: TierContext): boolean {
   return overlapsLocked(c, ctx.commandSpans?.get(c.paraId));
 }
 
+/** Only spaces and tabs: "  ", "\t". */
+const BLANKS = /^[ \t]+$/;
+
+/**
+ * A space rule's flag on a line's indentation ("  name: web" → " name: web"): indentation is layout (YAML, a
+ * Makefile, a loop body, a quoted argument), never a slip, so it is not collapsed (Task F21 item A).
+ */
+function isIndentation(c: Candidate, text: string | undefined): boolean {
+  if (c.kind !== 'Formatting' || !BLANKS.test(c.original) || text === undefined) return false;
+  const before = text[c.span.start - 1];
+  return c.span.start === 0 || before === '\n' || before === '\r';
+}
+
 function baseTier(c: Candidate, ctx: TierContext): Tier {
   const { preset } = ctx;
   if (isStyleChoice(c)) return 'review';
@@ -257,6 +270,7 @@ export function tierOf(c: Candidate, ctx: TierContext): Tier {
   const paraText = ctx.paraText?.get(c.paraId);
   if (isCodeNoiseFlag(c, paraText)) return 'hidden';
   if (isSuggestionOnCommand(c, ctx)) return 'hidden';
+  if (isIndentation(c, paraText)) return 'hidden';
   if (lowersAcronym(c)) return 'hidden';
   if (paraText !== undefined && isListLabelFlag(c, paraText, ctx.listParagraphs?.has(c.paraId) ?? false)) return 'hidden';
   if (isIgnoredRule(c, ctx)) return 'hidden';

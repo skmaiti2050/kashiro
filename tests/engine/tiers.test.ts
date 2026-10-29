@@ -331,6 +331,22 @@ describe('tierOf: review rules', () => {
   });
 });
 
+describe('indentation (Task F21 item A: YAML, a Makefile, a loop body)', () => {
+  const at = (text: string, original: string, start: number) =>
+    tierOf(cand({ original, kind: 'Formatting', replacements: [' '], span: { start, end: start + original.length } }), ctx({ paraText: new Map([[0, text]]) }));
+
+  it('a space rule never collapses a line\'s indentation, whatever the overrides', () => {
+    expect(at('metadata:\n  name: web', '  ', 10)).toBe('hidden');
+    expect(at('build:\r\n\tgo build', '\t', 8)).toBe('hidden');
+    expect(at('  sleep 5', '  ', 0)).toBe('hidden');
+  });
+
+  it('two spaces between words are still collapsed', () => {
+    expect(at('We went  home.', '  ', 7)).toBe('safe');
+    expect(at('a:\n  name:  web', '  ', 10)).toBe('safe');
+  });
+});
+
 describe('identifiers mixing letters and digits', () => {
   it.each(['q2', 'mp4', 'P0', 'v2', '4K', 'B2B', 'COVID-19', 'A4'])('a Spelling/Typo flag of %s is hidden, whatever the overrides', (original) => {
     for (const kind of ['Spelling', 'Typo']) {

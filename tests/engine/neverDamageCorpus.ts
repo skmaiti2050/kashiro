@@ -235,6 +235,44 @@ const RUNBOOK_BLOCK = [
   'Restore the snapshot. This takes about ten minutes -- so wait  for it. we are done.',
   // Two spaces before a continuation: never collapsed without a click.
   '[[ls -la  \\\n/var/log]]',
+  // Task F21 item A: commands found by their shape, not a word list. The owner's repros first.
+  '[[until sudo docker pull ${SRC}; do\n  sleep 5\ndone]]',
+  '[[# Install docker if not present\nsudo apt-get install -y docker.io]]',
+  '[[gh secret set FOO --body "$X"]]',
+  "[[aws ec2 describe-instances --query 'Reservations[].Instances[].{\nId:InstanceId; Type:InstanceType;\nState:State.Name}' --output table]]",
+  'Scripts use [[sudo su ubuntu]] to switch user.',
+  // F20 adversarial review I-1 (a doubling a click would undo) and M-19 (spaces in a here-document body).
+  '[[cat <<EOF > words.txt\nthe the\nEOF]]',
+  '[[make the the]]',
+  '[[cat <<EOF > config.yml\nname: my app\nport:  8080\nretries: 3 , 4\nEOF]]',
+  // M-16: loops, redirects, here-documents, unlisted commands, a Makefile, YAML and a multi-line quoted argument.
+  'Install Docker on the host first.',
+  '[[until sudo docker pull ${SRC}; do]]',
+  '[[  sleep 5]]',
+  '[[done]]',
+  'Use the docker CLI. The docker daemon must run. [[until sudo docker pull ${SRC}; do sleep 5; done]]',
+  '[[if true; then echo hi; fi]]',
+  '[[for i in 1 2 3; do echo $i; done]]',
+  '[[for f in *.log; do gzip $f; done]]',
+  '[[node app.js > out.log 2>&1]]',
+  '[[tee /etc/app.conf <<EOF\nhost = localhost\nlog level = debug\nEOF]]',
+  '[[make install]]',
+  '[[node index.js --port 3000]]',
+  '[[brew install jq\napt-get install curl\nyum install git\nmv a b\nrm -rf build\ntouch file.txt\nwget https://x.y/z\nnode index.js\nmake build\ngo run .\ncargo build\nyarn add react\nps aux\nkill -9 123\nsystemd-analyze blame\nservice nginx restart\nopenssl rand -hex 32\ntar xzf a.tgz\nunzip a.zip\nsource venv/bin/activate]]',
+  '[[build:\n\tgo build -o bin/app ./cmd/app\n\ttest:  lint\n\tgo test ./...]]',
+  'apiVersion: apps/v1\nkind: Deployment\nmetadata:\n[[  name: web]]\nspec:\n[[  replicas]]:  3',
+  "[[aws ec2 describe-instances \\\n  --filters \"Name=tag:Env,Values=prod\" \\\n  --query 'Reservations[].Instances[].{\n    id: InstanceId;\n    type: InstanceType;\n    az: Placement.AvailabilityZone\n  }']]",
+  // A .docx puts each line in its own paragraph: a continuation or an open quote carries on into the next one.
+  '[[aws ec2 describe-instances \\]]',
+  '[[  --region ap-south-1 \\]]',
+  "[[  --query 'Reservations[].Instances[].{Id:InstanceId; Type:InstanceType}' \\]]",
+  '[[  --output table]]',
+  '[[sudo docker run -d \\]]',
+  '[[  -p 80:80 \\]]',
+  '[[  nginx:latest]]',
+  "[[aws ec2 describe-instances --query 'Reservations[].Instances[].{]]",
+  '[[Id:InstanceId; Type:InstanceType;]]',
+  "[[State:State.Name}' --output table]]",
 ];
 
 /** The runbook's paragraphs, with its commands as traps. */
@@ -436,6 +474,28 @@ export const TICK_TRUTH: readonly TickTruth[] = [
   // Task F20 item 1: a doubling inside a command is the command's text, not a slip.
   { input: 'echo the the > notes.txt', mayTick: [] },
   { input: 'sudo echo of of', mayTick: [] },
+  // Task F21 item A (F20 adversarial review I-1, M-16, M-19; the owner's item A): nothing in a command starts ticked.
+  { input: 'cat <<EOF > words.txt\nthe the\nEOF', mayTick: [] },
+  { input: 'make the the', mayTick: [] },
+  { input: 'cat <<EOF > config.yml\nname: my app\nport:  8080\nretries: 3 , 4\nEOF', mayTick: [] },
+  { input: 'until sudo docker pull ${SRC}; do\n  sleep 5\ndone', mayTick: [] },
+  { input: '# Install docker if not present\nsudo apt-get install -y docker.io', mayTick: [] },
+  { input: 'gh secret set FOO --body "$X"', mayTick: [] },
+  { input: "aws ec2 describe-instances --query 'Reservations[].Instances[].{\nId:InstanceId; Type:InstanceType;\nState:State.Name}' --output table", mayTick: [] },
+  { input: 'Scripts use sudo su ubuntu to switch user.', mayTick: [] },
+  { input: 'Use the docker CLI. The docker daemon must run. until sudo docker pull ${SRC}; do sleep 5; done', mayTick: [] },
+  { input: 'if true; then echo hi; fi', mayTick: [] },
+  { input: 'for i in 1 2 3; do echo $i; done', mayTick: [] },
+  { input: 'for f in *.log; do gzip $f; done', mayTick: [] },
+  { input: 'node app.js > out.log 2>&1', mayTick: [] },
+  { input: 'tee /etc/app.conf <<EOF\nhost = localhost\nlog level = debug\nEOF', mayTick: [] },
+  { input: 'node index.js --port 3000', mayTick: [] },
+  { input: 'brew install jq\ncargo build\ngo run .\ntar xzf a.tgz\nunzip a.zip', mayTick: [] },
+  { input: 'build:\n\tgo build -o bin/app ./cmd/app\n\ttest:  lint\n\tgo test ./...', mayTick: [] },
+  { input: 'apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: web\nspec:\n  replicas:  3', mayTick: [] },
+  { input: "aws ec2 describe-instances \\\n  --filters \"Name=tag:Env,Values=prod\" \\\n  --query 'Reservations[].Instances[].{\n    id: InstanceId;\n    type: InstanceType;\n  }'", mayTick: [] },
+  { input: "aws ec2 describe-instances \\\n  --region ap-south-1 \\\n  --query 'Reservations[].Instances[].{Id:InstanceId; Type:InstanceType}' \\\n  --output table", mayTick: [] },
+  { input: 'sudo docker run -d \\\n  -p 80:80 \\\n  nginx:latest', mayTick: [] },
 ];
 
 /** Invisible characters sprinkled at random between ASCII characters. */

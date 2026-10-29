@@ -2,7 +2,7 @@ import { createLinter, type RulesLinter } from './linter';
 import { detectVariant } from './variant';
 import { findInvisible, visibleText, type VisibleText } from './hygiene';
 import { findLockedSpans } from './factLock';
-import { findCommandSpans } from './commands';
+import { findCommandSpansInParagraphs } from './commands';
 import { lintInChunks } from './chunks';
 import { isDictionaryWord } from './dictionaryWords';
 import { WORD_REWRITE_KINDS } from './wordFlags';
@@ -56,7 +56,7 @@ export async function prepareCheck(
 
   // Commands are fact-locked too (never auto-applied, spelling asked on its own card); tierOf also hides every
   // other rule's flag on them (Task F20 item 1).
-  const commandSpans = new Map(paras.map((p) => [p.id, findCommandSpans(p.text)]));
+  const commandSpans = findCommandSpansInParagraphs(paras);
   const locked = new Map<number, Span[]>();
   for (const p of paras) locked.set(p.id, [...findLockedSpans(p.text), ...commandSpans.get(p.id)!, ...(p.locked ?? [])]);
   // The linter reads each paragraph without its invisible junk; its spans are mapped back below.

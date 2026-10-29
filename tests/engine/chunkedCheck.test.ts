@@ -25,6 +25,8 @@ const SENTENCES = [
   'Can we prepone the meeting?',
   'Run sudo apt-get update first.',
   'We will meet  again next week.',
+  // A grammar card in prose: since Task F21 the "sudo" sentence above is a command, which gets no grammar card.
+  'They was late again.',
 ];
 
 /** About 60 paragraphs of mixed slips, well past one chunk. */
