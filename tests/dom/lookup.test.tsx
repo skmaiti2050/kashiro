@@ -250,9 +250,13 @@ describe('About', () => {
     expect(within(dialog).getByText(/Your writing stays on this PC\./)).toBeTruthy();
     const notices = dialog.querySelector('.notices')!;
     expect(notices.getAttribute('lang')).toBe('en');
-    expect([...notices.querySelectorAll('summary')].map((s) => s.textContent)).toHaveLength(8);
-    expect(notices.textContent).toContain('Creative Commons Attribution 4.0 International License');
-    expect(notices.textContent).toContain('SIL OPEN FONT LICENSE Version 1.1');
+    expect(within(notices as HTMLElement).getAllByRole('button')).toHaveLength(8);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Open English WordNet (word lookup)' }));
+    expect(dialog.querySelector('.notices')!.textContent).toContain('Creative Commons Attribution 4.0 International License');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Back to the list' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Fonts (SIL Open Font License)' }));
+    expect(dialog.querySelector('.notices')!.textContent).toContain('SIL OPEN FONT LICENSE Version 1.1');
+    expect(dialog.querySelector('.notices')!.getAttribute('lang')).toBe('en');
     fireEvent.keyDown(dialog, { key: 'Escape' });
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     // Focus returns to ⋯, where About was chosen.

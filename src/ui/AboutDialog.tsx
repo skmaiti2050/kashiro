@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Dialog } from './Dialog';
 import { useT } from './i18n/useT';
 import { APP_VERSION, THIRD_PARTY_NOTICES, type Notice } from './notices';
@@ -18,15 +18,55 @@ export function AboutDialog({ onClose }: { onClose(): void }) {
       <p>{t.t('about.licence')}</p>
       <h3>{t.t('about.notices')}</h3>
       <p className="hint">{t.t('about.noticesHint')}</p>
-      <div className="notices" lang="en" dir="ltr">
-        {THIRD_PARTY_NOTICES.map((notice) => (
-          <details key={notice.title}>
-            <summary>{notice.title}</summary>
-            <NoticeText notice={notice} />
-          </details>
-        ))}
-      </div>
+      <Notices backLabel={t.t('about.back')} />
     </Dialog>
+  );
+}
+
+/**
+ * The notices as a list of names; choosing one shows only that notice, with Back (F22 item 9: no long scroll
+ * through every text). Focus moves to Back on opening and to the chosen name on returning.
+ */
+function Notices({ backLabel }: { backLabel: string }) {
+  const [shown, setShown] = useState<Notice | null>(null);
+  const lastShown = useRef<Notice | null>(null);
+  const back = useRef<HTMLButtonElement>(null);
+  const list = useRef<HTMLUListElement>(null);
+  useEffect(() => {
+    if (shown) back.current?.focus();
+    else if (lastShown.current) list.current?.querySelectorAll('button')[THIRD_PARTY_NOTICES.indexOf(lastShown.current)]?.focus();
+  }, [shown]);
+  const open = (notice: Notice) => {
+    lastShown.current = notice;
+    setShown(notice);
+  };
+
+  if (shown) {
+    return (
+      <>
+        {/* Outside the notice: its label is in the UI language, the notices are English. */}
+        <button ref={back} className="quiet notice-back" onClick={() => setShown(null)}>
+          {backLabel}
+        </button>
+        <div className="notices" lang="en" dir="ltr">
+          <h4>{shown.title}</h4>
+          <NoticeText notice={shown} />
+        </div>
+      </>
+    );
+  }
+  return (
+    <div className="notices" lang="en" dir="ltr">
+      <ul className="notice-list" ref={list}>
+        {THIRD_PARTY_NOTICES.map((notice) => (
+          <li key={notice.title}>
+            <button className="notice-name" onClick={() => open(notice)}>
+              {notice.title}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -52,9 +92,9 @@ function NoticeText({ notice }: { notice: Notice }) {
   );
 }
 
-/** Below the dialog's own h2 and the section's h3: a notice's "#" is an h4, "##" an h5, deeper an h6. */
+/** Below the dialog's h2, the section's h3 and the notice's name (h4): a notice's "#" is an h5, deeper an h6. */
 function NoticeHeading({ level, children }: { level: number; children: ReactNode }) {
-  const Tag = level === 1 ? 'h4' : level === 2 ? 'h5' : 'h6';
+  const Tag = level === 1 ? 'h5' : 'h6';
   return <Tag>{children}</Tag>;
 }
 

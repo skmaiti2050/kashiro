@@ -224,16 +224,25 @@ describe('axe-core: no serious or critical violations', () => {
     await audit('lookup: failed load');
   });
 
-  it('About, with every notice open', async () => {
+  it('About: the list of notices, then each notice shown alone', async () => {
     renderShell(makeController().controller);
     chooseFromMore('About');
     const dialog = await screen.findByRole('dialog', { name: 'About Kashiro' });
-    act(() => dialog.querySelectorAll('details').forEach((details) => (details.open = true)));
     await audit('About');
-    // Readable text, not Markdown source (Task U3 item 8); the licence texts stay verbatim in <pre>.
-    const shown = [...dialog.querySelectorAll('.notice-markdown > :not(pre)')].map((el) => el.textContent ?? '');
-    expect(shown.filter((text) => /^#|```|\*\*|\]\(/.test(text))).toEqual([]);
-    expect(within(dialog).getByRole('heading', { name: 'Fonts attribution' })).toBeTruthy();
-    expect([...dialog.querySelectorAll('pre')].some((pre) => pre.textContent!.includes('SIL OPEN FONT LICENSE Version 1.1'))).toBe(true);
+    const names = within(dialog.querySelector('.notices') as HTMLElement)
+      .getAllByRole('button')
+      .map((b) => b.textContent!);
+    for (const name of names) {
+      fireEvent.click(within(dialog).getByRole('button', { name }));
+      await audit(`About › ${name}`);
+      // Readable text, not Markdown source (Task U3 item 8); the licence texts stay verbatim in <pre>.
+      const shown = [...dialog.querySelectorAll('.notice-markdown > :not(pre)')].map((el) => el.textContent ?? '');
+      expect(shown.filter((text) => /^#|```|\*\*|\]\(/.test(text))).toEqual([]);
+      if (name.startsWith('Fonts')) {
+        expect(within(dialog).getByRole('heading', { name: 'Fonts attribution' })).toBeTruthy();
+        expect([...dialog.querySelectorAll('pre')].some((pre) => pre.textContent!.includes('SIL OPEN FONT LICENSE Version 1.1'))).toBe(true);
+      }
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Back to the list' }));
+    }
   });
 });

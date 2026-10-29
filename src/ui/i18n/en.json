@@ -359,6 +359,7 @@
   "about.licence": "Kashiro is free software under the Apache License 2.0.",
   "about.notices": "Third-party notices",
   "about.noticesHint": "Credits and licences of the data, fonts and libraries included in Kashiro. They are in English.",
+  "about.back": "Back to the list",
 
   "settings.title": "Settings",
   "settings.variant": "Default English variant",
