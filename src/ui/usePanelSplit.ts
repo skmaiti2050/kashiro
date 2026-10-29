@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import {
   PANEL_DEFAULT,
   panelWasCollapsed,
@@ -31,6 +31,7 @@ export function usePanelSplit() {
     document.querySelector<HTMLElement>(collapsed ? '.review-strip button' : '.panel-collapse')?.focus();
   }, [collapsed]);
 
+  /** Shows and remembers a width (a key press, or a drag's end). */
   const resize = (width: number) => {
     setChosen(width);
     rememberPanelWidth(width);
@@ -40,6 +41,7 @@ export function usePanelSplit() {
     setCollapsedState(value);
     rememberPanelCollapsed(value);
   };
-  const style = chosen === null ? undefined : ({ '--panel-width': `min(${chosen}px, 70%)` } as CSSProperties);
-  return { width: chosen ?? measured, collapsed, setCollapsed, resize, style };
+  const style = useMemo(() => (chosen === null ? undefined : ({ '--panel-width': `min(${chosen}px, 70%)` } as CSSProperties)), [chosen]);
+  // While the mouse drags, the width is only shown: it is remembered once, when the drag ends.
+  return { width: chosen ?? measured, collapsed, setCollapsed, resize, drag: setChosen, style };
 }

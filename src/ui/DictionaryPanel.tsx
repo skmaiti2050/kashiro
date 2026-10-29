@@ -1,6 +1,7 @@
-import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react';
 import { duplicateCount } from '@/engine/dictionaryWords';
 import { Dialog } from './Dialog';
+import { focusButtonAt } from './focus';
 import { useT } from './i18n/useT';
 import type { SessionController } from './state/sessionController';
 
@@ -28,15 +29,21 @@ export function DictionaryPanel({ controller, dictionary, onClose }: Props) {
   const addInput = useRef<HTMLInputElement>(null);
   const hintId = useId();
 
-  const sorted = [...dictionary].sort(collator.compare);
+  // Worked out again only when the dictionary changes, not on every key typed in the search.
+  const { sorted, duplicates } = useMemo(
+    () => ({
+      sorted: [...dictionary].sort(collator.compare).map((word) => ({ word, lower: word.toLocaleLowerCase('en') })),
+      duplicates: duplicateCount(dictionary),
+    }),
+    [dictionary],
+  );
   const needle = query.trim().toLocaleLowerCase('en');
-  const shown = needle === '' ? sorted : sorted.filter((word) => word.toLocaleLowerCase('en').includes(needle));
-  const duplicates = duplicateCount(dictionary);
+  const shown = needle === '' ? sorted : sorted.filter((entry) => entry.lower.includes(needle));
 
   useEffect(() => {
     if (refocus === null) return;
-    const buttons = list.current?.querySelectorAll('button') ?? [];
-    (buttons[Math.min(refocus, buttons.length - 1)] ?? addInput.current)?.focus();
+    const count = list.current?.querySelectorAll('button').length ?? 0;
+    if (!focusButtonAt(list.current, Math.min(refocus, count - 1))) addInput.current?.focus();
     setRefocus(null);
   }, [refocus, dictionary]);
 
@@ -80,7 +87,7 @@ export function DictionaryPanel({ controller, dictionary, onClose }: Props) {
       {dictionary.length === 0 && <p className="hint">{t.t('settings.dictionaryEmpty')}</p>}
       {dictionary.length > 0 && shown.length === 0 && <p className="hint">{t.t('dictionary.noMatch')}</p>}
       <ul className="dictionary" ref={list}>
-        {shown.map((word, index) => (
+        {shown.map(({ word }, index) => (
           <li key={word}>
             <span lang="en">{word}</span>
             <button className="quiet" aria-label={t.t('settings.removeLabel', { word })} onClick={() => remove(word, index)}>

@@ -324,7 +324,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
           </div>
         ) : (
           <>
-            <PanelDivider width={split.width} onResize={split.resize} />
+            <PanelDivider width={split.width} onResize={split.resize} onDrag={split.drag} />
             <ReviewPanel
               key={state.document?.id ?? 0}
               controller={controller}
