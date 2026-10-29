@@ -1,4 +1,5 @@
 import type { Span } from './types';
+import { overlaps } from './sessionTypes';
 
 /**
  * Identifiers no spelling, word or capital rule may touch (Task F21 item E, owner): "(ami-0123456789abcdef0)" got a
@@ -19,7 +20,8 @@ const ARN = /(?<![\p{L}\p{N}_-])arn:[a-z0-9-]+:\S*/giu;
 const HEX_LIKE = /^(?=(?:[a-f]*\d){2})[0-9a-f]{6,}$/i;
 /** Letters and digits mixed back and forth at least twice ("bld9x7k2q", "jb3kq9z"; not "y0u", "th9s", "mp4"). */
 const MIXED = /^(?:(?:\p{L}+\p{N}+){2,}\p{L}*|(?:\p{N}+\p{L}+){2,}\p{N}*)$/u;
-const LETTER_OR_DIGIT = /[\p{L}\p{N}]/u;
+/** One letter or digit, e.g. "a", "7". */
+export const LETTER_OR_DIGIT = /[\p{L}\p{N}]/u;
 
 /** The run of letters and digits around `span` of `text`: "0123456789abcdef0" around "6789abcdef0". */
 function runAround(text: string, span: Span): string {
@@ -32,7 +34,7 @@ function runAround(text: string, span: Span): string {
 
 /** True when `span` of `text` overlaps a match of `re` (a global pattern). */
 function inMatch(text: string, span: Span, re: RegExp): boolean {
-  for (const m of text.matchAll(re)) if (span.start < m.index! + m[0].length && m.index! < span.end) return true;
+  for (const m of text.matchAll(re)) if (overlaps(span, { start: m.index!, end: m.index! + m[0].length })) return true;
   return false;
 }
 

@@ -185,10 +185,18 @@ export class CheckSession {
       onCommand: (c) => overlapsLocked(c, this.ctx.commandSpans?.get(c.paraId)),
       untickedOnCard: (fixes) => {
         const unknownWords = this.spellingFlagSpans();
+        const commandText = new Map<number, Span[]>();
         return untickedByDefault(fixes, {
           paraText: this.ctx.paraText ?? new Map(),
           optedIn: (c) => this.optedIn.has(c.id),
-          commandText: (paraId) => [...(this.ctx.commandSpans?.get(paraId) ?? []), ...(this.ctx.maybeCommandSpans?.get(paraId) ?? [])],
+          commandText: (paraId) => {
+            let spans = commandText.get(paraId);
+            if (spans === undefined) {
+              spans = [...(this.ctx.commandSpans?.get(paraId) ?? []), ...(this.ctx.maybeCommandSpans?.get(paraId) ?? [])];
+              commandText.set(paraId, spans);
+            }
+            return spans;
+          },
           unknownWords: (paraId) => unknownWords.get(paraId) ?? [],
         });
       },
@@ -203,7 +211,12 @@ export class CheckSession {
    */
   private spellingFlagSpans(): Map<number, Span[]> {
     const out = new Map<number, Span[]>();
-    for (const c of this.cands.values()) if (c.kind === 'Spelling') out.set(c.paraId, [...(out.get(c.paraId) ?? []), c.span]);
+    for (const c of this.cands.values()) {
+      if (c.kind !== 'Spelling') continue;
+      const spans = out.get(c.paraId);
+      if (spans) spans.push(c.span);
+      else out.set(c.paraId, [c.span]);
+    }
     return out;
   }
 

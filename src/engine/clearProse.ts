@@ -2,6 +2,7 @@ import type { Span } from './types';
 import { LIST_LABEL } from './commandShapes';
 import { sentenceSpans } from './sentences';
 import { FUNCTION_WORDS } from './tiers';
+import { overlaps } from './sessionTypes';
 
 /**
  * A doubling starts ticked only in a clear prose sentence (Task F21d, owner decision 2026-10-29). Each review found
@@ -76,7 +77,7 @@ function lineAt(text: string, at: number): string {
  * or a list label; and neither line touches command text. Otherwise each line stays a sentence of its own.
  */
 function joinWrappedLines(text: string, signs: LineSigns): string {
-  const touches = (spans: readonly Span[], part: Span) => spans.some((s) => s.start < part.end && s.end > part.start);
+  const touches = (spans: readonly Span[], part: Span) => spans.some((s) => overlaps(s, part));
   const startsWithKnownWord = (line: Span) => {
     const word = FIRST_PLAIN_WORD.exec(text.slice(line.start, line.end));
     if (word === null) return false;
@@ -124,5 +125,5 @@ export function isClearProseSentence(text: string, at: Span, signs: LineSigns): 
   if ((sentence.match(WORD)?.length ?? 0) < MIN_WORDS) return false;
   if (LIST_LABEL.test(lineAt(text, span.start))) return false;
   if (tellsToRunSomething(sentence)) return false;
-  return !commandText.some((c) => c.start < span.end && c.end > span.start);
+  return !commandText.some((c) => overlaps(c, span));
 }

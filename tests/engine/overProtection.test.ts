@@ -24,7 +24,6 @@ vi.mock('@/engine/commands', async (importOriginal) => {
   const none = (paras: readonly Paragraph[]) => new Map<number, Span[]>(paras.map((p) => [p.id, []]));
   return {
     ...real,
-    findCommandSpansInParagraphs: (paras: readonly Paragraph[]) => (detection.on ? real.findCommandSpansInParagraphs(paras) : none(paras)),
     findCommandText: (paras: readonly Paragraph[]) => (detection.on ? real.findCommandText(paras) : { surely: none(paras), maybe: none(paras) }),
   };
 });

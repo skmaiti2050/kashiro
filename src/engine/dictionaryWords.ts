@@ -34,7 +34,26 @@ export function dictionaryAccepts(entry: string, word: string): boolean {
 
 /** True when some entry of `dictionary` accepts `word`. */
 export function isDictionaryWord(dictionary: readonly string[], word: string): boolean {
-  return dictionary.some((entry) => dictionaryAccepts(entry, word));
+  return dictionaryMatcher(dictionary)(word);
+}
+
+/**
+ * A test for "some entry of `dictionary` accepts the word" (dictionaryAccepts), with the dictionary read once into
+ * two sets: a check asks it for every spelling flag.
+ */
+export function dictionaryMatcher(dictionary: readonly string[]): (word: string) => boolean {
+  const anyCase = new Set<string>();
+  const exact = new Set<string>();
+  for (const entry of dictionary) {
+    if (isLowercase(entry)) {
+      anyCase.add(folded(entry));
+      continue;
+    }
+    const composed = entry.normalize('NFC');
+    exact.add(composed);
+    exact.add(composed.toUpperCase());
+  }
+  return (word) => anyCase.has(folded(word)) || exact.has(word.normalize('NFC'));
 }
 
 /**

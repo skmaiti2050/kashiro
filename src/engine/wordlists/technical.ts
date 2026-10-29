@@ -30,3 +30,6 @@ export const TECHNICAL_WORDS: readonly string[] = [
  * typos as often as not ("aws" for "was", "su" for "us", "arn" for "ran"; Task F21c, review M-25).
  */
 export const SHORT_TECHNICAL_WORDS: readonly string[] = ['ami', 'arn', 'aws', 'cp', 'ecr', 'gh', 'mv', 'npx', 'ps', 'rds', 'rg', 'scp', 'ssm', 'su', 'vpc'];
+
+/** SHORT_TECHNICAL_WORDS as a set, for lookups. */
+export const SHORT_TECHNICAL_WORD_SET: ReadonlySet<string> = new Set(SHORT_TECHNICAL_WORDS);

@@ -1,6 +1,7 @@
 import { Dialect, LocalLinter, SuggestionKind } from 'harper.js';
 import type { BinaryModule, LintConfig } from 'harper.js';
 import type { Candidate, Paragraph, Span, Variant } from './types';
+import { overlaps } from './sessionTypes';
 import { EN_IN_WORDS } from './wordlists/en-IN';
 import { TECH_WORDS } from './wordlists/tech';
 import { TECHNICAL_WORDS } from './wordlists/technical';
@@ -66,7 +67,7 @@ async function lintText(linter: LocalLinter, text: string, language: 'plaintext'
       const sp = lint.span();
       const { start, end } = sp;
       sp.free();
-      if (runs.some((r) => start < r.end && end > r.start)) continue;
+      if (runs.some((r) => overlaps({ start, end }, r))) continue;
       const original = text.slice(start, end);
       const replacements: string[] = [];
       for (const s of lint.suggestions()) {

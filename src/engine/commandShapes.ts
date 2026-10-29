@@ -24,6 +24,9 @@ export const ENGLISH_COMMAND_WORDS: ReadonlySet<string> = new Set([
   'tail', 'tar', 'tee', 'touch', 'yarn', 'yum',
 ]);
 
+/** The command words that are no English word ("sudo", "su", "docker"), in COMMAND_WORDS order. */
+export const NON_ENGLISH_COMMAND_WORDS: ReadonlySet<string> = new Set([...COMMAND_WORDS].filter((w) => !ENGLISH_COMMAND_WORDS.has(w)));
+
 /** The command words that are no English word, so they start a command inside a sentence too ("Scripts use sudo su ubuntu"). */
 export const PROSE_COMMAND_WORDS: ReadonlySet<string> = new Set([
   'apt-get', 'aws', 'chmod', 'chown', 'docker', 'gh', 'git', 'grep', 'journalctl', 'kubectl', 'npm', 'npx', 'openssl',

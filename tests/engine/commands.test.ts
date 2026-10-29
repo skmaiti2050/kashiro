@@ -8,7 +8,8 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { CheckSession, type CheckOptions } from '@/engine/session';
 import { SIMPLE_FIXES_ID } from '@/engine/decisions';
 import { createLinter, type RulesLinter } from '@/engine/linter';
-import { COMMAND_WORDS, ENGLISH_COMMAND_WORDS, findCommandSpans, findCommandSpansInParagraphs, findCommandText, PROSE_COMMAND_WORDS } from '@/engine/commands';
+import { findCommandText } from '@/engine/commands';
+import { COMMAND_WORDS, ENGLISH_COMMAND_WORDS, PROSE_COMMAND_WORDS } from '@/engine/commandShapes';
 import { WORD_REWRITE_KINDS } from '@/engine/wordFlags';
 import type { Paragraph, Span, Tier } from '@/engine/types';
 import { AUTO_APPLY_KINDS } from '@/ui/state/settings';
@@ -32,6 +33,10 @@ const EVERYTHING_AUTO: Partial<Record<string, Tier>> = Object.fromEntries(AUTO_A
 
 /** The text each span covers. */
 const covered = (text: string, spans: Span[]) => spans.map((s) => text.slice(s.start, s.end));
+/** Surely-command text in each paragraph, by id. */
+const findCommandSpansInParagraphs = (paras: readonly Paragraph[]) => findCommandText(paras).surely;
+/** Surely-command text in one paragraph on its own. */
+const findCommandSpans = (text: string) => findCommandSpansInParagraphs([{ id: 0, text }]).get(0)!;
 
 describe('findCommandSpans: what looks like a command', () => {
   it('names its command words in one tested list, and the ones that are no English word in a second', () => {

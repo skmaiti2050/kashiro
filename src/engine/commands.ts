@@ -1,7 +1,7 @@
 import type { Candidate, Paragraph, Span } from './types';
 import { FUNCTION_WORDS } from './tiers';
 import { overlapsLocked } from './factLock';
-import { WORD_REWRITE_KINDS } from './wordFlags';
+import { isCaseOnly, withFixesKept, WORD_REWRITE_KINDS } from './wordFlags';
 import {
   bodyOf,
   COMMAND_WORDS,
@@ -11,6 +11,7 @@ import {
   INLINE_CODE,
   linesOf,
   LIST_LABEL,
+  NON_ENGLISH_COMMAND_WORDS,
   OPERATOR,
   OPTION,
   PATH,
@@ -22,9 +23,7 @@ import {
   VARIABLE,
 } from './commandShapes';
 import { findMaybeCommandSpans, type ScannedLine } from './maybeCommands';
-import { SHORT_TECHNICAL_WORDS } from './wordlists/technical';
-
-export { COMMAND_WORDS, ENGLISH_COMMAND_WORDS, PROSE_COMMAND_WORDS } from './commandShapes';
+import { SHORT_TECHNICAL_WORD_SET } from './wordlists/technical';
 
 /**
  * Command-like text (Task F20 item 1, owner decision 2026-10-28): a runbook's commands break when a rule
@@ -73,7 +72,7 @@ const QUOTE_OPENER = /[\s=([{:,]/;
 /** A command word inside a sentence (PROSE_COMMAND_WORDS), not part of a longer word, path, URL or inline code. */
 const PROSE_COMMAND = new RegExp(`(?<![\\p{L}\\p{N}_./\`-])(?:${[...PROSE_COMMAND_WORDS].join('|')})(?![\\p{L}\\p{N}_/-])`, 'gu');
 /** A command word that is no English word as the next word after a command: "su" in "sudo su ubuntu". */
-const NEXT_COMMAND_WORD = new RegExp(`^[ \\t]+(?:${[...COMMAND_WORDS].filter((w) => !ENGLISH_COMMAND_WORDS.has(w)).join('|')})(?![\\p{L}\\p{N}_/-])`, 'u');
+const NEXT_COMMAND_WORD = new RegExp(`^[ \\t]+(?:${[...NON_ENGLISH_COMMAND_WORDS].join('|')})(?![\\p{L}\\p{N}_/-])`, 'u');
 /** A lowercase word right before an option or a variable: "make" in "make -j4", "echo" in "echo $HOME". */
 const WORD_BEFORE_ARGUMENT = /(?<![\p{L}\p{N}_./`-])\p{Ll}[\p{Ll}\p{N}_-]*(?=[ \t]+(?:--?[A-Za-z]|\$[{(A-Za-z_]))/gu;
 /** An article or determiner right before a word: "the" in "the docker daemon" (a noun there, not a command). */
@@ -84,8 +83,6 @@ const KEYWORD_BEFORE = /(?:^|[ \t])((?:until|while|if|then|do|else|for)[ \t]+)$/
 const CLAUSE_END = /[.!?,](?=\s|$)|;(?=[ \t]+(?!(?:do|done|then|fi|else|esac)\b)\p{Ll})/gu;
 /** A quote opening an argument: '"$X"', "'Reservations'". */
 const QUOTED_ARGUMENT = /(?:^|[\s=])["']/;
-
-const SHORT_WORDS: ReadonlySet<string> = new Set(SHORT_TECHNICAL_WORDS);
 
 /** Lines an open quote may run on for; one never closed is a stray apostrophe, and carries nothing on. */
 const QUOTE_REACH = 10;
@@ -232,7 +229,7 @@ function proseCommandSpans(line: string): { surely: Span[]; maybe: Span[] } {
     const start = at - (KEYWORD_BEFORE.exec(before)?.[1].length ?? 0);
     const sure = named && clauseHasSign(line.slice(at, end).replace(/^\S+/, ''));
     // A short cloud word alone is as often a typo ("It aws a great day"): it needs a second sign (review M-25).
-    if (!sure && SHORT_WORDS.has(line.slice(at, end).split(/\s/, 1)[0])) continue;
+    if (!sure && SHORT_TECHNICAL_WORD_SET.has(line.slice(at, end).split(/\s/, 1)[0])) continue;
     (sure ? out.surely : out.maybe).push({ start, end });
   }
   return out;
@@ -293,24 +290,11 @@ export function findCommandText(paras: readonly Paragraph[]): CommandText {
   return { surely, maybe: new Map(paras.map((p) => [p.id, merged(p.text, maybe.get(p.id)!)])) };
 }
 
-/** Ranges of surely-command text in each paragraph, by id (see findCommandText). */
-export function findCommandSpansInParagraphs(paras: readonly Paragraph[]): Map<number, Span[]> {
-  return findCommandText(paras).surely;
-}
-
 /**
  * A spelling flag on command text without the fixes that only change its case ("docker" → "Docker": the capital
  * names another command, or none; Task F21, review M-17). The linter's list stays in `linterReplacements`.
  */
 export function withoutCaseOnlyFixOnCommand(c: Candidate, commandSpans: Span[] | undefined): Candidate {
   if (!WORD_REWRITE_KINDS.has(c.kind) || !overlapsLocked(c, commandSpans)) return c;
-  const original = c.original.toLowerCase();
-  const kept = c.replacements.filter((r) => r.toLowerCase() !== original);
-  if (kept.length === c.replacements.length) return c;
-  return { ...c, replacements: kept, linterReplacements: c.linterReplacements ?? c.replacements };
-}
-
-/** Ranges of surely-command text in one paragraph on its own (see findCommandText). Sorted, merged. */
-export function findCommandSpans(text: string): Span[] {
-  return findCommandSpansInParagraphs([{ id: 0, text }]).get(0)!;
+  return withFixesKept(c, (r) => !isCaseOnly(c, r));
 }

@@ -22,9 +22,9 @@ export { buildDecisions, foldsUnderMore, type Decision } from './decisions';
 export { findContractions } from './contractions';
 
 export interface TierContext {
-  /** paraId → fact-locked spans (findLockedSpans + findCommandSpans + adapter Paragraph.locked). */
+  /** paraId → fact-locked spans (findLockedSpans + surely-command text from findCommandText + adapter Paragraph.locked). */
   locked: Map<number, Span[]>;
-  /** paraId → command-like text (findCommandSpans): only spelling is asked there (isSuggestionOnCommand). */
+  /** paraId → surely-command text (findCommandText): only spelling is asked there (isSuggestionOnCommand). */
   commandSpans?: Map<number, Span[]>;
   /** paraId → maybe-command spans (findCommandText): offered, never ticked, never changed without a click. */
   maybeCommandSpans?: Map<number, Span[]>;

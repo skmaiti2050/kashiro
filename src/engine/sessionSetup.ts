@@ -5,7 +5,7 @@ import { findLockedSpans } from './factLock';
 import { findCommandText, withoutCaseOnlyFixOnCommand } from './commands';
 import { withTechnicalWordRules } from './technicalWords';
 import { lintInChunks } from './chunks';
-import { isDictionaryWord } from './dictionaryWords';
+import { dictionaryMatcher } from './dictionaryWords';
 import { WORD_REWRITE_KINDS, withoutNonWordFixes } from './wordFlags';
 import { PRESETS } from './presets';
 import { findContractions } from './contractions';
@@ -101,7 +101,8 @@ export async function prepareCheck(
   const confusables = paras.flatMap((p) => findConfusables(p, locked.get(p.id)));
   // The curated rule knows these words better than the linter ("intercast" → "inter cast"): its flag replaces the linter's word flag there.
   // A word the user's dictionary accepts is never flagged: Harper misses "VANTIX" for the entry "Vantix" (F20 item 9b).
-  const found = linted.filter((c) => !confusables.some((x) => replacesLinterFlag(x, c)) && !(WORD_REWRITE_KINDS.has(c.kind) && isDictionaryWord(opts.dictionary, c.original)));
+  const inDictionary = dictionaryMatcher(opts.dictionary);
+  const found = linted.filter((c) => !confusables.some((x) => replacesLinterFlag(x, c)) && !(WORD_REWRITE_KINDS.has(c.kind) && inDictionary(c.original)));
   found.push(...confusables);
   for (const p of paras) {
     found.push(...invisible.get(p.id)!);

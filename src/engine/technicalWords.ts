@@ -1,24 +1,17 @@
 import type { Candidate, Span } from './types';
 import { overlapsLocked } from './factLock';
-import { WORD_REWRITE_KINDS } from './wordFlags';
-import { COMMAND_WORDS, ENGLISH_COMMAND_WORDS } from './commandShapes';
-import { SHORT_TECHNICAL_WORDS, TECHNICAL_WORDS } from './wordlists/technical';
+import { isCaseOnly, withFixesKept, WORD_REWRITE_KINDS } from './wordFlags';
+import { NON_ENGLISH_COMMAND_WORDS } from './commandShapes';
+import { SHORT_TECHNICAL_WORD_SET, SHORT_TECHNICAL_WORDS, TECHNICAL_WORDS } from './wordlists/technical';
 
-const SHORT_WORDS: ReadonlySet<string> = new Set(SHORT_TECHNICAL_WORDS);
 /** Command and cloud words whose capital names another thing, or nothing ("docker" → "Docker", "git" → "Git"). */
-const COMMAND_NAMES: ReadonlySet<string> = new Set([
-  ...[...COMMAND_WORDS].filter((w) => !ENGLISH_COMMAND_WORDS.has(w)),
-  ...TECHNICAL_WORDS,
-  ...SHORT_TECHNICAL_WORDS,
-]);
+const COMMAND_NAMES: ReadonlySet<string> = new Set([...NON_ENGLISH_COMMAND_WORDS, ...TECHNICAL_WORDS, ...SHORT_TECHNICAL_WORDS]);
 
 /** `c` without its fixes that only change the case of its text; null when nothing is left of a non-spelling flag. */
 function withoutCaseOnlyFixes(c: Candidate): Candidate | null {
-  const original = c.original.toLowerCase();
-  const kept = c.replacements.filter((r) => r.toLowerCase() !== original);
-  if (kept.length === c.replacements.length) return c;
-  if (kept.length === 0 && !WORD_REWRITE_KINDS.has(c.kind)) return null;
-  return { ...c, replacements: kept, linterReplacements: c.linterReplacements ?? c.replacements };
+  const kept = withFixesKept(c, (r) => !isCaseOnly(c, r));
+  if (kept !== c && kept.replacements.length === 0 && !WORD_REWRITE_KINDS.has(c.kind)) return null;
+  return kept;
 }
 
 /**
@@ -33,6 +26,6 @@ function withoutCaseOnlyFixes(c: Candidate): Candidate | null {
 export function withTechnicalWordRules(c: Candidate, surely: Span[] | undefined, maybe: Span[] | undefined): Candidate | null {
   const word = c.original.toLowerCase();
   if (!COMMAND_NAMES.has(word)) return c;
-  if (SHORT_WORDS.has(word) && overlapsLocked(c, surely) && WORD_REWRITE_KINDS.has(c.kind)) return null;
-  return SHORT_WORDS.has(word) || overlapsLocked(c, maybe) ? withoutCaseOnlyFixes(c) : c;
+  if (SHORT_TECHNICAL_WORD_SET.has(word) && overlapsLocked(c, surely) && WORD_REWRITE_KINDS.has(c.kind)) return null;
+  return SHORT_TECHNICAL_WORD_SET.has(word) || overlapsLocked(c, maybe) ? withoutCaseOnlyFixes(c) : c;
 }
