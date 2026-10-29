@@ -771,6 +771,39 @@ legend {
   font-weight: 600;
 }
 
+/* "● Correctness 3 · ◆ Clarity 2": toggle buttons that filter the cards (F23 item 2). */
+.category-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  margin-bottom: 10px;
+}
+
+.category-filters button {
+  font-size: 12px;
+  line-height: 16px;
+  padding: 3px 8px;
+}
+
+.category-filters .glyph {
+  color: var(--cat-color);
+  font-weight: 600;
+}
+
+.category-filters .count {
+  font-variant-numeric: tabular-nums;
+}
+
+.category-filters button[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.category-filters button[aria-pressed='true'] .glyph {
+  color: inherit;
+}
+
 /* Review panel */
 /* Positioned like every scrolling box, so screen-reader-only text inside scrolls with it (F19; see .document). */
 .review {
@@ -1417,6 +1450,12 @@ button.link {
 @media (forced-colors: active) {
   .tablist [role='tab'][aria-selected='true'] {
     border-bottom-color: Highlight;
+  }
+
+  .category-filters button[aria-pressed='true'] {
+    forced-color-adjust: none;
+    background: Highlight;
+    color: HighlightText;
   }
 }
 

@@ -1,4 +1,4 @@
-import type { Decision } from '@/engine/decisions';
+import { SIMPLE_FIXES_ID, type Decision } from '@/engine/decisions';
 import type { Candidate } from '@/engine/types';
 import type { MessageKey } from '../i18n/catalogues';
 
@@ -29,4 +29,21 @@ export function categoryOf(c: Candidate, decisionKind: Decision['kind']): Catego
   if (CLARITY_KINDS.has(c.kind)) return 'clarity';
   if (STYLE_KINDS.has(c.kind)) return 'style';
   return 'correctness';
+}
+
+/** A card's category, as its tag shows it: the simple-fixes card mixes kinds, so it counts as correctness. */
+export function categoryOfDecision(d: Decision, candidates: Map<string, Candidate>): Category {
+  if (d.id === SIMPLE_FIXES_ID) return 'correctness';
+  return categoryOf(candidates.get(d.candidateIds[0])!, d.kind);
+}
+
+/** The number of cards in each category that has any, in CATEGORIES order ("Correctness 3 · Clarity 2", F23 item 2). */
+export function categoryCounts(decisions: Decision[], candidates: Map<string, Candidate>): Map<Category, number> {
+  const counts = new Map<Category, number>();
+  for (const d of decisions) {
+    const category = categoryOfDecision(d, candidates);
+    counts.set(category, (counts.get(category) ?? 0) + 1);
+  }
+  const order = Object.keys(CATEGORIES) as Category[];
+  return new Map(order.filter((c) => counts.has(c)).map((c) => [c, counts.get(c)!]));
 }

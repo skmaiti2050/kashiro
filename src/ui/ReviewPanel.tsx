@@ -13,7 +13,9 @@ import { TermsCard } from './TermsCard';
 import { ReadAloudBar } from './ReadAloudBar';
 import { translatorFor } from './i18n/translatorFor';
 import { useT } from './i18n/useT';
+import { CategoryFilters } from './CategoryFilters';
 import { cardLabel } from './state/announce';
+import { categoryCounts, categoryOfDecision, type Category } from './state/categories';
 import { isWordCard } from './state/labels';
 import { progressLabel, progressOf } from './state/progress';
 import { paragraphAt, sentenceAt, suggestionSpeech, type ReadTarget } from './state/readAloud';
@@ -68,10 +70,15 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
    */
   const [reveal, setReveal] = useState<{ seq: number; focus: boolean }>({ seq: 0, focus: false });
   const cardSlot = useRef<HTMLDivElement>(null);
+  const [filter, setFilter] = useState<Category | null>(null);
   const session = state.session;
-  const { top, more } = session ? session.decisions() : { top: [], more: [] };
-  const current = currentDecision(top, more, cursor);
+  const all = session ? session.decisions() : { top: [], more: [] };
   const candidates = new Map((session?.candidates() ?? []).map((c) => [c.id, c]));
+  const counts = categoryCounts([...all.top, ...all.more], candidates);
+  // A filter whose last card was decided clears itself. Under a filter every card of it is in the queue, so J / K reach them all.
+  const active = filter && counts.has(filter) ? filter : null;
+  const { top, more } = active ? { top: [...all.top, ...all.more].filter((d) => categoryOfDecision(d, candidates) === active), more: [] } : all;
+  const current = currentDecision(top, more, cursor);
   const firstOf = (d: Decision) => candidates.get(d.candidateIds[0])!;
 
   // The current card's text is outlined in the document. When the decided card's button took the focus
@@ -85,7 +92,10 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
 
   useEffect(() => {
     if (!request) return;
-    const d = decisionWith(top, more, request.candidateId);
+    // An underline of a card the filter hides clears the filter: the card it asks for is shown.
+    const filtered = decisionWith(top, more, request.candidateId);
+    if (!filtered) setFilter(null);
+    const d = filtered ?? decisionWith(all.top, all.more, request.candidateId);
     if (!d) return;
     setCursor((c) => cursorAt(top, d.id, c));
     setReveal((r) => ({ seq: r.seq + 1, focus: request.focus ?? !state.document?.editable }));
@@ -162,6 +172,14 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
     // tabIndex -1: a click on the panel's background keeps focus in the panel, so the review keys work.
     <aside className="review" aria-label={t.t('panel.label')} tabIndex={-1}>
       <header>
+        <CategoryFilters
+          counts={counts}
+          active={active}
+          onToggle={(category) => {
+            setFilter(active === category ? null : category);
+            setCursor(START);
+          }}
+        />
         {/* Not a live region: the app's announcer says "Accepted. 4 of 9 left." once per decision. */}
         {allClear ? (
           // Done: one calm line, and no depth controls, since there is nothing left to show more or less of.

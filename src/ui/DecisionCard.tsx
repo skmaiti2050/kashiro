@@ -11,7 +11,7 @@ import { Kbd } from './Kbd';
 import type { Translator } from './i18n/translator';
 import { useT } from './i18n/useT';
 import { msg } from './i18n/message';
-import { categoryOf } from './state/categories';
+import { categoryOfDecision } from './state/categories';
 import { DecisionTitle } from './DecisionTitle';
 import { batchApplyLabel, excerpt } from './state/labels';
 import { englishOnly, explanation } from './state/plainMessages';
@@ -66,7 +66,7 @@ export function DecisionCard({ controller, session, checking, textChanges, decis
   const choosesPlaces = isBatch && !isSimpleFixes && decision.startUnticked?.length === members.length;
   const isWordFlag = WORD_REWRITE_KINDS.has(first.kind) && !isSimpleFixes;
   const flagOnly = first.replacements.length === 0;
-  const category = isSimpleFixes ? 'correctness' : categoryOf(first, decision.kind);
+  const category = categoryOfDecision(decision, candidates);
   const explained = isSimpleFixes ? msg('explain.simpleFixes') : explanation(first);
   // The engine never hides word flags, AI rewrites, hygiene fixes or flags on protected text, so don't offer it.
   const canIgnoreRule = !isWordFlag && !isSimpleFixes && first.source !== 'llm' && first.source !== 'hygiene' && !touchesLocked;

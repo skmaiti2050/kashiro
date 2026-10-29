@@ -617,5 +617,6 @@
   "ai.measuring": "Measuring how fast the AI helper runs on this PC…",
   "ai.noCaret": "Click in a sentence first, then choose “Improve this sentence”.",
   "ai.waitForCheck": "Wait for the check to catch up with your typing, then try again.",
-  "shortcuts.improve": "Improve the sentence at the cursor (AI helper)"
+  "shortcuts.improve": "Improve the sentence at the cursor (AI helper)",
+  "filter.label": "Filter by category"
 }
