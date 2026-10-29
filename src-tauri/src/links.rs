@@ -1,5 +1,5 @@
 //! Opens one of the project's GitHub pages in the default browser, only when the user clicks (F22 item 4: Report a
-//! bug). The page sends a page name, never a URL: the URL is PROJECT_URL from src/ui/projectLinks.ts (compiled in,
+//! bug; F23 item 4: Check for updates). The page sends a page name, never a URL: the URL is PROJECT_URL from src/ui/projectLinks.ts (compiled in,
 //! so the address is written once) plus a fixed path. Nothing else can be opened.
 
 /// src/ui/projectLinks.ts, whose `export const PROJECT_URL = '…';` line holds the project's address.
@@ -15,10 +15,11 @@ fn project_url() -> Result<&'static str, String> {
     if safe { Ok(url) } else { Err(format!("PROJECT_URL is not a GitHub address: {url}")) }
 }
 
-/// The address of `page`: only the bug-report issue form.
+/// The address of `page`: the bug-report issue form, or the Releases page (F23 item 4: Check for updates).
 fn page_url(page: &str) -> Result<String, String> {
     let path = match page {
         "issues" => "/issues/new?template=bug.yml",
+        "releases" => "/releases",
         _ => return Err(format!("unknown project page: {page}")),
     };
     Ok(format!("{}{path}", project_url()?))
@@ -56,9 +57,17 @@ mod tests {
     }
 
     #[test]
+    fn the_releases_page_is_project_url_plus_releases() {
+        assert_eq!(page_url("releases").unwrap(), format!("{}/releases", project_url().unwrap()));
+    }
+
+    #[test]
     fn any_other_page_or_a_url_is_refused() {
         assert!(page_url("https://example.com").is_err());
-        assert!(page_url("releases").is_err());
+        assert!(page_url("release").is_err());
+        assert!(page_url("releases/latest").is_err());
+        assert!(page_url("Releases").is_err());
+        assert!(page_url("").is_err());
         assert!(open_project_page("file:///C:/Windows/notepad.exe".into()).is_err());
     }
 }

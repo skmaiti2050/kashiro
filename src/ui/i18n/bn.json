@@ -622,5 +622,9 @@
   "filter.label": "বিভাগ অনুযায়ী বাছুন",
   "split.resize": "রিভিউ প্যানেলের মাপ বদলান",
   "split.hide": "রিভিউ প্যানেল লুকান",
-  "split.show": "রিভিউ প্যানেল দেখান"
+  "split.show": "রিভিউ প্যানেল দেখান",
+  "toolbar.checkUpdates": "আপডেট দেখুন…",
+  "about.checkUpdates": "আপডেট দেখুন",
+  "about.checkUpdatesHint": "আপনার ব্রাউজারে GitHub-এর Releases পাতা খোলে। Kashiro নিজে থেকে কিছুই যাচাই বা ডাউনলোড করে না।",
+  "updates.openFailed": "আপডেট দেখতে ব্রাউজার খোলা গেল না।"
 }

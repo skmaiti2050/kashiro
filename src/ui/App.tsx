@@ -28,6 +28,7 @@ import { loadAppDictionary } from './platform/dictionary';
 import { files, onFileDrop, setDialogLabels } from './platform/files';
 import { helperInstalled, modelFiles, startAppHelper, stopAppHelper } from './platform/helper';
 import { createAppLinter } from './platform/linter';
+import { openProjectPage } from './platform/links';
 import { sessionFiles } from './platform/sessions';
 import { rememberWindowPlacement } from './platform/windowPlacement';
 import { changeLogWasOpen, rememberChangeLogOpen } from './changeLogMemory';
@@ -192,6 +193,8 @@ function ShellView({ controller, state }: { controller: SessionController; state
   const onOpen = () => unlessUnsaved(() => void controller.open());
   const onPaste = () => unlessUnsaved(() => void paste());
   const onClose = () => unlessUnsaved(() => void controller.close());
+  // Only on the user's click: nothing checks for updates on its own (F23 item 4).
+  const checkForUpdates = () => void openProjectPage('releases').catch(() => controller.showError(msg('updates.openFailed')));
   const openFromHelp = () => {
     setPanel('none');
     onOpen();
@@ -236,6 +239,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
           onSettings={() => setPanel('settings')}
           onDictionary={() => setPanel('dictionary')}
           onReportBug={() => setPanel('bug')}
+          onCheckUpdates={checkForUpdates}
           onHelp={() => setPanel('help')}
           onShortcuts={() => setPanel('shortcuts')}
           onAbout={() => setPanel('about')}
@@ -323,7 +327,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
       {panel === 'shortcuts' && <ShortcutsSheet readAloud={readAloud !== null} lookUp={lookUpOn} improve={aiOn} onClose={() => setPanel('none')} />}
       {panel === 'about' && (
         <Suspense fallback={null}>
-          <AboutDialog onClose={() => setPanel('none')} />
+          <AboutDialog onCheckUpdates={checkForUpdates} onClose={() => setPanel('none')} />
         </Suspense>
       )}
       {lookupState && <LookupPanel lookup={lookupState} onClose={() => lookup.close()} />}

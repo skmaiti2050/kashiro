@@ -621,5 +621,9 @@
   "filter.label": "Filter by category",
   "split.resize": "Resize the review panel",
   "split.hide": "Hide the review panel",
-  "split.show": "Show the review panel"
+  "split.show": "Show the review panel",
+  "toolbar.checkUpdates": "Check for updates…",
+  "about.checkUpdates": "Check for updates",
+  "about.checkUpdatesHint": "Opens the Releases page on GitHub in your browser. Kashiro never checks or downloads anything on its own.",
+  "updates.openFailed": "Couldn’t open the browser to check for updates."
 }

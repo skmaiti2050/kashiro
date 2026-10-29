@@ -622,5 +622,9 @@
   "filter.label": "श्रेणी के अनुसार छाँटें",
   "split.resize": "समीक्षा पैनल का आकार बदलें",
   "split.hide": "समीक्षा पैनल छिपाएँ",
-  "split.show": "समीक्षा पैनल दिखाएँ"
+  "split.show": "समीक्षा पैनल दिखाएँ",
+  "toolbar.checkUpdates": "अपडेट देखें…",
+  "about.checkUpdates": "अपडेट देखें",
+  "about.checkUpdatesHint": "आपके ब्राउज़र में GitHub पर Releases पेज खोलता है। Kashiro अपने-आप कुछ भी नहीं जाँचता या डाउनलोड करता।",
+  "updates.openFailed": "अपडेट देखने के लिए ब्राउज़र नहीं खुल सका।"
 }

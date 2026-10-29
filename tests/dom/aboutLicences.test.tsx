@@ -9,7 +9,7 @@ const notices = () => screen.getByRole('dialog', { name: 'About Kashiro' }).quer
 
 describe('About licences', () => {
   it('lists every notice by name as a button in a list, with no licence text shown', () => {
-    render(<AboutDialog onClose={() => {}} />);
+    render(<AboutDialog onCheckUpdates={() => {}} onClose={() => {}} />);
     const list = within(notices() as HTMLElement).getByRole('list');
     const names = within(list).getAllByRole('button').map((b) => b.textContent);
     expect(names).toEqual(THIRD_PARTY_NOTICES.map((n) => n.title));
@@ -18,7 +18,7 @@ describe('About licences', () => {
   });
 
   it('choosing one shows only its text under its name, focused on Back; Back returns to the list on that name', () => {
-    render(<AboutDialog onClose={() => {}} />);
+    render(<AboutDialog onCheckUpdates={() => {}} onClose={() => {}} />);
     fireEvent.click(screen.getByRole('button', { name: FONTS }));
     expect(screen.queryByRole('button', { name: 'Open English WordNet (word lookup)' })).toBeNull();
     expect(screen.getByRole('heading', { name: FONTS })).toBeTruthy();

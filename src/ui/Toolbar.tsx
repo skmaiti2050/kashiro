@@ -38,6 +38,8 @@ interface Props {
   onSettings(): void;
   onDictionary(): void;
   onReportBug(): void;
+  /** Opens the Releases page in the browser (F23 item 4). */
+  onCheckUpdates(): void;
   onHelp(): void;
   onShortcuts(): void;
   onAbout(): void;
@@ -71,9 +73,9 @@ function moveAlongToolbar(e: KeyboardEvent<HTMLElement>, dir: 'ltr' | 'rtl'): vo
 
 /**
  * Open · Paste · goal · English variant · Improve this sentence · ⋯ (Look up word, Close document, Google Docs,
- * Keyboard shortcuts, Settings, Dictionary, Report a bug, About) · Save (with its save-mode menu).
+ * Keyboard shortcuts, Settings, Dictionary, Report a bug, Check for updates, About) · Save (with its save-mode menu).
  */
-export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onDictionary, onReportBug, onHelp, onShortcuts, onAbout, onClose, onLookUp, onImprove }: Props) {
+export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onDictionary, onReportBug, onCheckUpdates, onHelp, onShortcuts, onAbout, onClose, onLookUp, onImprove }: Props) {
   const t = useT();
   const { session, settings, variantOverride, document } = state;
   const moreItems: MoreMenuItem[] = [
@@ -84,6 +86,7 @@ export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onDict
     { label: t.t('toolbar.settings'), keys: 'Ctrl+,', onChoose: onSettings },
     { label: t.t('toolbar.dictionary'), onChoose: onDictionary },
     { label: t.t('toolbar.reportBug'), onChoose: onReportBug },
+    { label: t.t('toolbar.checkUpdates'), onChoose: onCheckUpdates },
     { label: t.t('toolbar.about'), onChoose: onAbout },
   ];
   // Save ▾ is a <details> whose open state React holds, so usePopup can place it and close it (Task F20 item 7).
