@@ -1,8 +1,9 @@
 /**
  * Task F21c (F21 adversarial review M-25). Loading short command words as known words everywhere hid real prose
  * typos: "aws" for "was", "su" for "us", "arn" for "ran", "cp" for "cap". The command and cloud words of three
- * letters or fewer are now known only inside command text (surely or maybe a command). In prose Harper flags them
- * as before, and they never get an upper-case offer there ("rds" → "RDS", "ps" → "PS").
+ * letters or fewer are now known only inside surely-command text (Task F21d, review M-32: maybe text was prose like
+ * "We met on time; he arn to the bus."). Elsewhere Harper flags them as before, and they never get an upper-case
+ * offer there ("rds" → "RDS", "ps" → "PS").
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import { CheckSession, type CheckOptions } from '@/engine/session';
@@ -49,12 +50,17 @@ describe('short technical words (Task F21c, review M-25)', () => {
       'sudo su ubuntu',
       'gh auth login',
       'aws s3 ls --recursive',
-      'ps aux',
+      'ps aux | grep node',
       'cp a.txt b.txt',
       'rg -n foo src/',
       'Scripts use sudo su ubuntu to switch user.',
       'aws ec2 describe-vpcs --filters Name=tag:Env,Values=prod # vpc ami arn ssm rds ecr',
     ]);
     expect(flagged.filter((w) => SHORT_TECHNICAL_WORDS.includes(w))).toEqual([]);
+  });
+
+  it('in text that is only maybe a command, Harper flags them as in prose (Task F21d, review M-32)', async () => {
+    const { flagged } = await spellingOf(['We met on time; he arn to the bus.', 'Make sure it aws ready before noon.', 'Send notes.txt to su before noon.']);
+    expect(flagged.filter((w) => SHORT_TECHNICAL_WORDS.includes(w))).toEqual(['arn', 'aws', 'su']);
   });
 });

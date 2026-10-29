@@ -23,8 +23,9 @@ function withoutCaseOnlyFixes(c: Candidate): Candidate | null {
 
 /**
  * A flag on a command or cloud word, or null when it is dropped (Task F21c):
- * - a short one ("su", "aws", "rds"; SHORT_TECHNICAL_WORDS) is a known word in command text, surely or maybe, so its
- *   spelling flag there goes; in prose it stays flagged, but never with a capital ("rds" → "RDS", review M-25);
+ * - a short one ("su", "aws", "rds"; SHORT_TECHNICAL_WORDS) is a known word in surely-command text, so its spelling
+ *   flag there goes; in maybe text and prose it stays flagged ("We met on time; he arn to the bus", review M-32),
+ *   but never with a capital ("rds" → "RDS", review M-25);
  * - in text that may be a command, no capital is offered for a command name ("# Install docker if not present":
  *   "docker" → "Docker" renames the command; the owner's repro, F21 review M-17). An English command word keeps its
  *   capital ("make sure" → "Make sure").
@@ -32,7 +33,6 @@ function withoutCaseOnlyFixes(c: Candidate): Candidate | null {
 export function withTechnicalWordRules(c: Candidate, surely: Span[] | undefined, maybe: Span[] | undefined): Candidate | null {
   const word = c.original.toLowerCase();
   if (!COMMAND_NAMES.has(word)) return c;
-  const inCommand = overlapsLocked(c, surely) || overlapsLocked(c, maybe);
-  if (SHORT_WORDS.has(word) && inCommand && WORD_REWRITE_KINDS.has(c.kind)) return null;
+  if (SHORT_WORDS.has(word) && overlapsLocked(c, surely) && WORD_REWRITE_KINDS.has(c.kind)) return null;
   return SHORT_WORDS.has(word) || overlapsLocked(c, maybe) ? withoutCaseOnlyFixes(c) : c;
 }
