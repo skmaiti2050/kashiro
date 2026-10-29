@@ -34,7 +34,7 @@ export { COMMAND_WORDS, ENGLISH_COMMAND_WORDS, PROSE_COMMAND_WORDS } from './com
  * Commands are found by their shape (Task F21 item A, owner), at two levels (Task F21c, owner: ambiguous goes to
  * review):
  * - **Surely a command**: a trailing "\", a closed here-document, a "$ " prompt, a loop or test block, a line that
- *   starts with a command word (an English one only on a short line or with a second sign), or a command-like first
+ *   starts with a command word (an English one only with a second sign), or a command-like first
  *   token with an option, a variable, a pipe or a redirect. The block grows over here-document bodies, continuation
  *   and open-quote lines, indented lines under it that are no sentence, and a make target's recipe, across
  *   paragraphs (a .docx puts each line in its own) but never across a blank line. In a sentence, a command runs from
@@ -69,8 +69,6 @@ const INDENTED = /^[ \t]+\S/;
 const LINE_BREAK_ONLY = /^(?:\r\n|\r|\n)$/;
 /** Where a quote may open: after whitespace, "=", "(", "[", "{", ":" or "," (not the apostrophe in "don't"). */
 const QUOTE_OPENER = /[\s=([{:,]/;
-/** Whitespace-separated tokens. */
-const TOKEN = /\S+/g;
 
 /** A command word inside a sentence (PROSE_COMMAND_WORDS), not part of a longer word, path, URL or inline code. */
 const PROSE_COMMAND = new RegExp(`(?<![\\p{L}\\p{N}_./\`-])(?:${[...PROSE_COMMAND_WORDS].join('|')})(?![\\p{L}\\p{N}_/-])`, 'gu');
@@ -95,8 +93,6 @@ const QUOTE_REACH = 10;
 const HEREDOC_REACH = 200;
 /** Lines around a loop or test keyword line where the rest of its block must be ("if …; then" … "fi"). */
 const KEYWORD_REACH = 5;
-/** Words on a line an English command word may start alone ("make the the", "go run ."). */
-const SHORT_LINE_WORDS = 3;
 /** Characters before a word that are looked at for a determiner or a shell keyword (keeps the scan linear). */
 const LOOK_BEHIND = 24;
 
@@ -109,8 +105,8 @@ function hasArgumentSign(line: string): boolean {
 
 /**
  * True for a command line on its own signs (here-documents and keyword lines are judged with their neighbours in
- * markCommandLines). A line that reads as a sentence needs a strong sign; an English command word needs a short
- * line or a second sign, and no list label; any other first token needs to look like a program and have a sign.
+ * markCommandLines). A line that reads as a sentence needs a strong sign; an English command word needs a second
+ * sign, and no list label; any other first token needs to look like a program and have a sign.
  */
 function isCommandLine(line: string): boolean {
   if (CONTINUATION.test(line) || DOLLAR_PROMPT.test(line)) return true;
@@ -123,8 +119,8 @@ function isCommandLine(line: string): boolean {
   const word = FIRST_WORD.exec(body)?.[1];
   if (word === undefined || !COMMAND_WORDS.has(word)) return PROGRAM_TOKEN.test(body) && hasArgumentSign(line);
   if (!ENGLISH_COMMAND_WORDS.has(word)) return true;
-  if (LIST_LABEL.test(line)) return false;
-  return hasArgumentSign(line) || (body.match(TOKEN)?.length ?? 0) <= SHORT_LINE_WORDS;
+  // A short line alone is only maybe ("ps i agree", "go i said"; review M-31): its fixes are offered, unticked.
+  return !LIST_LABEL.test(line) && hasArgumentSign(line);
 }
 
 /** The quote still open at the end of `line`, given the one open at its start (a "'" or '"', or null). */

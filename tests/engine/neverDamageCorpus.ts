@@ -531,6 +531,35 @@ export const TICK_TRUTH: readonly TickTruth[] = [
   { input: 'Clean up with sudo find /tmp -name a, the the b -delete before you leave.', mayTick: [] },
   { input: 'Then run git commit -am wip, the the rest later.', mayTick: [] },
   { input: 'Start it with docker run -e NAMES=a, b, the the c --rm img now.', mayTick: [] },
+  // Task F21d (F21c adversarial review I-3, owner decision 2026-10-29): command text with no sign at all read as
+  // plain prose, so its doubling started ticked. A doubling now starts ticked only in a clear prose sentence
+  // (isClearProseSentence): a capital or digit first, ".", "!" or "?" last, four words, no list label, no sign.
+  { input: 'pnpm add the the', mayTick: [] },
+  { input: 'Then:\n\nconda install the the', mayTick: [] },
+  { input: 'Steps:\n- make the the build\n- make install', mayTick: [] },
+  { input: '1. echo the the\n2. ls', mayTick: [] },
+  { input: '* go run the the', mayTick: [] },
+  { input: 'pip3 install the the', mayTick: [] },
+  { input: "Select * from orders where status = 'paid' and and total > 5;", mayTick: [] },
+  { input: "SELECT *\nFROM orders\nWHERE status = 'paid'\nand and total > 5;", mayTick: [] },
+  { input: "Update users set name = 'x' where id = 1 and and active = true;", mayTick: [] },
+  { input: 'Get-ChildItem the the', mayTick: [] },
+  { input: 'dir the the', mayTick: [] },
+  { input: 'script:\n  - make the the build\n  - make test', mayTick: [] },
+  { input: 'FROM node:20\nRUN make the the build', mayTick: [] },
+  { input: 'To build, run make the the target and wait.', mayTick: [] },
+  { input: 'Type echo the the and press Enter.', mayTick: [] },
+  { input: 'for f in a b; do\n\n  convert the the\n\ndone', mayTick: [] },
+  { input: 'PS> make the the', mayTick: [] },
+  { input: 'Run - make the the build - then test.', mayTick: [] },
+  { input: 'Every night at 1, run backup the the db.', mayTick: [] },
+  // Review M-31: a short line that starts with an English command word is maybe, so its fixes are offered unticked.
+  { input: 'go run the the', mayTick: [] },
+  // A doubling in an ordinary prose sentence keeps its tick, after a quote, a bracket or Markdown emphasis too.
+  { input: 'The heart of the the market is three long lanes.', mayTick: ['the the → the @ 13'], ticked: true },
+  { input: '(He shakes his head.) Bring me the the cardamom.', mayTick: ['the the → the @ 31'], ticked: true },
+  { input: '‘We sold out of of mangoes by nine,’ she said.', mayTick: ['of of → of @ 13'], ticked: true },
+  { input: '3,912 essays went to the the panel last week.', mayTick: ['the the → the @ 21'], ticked: true },
 ];
 
 /** Invisible characters sprinkled at random between ASCII characters. */

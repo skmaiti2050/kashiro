@@ -187,7 +187,7 @@ export class CheckSession {
         untickedByDefault(fixes, {
           paraText: this.ctx.paraText ?? new Map(),
           optedIn: (c) => this.optedIn.has(c.id),
-          maybeCommand: (c) => overlapsLocked(c, this.ctx.maybeCommandSpans?.get(c.paraId)),
+          commandText: (paraId) => [...(this.ctx.commandSpans?.get(paraId) ?? []), ...(this.ctx.maybeCommandSpans?.get(paraId) ?? [])],
         }),
     });
     const topSize = upFrontCount(this.reviewDepth, this.words);

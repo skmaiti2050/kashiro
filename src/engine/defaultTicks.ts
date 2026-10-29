@@ -1,4 +1,5 @@
 import type { Candidate, Span } from './types';
+import { isClearProseSentence } from './clearProse';
 import { isSlipDoubling } from './tiers';
 import { doubledWord } from './wordFlags';
 
@@ -6,7 +7,7 @@ import { doubledWord } from './wordFlags';
  * Which fixes on the simple-fixes card start unticked (Tasks F6 and F8, owner decisions 2026-10-26). "Review and
  * apply all" applies every ticked fix with one click, so a fix starts ticked only when it belongs to a closed,
  * listed set: a doubled word on the slip allowlist (isSlipDoubling), one copy and the space between removed,
- * except a doubled "a" or "an" in any case (isLetterPair).
+ * except a doubled "a" or "an" in any case (isLetterPair), and only in a clear prose sentence (isClearProseSentence).
  * Everything else starts unticked, however safe its shape looks. That includes every a/an swap: re-reviews 4 to 6
  * each found a new way a ticked one was wrong ("Class A office", "a equal b", "mother an father" for "and").
  * Capitals, "i" → "I", punctuation spacing, dot runs, other formatting, whitespace, spelling slips and the kinds
@@ -19,8 +20,8 @@ export interface TickContext {
   paraText: ReadonlyMap<number, string>;
   /** A fix of a kind the user added in Settings, not a built-in simple fix: never ticked (owner decision 2026-10-25). */
   optedIn(c: Candidate): boolean;
-  /** A fix on text that may be a command (maybeCommands.ts): offered, never ticked (Task F21c). */
-  maybeCommand(c: Candidate): boolean;
+  /** The command text of a paragraph, surely and maybe (commands.ts): a sentence touching it is no clear prose. */
+  commandText(paraId: number): readonly Span[];
 }
 
 /** The ids of `fixes` (the card's members) that start unticked, in card order. */
@@ -31,8 +32,10 @@ export function untickedByDefault(fixes: readonly Candidate[], ctx: TickContext)
 
 function startsTicked(c: Candidate, ctx: TickContext): boolean {
   const text = ctx.paraText.get(c.paraId);
-  if (text === undefined || c.replacements.length !== 1 || ctx.optedIn(c) || ctx.maybeCommand(c) || isLetterPair(c)) return false;
-  return text.slice(c.span.start, c.span.end) === c.original && isSlipDoubling(c, text);
+  if (text === undefined || c.replacements.length !== 1 || ctx.optedIn(c) || isLetterPair(c)) return false;
+  if (text.slice(c.span.start, c.span.end) !== c.original || !isSlipDoubling(c, text)) return false;
+  // Only in a clear prose sentence (Task F21d, owner decision 2026-10-29): elsewhere it may be command text.
+  return isClearProseSentence(text, c.span, ctx.commandText(c.paraId));
 }
 
 /** The doubled words that are also letters or sounds on a worksheet. */

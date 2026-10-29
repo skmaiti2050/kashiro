@@ -111,11 +111,11 @@ describe('findCommandSpans: commands by their shape, not a word list (Task F21 i
     'cat <<EOF > words.txt\nthe the\nEOF',
     "tee /etc/app.conf <<'EOF'\nhost = localhost\nlog level = debug\nEOF",
     'cat <<-END\n\tname: my app\n\tEND',
-    // Bare command lines: a listed command word starts them.
-    'make the the',
-    'brew install jq',
-    'cargo build',
-    'go run .',
+    // Bare command lines: a listed command word that is no English word starts them. (A short line that starts with
+    // an English one, "make the the", "go run .", is only maybe a command since Task F21d, review M-31.)
+    'apt-get install curl',
+    'wget https://x.y/z',
+    'mv a b',
     // A make target over its recipe. (A comment line next to a command is maybe a command since Task F21c.)
     'build:\n\tgo build -o bin/app ./cmd/app\n\ttest:  lint\n\tgo test ./...',
     // A quoted argument that runs over several lines.
@@ -227,6 +227,25 @@ describe('two levels: surely a command, maybe a command (Task F21c)', () => {
     ['for those in need; do what you can and and more', 'and and'],
     ['Run it with app.py and and wait.', 'and and'],
     ['*/5 * * * * the the', 'the the'],
+    // Task F21d (F21c review I-3): a command word after a list label, capitalised SQL, a Dockerfile instruction, a
+    // "PS>" prompt and a PowerShell cmdlet are weak signs too.
+    ['Steps:\n- make the the build\n- make install', 'the the'],
+    ['1. echo the the\n2. ls', 'the the'],
+    ['script:\n  - make the the build\n  - make test', 'the the'],
+    ['- Make sure the the oven is hot.', 'the the'],
+    ["Select * from orders where status = 'paid' and and total > 5;", 'and and'],
+    ["SELECT *\nFROM orders\nWHERE status = 'paid'\nand and total > 5;", 'and and'],
+    ["Update users set name = 'x' where id = 1 and and active = true;", 'and and'],
+    ['FROM node:20\nRUN make the the build', 'the the'],
+    ['COPY the the files here', 'the the'],
+    ['PS> make the the', 'the the'],
+    ['Get-ChildItem the the', 'the the'],
+    ['Then Set-Location the the folder and wait.', 'the the'],
+    // Review M-31: a short line that starts with an English command word is maybe, not surely.
+    ['make the the', 'the the'],
+    ['ps i agree', 'i agree'],
+    ['go i said', 'i said'],
+    ['find i will', 'i will'],
   ])('maybe, not surely: %j', async (text, part) => {
     const { surely, maybe } = await levels(text);
     expect(coversPart(surely, part), 'surely').toBe(false);
@@ -278,9 +297,18 @@ describe('two levels: surely a command, maybe a command (Task F21c)', () => {
     expect((await levels('if true; then echo hi; fi')).surely).toEqual(['if true; then echo hi; fi']);
   });
 
-  it('an English command word starts a surely line only on a short line or with a second sign (review M-20)', async () => {
-    for (const text of ['make the the', 'make install', 'go run .', 'cat /etc/hosts and and more', 'find . -name x']) expect((await levels(text)).surely, text).toEqual([text]);
-    for (const text of ['ps i love you and and i miss you', 'make sure the the oven is hot', 'go tell it on the the mountain']) expect((await levels(text)).surely, text).toEqual([]);
+  it('an English command word starts a surely line only with a second sign (reviews M-20, M-31)', async () => {
+    for (const text of ['cat /etc/hosts and and more', 'find . -name x', 'make -j4 install', 'ps aux | grep node']) expect((await levels(text)).surely, text).toEqual([text]);
+    for (const text of ['make the the', 'make install', 'go run .', 'ps i agree', 'ps i love you and and i miss you', 'make sure the the oven is hot', 'go tell it on the the mountain']) {
+      const { surely, maybe } = await levels(text);
+      expect({ surely, maybe }, text).toEqual({ surely: [], maybe: [text] });
+    }
+  });
+
+  it('a list label, a capital and a ";" do not make a prose sentence command text (Task F21d)', async () => {
+    for (const text of ['- The the cat sat on the mat.', 'Coca-Cola and and Pepsi are drinks.', 'Select a seat and and wait.', 'From the the hill we saw it.']) {
+      expect((await levels(text)).maybe, text).toEqual([]);
+    }
   });
 });
 
@@ -296,6 +324,17 @@ describe('maybe a command: offered, never ticked, never changed without a click 
       expect(s.candidates().filter((c) => offered.has(c.id) && c.original === '  ').length).toBe(3);
     }
   });
+
+  it('spaces in a list-item command are not collapsed without a click, but the fix is offered (Task F21d, review M-35)', async () => {
+    const text = 'Steps:\n- make  install';
+    for (const tierOverrides of [undefined, EVERYTHING_AUTO]) {
+      const s = await CheckSession.start([{ id: 0, text }], opts({ tierOverrides }), { linter });
+      expect(s.outputText(0)).toBe(text);
+      const { top, more } = s.decisions();
+      const offered = new Set([...top, ...more].flatMap((d) => d.candidateIds));
+      expect(s.candidates().filter((c) => offered.has(c.id) && c.original === '  ').length).toBe(1);
+    }
+  });
 });
 
 /** The stress corpus's runbook (commands with --flags, trailing " \", "sudo" at line starts, en-dash bait, prose). */
@@ -305,7 +344,23 @@ const RUNBOOK: Paragraph[] = SOURCE.map((p, id) => ({ id, text: p.text }));
 
 /** The command text of each runbook paragraph, which no click on the simple-fixes card may change. */
 const commandText = (id: number) => covered(SOURCE[id].text, SOURCE[id].traps);
-const onCommand = (paraId: number, span: Span) => SOURCE[paraId].traps.some((x) => span.start < x.end && x.start < span.end);
+
+/**
+ * Runbook lines that are only maybe a command by design (Task F21d, review M-31): a short line that starts with an
+ * English command word, with no second sign. Their fixes are offered, unticked, so default ticks must leave them as
+ * they are; Tick all is the user's explicit choice. Written by hand, like the traps.
+ */
+const MAYBE_LINES: ReadonlySet<string> = new Set([
+  'make the the', 'make install', 'brew install jq', 'yum install git', 'make build', 'go run .', 'cargo build', 'yarn add react', 'ps aux',
+  'kill -9 123', 'service nginx restart',
+]);
+
+/** The line of `text` that holds `at`. */
+const lineAt = (text: string, at: number) => text.slice(text.lastIndexOf('\n', at - 1) + 1).split('\n', 1)[0];
+
+/** True when `span` touches command text that is surely a command (a trap, not a MAYBE_LINES line). */
+const onCommand = (paraId: number, span: Span) =>
+  SOURCE[paraId].traps.some((x) => span.start < x.end && x.start < span.end) && !MAYBE_LINES.has(lineAt(SOURCE[paraId].text, span.start));
 
 /** Non-spelling flags offered on any card whose span overlaps command text. */
 function offeredOnCommands(s: CheckSession): string[] {
@@ -354,7 +409,10 @@ describe('commands in a runbook are never formatted, punctuated or capitalised (
       if (tickAll) expect(applied).toBeGreaterThan(0);
       for (const p of RUNBOOK) {
         const after = s.outputText(p.id);
-        for (const command of commandText(p.id)) expect(after, `${tickAll ? 'Tick all' : 'default ticks'}: ¶${p.id}`).toContain(command);
+        for (const command of commandText(p.id)) {
+          if (!tickAll) expect(after, `default ticks: ¶${p.id}`).toContain(command);
+          else for (const line of command.split('\n').filter((l) => !MAYBE_LINES.has(l))) expect(after, `Tick all: ¶${p.id}`).toContain(line);
+        }
       }
     }
   });
@@ -364,9 +422,11 @@ describe('commands in a runbook are never formatted, punctuated or capitalised (
     const card = [...s.decisions().top, ...s.decisions().more].find((d) => d.id === SIMPLE_FIXES_ID);
     const onCard = new Set(card?.candidateIds ?? []);
     const onCommands = s.candidates().filter((c) => onCommand(c.paraId, c.span));
-    // "nginx" was the word here until it joined the technical words (Task F21 item F).
-    const jq = onCommands.find((c) => c.original === 'jq');
-    expect(jq && s.tier(jq.id)).toBe('review');
+    // "nginx" was the word here until it joined the technical words (Task F21 item F), then "jq" until "brew install
+    // jq" became maybe a command (Task F21d, review M-31).
+    const spelling = onCommands.filter((c) => WORD_REWRITE_KINDS.has(c.kind) && s.tier(c.id) !== 'hidden');
+    expect(spelling.length).toBeGreaterThan(0);
+    expect(spelling.map((c) => `${c.original}: ${s.tier(c.id)}`)).toEqual(spelling.map((c) => `${c.original}: review`));
     expect(onCommands.filter((c) => onCard.has(c.id)).map((c) => c.original)).toEqual([]);
   });
 

@@ -218,6 +218,62 @@ const REPROS: readonly Repro[] = [
   { input: 'sudo apt update\n# this this step is optional', fixes: ['this this → this'], weakSign: true },
 ];
 
+interface TickCase {
+  input: string;
+  markdown?: boolean;
+  /** Whether the doubling in it starts ticked on the simple-fixes card. */
+  ticked: boolean;
+}
+
+/**
+ * The tick judge (Task F21d, F21c review M-36): "offered" alone can't see a regression that unticks ordinary prose
+ * (or ticks a command again), so each input also names whether its doubling starts ticked.
+ */
+const TICK_JUDGE: readonly TickCase[] = [
+  // Clear prose sentences: the doubling starts ticked.
+  { input: 'We went to the the market.', ticked: true },
+  { input: 'It was late. Make sure the the door is locked.', ticked: true },
+  { input: 'Rohan is one of the the kindest people I have ever known.', ticked: true },
+  { input: 'Interviews were held in Gujarati or Hindi and and lasted about an hour.', ticked: true },
+  { input: '**NANDINI:** Slowly, and mostly through word of of mouth.', markdown: true, ticked: true },
+  { input: 'RAMESH: Fifty rupees for paper. (He shakes his head.) Bring me the the cardamom.', ticked: true },
+  { input: 'We moved to aws last year and and saved money.', ticked: true },
+  // Review M-30 (accepted): prose with a weak sign is maybe, so its doubling is offered unticked.
+  { input: 'Make sure the the oven is hot.', ticked: false },
+  { input: 'Find the the keys before you leave.', ticked: false },
+  { input: 'Go to the the shop and buy milk.', ticked: false },
+  { input: 'Python is the the best language for beginners.', ticked: false },
+  { input: 'We met on time; the the plan changed.', ticked: false },
+  { input: 'note: the the meeting moved to 5 pm', ticked: false },
+  { input: 'Classes are on Mon/Wed/Fri and and the lab is on Tue.', ticked: false },
+  { input: 'I saved it as notes.txt and and sent it.', ticked: false },
+  { input: 'Total = 500 and and tax is extra', ticked: false },
+  { input: 'I use git for work and and fun.', ticked: false },
+  { input: '> Make sure the the oven is hot.', markdown: true, ticked: false },
+  // Not a clear sentence: no end mark, a lowercase start, a list label or fewer than four words.
+  { input: 'we went to the the market.', ticked: false },
+  { input: 'We went to the the market', ticked: false },
+  { input: '- We went to the the market.', ticked: false },
+  { input: 'Off to the the market.', ticked: true },
+  { input: 'The the end.', ticked: false },
+  // Review I-3.
+  { input: 'Steps:\n- make the the build\n- make install', ticked: false },
+  { input: "Select * from orders where status = 'paid' and and total > 5;", ticked: false },
+  { input: 'FROM node:20\nRUN make the the build', ticked: false },
+  { input: 'To build, run make the the target and wait.', ticked: false },
+  { input: 'Every night at 1, run backup the the db.', ticked: false },
+];
+
+describe('the tick judge: a doubling starts ticked in clear prose only (Task F21d, review M-36)', () => {
+  it.each(TICK_JUDGE)('$input', async ({ input, markdown, ticked }) => {
+    for (const tierOverrides of [undefined, EVERYTHING_AUTO]) {
+      const doublings = (await offeredFixes(input, markdown ?? false, [], tierOverrides)).filter((o) => /^(\S+) \1 → \1$/i.test(o.fix));
+      expect(doublings.length, 'a doubling is offered').toBeGreaterThan(0);
+      expect(doublings.map((o) => `${o.fix}: ${o.ticked ? 'ticked' : 'unticked'}`)).toEqual(doublings.map((o) => `${o.fix}: ${ticked ? 'ticked' : 'unticked'}`));
+    }
+  });
+});
+
 describe('the review\'s over-protection repros get their fixes back, unticked where a weak sign is present (Task F21c)', () => {
   it.each(REPROS)('$input', async ({ input, markdown, fixes, weakSign }) => {
     for (const tierOverrides of [undefined, EVERYTHING_AUTO]) {

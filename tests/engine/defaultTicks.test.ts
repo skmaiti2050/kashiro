@@ -115,11 +115,14 @@ describe('the simple-fixes card ticks only a closed set of fixes (Task F6, owner
     expect(await outputOf(text)).toBe(text);
   });
 
-  it('ticks no article swap on a Markdown list line, and still ticks a doubled word there (Task F8)', async () => {
+  it('ticks no article swap on a Markdown list line, and no doubled word there either (Tasks F8, F21d)', async () => {
+    // Task F21d (owner decision 2026-10-29): a list item is no clear prose sentence ("- make the the build"), so its
+    // doubling is offered unticked.
     const { paras } = await markdownAdapter.read(new TextEncoder().encode('- A apple fell.\n- Bring a pen an paper to the the exam.\n'));
-    const { session, ticked } = await applyAllWithDefaultTicks(paras, { language: 'markdown' });
-    expect(ticked).toEqual(['the the → the']);
-    expect(paras.map((p) => session.outputText(p.id))).toEqual(['- A apple fell.\n- Bring a pen an paper to the exam.']);
+    const { session, ticked, unticked } = await applyAllWithDefaultTicks(paras, { language: 'markdown' });
+    expect(ticked).toEqual([]);
+    expect(unticked).toContain('the the → the');
+    expect(paras.map((p) => session.outputText(p.id))).toEqual(['- A apple fell.\n- Bring a pen an paper to the the exam.']);
   });
 
   it.each([
