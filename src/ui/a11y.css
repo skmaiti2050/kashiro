@@ -68,6 +68,24 @@
   max-height: calc(86vh / var(--ui-zoom, 1));
 }
 
+/*
+ * Settings is the same size on every tab (F26 item 3): one height, the tabs fixed and the panel scrolling inside.
+ * When the title and tabs leave too little room (200% text in a 480 px window), the panel keeps 8em and the whole
+ * dialog scrolls instead, as every dialog does.
+ */
+.dialog.settings {
+  display: flex;
+  flex-direction: column;
+  height: min(640px, calc(86vh / var(--ui-zoom, 1)));
+}
+
+.dialog.settings .tabpanel {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 8em;
+  overflow-y: auto;
+}
+
 /* The header landmark holds the toolbar, the banners and the announcer in the first row (the second stays empty). */
 .app-header {
   grid-row: 1;

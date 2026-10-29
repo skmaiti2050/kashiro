@@ -84,7 +84,8 @@
   .review,
   .changelog .entries,
   .changelog .batch-changes,
-  .dialog {
+  .dialog,
+  .dialog .tabpanel {
     scrollbar-width: thin;
     scrollbar-color: var(--scroll-thumb) var(--scroll-track);
   }
@@ -95,7 +96,8 @@
 .review,
 .changelog .entries,
 .changelog .batch-changes,
-.dialog {
+.dialog,
+.dialog .tabpanel {
   scrollbar-gutter: stable;
 }
 
@@ -103,7 +105,8 @@
 .review::-webkit-scrollbar,
 .changelog .entries::-webkit-scrollbar,
 .changelog .batch-changes::-webkit-scrollbar,
-.dialog::-webkit-scrollbar {
+.dialog::-webkit-scrollbar,
+.dialog .tabpanel::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
@@ -112,7 +115,8 @@
 .review::-webkit-scrollbar-track,
 .changelog .entries::-webkit-scrollbar-track,
 .changelog .batch-changes::-webkit-scrollbar-track,
-.dialog::-webkit-scrollbar-track {
+.dialog::-webkit-scrollbar-track,
+.dialog .tabpanel::-webkit-scrollbar-track {
   background: var(--scroll-track);
 }
 
@@ -120,7 +124,8 @@
 .review::-webkit-scrollbar-thumb,
 .changelog .entries::-webkit-scrollbar-thumb,
 .changelog .batch-changes::-webkit-scrollbar-thumb,
-.dialog::-webkit-scrollbar-thumb {
+.dialog::-webkit-scrollbar-thumb,
+.dialog .tabpanel::-webkit-scrollbar-thumb {
   background: var(--scroll-thumb);
   border-radius: 5px;
   border: 2px solid var(--scroll-track);
@@ -131,7 +136,8 @@
 .review::-webkit-scrollbar-thumb:hover,
 .changelog .entries::-webkit-scrollbar-thumb:hover,
 .changelog .batch-changes::-webkit-scrollbar-thumb:hover,
-.dialog::-webkit-scrollbar-thumb:hover {
+.dialog::-webkit-scrollbar-thumb:hover,
+.dialog .tabpanel::-webkit-scrollbar-thumb:hover {
   background: var(--scroll-thumb-hover);
 }
 
