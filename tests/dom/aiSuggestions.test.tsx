@@ -34,12 +34,17 @@ const AI_ON: Partial<Settings> = {
 
 /** A linter whose rules pass fails on any paragraph holding `word`: that check fails, and the session stays. */
 function failingOn(word: string, linter: RulesLinter): RulesLinter {
+  // Like Harper after a panic, every later call fails too, so the whole check fails (a single paragraph that
+  // fails is only reported as unchecked since Task F21d).
+  let broken = false;
   return {
     get variant() {
       return linter.variant;
     },
-    lintParagraphs: (paras, language) =>
-      paras.some((p) => p.text.includes(word)) ? Promise.reject(new Error('the rules pass failed')) : linter.lintParagraphs(paras, language),
+    lintParagraphs: (paras, language) => {
+      broken ||= paras.some((p) => p.text.includes(word));
+      return broken ? Promise.reject(new Error('the rules pass failed')) : linter.lintParagraphs(paras, language);
+    },
     lintSpelling: (paras, variant) => linter.lintSpelling(paras, variant),
     addWords: (words) => linter.addWords(words),
     setVariant: (variant) => linter.setVariant(variant),
