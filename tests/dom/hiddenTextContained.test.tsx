@@ -111,7 +111,8 @@ describe('screen-reader text stays inside the box that clips it (Task F19)', () 
     );
     expect(document.querySelectorAll('.entries .visually-hidden')).toHaveLength(1200);
     expect(hiddenTextEscapes()).toEqual([]);
-  });
+    // 600 rows in jsdom: ~6 s alone, past the 20 s default under the full suite's load (Task F21 verify runs).
+  }, 60_000);
 
   it('the app: its announcers and the flag under the cursor stay inside their boxes', async () => {
     await warmLinter();
