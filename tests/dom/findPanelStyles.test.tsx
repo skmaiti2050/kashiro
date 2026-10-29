@@ -94,7 +94,8 @@ describe('the Find panel’s buttons and field, in the app’s theme (F26 item 1
     expect(field).toMatch(/color: var\(--ink\);/);
     expect(field).toMatch(/border: 1px solid var\(--control-edge\);/);
     expect(field).toMatch(/font-size: inherit;/);
-    expect(field).toMatch(/min-width: 16em;/);
+    // F27 item 1: the field takes what its row leaves, at least 6em (16em pushed Select all to a row of its own at 760 px).
+    expect(field).toMatch(/min-width: 6em;/);
   });
 
   it('the labels (match case, regexp, by word) are the panel’s size, not CodeMirror’s 80%', () => {
