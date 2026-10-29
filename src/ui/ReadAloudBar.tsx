@@ -14,7 +14,8 @@ interface Props {
   keysEnabled: boolean;
 }
 
-const BUTTONS: { target: ReadTarget; label: MessageKey; keys: string }[] = [
+/** The read-aloud buttons, also the command palette's "Read …" entries. */
+export const BUTTONS: { target: ReadTarget; label: MessageKey; keys: string }[] = [
   { target: 'sentence', label: 'read.sentence', keys: 'Alt+S' },
   { target: 'suggestion', label: 'read.suggestion', keys: 'Alt+R' },
   { target: 'paragraph', label: 'read.paragraph', keys: 'Alt+P' },

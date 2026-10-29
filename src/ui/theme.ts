@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { readChoice, writeLocal } from './state/localMemory';
 import { THEMES, type ThemeChoice } from './state/readingSettings';
 
 /**
@@ -22,22 +23,12 @@ export function showTheme(choice: ThemeChoice): void {
 
 /** The theme chosen last time, for the first frame; System when none was saved or storage is unavailable. */
 export function startupTheme(): ThemeChoice {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return THEMES.includes(saved as ThemeChoice) ? (saved as ThemeChoice) : 'system';
-  } catch {
-    // Storage can be off; the settings still apply the theme once they load.
-    return 'system';
-  }
+  // With storage off the settings still apply the theme once they load.
+  return readChoice(STORAGE_KEY, THEMES, 'system');
 }
 
-function rememberTheme(choice: ThemeChoice): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, choice);
-  } catch {
-    // Only the next start's first frame uses it; the saved settings stay the source of truth.
-  }
-}
+/** Only the next start's first frame uses it; the saved settings stay the source of truth. */
+const rememberTheme = (choice: ThemeChoice): void => writeLocal(STORAGE_KEY, choice);
 
 /** Shows `choice`, remembers it for the next start, and while it is System follows Windows' mode as it changes. */
 export function useTheme(choice: ThemeChoice): void {

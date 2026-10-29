@@ -1,9 +1,9 @@
 import type { PaletteCommand } from './CommandPalette';
+import { BUTTONS as READ_BUTTONS } from './ReadAloudBar';
 import type { PanelCommands } from './ReviewPanel';
 import { SETTINGS_TABS, TAB_KEYS, type SettingsTab } from './SettingsPanel';
 import type { MessageKey } from './i18n/catalogues';
 import type { Translator } from './i18n/translator';
-import type { ReadTarget } from './state/readAloud';
 import { THEMES, type ThemeChoice } from './state/readingSettings';
 
 /** The functions behind the app's buttons and menu items, and what can run now. */
@@ -37,12 +37,6 @@ export interface PaletteActions {
   panel: PanelCommands | null;
 }
 
-const READ: { target: ReadTarget; label: MessageKey; keys: string }[] = [
-  { target: 'sentence', label: 'read.sentence', keys: 'Alt+S' },
-  { target: 'suggestion', label: 'read.suggestion', keys: 'Alt+R' },
-  { target: 'paragraph', label: 'read.paragraph', keys: 'Alt+P' },
-];
-
 const THEME_KEYS: Record<ThemeChoice, MessageKey> = { system: 'reading.themeSystem', light: 'reading.themeLight', dark: 'reading.themeDark' };
 
 /** The command palette's entries (F23 item 6), each calling the same function as its button or menu item. */
@@ -58,7 +52,7 @@ export function paletteCommands(t: Translator, a: PaletteActions): PaletteComman
     { id: 'find', label: t.t('palette.find'), keys: 'Ctrl+F', enabled: a.hasDocument, run: a.onFind },
     { id: 'next', label: t.t('card.nextCard'), keys: 'J', enabled: reviewing, run: () => panel?.move(1) },
     { id: 'previous', label: t.t('palette.previousCard'), keys: 'K', enabled: reviewing, run: () => panel?.move(-1) },
-    ...READ.map((r) => ({
+    ...READ_BUTTONS.map((r) => ({
       id: `read-${r.target}`,
       label: t.t('palette.read', { what: t.t(r.label) }),
       keys: r.keys,

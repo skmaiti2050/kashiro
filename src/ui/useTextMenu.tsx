@@ -3,6 +3,7 @@ import type { EditorView } from '@codemirror/view';
 import { TextMenu } from './TextMenu';
 import { positionAtPointer, selectedText, wordAtPointer } from './editorWords';
 import { msg } from './i18n/message';
+import { focusIfConnected } from './focus';
 import { explain } from './state/errors';
 import type { SessionController } from './state/sessionController';
 
@@ -43,7 +44,7 @@ export function useTextMenu(
 
   /** With `returnFocus`, focus goes back to where it was before the menu opened. */
   const close = (returnFocus: boolean) => {
-    if (returnFocus && textMenu?.returnTo instanceof HTMLElement && textMenu.returnTo.isConnected) textMenu.returnTo.focus();
+    if (returnFocus) focusIfConnected(textMenu?.returnTo);
     setTextMenu(null);
   };
 

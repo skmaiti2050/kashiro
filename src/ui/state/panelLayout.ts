@@ -1,3 +1,5 @@
+import { readLocal, writeLocal } from './localMemory';
+
 /**
  * The review panel's width and folded state (F23 item 3): set by the divider and the Hide button, remembered on this
  * PC (localStorage, like the change log's open state), not a setting.
@@ -31,29 +33,13 @@ export function panelWidthAfterKey(key: string, width: number, dir: 'ltr' | 'rtl
 
 /** The width the user last chose, or null when they never moved the divider (the CSS default applies). */
 export function rememberedPanelWidth(): number | null {
-  const saved = read(WIDTH_KEY);
+  // Storage off reads null: the panel then starts at its default width, open.
+  const saved = readLocal(WIDTH_KEY);
   return saved !== null && Number.isFinite(Number(saved)) ? clampPanelWidth(Number(saved)) : null;
 }
 
-export const rememberPanelWidth = (width: number) => write(WIDTH_KEY, String(width));
+export const rememberPanelWidth = (width: number) => writeLocal(WIDTH_KEY, String(width));
 
-export const panelWasCollapsed = () => read(COLLAPSED_KEY) === 'true';
+export const panelWasCollapsed = () => readLocal(COLLAPSED_KEY) === 'true';
 
-export const rememberPanelCollapsed = (collapsed: boolean) => write(COLLAPSED_KEY, String(collapsed));
-
-function read(key: string): string | null {
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    // Storage can be off: the panel then starts at its default width, open.
-    return null;
-  }
-}
-
-function write(key: string, value: string): void {
-  try {
-    localStorage.setItem(key, value);
-  } catch {
-    // Only the next start's layout depends on it.
-  }
-}
+export const rememberPanelCollapsed = (collapsed: boolean) => writeLocal(COLLAPSED_KEY, String(collapsed));

@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { useT } from './i18n/useT';
+import { focusButtonAt } from './focus';
 import type { Translator } from './i18n/translator';
 import type { RecentReview } from './state/sessionStore';
 
@@ -25,7 +26,7 @@ export function RecentReviews({ reviews, onOpen }: Props) {
   const list = useRef<HTMLUListElement>(null);
   // "Show all" goes away when chosen: focus moves to the first review it revealed, not to the page.
   useEffect(() => {
-    if (showAll) list.current?.querySelectorAll('button')[RECENT_SHOWN]?.focus();
+    if (showAll) focusButtonAt(list.current, RECENT_SHOWN);
   }, [showAll]);
   if (reviews.length === 0) return null;
   const shown = showAll ? reviews : reviews.slice(0, RECENT_SHOWN);

@@ -2,6 +2,7 @@ import { useId, useRef, useState } from 'react';
 import { Dialog } from './Dialog';
 import type { MessageKey } from './i18n/catalogues';
 import { useT } from './i18n/useT';
+import { readLocal, writeLocal } from './state/localMemory';
 
 const TIPS: { title: MessageKey; text: MessageKey }[] = [
   { title: 'tour.cardsTitle', text: 'tour.cards' },
@@ -14,21 +15,11 @@ const STORAGE_KEY = 'kashiro.tourSeen';
 
 /** Whether the tour was shown on this PC (a per-PC convenience, like the remembered Settings tab). */
 export function tourSeen(): boolean {
-  try {
-    return localStorage.getItem(STORAGE_KEY) === 'true';
-  } catch {
-    // Storage can be off: no tour then, rather than one on every start.
-    return true;
-  }
+  // Storage can be off: no tour then, rather than one on every start.
+  return readLocal(STORAGE_KEY, 'true') === 'true';
 }
 
-export function rememberTourSeen(): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, 'true');
-  } catch {
-    // Only whether the tour shows again depends on it.
-  }
-}
+export const rememberTourSeen = (): void => writeLocal(STORAGE_KEY, 'true');
 
 /**
  * The welcome tour (F23 item 7): four tips, one at a time, with Next (Done on the last) and Skip. A small modal

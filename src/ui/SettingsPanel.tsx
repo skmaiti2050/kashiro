@@ -14,6 +14,7 @@ import type { UiLocale } from './i18n/catalogues';
 import { LANGUAGE_NAMES, systemLanguage, UI_LANGUAGES, type UiLanguageSetting } from './i18n/locale';
 import { useT } from './i18n/useT';
 import { kindLabel } from './state/kindLabels';
+import { readChoice, writeLocal } from './state/localMemory';
 import type { ControllerState, SessionController } from './state/sessionController';
 import { AUTO_APPLY_KINDS, type Settings } from './state/settings';
 
@@ -37,23 +38,10 @@ export const TAB_KEYS = {
 /** Where the last tab is remembered: a per-PC convenience, not a setting, so it stays out of the settings file. */
 const TAB_STORAGE_KEY = 'kashiro.settingsTab';
 
-function rememberedTab(): SettingsTab {
-  try {
-    const saved = localStorage.getItem(TAB_STORAGE_KEY);
-    return SETTINGS_TABS.includes(saved as SettingsTab) ? (saved as SettingsTab) : 'reading';
-  } catch {
-    // Storage can be off: Settings then opens on its first tab.
-    return 'reading';
-  }
-}
+/** The tab Settings last showed; its first tab when none was saved or storage is off. */
+const rememberedTab = (): SettingsTab => readChoice(TAB_STORAGE_KEY, SETTINGS_TABS, 'reading');
 
-function rememberTab(tab: SettingsTab): void {
-  try {
-    localStorage.setItem(TAB_STORAGE_KEY, tab);
-  } catch {
-    // Only the next opening's first tab depends on it.
-  }
-}
+const rememberTab = (tab: SettingsTab): void => writeLocal(TAB_STORAGE_KEY, tab);
 
 interface Props {
   controller: SessionController;

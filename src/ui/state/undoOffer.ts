@@ -14,7 +14,7 @@ export type UndoOffer =
   | { kind: 'rejected'; ids: string[]; message: Message; seq: number };
 
 /** Fewest places an action covers for its undo toast: one place has its own Undo in the change log. */
-export const BIG_ACTION_PLACES = 2;
+const BIG_ACTION_PLACES = 2;
 
 /** The toast's text for places rejected together, by the verb the action announced. */
 const REJECTED_MESSAGES: Partial<Record<MessageKey, MessageKey>> = {

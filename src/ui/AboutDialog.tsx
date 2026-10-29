@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Dialog } from './Dialog';
 import { useT } from './i18n/useT';
+import { focusButtonAt } from './focus';
 import { APP_VERSION, THIRD_PARTY_NOTICES, type Notice } from './notices';
 import { markdownBlocks, type Inline } from './state/noticeBlocks';
 
@@ -38,7 +39,7 @@ function Notices({ backLabel }: { backLabel: string }) {
   const list = useRef<HTMLUListElement>(null);
   useEffect(() => {
     if (shown) back.current?.focus();
-    else if (lastShown.current) list.current?.querySelectorAll('button')[THIRD_PARTY_NOTICES.indexOf(lastShown.current)]?.focus();
+    else if (lastShown.current) focusButtonAt(list.current, THIRD_PARTY_NOTICES.indexOf(lastShown.current));
   }, [shown]);
   const open = (notice: Notice) => {
     lastShown.current = notice;

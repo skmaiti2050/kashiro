@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
+import { focusIfConnected } from './focus';
 import { useT } from './i18n/useT';
 
 /** Controls Tab can reach inside a dialog. */
@@ -35,7 +36,7 @@ export function Dialog({ title, onClose, role = 'dialog', className, describedBy
     return () => {
       // The page first: an inert element can't take focus back.
       restorePage();
-      if (previous instanceof HTMLElement && previous.isConnected) previous.focus();
+      focusIfConnected(previous);
     };
   }, []);
 

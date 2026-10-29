@@ -19,6 +19,7 @@ import type { RecentReview } from './state/sessionStore';
 import { caretPosition, wordAtSelection } from './editorWords';
 import { useImproveKey, useLookUpKey } from './useKeys';
 import { findInDocument, findPhrases, openFind } from './findInDocument';
+import { focusIfConnected } from './focus';
 import { useTextMenu } from './useTextMenu';
 
 /** The replacement text of an applied edit, shown right after the struck-through original. */
@@ -379,8 +380,7 @@ export function DocumentView({
     const close = (returnFocus: boolean) => {
       setQuickFix(null);
       if (!returnFocus) return;
-      if (open.returnTo instanceof HTMLElement && open.returnTo.isConnected) open.returnTo.focus();
-      else view.current?.focus();
+      if (!focusIfConnected(open.returnTo)) view.current?.focus();
     };
     return (
       <QuickFixPopover key={open.candidateId} controller={controller} decision={decision} candidate={candidate} at={open.at} takeFocus={open.takeFocus} onClose={close} />

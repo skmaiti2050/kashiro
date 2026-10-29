@@ -1,19 +1,9 @@
+import { readLocal, writeLocal } from './state/localMemory';
+
 /** Whether the change log was open when the app last closed (F22 item 5): a per-PC convenience, not a setting. */
 const STORAGE_KEY = 'kashiro.changeLogOpen';
 
-export function changeLogWasOpen(): boolean {
-  try {
-    return localStorage.getItem(STORAGE_KEY) === 'true';
-  } catch {
-    // Storage can be off: the log then starts closed, as before.
-    return false;
-  }
-}
+/** True when the log was open last time; false when storage is off (it then starts closed, as before). */
+export const changeLogWasOpen = (): boolean => readLocal(STORAGE_KEY) === 'true';
 
-export function rememberChangeLogOpen(open: boolean): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, String(open));
-  } catch {
-    // Only the next start's open or closed log depends on it.
-  }
-}
+export const rememberChangeLogOpen = (open: boolean): void => writeLocal(STORAGE_KEY, String(open));

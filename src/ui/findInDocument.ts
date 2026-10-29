@@ -1,6 +1,7 @@
 import { EditorState, type Extension } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
 import { closeSearchPanel, openSearchPanel, search, searchPanelOpen } from '@codemirror/search';
+import { focusIfConnected } from './focus';
 import type { Translator } from './i18n/translator';
 
 /** The panel's Find field (CodeMirror marks it as the panel's main field). */
@@ -29,7 +30,7 @@ const focusBackOnClose = EditorView.updateListener.of((update) => {
   // Only focus that was in the panel (or went with it) moves; focus already elsewhere stays there.
   const active = document.activeElement;
   if (active && active !== document.body && !update.view.dom.contains(active)) return;
-  if (before instanceof HTMLElement && before.isConnected) before.focus();
+  focusIfConnected(before);
 });
 
 /**

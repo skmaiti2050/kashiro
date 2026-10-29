@@ -140,6 +140,10 @@ function ShellView({ controller, state }: { controller: SessionController; state
   /** What to do once the user has answered "Save, Discard, or Cancel?". */
   const [afterUnsaved, setAfterUnsaved] = useState<(() => void) | null>(null);
   const split = usePanelSplit();
+  const closePanel = () => setPanel('none');
+  /** Shows the card of `candidateId`; a new seq makes the same card come back after the user moved on. */
+  const requestCard = (candidateId: string, focusCard: boolean | undefined) =>
+    setCardRequest((r) => ({ candidateId, seq: (r?.seq ?? 0) + 1, focus: focusCard }));
 
   /** Runs `action` now, or after the unsaved-changes dialog when it would drop unsaved work. */
   const unlessUnsaved = useCallback(
@@ -205,7 +209,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
   // Only on the user's click: nothing checks for updates on its own (F23 item 4).
   const checkForUpdates = () => void openProjectPage('releases').catch(() => controller.showError(msg('updates.openFailed')));
   const openFromHelp = () => {
-    setPanel('none');
+    closePanel();
     onOpen();
   };
   const openSettings = (tab?: SettingsTab) => {
@@ -235,31 +239,35 @@ function ShellView({ controller, state }: { controller: SessionController; state
   });
 
   const { reading } = state.settings;
-  /** Built when the palette opens: each entry calls the same function as its button or menu item (F23 item 6). */
+  /** The toolbar's actions; the command palette calls the same functions (F23 item 6). */
+  const actions = {
+    onOpen,
+    onPaste,
+    onClose,
+    onSettings: openSettings,
+    onDictionary: () => setPanel('dictionary'),
+    onReportBug: () => setPanel('bug'),
+    onCheckUpdates: checkForUpdates,
+    onHelp: () => setPanel('help'),
+    onShortcuts: () => setPanel('shortcuts'),
+    onAbout: () => setPanel('about'),
+    onTour: () => setPanel('tour'),
+    onLookUp: lookUpFromMenu,
+    onImprove: improveFromToolbar,
+  };
+  /** Built when the palette opens: each entry calls the same function as its button or menu item. */
   const commands = () =>
     paletteCommands(t, {
+      ...actions,
       hasDocument: state.document !== null,
       hasSession: state.session !== null,
-      onOpen,
-      onPaste,
       onSave: () => void controller.save(),
-      onClose,
-      onSettings: openSettings,
-      onDictionary: () => setPanel('dictionary'),
       onTheme: (theme) => controller.changeSettings({ reading: { ...reading, theme } }),
       onToggleLog: () => setLogOpen((v) => !v),
       onExportReport: () => void controller.exportReport(),
       panelCollapsed: split.collapsed,
       onTogglePanel: () => split.setCollapsed(!split.collapsed),
-      onShortcuts: () => setPanel('shortcuts'),
-      onHelp: () => setPanel('help'),
-      onReportBug: () => setPanel('bug'),
-      onCheckUpdates: checkForUpdates,
-      onAbout: () => setPanel('about'),
-      onTour: () => setPanel('tour'),
       onFind: find,
-      onLookUp: lookUpFromMenu,
-      onImprove: improveFromToolbar,
       panel: split.collapsed ? null : panelCommands.current,
     });
   useTheme(reading.theme);
@@ -282,23 +290,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
       data-key-hints={reading.keyHints ? 'on' : 'off'}
     >
       <header className="app-header">
-        <Toolbar
-          controller={controller}
-          state={state}
-          onOpen={onOpen}
-          onPaste={onPaste}
-          onSettings={() => openSettings()}
-          onDictionary={() => setPanel('dictionary')}
-          onReportBug={() => setPanel('bug')}
-          onCheckUpdates={checkForUpdates}
-          onHelp={() => setPanel('help')}
-          onShortcuts={() => setPanel('shortcuts')}
-          onAbout={() => setPanel('about')}
-          onTour={() => setPanel('tour')}
-          onClose={onClose}
-          onLookUp={lookUpFromMenu}
-          onImprove={improveFromToolbar}
-        />
+        <Toolbar controller={controller} state={state} {...actions} />
         <Banners controller={controller} state={state} />
         <p className="visually-hidden" role="status" aria-atomic="true" data-live-regions>
           {state.announcement && <span key={state.announcement.seq}>{t.format(state.announcement.message)}</span>}
@@ -312,7 +304,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
           controller={controller}
           state={state}
           focus={focus}
-          onUnderlineClick={(candidateId, focusCard) => setCardRequest((r) => ({ candidateId, seq: (r?.seq ?? 0) + 1, focus: focusCard }))}
+          onUnderlineClick={requestCard}
           onOpen={onOpen}
           onPaste={onPaste}
           onSample={() => unlessUnsaved(() => void controller.openSample())}
@@ -365,7 +357,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
           onUndo={() => {
             const back = controller.undoBigAction();
             // The places are back in review: show their card, with focus, so focus doesn't fall to the page.
-            if (back) setCardRequest((r) => ({ candidateId: back, seq: (r?.seq ?? 0) + 1, focus: true }));
+            if (back) requestCard(back, true);
           }}
           onDismiss={dismissUndoOffer}
         />
@@ -376,28 +368,28 @@ function ShellView({ controller, state }: { controller: SessionController; state
           state={state}
           readAloud={readAloud}
           initialTab={settingsTab}
-          onOpenDictionary={() => setPanel('dictionary')}
-          onClose={() => setPanel('none')}
+          onOpenDictionary={actions.onDictionary}
+          onClose={closePanel}
         />
       )}
-      {panel === 'tour' && <WelcomeTour onClose={() => setPanel('none')} />}
+      {panel === 'tour' && <WelcomeTour onClose={closePanel} />}
       {panel === 'palette' && (
         <CommandPalette
           commands={commands()}
           onRun={(command) => {
-            setPanel('none');
+            closePanel();
             command.run();
           }}
-          onClose={() => setPanel('none')}
+          onClose={closePanel}
         />
       )}
-      {panel === 'dictionary' && <DictionaryPanel controller={controller} dictionary={state.settings.dictionary} onClose={() => setPanel('none')} />}
-      {panel === 'bug' && <BugReportDialog controller={controller} onClose={() => setPanel('none')} />}
-      {panel === 'help' && <GoogleDocsHelp onOpen={openFromHelp} onClose={() => setPanel('none')} />}
-      {panel === 'shortcuts' && <ShortcutsSheet readAloud={readAloud !== null} lookUp={lookUpOn} improve={aiOn} onClose={() => setPanel('none')} />}
+      {panel === 'dictionary' && <DictionaryPanel controller={controller} dictionary={state.settings.dictionary} onClose={closePanel} />}
+      {panel === 'bug' && <BugReportDialog controller={controller} onClose={closePanel} />}
+      {panel === 'help' && <GoogleDocsHelp onOpen={openFromHelp} onClose={closePanel} />}
+      {panel === 'shortcuts' && <ShortcutsSheet readAloud={readAloud !== null} lookUp={lookUpOn} improve={aiOn} onClose={closePanel} />}
       {panel === 'about' && (
         <Suspense fallback={null}>
-          <AboutDialog onCheckUpdates={checkForUpdates} onClose={() => setPanel('none')} />
+          <AboutDialog onCheckUpdates={checkForUpdates} onClose={closePanel} />
         </Suspense>
       )}
       {lookupState && <LookupPanel lookup={lookupState} onClose={() => lookup.close()} />}

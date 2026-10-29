@@ -169,7 +169,7 @@ export class SessionController {
     decisionMade: (patch) => {
       this.tally.made(1);
       // Like any other change to the review: the toast's Undo would no longer match (Task F24, F23 review M-37).
-      this.set({ ...patch, decided: this.tally.decided, undoOffer: null });
+      this.reviewChanged({ ...patch, decided: this.tally.decided });
       this.reviews.changed();
     },
     markUnsaved: () => this.changes++,
@@ -255,7 +255,7 @@ export class SessionController {
       showSession: (session) => {
         ++this.checks; // a check still running would replace the resumed session
         this.ai.reset(); // AI answers are not saved, and none are replayed
-        this.set({ phase: 'ready', session, decided: this.tally.decided, checking: this.queue.waiting, undoOffer: null });
+        this.reviewChanged({ phase: 'ready', session, decided: this.tally.decided, checking: this.queue.waiting });
       },
       announce: (message) => this.set({ announcement: { message, seq: ++this.announcements } }),
       opener: this,
@@ -339,7 +339,7 @@ export class SessionController {
     this.savedChanges = this.changes;
     this.tally.reset();
     this.ai.reset();
-    this.set({
+    this.reviewChanged({
       phase: 'checking',
       document,
       session: null,
@@ -351,7 +351,6 @@ export class SessionController {
       decided: this.tally.decided,
       documentIgnoredRules: [],
       announcement: { message: msg('announce.checking'), seq: ++this.announcements },
-      undoOffer: null,
     });
     await this.queue.track(this.check(false));
     await this.reviews.opened(document, bytes);
@@ -364,7 +363,7 @@ export class SessionController {
     if (!this.state.document?.editable) return;
     this.changes++;
     this.queue.push(text);
-    this.set({ checking: true, textChanges: this.state.textChanges + 1, undoOffer: null });
+    this.reviewChanged({ checking: true, textChanges: this.state.textChanges + 1 });
   }
 
   private async checkTypedText(text: string): Promise<void> {
@@ -427,7 +426,7 @@ export class SessionController {
       const outdated = error !== null && (error === this.checkFailure || error.key === 'error.saveNotChecked');
       this.checkFailure = null;
       // A new session: an undo toast's places and batch belong to the old one.
-      this.set({ phase: 'ready', session, checking: this.queue.waiting, undoOffer: null, ...announcement, ...(outdated ? { error: null } : {}) });
+      this.reviewChanged({ phase: 'ready', session, checking: this.queue.waiting, ...announcement, ...(outdated ? { error: null } : {}) });
       if (before) this.reviews.changed();
       // After every check, so a goal switch (whose own modules may differ) releases too.
       this.releaseModules(session.modules);
@@ -724,7 +723,7 @@ export class SessionController {
     this.savedChanges = this.changes;
     this.tally.reset();
     this.ai.reset();
-    this.set({
+    this.reviewChanged({
       phase: 'empty',
       document: null,
       session: null,
@@ -735,9 +734,13 @@ export class SessionController {
       decided: this.tally.decided,
       documentIgnoredRules: [],
       announcement: null,
-      undoOffer: null,
     });
     await this.reviews.refresh();
+  }
+
+  /** Sets `patch` after a change to the review: the undo toast's Undo would no longer match, so the toast goes. */
+  private reviewChanged(patch: Partial<ControllerState>): void {
+    this.set({ ...patch, undoOffer: null });
   }
 
   private set(patch: Partial<ControllerState>): void {

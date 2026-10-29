@@ -1,4 +1,5 @@
 import { useId, type KeyboardEvent, type ReactNode } from 'react';
+import { useT } from './i18n/useT';
 
 export interface Tab<Id extends string> {
   id: Id;
@@ -21,6 +22,7 @@ interface Props<Id extends string> {
  * panel is rendered.
  */
 export function Tabs<Id extends string>({ label, tabs, selected, onSelect, children }: Props<Id>) {
+  const { dir } = useT();
   const baseId = useId();
   const tabId = (id: Id) => `${baseId}-tab-${id}`;
   const panelId = `${baseId}-panel`;
@@ -34,7 +36,7 @@ export function Tabs<Id extends string>({ label, tabs, selected, onSelect, child
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     const at = tabs.findIndex((tab) => tab.id === selected);
-    const rtl = getComputedStyle(e.currentTarget).direction === 'rtl';
+    const rtl = dir === 'rtl';
     const forward = rtl ? 'ArrowLeft' : 'ArrowRight';
     const back = rtl ? 'ArrowRight' : 'ArrowLeft';
     if (e.key === forward) select(at + 1);
