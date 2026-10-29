@@ -61,6 +61,29 @@ describe('performance', () => {
     expect({ rulesMs: rulesMs < 300, decisionsMs: decisionsMs < 150 }).toEqual({ rulesMs: true, decisionsMs: true });
   });
 
+  // Task F21d (F21c adversarial review I-4): Harper took 102 s on 1,500 words with one 20,000-character key in them,
+  // and 44 s on a Markdown file with a 10,000-character data URI. A whitespace-free run longer than 200 characters
+  // is no longer sent to it, so the check keeps the 300 ms budget.
+  /** `length` characters from `alphabet` in a fixed pseudo-random order (a short repeating pattern is fast in Harper). */
+  const token = (alphabet: string, length: number) => {
+    let x = 12345;
+    return Array.from({ length }, () => alphabet[(x = (x * 1103515245 + 12345) % 2 ** 31) % alphabet.length]).join('');
+  };
+  const BASE64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  it.each([
+    ['plain text, a 20,000-character key', 'plaintext', `Key: ${token(BASE64 + '-_', 20_000)}`],
+    ['Markdown, a 10,000-character data URI', 'markdown', `![logo](data:image/png;base64,${token(BASE64 + '+/', 10_000)})`],
+  ] as const)('~1,500 words with one long token (%s) complete in < 300 ms', async (_name, language, long) => {
+    const paras: Paragraph[] = [];
+    for (let r = 0; r < 4; r++) PARAGRAPHS.forEach((text) => paras.push({ id: paras.length, text }));
+    paras.splice(10, 0, { id: paras.length, text: long });
+    const options = { ...OPTIONS, language };
+    await CheckSession.start(paras, options, { linter }); // warm-up
+    const t0 = performance.now();
+    await CheckSession.start(paras, options, { linter });
+    expect(performance.now() - t0).toBeLessThan(300);
+  }, 600_000);
+
   // Task U3 fix 1: as one paragraph this table took 30-43 s (the linter's time grows with the square of the flags
   // in a paragraph). Each cell is now its own paragraph and a repeated cell is linted once: ~10 s alone on the dev
   // PC. It still runs on the window's thread; moving the check to a Worker is deferred.

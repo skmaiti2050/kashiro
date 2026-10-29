@@ -1,6 +1,6 @@
 import { Dialect, LocalLinter, SuggestionKind } from 'harper.js';
 import type { BinaryModule, LintConfig } from 'harper.js';
-import type { Candidate, Paragraph, Variant } from './types';
+import type { Candidate, Paragraph, Span, Variant } from './types';
 import { EN_IN_WORDS } from './wordlists/en-IN';
 import { TECH_WORDS } from './wordlists/tech';
 import { TECHNICAL_WORDS } from './wordlists/technical';
@@ -33,13 +33,40 @@ export function withArticleCase(original: string, replacement: string): string {
   return original[0] === 'A' ? 'A' + lower.slice(1) : lower;
 }
 
+/**
+ * The longest whitespace-free run Harper reads. A longer one is a key, a hash or a data URI: Harper took seconds
+ * on 10,000 such characters and panicked on hex ones ("capacity overflow"), and a panic leaves its WASM unusable
+ * for the rest of the process (Task F21d, review I-4).
+ */
+export const MAX_RUN_CHARACTERS = 200;
+/** A whitespace-free run longer than MAX_RUN_CHARACTERS. */
+const LONG_RUN = new RegExp(`\\S{${MAX_RUN_CHARACTERS + 1},}`, 'g');
+
+/**
+ * `text` with each long run replaced by as many spaces, so every offset stays exact, and where those runs were.
+ * Harper reads the text before and after a run as usual; a flag touching a run is dropped (it gets no card).
+ */
+function withoutLongRuns(text: string): { readable: string; runs: Span[] } {
+  const runs = [...text.matchAll(LONG_RUN)].map((m) => ({ start: m.index!, end: m.index! + m[0].length }));
+  if (runs.length === 0) return { readable: text, runs };
+  let readable = '';
+  let at = 0;
+  for (const r of runs) {
+    readable += text.slice(at, r.start) + ' '.repeat(r.end - r.start);
+    at = r.end;
+  }
+  return { readable: readable + text.slice(at), runs };
+}
+
 async function lintText(linter: LocalLinter, text: string, language: 'plaintext' | 'markdown'): Promise<LintCopy[]> {
   const out: LintCopy[] = [];
-  for (const lint of await linter.lint(text, { language })) {
+  const { readable, runs } = withoutLongRuns(text);
+  for (const lint of await linter.lint(readable, { language })) {
     try {
       const sp = lint.span();
       const { start, end } = sp;
       sp.free();
+      if (runs.some((r) => start < r.end && end > r.start)) continue;
       const original = text.slice(start, end);
       const replacements: string[] = [];
       for (const s of lint.suggestions()) {

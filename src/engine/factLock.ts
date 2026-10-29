@@ -13,9 +13,10 @@ const PATTERNS: RegExp[] = [
   /\$\$[\s\S]+?\$\$/g,
   /\$[^\s$](?:[^$\n]*[^\s$])?\$(?!\d)/g,
   /\\[A-Za-z]+\*?(?:\[[^\]\n]*\])*(?:\{[^{}\n]*\})*/g,
-  // URLs and emails (trailing punctuation trimmed below)
+  // URLs and emails (trailing punctuation trimmed below). An email starts where its run of name characters does, so a
+  // long token without "@" is read once, not once per character (Task F21d).
   /(?:https?:\/\/|www\.)[^\s<>"”]+/g,
-  /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g,
+  /(?<![\w.+-])[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g,
   // quotes
   /"[^"\n]+"/g,
   /“[^”\n]+”/g,
@@ -37,7 +38,8 @@ const PATTERNS: RegExp[] = [
   /(?:Rs\.?\s?|[₹$€£¥])\s?\p{Nd}[\p{Nd},]*(?:\.\p{Nd}+)?/gu,
   /\bp\s*[<>=≤≥]\s*\d*\.?\d+/gi,
   /\bv\d+(?:\.\d+)+\b/g,
-  /\p{Nd}[\p{Nd},]*(?:\.\p{Nd}+)?%/gu,
+  // a percentage starts at its first digit (not after a digit or "digit,"), so a long run of digits is read once
+  /(?<!\p{Nd},?)\p{Nd}[\p{Nd},]*(?:\.\p{Nd}+)?%/gu,
   // bare numbers: integers, decimals, 1,200 / 1,20,000, negatives, ordinals, ranges
   /(?<![\p{L}\p{N}])-?\p{Nd}+(?:,\p{Nd}+)*(?:\.\p{Nd}+)?(?:st|nd|rd|th)?(?:\s*[–-]\s*\p{Nd}+(?:,\p{Nd}+)*(?:\.\p{Nd}+)?(?:st|nd|rd|th)?)?(?![\p{L}\p{N}])/gu,
   // camelCase and inner capitals, 4+ characters: preventDefault, iPhone, DevTools (not "tHe"; lookaheads from a word start: linear)

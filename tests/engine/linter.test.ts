@@ -94,6 +94,34 @@ describe('createLinter', () => {
   });
 });
 
+/** A token of `length` characters drawn in a fixed order from `alphabet`. */
+const longToken = (alphabet: string, length: number) =>
+  Array.from({ length }, (_, i) => alphabet[(i * 7919 + 13) % alphabet.length]).join('');
+
+describe('long tokens never reach Harper (Task F21d, review I-4)', () => {
+  it.each([
+    ['40,000 hex characters (Harper panicked: "capacity overflow")', longToken('0123456789abcdef', 40_000)],
+    ['10,000 hex characters (Harper panicked)', longToken('0123456789abcdef', 10_000)],
+    ['a 10,000-character data URI', 'data:image/png;base64,' + longToken('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/', 10_000)],
+  ])('%s: no flag on it, and the text before and after is checked', async (_name, token) => {
+    const l = await createLinter('Indian');
+    const text = `Teh key is ${token} and teh end.`;
+    const c = await l.lintParagraphs([para(text)], 'plaintext');
+    const at = text.indexOf(token);
+    expect(c.filter((x) => x.span.end > at && x.span.start < at + token.length)).toEqual([]);
+    expect(c.filter((x) => x.original === 'Teh' || x.original === 'teh').map((x) => x.span.start)).toEqual([0, text.indexOf('teh end')]);
+    const spelling = await l.lintSpelling([para(text)], 'British');
+    expect(spelling.filter((x) => x.span.end > at && x.span.start < at + token.length)).toEqual([]);
+  });
+
+  it('a run of 200 characters is still read; 201 is not', async () => {
+    const l = await createLinter('Indian');
+    const flagsOn = async (run: string) => (await l.lintParagraphs([para(`See ${run} now.`)], 'plaintext')).filter((x) => x.original.includes('qq'));
+    expect(await flagsOn('qq' + 'x'.repeat(198))).not.toEqual([]);
+    expect(await flagsOn('qq' + 'x'.repeat(199))).toEqual([]);
+  });
+});
+
 describe('Indian-English word list', () => {
   it.each(['American', 'British', 'Indian'] as const)('knows common Indian-English words under %s', async (v) => {
     const l = await createLinter(v);
