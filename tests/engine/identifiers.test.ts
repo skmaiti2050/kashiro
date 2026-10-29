@@ -115,6 +115,16 @@ describe('hyphen-joined resource names (F26 item 5)', () => {
     expect(inId(text, part)).toBe(false);
   });
 
+  // Each flag reads at most 256 characters each way, so a flag-heavy chain stays linear (uncapped, 3,000 flags in
+  // this chain took 4.6 s).
+  it('a hyphen chain longer than any resource name is not one', () => {
+    const chain = Array.from({ length: 20000 }, () => 'xq').join('-');
+    const text = `See ${chain} here.`;
+    expect(inId(text, 'xq', 4 + 3 * 10000)).toBe(false);
+    expect(inId(text, 'xq', 4)).toBe(false);
+    expect(inId('Use xq-xq-xq-1 here.', 'xq')).toBe(true);
+  });
+
   it('with Harper: no card on any part of "vantix-db-mumbai"; "well-knwon" and "state-of-teh-art" keep theirs', async () => {
     const paras = [
       { id: 0, text: 'The snapshot copy vantix-db-mumbai was stuck for an hour.' },

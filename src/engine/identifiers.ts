@@ -34,6 +34,8 @@ const TOKEN_CHAR = /[\p{L}\p{N}-]/u;
 const ABBREVIATION_LIKE = /^[^aeiouy]+$|\d/;
 /** Zipf 3.0 is about once per million words: "mumbai" (4.0), "prod" (3.3) are common; "vantix" (0) is not. */
 const COMMON_WORD_ZIPF = 3.0;
+/** Longer than any resource name (AWS allows 255 at most for most): a longer hyphen chain is not one. */
+const MAX_NAME_LENGTH = 256;
 const TECH_WORD_SET: ReadonlySet<string> = new Set([...TECH_WORDS, ...TECHNICAL_WORDS, ...SHORT_TECHNICAL_WORDS]);
 
 /**
@@ -43,10 +45,14 @@ const TECH_WORD_SET: ReadonlySet<string> = new Set([...TECH_WORDS, ...TECHNICAL_
  * like an abbreviation), which keeps its spelling card.
  */
 function inHyphenJoinedName(text: string, span: Span): boolean {
+  // Never scans further than a resource name can be, so a flag-heavy run of hyphenated words stays linear.
+  const lowest = Math.max(0, span.start - MAX_NAME_LENGTH);
+  const highest = Math.min(text.length, span.end + MAX_NAME_LENGTH);
   let start = span.start;
   let end = span.end;
-  while (start > 0 && TOKEN_CHAR.test(text[start - 1])) start--;
-  while (end < text.length && TOKEN_CHAR.test(text[end])) end++;
+  while (start > lowest && TOKEN_CHAR.test(text[start - 1])) start--;
+  while (end < highest && TOKEN_CHAR.test(text[end])) end++;
+  if (end - start > MAX_NAME_LENGTH) return false;
   const token = text.slice(start, end).replace(/^-+|-+$/g, '');
   if (!HYPHEN_JOINED.test(token)) return false;
   const parts = token.split('-');
