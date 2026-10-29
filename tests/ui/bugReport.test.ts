@@ -75,8 +75,8 @@ describe('the recent problems ring buffer', () => {
 });
 
 describe('project links', () => {
-  it('PROJECT_URL is a GitHub repository address (a placeholder until publishing); the issues link uses the bug template', () => {
-    expect(PROJECT_URL).toMatch(/^https:\/\/github\.com\/[\w.-]+\/[\w.-]+$/);
+  it('PROJECT_URL is the project repository; the issues link uses the bug template', () => {
+    expect(PROJECT_URL).toBe('https://github.com/skmaiti2050/kashiro');
     expect(ISSUES_URL).toBe(`${PROJECT_URL}/issues/new?template=bug.yml`);
   });
 });
