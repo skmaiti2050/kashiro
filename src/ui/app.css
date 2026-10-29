@@ -1524,14 +1524,17 @@ button.link {
   color: var(--muted);
 }
 
-/* Dialogs */
+/*
+ * Dialogs. A modal dialog is above everything (F26 item 2): CodeMirror's Find panel is at z-index 300 and its tooltips
+ * at 500, so the backdrop is well above both; Find stays open under it, inert like the rest of the page.
+ */
 .dialog-backdrop {
   position: fixed;
   inset: 0;
   background: rgb(0 0 0 / 30%);
   display: grid;
   place-items: center;
-  z-index: 20;
+  z-index: 1000;
 }
 
 /* Positioned like every scrolling box (F19; see .document). */
