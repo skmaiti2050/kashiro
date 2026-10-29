@@ -12,8 +12,11 @@ const RESOURCE_ID = /(?<![\p{L}\p{N}_-])(?:ami|vpc|subnet|sg|i|igw|rtb|eni|vol|s
 const UUID = /(?<![\p{L}\p{N}_-])[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?![\p{L}\p{N}_-])/giu;
 /** An Amazon resource name, up to the next space: "arn:aws:iam::123456789012:role/deploy-role-prod". */
 const ARN = /(?<![\p{L}\p{N}_-])arn:[a-z0-9-]+:\S*/giu;
-/** Six or more hex characters with a digit: a hash, a short git SHA or an ID part ("3911a5b"; not "decade"). */
-const HEX_LIKE = /^(?=[0-9a-f]*\d)[0-9a-f]{6,}$/i;
+/**
+ * Six or more hex characters with two digits or more: a hash, a short git SHA or an ID part ("3911a5b"; not
+ * "decade", nor the typos "added1" and "faced2", Task F21c review M-26).
+ */
+const HEX_LIKE = /^(?=(?:[a-f]*\d){2})[0-9a-f]{6,}$/i;
 /** Letters and digits mixed back and forth at least twice ("bld9x7k2q", "jb3kq9z"; not "y0u", "th9s", "mp4"). */
 const MIXED = /^(?:(?:\p{L}+\p{N}+){2,}\p{L}*|(?:\p{N}+\p{L}+){2,}\p{N}*)$/u;
 const LETTER_OR_DIGIT = /[\p{L}\p{N}]/u;
@@ -36,7 +39,7 @@ function inMatch(text: string, span: Span, re: RegExp): boolean {
 /**
  * True when `span` of `text` is part of an identifier: a resource ID with its prefix ("vpc" in "vpc-032d…", "i" in
  * "i-0abc…"), a UUID, an ARN, or a run of letters and digits that is hex-like ("6789abcdef0", "3911a5b") or mixes
- * letters and digits more than once ("bld9x7k2q"). A word with one slipped digit ("y0u") is still a word.
+ * letters and digits more than once ("bld9x7k2q"). A word with one slipped digit ("y0u", "added1") is still a word.
  */
 export function isInIdentifier(text: string, span: Span): boolean {
   const run = runAround(text, span);

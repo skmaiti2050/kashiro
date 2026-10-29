@@ -59,8 +59,28 @@ describe('isInIdentifier', () => {
     ['Ask the aws team, i think.', 'i'],
     ['Use vpc peering in the subnet.', 'vpc'],
     ['A well-known fact.', 'well'],
+    // Task F21c (F21 review M-26): a word of hex letters with one slipped digit is a typo, not a hash.
+    ['She added1 more salt and faced2 the crowd.', 'added1'],
+    ['She added1 more salt and faced2 the crowd.', 'faced2'],
+    ['The decade2 was fine.', 'decade2'],
+    ['The key deadbeef1 is old.', 'deadbeef1'],
   ])('in "%s", %s is a word, not an identifier', (text, part) => {
     expect(inId(text, part)).toBe(false);
+  });
+
+  it('a hex-like run needs two digits; a run mixing letters and digits twice stays hidden (accepted: "recie4ve2")', () => {
+    expect(inId('Revert 6789abcdef0 now.', '6789abcdef0')).toBe(true);
+    expect(inId('Revert a5b0ce now.', 'a5b0ce')).toBe(true);
+    expect(inId('The wrd2s3 are wrong and recie4ve2 is a typo.', 'recie4ve2')).toBe(true);
+  });
+
+  it('with Harper, a hex-letter word with one slipped digit gets its spelling card back (review M-26)', async () => {
+    const paras = [{ id: 0, text: 'She added1 more salt and faced2 the crowd.' }, { id: 1, text: 'The decade2 was fine.' }];
+    const s = await CheckSession.start(paras, opts(), { linter });
+    const { top, more } = s.decisions();
+    const offered = new Set([...top, ...more].flatMap((d) => d.candidateIds));
+    const fixes = s.candidates().filter((c) => offered.has(c.id)).flatMap((c) => c.replacements.map((r) => `${c.original} → ${r}`));
+    expect(fixes).toEqual(expect.arrayContaining(['added1 → added', 'faced2 → faced', 'decade2 → decade']));
   });
 });
 
