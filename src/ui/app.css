@@ -186,11 +186,36 @@ button.quiet:hover:not(:disabled) {
   color: var(--ink);
 }
 
+/*
+ * Selects (F21b item 6, owner): still the native element, so the keyboard, the screen reader and the system's list all
+ * work as before, but drawn in the theme: the control edge, padding and a chevron in the text colour (two gradient
+ * strokes, so it follows the theme with no image). A Windows contrast theme gets the system's select back (a11y.css).
+ */
 select {
-  background: var(--panel);
-  border: 1px solid var(--line);
+  appearance: none;
+  background-color: var(--panel);
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position:
+    right 14px center,
+    right 9px center;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+  border: 1px solid var(--control-edge);
   border-radius: 6px;
-  padding: 4px 6px;
+  padding-block: 4px;
+  padding-inline: 8px 28px;
+  cursor: pointer;
+}
+
+[dir='rtl'] select {
+  background-position:
+    left 9px center,
+    left 14px center;
+}
+
+select:hover:not(:disabled) {
+  border-color: var(--ink);
 }
 
 .hint {
@@ -294,7 +319,7 @@ summary:focus-visible,
 }
 
 .chip {
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-edge);
   border-radius: 999px;
   padding-block: 2px;
   padding-inline: 10px 4px;
@@ -306,9 +331,10 @@ summary:focus-visible,
   color: var(--ink);
 }
 
+/* The chip draws the edge; its select keeps the chevron. */
 .chip select {
   border: none;
-  background: transparent;
+  background-color: transparent;
 }
 
 /* The opened file's name (F20 item 11): quiet, already cut to 48 characters, and it wraps in a narrow window. */

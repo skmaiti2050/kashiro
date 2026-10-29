@@ -72,10 +72,34 @@ describe('every button has a visible shape at rest, not only on hover (item 5, F
   });
 });
 
-/** The declarations of the first rule whose whole selector is `selector` (at the start of a line). */
+describe('styled selects, still the native element (item 6, F21 list item 8)', () => {
+  it('the control edge, room for a chevron drawn in the text colour, and padding', () => {
+    const select = rule('select');
+    expect(select).toMatch(/appearance: none;/);
+    expect(select).toMatch(/border: 1px solid var\(--control-edge\);/);
+    expect(select).toMatch(/background-image:[^;]*currentColor/);
+    expect(select).toMatch(/padding-inline: 8px 28px;/);
+  });
+
+  it('the chevron sits at the end in either direction', () => {
+    expect(rule("[dir='rtl'] select")).toMatch(/background-position:[^;]*left/);
+  });
+
+  it('a toolbar chip (Goal, variant) shows the edge on the chip, and its select keeps the chevron', () => {
+    expect(rule('.chip')).toMatch(/border: 1px solid var\(--control-edge\);/);
+    expect(rule('.chip select')).not.toMatch(/background: transparent/);
+  });
+
+  it('a Windows contrast theme gets the system’s own select back', () => {
+    const forced = CSS.slice(CSS.lastIndexOf('@media (forced-colors: active)'));
+    expect(forced).toMatch(/select \{[^}]*appearance: auto;[^}]*background-image: none;/);
+  });
+});
+
+/** The declarations of the first rule whose whole selector is `selector` (at the start of a line, not after a ","). */
 function rule(selector: string): string {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return new RegExp(`(?:^|\\n)${escaped} \\{([^}]*)\\}`).exec(CSS)?.[1] ?? '';
+  return new RegExp(`(?:^|\\n)(?<!,\\n)${escaped} \\{([^}]*)\\}`).exec(CSS)?.[1] ?? '';
 }
 
 describe('the review panel’s help area (item 2)', () => {

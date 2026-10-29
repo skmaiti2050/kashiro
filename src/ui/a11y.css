@@ -215,6 +215,13 @@ button.link {
     border: 1px solid ButtonText;
   }
 
+  /* The system's own select, with its own arrow: the drawn chevron would not follow the contrast theme (F21b item 6). */
+  select {
+    appearance: auto;
+    background-image: none;
+    padding-inline: 6px;
+  }
+
   /* Quiet buttons keep the ButtonText edge above: they have a shape at rest here too (F21b item 5). */
   button.link,
   .row-label {
