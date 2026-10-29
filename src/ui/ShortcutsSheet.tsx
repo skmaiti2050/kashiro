@@ -24,6 +24,7 @@ const REVIEW: Shortcut[] = [
   { keys: ['Backspace', 'Delete'], action: 'shortcuts.reject' },
   { keys: 'J / K', action: 'shortcuts.nextPrevious' },
   { keys: 'Ctrl+.', action: 'shortcuts.cardAtCursor' },
+  { keys: 'Alt+Enter', action: 'shortcuts.quickFix' },
   { keys: 'Ctrl+Z / Ctrl+Y', action: 'shortcuts.undoTyping' },
 ];
 

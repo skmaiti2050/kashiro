@@ -4,7 +4,10 @@ import { Decoration, EditorView, WidgetType, keymap, placeholder, type Decoratio
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import type { CheckSession } from '@/engine/session';
 import type { Candidate } from '@/engine/types';
+import type { Decision } from '@/engine/decisions';
 import { EmptyState } from './EmptyState';
+import { QuickFixPopover, type WordBox } from './QuickFixPopover';
+import { decisionWith } from './state/reviewCursor';
 import type { CaretText } from './ReviewPanel';
 import { CATEGORIES } from './state/categories';
 import { highlightRanges, locateCandidate, paragraphAt, toEditorPosition } from './state/highlights';
@@ -99,10 +102,12 @@ export interface DocumentFocus {
   seq: number;
 }
 
-/** A pending flag's underline: its candidate and its spoken "Correctness: message" description. */
+/** A pending flag's underline: its candidate, its spoken "Correctness: message" description, and where it is. */
 interface FlagMark {
   candidateId: string;
   description: string;
+  from: number;
+  to: number;
 }
 
 /** The pending flag whose underline covers `pos`, from the marks' `candidateId` and `description`. */
@@ -111,16 +116,27 @@ function flagAt(state: EditorState, pos: number): FlagMark | null {
   state.field(marksField).between(pos, pos, (from, to, mark) => {
     const { candidateId, description } = mark.spec as Partial<FlagMark>;
     if (typeof candidateId !== 'string' || pos < from || pos > to) return;
-    found = { candidateId, description: description ?? '' };
+    found = { candidateId, description: description ?? '', from, to };
     return false;
   });
   return found;
 }
 
 /** The pending flag whose underline was clicked. */
-function candidateAt(view: EditorView, event: MouseEvent): string | null {
+function flagClicked(view: EditorView, event: MouseEvent): FlagMark | null {
   const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
-  return pos === null ? null : (flagAt(view.state, pos)?.candidateId ?? null);
+  return pos === null ? null : flagAt(view.state, pos);
+}
+
+/** The box of the text from `from` to `to`, relative to the document pane; the pane's corner when it can't be measured. */
+function wordBox(view: EditorView, from: number, to: number): WordBox {
+  const pane = view.dom.closest('.document')?.getBoundingClientRect();
+  const start = view.coordsAtPos(from, 1);
+  const end = view.coordsAtPos(to, -1);
+  if (!pane || !start) return { left: 0, top: 0, width: 0, height: 0 };
+  // A word wrapped onto the next line: the box covers its first line.
+  const right = end && end.top === start.top ? end.right : start.right;
+  return { left: start.left - pane.left, top: start.top - pane.top, width: Math.max(0, right - start.left), height: start.bottom - start.top };
 }
 
 /** The element that describes the flag under the cursor (aria-describedby of the text, and a polite live region). */
@@ -198,7 +214,11 @@ export function DocumentView({
   /** The flag under the cursor, read out when the cursor moves onto it. */
   const [flagAtCursor, setFlagAtCursor] = useState('');
   const spokenFlag = useRef('');
+  /** The underline whose quick fix is open (F23 item 5), with the element that had focus before it. */
+  const [quickFix, setQuickFix] = useState<{ candidateId: string; at: WordBox; returnTo: Element | null } | null>(null);
   const doc = state.document;
+  // Any change to the text or a new check moves the words: the popover goes.
+  useEffect(() => setQuickFix(null), [state.textChanges, state.session]);
 
   // A new editor per opened document; typing goes to the controller, which re-checks after a pause.
   useEffect(() => {
@@ -216,7 +236,13 @@ export function DocumentView({
           EditorView.editable.of(doc.editable),
           EditorState.readOnly.of(!doc.editable),
           history(),
-          keymap.of([{ key: 'Mod-.', run: showCardAtCursor }, { key: 'Mod-i', run: improveAtCursor }, ...defaultKeymap, ...historyKeymap]),
+          keymap.of([
+            { key: 'Mod-.', run: showCardAtCursor },
+            { key: 'Alt-Enter', run: quickFixAtCursor },
+            { key: 'Mod-i', run: improveAtCursor },
+            ...defaultKeymap,
+            ...historyKeymap,
+          ]),
           labels.current.of(editorLabels(t)),
           EditorView.updateListener.of((update) => {
             if (update.docChanged) controller.editText(update.state.sliceDoc());
@@ -232,8 +258,10 @@ export function DocumentView({
           EditorView.scrollMargins.of(() => SCROLL_MARGINS),
           EditorView.domEventHandlers({
             click(event, editor) {
-              const id = candidateAt(editor, event);
-              if (id) underlineClick.current(id, false);
+              const flag = flagClicked(editor, event);
+              if (!flag) return false;
+              underlineClick.current(flag.candidateId, false);
+              openQuickFix(editor, flag);
               return false;
             },
             contextmenu: openTextMenu,
@@ -242,10 +270,15 @@ export function DocumentView({
       }),
     });
     view.current = editor;
+    // The quick fix sits next to its word: scrolling the text away from it closes it.
+    const closeQuickFix = () => setQuickFix(null);
+    editor.scrollDOM.addEventListener('scroll', closeQuickFix);
     // Positions count a line break as one character, as doc.toString() (LF) does; sliceDoc() may be CRLF.
     caretReader.current = () => (editor.hasFocus ? { text: editor.state.doc.toString(), offset: editor.state.selection.main.head } : null);
     if (doc.editable) editor.focus();
     return () => {
+      editor.scrollDOM.removeEventListener('scroll', closeQuickFix);
+      setQuickFix(null);
       editor.destroy();
       view.current = null;
       caretReader.current = () => null;
@@ -316,8 +349,48 @@ export function DocumentView({
         {flagAtCursor}
       </p>
       {textMenu}
+      {quickFixPopover()}
     </section>
   );
+
+  /** The open quick fix, while its card is still a single card waiting for a decision. */
+  function quickFixPopover() {
+    const open = quickFix;
+    const session = state.session;
+    if (!open || !session) return null;
+    const decision = quickFixDecision(open.candidateId);
+    const candidate = session.candidates().find((c) => c.id === open.candidateId);
+    if (!decision || !candidate) return null;
+    const close = (returnFocus: boolean) => {
+      setQuickFix(null);
+      if (!returnFocus) return;
+      if (open.returnTo instanceof HTMLElement && open.returnTo.isConnected) open.returnTo.focus();
+      else view.current?.focus();
+    };
+    return <QuickFixPopover key={open.candidateId} controller={controller} decision={decision} candidate={candidate} at={open.at} onClose={close} />;
+  }
+
+  /** The single card holding `candidateId`; null for a batch (the simple-fixes card too) or the word cards. */
+  function quickFixDecision(candidateId: string): Decision | null {
+    const decisions = controller.getState().session?.decisions();
+    const decision = decisions && decisionWith(decisions.top, decisions.more, candidateId);
+    return decision && decision.kind === 'single' ? decision : null;
+  }
+
+  /** Opens the quick fix of `flag`'s underline, when its card is a single one. */
+  function openQuickFix(editor: EditorView, flag: FlagMark): void {
+    if (!quickFixDecision(flag.candidateId)) return;
+    setQuickFix({ candidateId: flag.candidateId, at: wordBox(editor, flag.from, flag.to), returnTo: document.activeElement });
+  }
+
+  /** Alt+Enter in the text: the quick fix of the underline at the cursor, and its card in the panel. */
+  function quickFixAtCursor(editor: EditorView): boolean {
+    const flag = flagAt(editor.state, editor.state.selection.main.head);
+    if (!flag) return false;
+    underlineClick.current(flag.candidateId, false);
+    openQuickFix(editor, flag);
+    return true;
+  }
 
   /** "Improve this sentence" for the sentence at `position` (a CodeMirror position), or says why there is none. */
   function improveAt(position: number | null): void {

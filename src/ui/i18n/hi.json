@@ -626,5 +626,7 @@
   "toolbar.checkUpdates": "अपडेट देखें…",
   "about.checkUpdates": "अपडेट देखें",
   "about.checkUpdatesHint": "आपके ब्राउज़र में GitHub पर Releases पेज खोलता है। Kashiro अपने-आप कुछ भी नहीं जाँचता या डाउनलोड करता।",
-  "updates.openFailed": "अपडेट देखने के लिए ब्राउज़र नहीं खुल सका।"
+  "updates.openFailed": "अपडेट देखने के लिए ब्राउज़र नहीं खुल सका।",
+  "quickFix.label": "{word} का झटपट सुधार",
+  "shortcuts.quickFix": "कर्सर वाले रेखांकन का झटपट सुधार (या रेखांकन पर क्लिक करें)"
 }

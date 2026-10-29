@@ -536,6 +536,25 @@ summary:focus-visible,
   background: var(--bg);
 }
 
+/* The quick fix (F23 item 5): an anchor laid over the underlined word, its actions under it. */
+.menu-anchor.quick-fix-anchor {
+  position: absolute;
+  display: block;
+  pointer-events: none;
+}
+
+.menu-anchor .menu.quick-fix {
+  pointer-events: auto;
+  width: max-content;
+  min-width: 160px;
+  max-width: 280px;
+}
+
+.menu-anchor .menu.quick-fix button.primary {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
 fieldset {
   border: none;
   margin: 0 0 12px;

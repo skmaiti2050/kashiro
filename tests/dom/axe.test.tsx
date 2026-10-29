@@ -256,6 +256,20 @@ describe('axe-core: no serious or critical violations', () => {
     await audit('review panel folded');
   });
 
+  it('F23: the quick-fix popover on an underline', async () => {
+    const { controller } = makeController({ preset: 'blog' });
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText('Each farmer should recieve water.'));
+    const view = EditorView.findFromDOM(document.querySelector<HTMLElement>('.cm-editor')!)!;
+    act(() => {
+      view.focus();
+      view.dispatch({ selection: { anchor: view.state.doc.toString().indexOf('recieve') + 1 } });
+    });
+    fireEvent.keyDown(view.contentDOM, { key: 'Enter', altKey: true });
+    expect(screen.getByRole('dialog', { name: /^Quick fix/ })).toBeTruthy();
+    await audit('quick-fix popover');
+  });
+
   it('About: the list of notices, then each notice shown alone', async () => {
     renderShell(makeController().controller);
     chooseFromMore('About');

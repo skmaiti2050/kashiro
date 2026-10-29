@@ -185,7 +185,7 @@ export function DecisionCard({ controller, session, checking, textChanges, decis
 }
 
 /** "Accept", "Use “its”", "Delete", or for a batch its count and kind: "Apply all 12 fixes (Formatting)" (opens the preview). */
-function acceptLabel(t: Translator, first: Candidate, replacement: string, isBatch: boolean, places: number): string {
+export function acceptLabel(t: Translator, first: Candidate, replacement: string, isBatch: boolean, places: number): string {
   const what = fixName(t, replacement);
   const choices = first.replacements.length;
   if (isBatch && choices === 1) return batchApplyLabel(t, first.kind, places);
