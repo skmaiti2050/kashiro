@@ -115,39 +115,43 @@ export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onDict
         {t.t('toolbar.paste')}
       </button>
 
-      <label className="field">
-        <span>{t.t('toolbar.goal')}</span>
-        <select value={settings.preset} onChange={(e) => controller.setPreset(e.target.value as PresetId)}>
-          {Object.values(PRESETS).map((p) => (
-            <option key={p.id} value={p.id}>
-              {t.t(PRESET_KEYS[p.id])}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      {session && (
-        <label className={session.mixedVariant ? 'chip warn' : 'chip'} title={session.mixedVariant ? t.t('toolbar.mixedTitle') : undefined}>
-          <span>{session.mixedVariant ? t.t('toolbar.mixedSpelling') : t.t('toolbar.english')}</span>
-          <select
-            value={variantOverride ?? ''}
-            onChange={(e) => controller.setVariant(e.target.value === '' ? null : (e.target.value as Variant))}
-          >
-            <option value="">{automaticVariantLabel(t, variantOverride, session.variant, session.variantFromFallback)}</option>
-            {VARIANTS.map((v) => (
-              <option key={v} value={v}>
-                {t.t(VARIANT_KEYS[v])}
+      {/* Goal, the variant and Improve: in a short window they scroll sideways before the toolbar takes a row (F27 item 2). */}
+      <div className="toolbar-secondary">
+        <label className="field">
+          <span>{t.t('toolbar.goal')}</span>
+          <select value={settings.preset} onChange={(e) => controller.setPreset(e.target.value as PresetId)}>
+            {Object.values(PRESETS).map((p) => (
+              <option key={p.id} value={p.id}>
+                {t.t(PRESET_KEYS[p.id])}
               </option>
             ))}
           </select>
         </label>
-      )}
 
-      {onImprove && (
-        <button onClick={onImprove} aria-keyshortcuts="Control+I" title={t.t('ai.improveTitle')}>
-          {t.t('ai.improve')}
-        </button>
-      )}
+        {session && (
+          <label className={session.mixedVariant ? 'chip warn' : 'chip'} title={session.mixedVariant ? t.t('toolbar.mixedTitle') : undefined}>
+            <span>{session.mixedVariant ? t.t('toolbar.mixedSpelling') : t.t('toolbar.english')}</span>
+            <select
+              value={variantOverride ?? ''}
+              onChange={(e) => controller.setVariant(e.target.value === '' ? null : (e.target.value as Variant))}
+            >
+              <option value="">{automaticVariantLabel(t, variantOverride, session.variant, session.variantFromFallback)}</option>
+              {VARIANTS.map((v) => (
+                <option key={v} value={v}>
+                  {t.t(VARIANT_KEYS[v])}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+
+        {/* In the strip too: with AI on it was the third row. Ctrl+I reaches it wherever the strip is scrolled. */}
+        {onImprove && (
+          <button onClick={onImprove} aria-keyshortcuts="Control+I" title={t.t('ai.improveTitle')}>
+            {t.t('ai.improve')}
+          </button>
+        )}
+      </div>
 
       <span className="spacer" />
       {/* The opened file's name, as the window title has it, in full on hover (F20 item 11). */}

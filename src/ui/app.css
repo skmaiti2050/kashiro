@@ -349,9 +349,13 @@ input[type='range']::-moz-range-thumb {
   color: var(--muted);
 }
 
+/*
+ * The workspace takes what the other rows leave, down to 0 (F27 item 2), and clips what it holds (.workspace): at
+ * 760×480 with 200% text the review panel's padding outgrew a 30 px workspace and drew over the status bar.
+ */
 .app {
   display: grid;
-  grid-template-rows: auto auto 1fr auto auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
   height: 100vh;
 }
 
@@ -428,6 +432,42 @@ summary:focus-visible,
 
 .toolbar .spacer {
   flex: 1;
+}
+
+/* Goal, the variant pill and Improve: toolbar items like the others, except in a short window (below). */
+.toolbar-secondary {
+  display: contents;
+}
+
+/*
+ * A short window (F27 item 2): at 760×480 with 200% text the toolbar took three rows and left the document two
+ * lines. Goal, the variant pill and Improve share one strip that takes the row's free space (the spacer gives it up)
+ * and scrolls sideways, so they give up room before the toolbar takes another row. Their menus are the system's,
+ * which no scrolling box clips. The 4 px padding keeps the focus ring inside the strip. With the document's smaller
+ * margin (.editor .cm-scroller) the document keeps about six lines there.
+ */
+@media (max-height: 600px) {
+  .toolbar-secondary {
+    display: flex;
+    flex: 1 1 0;
+    min-width: 4em;
+    align-items: center;
+    gap: 8px;
+    margin: -4px 0;
+    padding: 4px;
+    overflow-x: auto;
+    /* Its content's width doesn't widen the toolbar (and the window) past the screen: it scrolls instead. */
+    contain: inline-size;
+  }
+
+  /* Each keeps its size and the strip scrolls; a shrunk "Improve this sentence" wrapped to one word a line. */
+  .toolbar-secondary > * {
+    flex-shrink: 0;
+  }
+
+  .toolbar .spacer {
+    flex: 0;
+  }
 }
 
 .field,
@@ -673,10 +713,17 @@ legend {
 }
 
 /* Workspace */
+/* Clipped to its row: neither pane can draw over the status bar or the change log, however short the row is. */
 .workspace {
   display: grid;
   grid-template-columns: 1fr minmax(300px, 380px);
   min-height: 0;
+  overflow: clip;
+}
+
+/* The divider runs the workspace's full height: its focus ring is drawn inside, where the clip leaves it whole. */
+.panel-divider:focus-visible {
+  outline-offset: -2px;
 }
 
 /*
@@ -751,6 +798,13 @@ legend {
   padding: 24px;
   /* Keeps a focused underline clear of the pane's edges (WCAG 2.4.11 focus not obscured). */
   scroll-padding-block: 32px;
+}
+
+/* A short window (F27 item 2): a third of the margin above and below the text, so the document keeps about six lines. */
+@media (max-height: 600px) {
+  .editor .cm-scroller {
+    padding-block: 8px;
+  }
 }
 
 .editor .cm-content {
@@ -1169,7 +1223,8 @@ legend {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 16px;
+  /* A wrapped second line sits close (F27 item 2): at 200% text a 16 px row gap took the document's sixth line. */
+  gap: 4px 16px;
   min-height: 24px;
   padding: 2px 12px;
   border-top: 1px solid var(--line);
