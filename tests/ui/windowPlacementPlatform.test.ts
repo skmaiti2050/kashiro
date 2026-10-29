@@ -10,6 +10,7 @@ const fake = vi.hoisted(() => {
     size: { width: 1200, height: 800 },
     maximized: false,
     calls: [] as string[],
+    failSetSize: false,
   };
   const monitors = [{ position: { x: 0, y: 0 }, size: { width: 1920, height: 1080 }, workArea: { position: { x: 0, y: 0 }, size: { width: 1920, height: 1040 } } }];
   return { handlers, store, window, monitors };
@@ -51,6 +52,7 @@ vi.mock('@tauri-apps/api/window', () => {
         w.position = { x: p.x, y: p.y };
       },
       setSize: async (s: { width: number; height: number }) => {
+        if (w.failSetSize) throw new Error('invalid size');
         w.calls.push(`setSize ${s.width}x${s.height}`);
         w.size = { width: s.width, height: s.height };
       },
@@ -90,7 +92,7 @@ async function run(change?: { position?: { x: number; y: number }; size?: { widt
 beforeEach(() => {
   vi.useFakeTimers();
   fake.store.clear();
-  Object.assign(fake.window, { position: { x: 100, y: 80 }, size: { width: 1200, height: 800 }, maximized: false, calls: [] });
+  Object.assign(fake.window, { position: { x: 100, y: 80 }, size: { width: 1200, height: 800 }, maximized: false, calls: [], failSetSize: false });
 });
 
 describe('the window placement across restarts', () => {
@@ -113,6 +115,17 @@ describe('the window placement across restarts', () => {
     fake.window.maximized = false;
     await run();
     expect(fake.window.calls).toEqual(['setSize 1000x700', 'setPosition 300,200', 'maximize']);
+  });
+
+  // Task F24 (F23 adversarial review M-39): a failed restore stopped the window being remembered for good.
+  it('when the restore fails, moves are still saved, so the next start has a good placement', async () => {
+    fake.store.set('placement', { x: 300, y: 200, width: 1000, height: 700, maximized: false });
+    fake.window.failSetSize = true; // as Tauri does for a size it can't take
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+    await run({ position: { x: 400, y: 250 }, size: { width: 1100, height: 750 } });
+    expect(logged).toHaveBeenCalledWith('Could not restore the window placement:', expect.any(Error));
+    logged.mockRestore();
+    expect(fake.store.get('placement')).toEqual({ x: 400, y: 250, width: 1100, height: 750, maximized: false });
   });
 
   it('saved on a monitor that is gone: the window is centred instead', async () => {

@@ -31,12 +31,35 @@ export interface RestorePlan {
 const GRAB_WIDTH = 100;
 const GRAB_HEIGHT = 30;
 
+/**
+ * The window's minimum size, as in tauri.conf.json (minWidth, minHeight). Those are logical pixels; as a floor
+ * for physical ones they only keep a corrupt size sane, and Windows applies the real minimum.
+ */
+export const MIN_WINDOW = { width: 760, height: 480 };
+
 const isFiniteNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
 
 function isPlacement(saved: unknown): saved is WindowPlacement {
   if (typeof saved !== 'object' || saved === null) return false;
   const p = saved as Record<string, unknown>;
   return [p.x, p.y, p.width, p.height].every(isFiniteNumber) && (p.width as number) > 0 && (p.height as number) > 0 && typeof p.maximized === 'boolean';
+}
+
+const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+
+/**
+ * `saved` in whole pixels, its size between the window minimum and the largest of `screens` (Task F24, F23 review
+ * M-39): Tauri's setSize and setPosition take whole pixels only, and a hand-edited window.json may hold anything.
+ */
+function wholePixels(saved: WindowPlacement, screens: ScreenArea[]): WindowPlacement {
+  const largest = { width: Math.max(...screens.map((s) => s.width)), height: Math.max(...screens.map((s) => s.height)) };
+  return {
+    x: Math.round(saved.x),
+    y: Math.round(saved.y),
+    width: clamp(Math.round(saved.width), MIN_WINDOW.width, largest.width),
+    height: clamp(Math.round(saved.height), MIN_WINDOW.height, largest.height),
+    maximized: saved.maximized,
+  };
 }
 
 /** True when enough of the title bar is on one of `screens` to grab it (a monitor unplugged leaves it off screen). */
@@ -48,9 +71,13 @@ function titleBarVisible(p: WindowPlacement, screens: ScreenArea[]): boolean {
   });
 }
 
-/** The plan for `saved` on `screens`; null when nothing usable was saved (Windows' own placement stays). */
+/**
+ * The plan for `saved` on `screens`; null when nothing usable was saved, or no monitor is known to bound it
+ * (Windows' own placement stays).
+ */
 export function restorePlan(saved: unknown, screens: ScreenArea[]): RestorePlan | null {
-  if (!isPlacement(saved)) return null;
-  const position = titleBarVisible(saved, screens) ? { x: saved.x, y: saved.y } : null;
-  return { width: saved.width, height: saved.height, position, maximized: saved.maximized };
+  if (!isPlacement(saved) || screens.length === 0) return null;
+  const p = wholePixels(saved, screens);
+  const position = titleBarVisible(p, screens) ? { x: p.x, y: p.y } : null;
+  return { width: p.width, height: p.height, position, maximized: p.maximized };
 }
