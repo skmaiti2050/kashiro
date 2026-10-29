@@ -16,9 +16,39 @@ export interface BugReportInput {
 const PATH = /(?:[A-Za-z]:[\\/]|\\\\)[^\s"']*/g;
 
 /**
- * The text of ⋯ › Report a bug (F22 item 4), in English for the issue tracker. Non-private by construction: no
- * dictionary words (only their count), no model path, and errors and notices by message key only (RecentProblems
- * keeps no values). Any path left anywhere is replaced as a last guard.
+ * Every Settings key (the type makes this list complete). The report copies only these: withSavedSettings keeps
+ * any other key a hand-edited settings.json holds, with whatever value (Task F24, F23 review).
+ */
+const SETTINGS_KEYS: Record<keyof Settings, true> = {
+  preset: true,
+  fallbackVariant: true,
+  fallbackVariantChosen: true,
+  saveMode: true,
+  overwrite: true,
+  dictionary: true,
+  tierOverrides: true,
+  modelPath: true,
+  modelSha256: true,
+  helperSpeed: true,
+  depthByPreset: true,
+  termMinRepeats: true,
+  ignoredRules: true,
+  modules: true,
+  modulesByPreset: true,
+  reading: true,
+  uiLanguage: true,
+  keepPastedText: true,
+  sessionRetentionDays: true,
+};
+
+function knownSettings(settings: Settings): Settings {
+  return Object.fromEntries(Object.entries(settings).filter(([key]) => Object.hasOwn(SETTINGS_KEYS, key))) as Settings;
+}
+
+/**
+ * The text of ⋯ › Report a bug (F22 item 4), in English for the issue tracker. Non-private by construction: only the
+ * known settings, no dictionary words (only their count), no model path, and errors and notices by message key only
+ * (RecentProblems keeps no values). Any path left anywhere is replaced as a last guard.
  */
 export function bugReport(input: BugReportInput): string {
   const { settings } = input;
@@ -26,7 +56,7 @@ export function bugReport(input: BugReportInput): string {
     .filter(([, on]) => on)
     .map(([name]) => name);
   const shownSettings = {
-    ...settings,
+    ...knownSettings(settings),
     dictionary: `${settings.dictionary.length} ${settings.dictionary.length === 1 ? 'word' : 'words'}`,
     modelPath: settings.modelPath === null ? null : '(chosen; path left out)',
     helperSpeed: settings.helperSpeed && { ...settings.helperSpeed, modelPath: '(path left out)' },

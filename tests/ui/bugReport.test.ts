@@ -55,6 +55,14 @@ describe('bug report contents', () => {
       expect(text, secret).not.toContain(secret);
     }
   });
+
+  // Task F24 (F23 adversarial review residue): withSavedSettings keeps unknown keys from a hand-edited settings.json.
+  it('copies only the known settings: an unknown key from settings.json is left out with its value', () => {
+    const planted = { ...SETTINGS, lastFolder: '/home/asha/Q3-salaries', recentFile: 'board-minutes.docx' } as Settings;
+    const text = bugReport({ version: '1.0.0', aiBuild: true, windows: null, webView2: null, settings: planted, problems: [] });
+    for (const secret of ['lastFolder', '/home/asha', 'Q3-salaries', 'recentFile', 'board-minutes']) expect(text, secret).not.toContain(secret);
+    expect(text).toContain('"sessionRetentionDays": 30');
+  });
 });
 
 describe('the recent problems ring buffer', () => {
