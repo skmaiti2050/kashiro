@@ -63,6 +63,21 @@ describe('adding a word keeps one entry per word (Task F21 item G, owner)', () =
     expect(withWordAdded(['VANTIX'], 'nashik')).toEqual(['VANTIX', 'nashik']);
     expect(withWordAdded([], 'teh')).toEqual(['teh']);
   });
+
+  it('compares words in one Unicode form and one locale-free lowercase (Task F21c, review M-27)', () => {
+    const decomposed = 'café';
+    // Turkish dotted capital I: "İstanbul".toLowerCase() is "i̇stanbul" (with U+0307), still the same word.
+    expect(withWordAdded(['İstanbul'], 'istanbul')).toEqual(['istanbul']);
+    expect(withWordAdded(['istanbul'], 'İstanbul')).toEqual(['istanbul']);
+    expect(dictionaryAccepts('istanbul', 'İstanbul')).toBe(true);
+    // A decomposed accent is the same word as the composed one; the entry is stored composed (NFC).
+    expect(withWordAdded(['Café'], decomposed)).toEqual(['café']);
+    expect(withWordAdded(['café'], 'Café')).toEqual(['café']);
+    expect(withWordAdded([], decomposed)).toEqual(['café']);
+    expect(dictionaryAccepts('café', 'CAFÉ')).toBe(true);
+    // Different letters stay different words.
+    expect(withWordAdded(['DIŞ'], 'dış')).toEqual(['DIŞ', 'dış']);
+  });
 });
 
 describe('adding a word stores it as written and it holds on a reopen (Task F20 item 9b)', () => {
