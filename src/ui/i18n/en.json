@@ -535,6 +535,7 @@
   "recent.pasted": "Pasted text",
   "recent.progress": "{made, plural, one {# decision} other {# decisions}} made, {left, number} left",
   "recent.updated": "Last changed {date}",
+  "recent.showAll": "Show all ({count, number})",
   "settings.keepPasted": "Keep pasted text for resuming",
   "settings.keepPastedHint": "Off: pasted text is never stored, so a review of pasted text can’t be resumed.",
   "settings.retention": "Keep saved reviews for",

@@ -996,6 +996,10 @@ legend {
   color: var(--muted);
 }
 
+.recent-show-all {
+  margin-top: 8px;
+}
+
 .depth {
   display: grid;
   grid-template-columns: 90px 1fr 80px;

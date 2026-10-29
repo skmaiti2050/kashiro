@@ -536,6 +536,7 @@
   "recent.pasted": "पेस्ट किया गया टेक्स्ट",
   "recent.progress": "{made, plural, =0 {कोई फ़ैसला नहीं किया} one {# फ़ैसला किया} other {# फ़ैसले किए}}, {left, number} बाक़ी",
   "recent.updated": "आख़िरी बदलाव {date}",
+  "recent.showAll": "सभी दिखाएँ ({count, number})",
   "settings.keepPasted": "जारी रखने के लिए पेस्ट किया गया टेक्स्ट रखें",
   "settings.keepPastedHint": "बंद हो तो पेस्ट किया गया टेक्स्ट कभी नहीं रखा जाता, इसलिए उसकी समीक्षा बाद में जारी नहीं रखी जा सकती।",
   "settings.retention": "सहेजी गई समीक्षाएँ कितने दिन रखें",

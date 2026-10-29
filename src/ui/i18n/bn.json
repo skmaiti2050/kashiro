@@ -536,6 +536,7 @@
   "recent.pasted": "পেস্ট করা লেখা",
   "recent.progress": "{made, plural, =0 {কোনো সিদ্ধান্ত নেওয়া হয়নি} other {#টি সিদ্ধান্ত নেওয়া হয়েছে}}, {left, number}টি বাকি",
   "recent.updated": "শেষ পরিবর্তন {date}",
+  "recent.showAll": "সব দেখান ({count, number})",
   "settings.keepPasted": "পরে চালিয়ে যাওয়ার জন্য পেস্ট করা লেখা রাখুন",
   "settings.keepPastedHint": "বন্ধ থাকলে পেস্ট করা লেখা কখনো রাখা হয় না, তাই তার রিভিউ পরে চালিয়ে যাওয়া যায় না।",
   "settings.retention": "সেভ করা রিভিউ কত দিন রাখবেন",
