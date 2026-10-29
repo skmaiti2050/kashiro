@@ -56,10 +56,20 @@ export const files: Files = {
   },
 };
 
-/** Calls `onFile` with the first file dropped on the window. Returns the unsubscribe function. */
-export async function onFileDrop(onFile: (file: OpenedFile) => void, onError: (e: unknown) => void): Promise<() => void> {
+/** A file dropped on the window: its name now, its bytes only when the app decides to open it. */
+export interface DroppedFile {
+  name: string;
+  read(): Promise<OpenedFile>;
+}
+
+/**
+ * Calls `onDrop` with the files dropped on the window, in order. Returns the unsubscribe function. Tauri's drop event
+ * carries file paths only: text dragged from another app never reaches the page while it is on (wry replaces
+ * WebView2's drop target), so only files can be dropped (Task F21b item 9).
+ */
+export async function onFileDrop(onDrop: (files: DroppedFile[]) => void): Promise<() => void> {
   return getCurrentWebview().onDragDropEvent((event) => {
     if (event.payload.type !== 'drop' || event.payload.paths.length === 0) return;
-    readChosen(event.payload.paths[0]).then(onFile, onError);
+    onDrop(event.payload.paths.map((path) => ({ name: fileName(path), read: () => readChosen(path) })));
   });
 }

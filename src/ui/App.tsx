@@ -132,13 +132,18 @@ function ShellView({ controller, state }: { controller: SessionController; state
 
   useEffect(() => {
     return listenWhileMounted(
-      onFileDrop(
-        (file) => {
-          setPanel('none');
-          unlessUnsaved(() => void controller.openFile(file));
-        },
-        (e) => controller.showError(explain(msg('error.drop'), e, msg('error.dropNext'))),
-      ),
+      onFileDrop((dropped) => {
+        // The first file Kashiro can open; one it can't is refused before the unsaved-work prompt (F21b item 9).
+        const file = dropped.find((f) => controller.canOpen(f.name));
+        if (!file) return controller.showError(msg('error.unsupported', { name: dropped[0].name }));
+        setPanel('none');
+        unlessUnsaved(() =>
+          file.read().then(
+            (opened) => controller.openFile(opened),
+            (e) => controller.showError(explain(msg('error.drop'), e, msg('error.dropNext'))),
+          ),
+        );
+      }),
     );
   }, [controller, unlessUnsaved]);
 

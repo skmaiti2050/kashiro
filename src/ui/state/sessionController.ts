@@ -291,6 +291,11 @@ export class SessionController {
     if (file) await this.openFile(file);
   }
 
+  /** True when a file named `name` is one Kashiro opens (.docx, .txt, .md): a dropped file is checked before it is read. */
+  canOpen(name: string): boolean {
+    return this.adapterFor(name) !== null;
+  }
+
   async openFile(file: OpenedFile): Promise<void> {
     const adapter = this.adapterFor(file.name);
     if (!adapter) {

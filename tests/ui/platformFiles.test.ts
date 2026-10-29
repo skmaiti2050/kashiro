@@ -14,7 +14,10 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({ open: vi.fn(), save: tauri.save })
 vi.mock('@tauri-apps/plugin-fs', () => ({ readFile: vi.fn(), writeFile: tauri.writeFile }));
 vi.mock('@tauri-apps/api/webview', () => ({ getCurrentWebview: vi.fn() }));
 
-const { files } = await import('@/ui/platform/files');
+const { files, onFileDrop } = await import('@/ui/platform/files');
+const { getCurrentWebview } = await import('@tauri-apps/api/webview');
+const { readFile } = await import('@tauri-apps/plugin-fs');
+type DroppedFile = import('@/ui/platform/files').DroppedFile;
 const { SaveOverOriginalError } = await import('@/ui/state/saveFlow');
 
 const BYTES = new Uint8Array([1, 2, 3]);
@@ -53,5 +56,26 @@ describe('Save a copy', () => {
   it('a cancelled dialog writes nothing', async () => {
     expect(await files.save('C:\\Docs\\essay.checked.docx', BYTES, { overwrite: false, original: ORIGINAL })).toBeNull();
     expect(tauri.invoke).not.toHaveBeenCalled();
+  });
+});
+
+describe('a file dropped on the window (Task F21b item 9)', () => {
+  it('gives every dropped file’s name at once, and reads one only when asked', async () => {
+    let onEvent: ((event: { payload: { type: string; paths?: string[] } }) => void) | null = null;
+    vi.mocked(getCurrentWebview).mockReturnValue({
+      onDragDropEvent: async (handler: typeof onEvent) => {
+        onEvent = handler;
+        return () => {};
+      },
+    } as never);
+    vi.mocked(readFile).mockResolvedValue(BYTES);
+    const seen: DroppedFile[][] = [];
+    await onFileDrop((dropped) => seen.push(dropped));
+
+    onEvent!({ payload: { type: 'over' } });
+    onEvent!({ payload: { type: 'drop', paths: ['C:\\Docs\\photo.png', 'C:\\Docs\\notes.md'] } });
+    expect(seen.map((d) => d.map((f) => f.name))).toEqual([['photo.png', 'notes.md']]);
+    expect(readFile).not.toHaveBeenCalled();
+    expect(await seen[0][1].read()).toEqual({ name: 'notes.md', path: 'C:\\Docs\\notes.md', bytes: BYTES });
   });
 });
