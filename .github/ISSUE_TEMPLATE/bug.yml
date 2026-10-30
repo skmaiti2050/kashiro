@@ -1,5 +1,6 @@
 name: Bug
 description: Something doesn't work (crash, wrong suggestion, a file that won't open).
+labels: ["bug"]
 body:
   - type: textarea
     id: what
