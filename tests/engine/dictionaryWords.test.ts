@@ -9,7 +9,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { CheckSession, type CheckOptions } from '@/engine/session';
 import { createLinter, type RulesLinter } from '@/engine/linter';
-import { dictionaryAccepts, dictionaryForm, duplicateCount, withDuplicatesMerged, withWordAdded } from '@/engine/dictionaryWords';
+import { dictionaryAccepts, dictionaryForm, duplicateCount, withDuplicatesMerged, withTitleCaseLowered, withWordAdded } from '@/engine/dictionaryWords';
 import type { Paragraph } from '@/engine/types';
 
 let linter: RulesLinter;
@@ -76,11 +76,13 @@ describe('adding a word keeps one entry per word (Task F21 item G, owner)', () =
   it('a capitalised word adds nothing when an entry already accepts it', () => {
     expect(withWordAdded(['vantix'], 'Vantix')).toEqual(['vantix']);
     expect(withWordAdded(['vantix'], 'VANTIX')).toEqual(['vantix']);
-    expect(withWordAdded(['Vantix'], 'Vantix')).toEqual(['Vantix']);
+    expect(withWordAdded(['VPC'], 'VPC')).toEqual(['VPC']);
+    // Since Task F29 a title-case word is stored in lowercase, which replaces the saved "Vantix".
+    expect(withWordAdded(['Vantix'], 'Vantix')).toEqual(['vantix']);
   });
 
   it('any other word is added at the end, and nothing else changes', () => {
-    expect(withWordAdded(['vantix'], 'Nashik')).toEqual(['vantix', 'Nashik']);
+    expect(withWordAdded(['vantix'], 'DNSName')).toEqual(['vantix', 'DNSName']);
     expect(withWordAdded(['Vantix'], 'VPC')).toEqual(['Vantix', 'VPC']);
     // "VANTIX" is no case of "nashik": a lowercase word removes only its own other cases.
     expect(withWordAdded(['VANTIX'], 'nashik')).toEqual(['VANTIX', 'nashik']);
@@ -153,5 +155,69 @@ describe('adding a word undoes the applied fixes of it (Task F20 item 9a, M-12)'
     expect(s.outputText(0)).toBe('I do receive it.');
     await s.addToDictionary(decisionOf(s, 1, 'recieve').decision.id);
     expect(s.outputText(0)).toBe('I do receive it.');
+  });
+});
+
+/**
+ * Task F29 (owner, 2026-10-30): the owner removed "Cutover", added it back, and it was stored as "Cutover" again, so
+ * `cutover` in prose stayed flagged. A title-case word is now stored in lowercase (it then accepts every case); a
+ * word whose case carries meaning (ALL CAPS, internal capitals) is stored as written.
+ */
+describe('a title-case word is stored in lowercase (Task F29)', () => {
+  it('withWordAdded lowercases title case and keeps ALL CAPS and internal capitals as written', () => {
+    expect(withWordAdded([], 'Cutover')).toEqual(['cutover']);
+    expect(withWordAdded([], 'Mumbai')).toEqual(['mumbai']);
+    expect(withWordAdded([], 'cutover')).toEqual(['cutover']);
+    for (const word of ['ARN', 'ECR', 'DR', 'DBInstances', 'DNSName', 'iPhone', 'elbV2']) expect(withWordAdded([], word)).toEqual([word]);
+    // The İ rule and NFC still hold; a lowercase form still replaces the word's other cases.
+    expect(withWordAdded([], 'İstanbul')).toEqual(['istanbul']);
+    expect(withWordAdded([], 'Café')).toEqual(['café']);
+    expect(withWordAdded(['Cutover', 'ARN'], 'cutover')).toEqual(['ARN', 'cutover']);
+    expect(withWordAdded(['CUTOVER'], 'Cutover')).toEqual(['cutover']);
+  });
+
+  it('every session add path stores "Cutover" as "cutover" and keeps "ARN", "DBInstances" and "DNSName"', async () => {
+    const s = await CheckSession.start(paras('Cutover is tonight.'), opts(), { linter: await createLinter('Indian') });
+    await s.addToDictionary(decisionOf(s, 0, 'Cutover').decision.id);
+    for (const word of ['ARN', 'DBInstances', 'DNSName']) await s.addTypedWord(word);
+    await s.addTypedWord('Kravix');
+    expect(s.addedWords()).toEqual(['cutover', 'ARN', 'DBInstances', 'DNSName', 'kravix']);
+  });
+
+  it.each(['Cutover', 'cutover'])('after adding "%s", neither "cutover" nor "Cutover" gets a card, now or on a reopen', async (word) => {
+    const TEXT = paras('Cutover is tonight.', 'The cutover runs late.');
+    const s = await CheckSession.start(TEXT, opts(), { linter: await createLinter('Indian') });
+    expect(flagged(s, /^cutover$/i).length).toBeGreaterThan(0);
+    await s.addTypedWord(word);
+    const { top, more } = s.decisions();
+    const cards = [...top, ...more].filter((d) => d.candidateIds.some((id) => /^cutover$/i.test(s.candidates().find((c) => c.id === id)!.original)));
+    expect(cards).toEqual([]);
+    const dictionary = s.addedWords();
+    const reopened = await CheckSession.start(TEXT, opts({ dictionary }), { linter: await createLinter('Indian', dictionary) });
+    expect(flagged(reopened, /^cutover$/i)).toEqual([]);
+  });
+
+  it('the take-back (M-12) still works when the stored form differs in case from the card’s word', async () => {
+    const s = await CheckSession.start(paras('Recieve it now.', 'Recieve the rest.'), opts(), { linter: await createLinter('Indian') });
+    const one = decisionOf(s, 0, 'Recieve');
+    s.applyBatch(one.decision.id, [one.candidate.id]);
+    expect(s.outputText(0)).toBe('Receive it now.');
+    await s.addToDictionary(decisionOf(s, 1, 'Recieve').decision.id);
+    expect(s.addedWords()).toEqual(['recieve']);
+    expect(s.outputText(0)).toBe('Recieve it now.');
+    expect(s.outcomes().find((o) => o.candidate.id === one.candidate.id)).toMatchObject({ status: 'rejected', reason: '"recieve" added to dictionary' });
+  });
+});
+
+describe('title-case entries saved before F29 are lowercased once, on load (Task F29)', () => {
+  it('lowercases title case only, merging the duplicates that makes', () => {
+    expect(withTitleCaseLowered(['Cutover', 'ARN', 'vantix', 'DBInstances'])).toEqual(['cutover', 'ARN', 'vantix', 'DBInstances']);
+    expect(withTitleCaseLowered(['Cutover', 'cutover', 'Nashik'])).toEqual(['cutover', 'nashik']);
+    expect(withTitleCaseLowered(['CUTOVER', 'Cutover'])).toEqual(['cutover']);
+  });
+
+  it('a dictionary with no title-case entry comes back as it is (nothing to save)', () => {
+    const dictionary = ['ARN', 'vantix', 'DBInstances', 'VPC', 'vpc'];
+    expect(withTitleCaseLowered(dictionary)).toBe(dictionary);
   });
 });

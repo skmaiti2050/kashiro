@@ -249,7 +249,7 @@ describe('SessionController: review', () => {
     const { controller, saved } = makeController({ createLinter: (v, words) => createLinter(v, words) });
     await controller.openText('We met Anjali Kulkarni in Nashik today.');
     await controller.acceptNames([]);
-    expect(saved.at(-1)!.dictionary).toEqual(['Anjali', 'Kulkarni', 'Nashik']);
+    expect(saved.at(-1)!.dictionary).toEqual(['anjali', 'kulkarni', 'nashik']); // title case is stored in lowercase (F29)
     const { top, more } = controller.getState().session!.decisions();
     expect([...top, ...more].find((d) => d.kind === 'names')).toBeUndefined();
   });
@@ -308,7 +308,7 @@ describe('SessionController: review', () => {
   it('removing a dictionary word rebuilds the linter and checks again', async () => {
     const created: string[][] = [];
     const { controller, saved } = makeController({
-      settings: { dictionary: ['Anjali', 'Nashik'] },
+      settings: { dictionary: ['anjali', 'nashik'] },
       createLinter: (v, words) => {
         created.push(words);
         return createLinter(v, words);
@@ -316,9 +316,9 @@ describe('SessionController: review', () => {
     });
     await controller.openText('We met Anjali in Nashik today.');
     expect(controller.getState().session!.decisionCount()).toBe(0);
-    await controller.removeWord('Nashik');
-    expect(saved.at(-1)!.dictionary).toEqual(['Anjali']);
-    expect(created.at(-1)).toEqual(['Anjali']);
+    await controller.removeWord('nashik');
+    expect(saved.at(-1)!.dictionary).toEqual(['anjali']);
+    expect(created.at(-1)).toEqual(['anjali']);
     const card = controller.getState().session!.decisions().top.find((d) => d.kind === 'names')!;
     expect(card.label).toBe('1 name or place');
   });
@@ -328,20 +328,21 @@ describe('SessionController: the Dictionary panel (F22 item 1)', () => {
   it('Add with no document: saved as withWordAdded stores it (one entry per word, composed), and the next linter has it', async () => {
     const created: string[][] = [];
     const { controller, saved } = makeController({
-      settings: { dictionary: ['Vantix', 'Nashik'] },
+      settings: { dictionary: ['VANTIX', 'NASHIK'] },
       createLinter: (v, words) => {
         created.push(words);
         return createLinter(v, words);
       },
     });
     await controller.addDictionaryWord('  vantix ');
-    expect(saved.at(-1)!.dictionary).toEqual(['Nashik', 'vantix']);
+    expect(saved.at(-1)!.dictionary).toEqual(['NASHIK', 'vantix']);
     await controller.addDictionaryWord('Café');
-    expect(saved.at(-1)!.dictionary).toEqual(['Nashik', 'vantix', 'Café']);
+    // Composed, and in lowercase: title case (Task F29).
+    expect(saved.at(-1)!.dictionary).toEqual(['NASHIK', 'vantix', 'café']);
     await controller.addDictionaryWord('   ');
-    expect(saved.at(-1)!.dictionary).toEqual(['Nashik', 'vantix', 'Café']);
+    expect(saved.at(-1)!.dictionary).toEqual(['NASHIK', 'vantix', 'café']);
     await controller.openText('We met Anjali in Nashik today.');
-    expect(created.at(-1)).toEqual(['Nashik', 'vantix', 'Café']);
+    expect(created.at(-1)).toEqual(['NASHIK', 'vantix', 'café']);
   });
 
   it('Add with a document open: its flags go, as a card’s Add to dictionary', async () => {
@@ -352,12 +353,13 @@ describe('SessionController: the Dictionary panel (F22 item 1)', () => {
     await controller.addDictionaryWord('Anjali');
     await controller.addDictionaryWord('Nashik');
     expect(flagged()).toBe(false);
-    expect(saved.at(-1)!.dictionary).toEqual(['Anjali', 'Nashik']);
+    expect(saved.at(-1)!.dictionary).toEqual(['anjali', 'nashik']); // title case is stored in lowercase (F29)
   });
 
   it('Merge duplicates: the merged list is saved and checked with; it says how many; nothing else changes', async () => {
     const created: string[][] = [];
-    const OWNER = ['Vantix', 'vantix', 'VPC', 'vpc', 'Nashik'];
+    // No title-case entry: those are lowercased on load (Task F29), which merges them before the button can.
+    const OWNER = ['VANTIX', 'vantix', 'VPC', 'vpc', 'AMI'];
     const { controller, saved } = makeController({
       settings: { dictionary: OWNER },
       createLinter: (v, words) => {
@@ -369,12 +371,56 @@ describe('SessionController: the Dictionary panel (F22 item 1)', () => {
     const before = controller.getState();
     expect(await controller.mergeDictionaryDuplicates()).toBe(2);
     const after = controller.getState();
-    expect(saved.at(-1)!.dictionary).toEqual(['vantix', 'vpc', 'Nashik']);
+    expect(saved.at(-1)!.dictionary).toEqual(['vantix', 'vpc', 'AMI']);
     expect({ ...saved.at(-1)!, dictionary: OWNER }).toEqual(before.settings);
-    expect(created.at(-1)).toEqual(['vantix', 'vpc', 'Nashik']);
+    expect(created.at(-1)).toEqual(['vantix', 'vpc', 'AMI']);
     expect(after.document!.text).toBe(before.document!.text);
     expect(after.session!.decisionCount()).toBe(before.session!.decisionCount());
     expect(await controller.mergeDictionaryDuplicates()).toBe(0);
+  });
+});
+
+describe('SessionController: title-case words are stored in lowercase (Task F29)', () => {
+  const withRealLinter = (dictionary: string[] = []) => makeController({ settings: { dictionary }, createLinter: (v, words) => createLinter(v, words) });
+
+  it('Dictionary › Add with no document stores "Cutover" as "cutover" and keeps "ARN", "DBInstances" and "DNSName"', async () => {
+    const { controller, saved } = withRealLinter();
+    for (const word of ['Cutover', 'ARN', 'DBInstances', 'DNSName']) await controller.addDictionaryWord(word);
+    expect(saved.at(-1)!.dictionary).toEqual(['cutover', 'ARN', 'DBInstances', 'DNSName']);
+  });
+
+  it('Dictionary › Add with a document open stores the same forms, and "cutover" is flagged in no case', async () => {
+    const { controller, saved } = withRealLinter();
+    await controller.openText('Cutover is tonight. The cutover runs late.');
+    expect(controller.getState().session!.decisionCount()).toBeGreaterThan(0);
+    for (const word of ['Cutover', 'ARN', 'DBInstances', 'DNSName']) await controller.addDictionaryWord(word);
+    expect(saved.at(-1)!.dictionary).toEqual(['cutover', 'ARN', 'DBInstances', 'DNSName']);
+    expect(controller.getState().session!.decisionCount()).toBe(0);
+  });
+
+  it('a card’s Add to dictionary stores the title-case word in lowercase', async () => {
+    const { controller, saved } = withRealLinter();
+    await controller.openText('Cutover is tonight.');
+    const session = controller.getState().session!;
+    const flag = session.candidates().find((c) => c.original === 'Cutover' && (c.kind === 'Spelling' || c.kind === 'Typo'))!;
+    const decision = [...session.decisions().top, ...session.decisions().more].find((d) => d.candidateIds.includes(flag.id))!;
+    await controller.addToDictionary(decision.id);
+    expect(saved.at(-1)!.dictionary).toEqual(['cutover']);
+  });
+
+  it('the names card stores names in lowercase', async () => {
+    const { controller, saved } = withRealLinter();
+    await controller.openText('We met Anjali Kulkarni in Nashik today.');
+    await controller.acceptNames([]);
+    expect(saved.at(-1)!.dictionary).toEqual(expect.arrayContaining(['anjali', 'kulkarni', 'nashik']));
+    expect(saved.at(-1)!.dictionary.every((w) => w === w.toLowerCase())).toBe(true);
+  });
+
+  it('a saved dictionary with title-case entries is lowercased once on load and saved; without any, nothing is saved', () => {
+    const { controller, saved } = withRealLinter(['Cutover', 'ARN', 'vantix', 'DBInstances']);
+    expect(controller.getState().settings.dictionary).toEqual(['cutover', 'ARN', 'vantix', 'DBInstances']);
+    expect(saved.map((s) => s.dictionary)).toEqual([['cutover', 'ARN', 'vantix', 'DBInstances']]);
+    expect(withRealLinter(['ARN', 'vantix']).saved).toEqual([]);
   });
 });
 
@@ -1368,13 +1414,13 @@ describe('SessionController: a word added to the dictionary holds after a reopen
 
   // Task F21 item G (owner): the saved dictionary held "Vantix" and "vantix", "VPC" and "vpc".
   it('a lowercase word replaces its other-case entries in the saved dictionary', async () => {
-    const { controller, saved } = makeController({ settings: { preset: 'blog', fallbackVariant: 'Indian', dictionary: ['Vantix', 'VANTIX', 'Nashik'] } });
+    const { controller, saved } = makeController({ settings: { preset: 'blog', fallbackVariant: 'Indian', dictionary: ['VANTIX', 'VPC'] } });
     await controller.openText('We use vantix daily, and vantix often.');
     const session = controller.getState().session!;
     const flag = session.candidates().find((c) => c.original === 'vantix')!;
     const { top, more } = session.decisions();
     await controller.addToDictionary([...top, ...more].find((d) => d.candidateIds.includes(flag.id))!.id);
-    expect(saved.at(-1)!.dictionary).toEqual(['Nashik', 'vantix']);
+    expect(saved.at(-1)!.dictionary).toEqual(['VPC', 'vantix']);
   });
 });
 

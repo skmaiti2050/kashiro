@@ -495,7 +495,7 @@ describe('word batches (round 2)', () => {
     await s.addToDictionary(d.id);
     for (const c of sujit) expect(lastLog(s, c.id)!.status).toBe('rejected');
     expect(lastLog(s, sujit[2].id)!.reason).toMatch(/dictionary/);
-    expect(s.addedWords()).toEqual(['Sujit']);
+    expect(s.addedWords()).toEqual(['sujit']); // title case is stored in lowercase (Task F29)
     expect(s.rankedDecisionCount()).toBe(0);
   });
 
@@ -520,7 +520,7 @@ describe('names card in a session', () => {
   it('acceptNames adds every name to the dictionary except the typos, which split out', async () => {
     const s = await CheckSession.start([{ id: 0, text }], opts()); // own linter: words are added to it
     await s.acceptNames(['nashik']);
-    expect(s.addedWords().sort()).toEqual(['Anjali', 'Kulkarni', 'Rao']);
+    expect(s.addedWords().sort()).toEqual(['anjali', 'kulkarni', 'rao']); // title case is stored in lowercase (Task F29)
     const left = [...s.decisions().top, ...s.decisions().more];
     expect(left.map((d) => d.kind)).not.toContain('names');
     const nashik = left.find((d) => d.label.startsWith('Nashik'))!;

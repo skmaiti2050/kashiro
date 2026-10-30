@@ -19,7 +19,7 @@ import { DEFAULT_DEPTH, upFrontCount, type ReviewDepth } from './depth';
 import { countWords } from './words';
 import { DEFAULT_MODULES, type ModuleSwitches } from './modules';
 import { doubledWord, WORD_REWRITE_KINDS } from './wordFlags';
-import { dictionaryAccepts, dictionaryForm } from './dictionaryWords';
+import { dictionaryAccepts, dictionaryForm, storedForm } from './dictionaryWords';
 import { sentenceWithEdits } from './sentences';
 import type { GuardVerdict } from './llm/guard';
 import { HelperRewrites } from './sessionRewrites';
@@ -471,7 +471,8 @@ export class CheckSession {
    * flags the word, so it would drop the fix without a word (M-12, F20 item 9a). Only that fix: one an AI rewrite was
    * made over is no longer applied (superseded) and stays as it is, with the rewrite.
    */
-  private async addWord(word: string): Promise<void> {
+  private async addWord(written: string): Promise<void> {
+    const word = storedForm(written); // "Cutover" is stored as "cutover" (Task F29)
     await this.linter.addWords([word]);
     this.added.push(word);
     const reason = `"${word}" added to dictionary`;
@@ -487,7 +488,7 @@ export class CheckSession {
 
   /** A word typed into the Dictionary panel (F22 item 1): added as addToDictionary adds a flagged word. */
   async addTypedWord(word: string): Promise<void> {
-    await this.addWord(word.normalize('NFC'));
+    await this.addWord(word);
   }
 
   /** Words added with addToDictionary, addTypedWord or by accepting a card, in order. */

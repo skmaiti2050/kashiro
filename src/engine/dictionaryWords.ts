@@ -2,7 +2,8 @@
  * How personal-dictionary entries match words (Task F20 item 9, owner): a lowercase entry accepts the word in any
  * case ("vantix": vantix, Vantix, VANTIX); any other entry accepts itself and its all-caps form ("Vantix": Vantix,
  * VANTIX; "VPC": VPC). Harper accepts only the entry itself for a capitalised one, and keeps one case per word, so
- * the check also drops the flags an entry accepts (isDictionaryWord).
+ * the check also drops the flags an entry accepts (isDictionaryWord). Since Task F29 an added title-case word is
+ * stored in lowercase (storedForm).
  */
 
 /**
@@ -13,6 +14,26 @@
 const folded = (word: string) => word.normalize('NFC').toLowerCase().replace(/i̇/g, 'i');
 
 const isLowercase = (word: string) => word === word.toLowerCase();
+
+/**
+ * First letter a capital, the rest lowercase with at least one cased letter ("Cutover", "Mumbai"; not "ARN", "X",
+ * "DBInstances" or "iPhone"): a capital that only marks a sentence start or a name, not a meaning (Task F29).
+ */
+function isTitleCase(word: string): boolean {
+  const [first = '', ...rest] = [...word];
+  const tail = rest.join('');
+  return first !== first.toLowerCase() && isLowercase(tail) && tail !== tail.toUpperCase();
+}
+
+/**
+ * The entry stored for a word the user adds (Task F29, owner): composed (NFC), and in lowercase when it is title
+ * case, so it accepts every case ("Cutover" → "cutover"). ALL CAPS and internal capitals ("ARN", "DNSName") carry
+ * meaning and are stored as written.
+ */
+export function storedForm(word: string): string {
+  const composed = word.normalize('NFC');
+  return isTitleCase(composed) ? folded(composed) : composed;
+}
 
 /**
  * The entry to store for a word the user added from its places: lowercase when any place is written in lowercase
@@ -59,13 +80,23 @@ export function dictionaryMatcher(dictionary: readonly string[]): (word: string)
 /**
  * The dictionary with `word` added, one entry per word (Task F21 item G, owner): a lowercase word replaces its other
  * cases ("vantix" drops "Vantix", "vpc" drops "VPC"), since it accepts them all; a word an entry already accepts
- * ("Vantix" with "vantix" there) adds nothing. The word is stored as written, composed (NFC).
+ * ("VANTIX" with "vantix" there) adds nothing. The word is stored in its storedForm ("Cutover" as "cutover").
  */
 export function withWordAdded(dictionary: readonly string[], word: string): string[] {
-  const composed = word.normalize('NFC');
-  if (isDictionaryWord(dictionary, composed)) return [...dictionary];
-  if (!isLowercase(composed)) return [...dictionary, composed];
-  return [...dictionary.filter((entry) => folded(entry) !== folded(composed)), composed];
+  const stored = storedForm(word);
+  if (isDictionaryWord(dictionary, stored)) return [...dictionary];
+  if (!isLowercase(stored)) return [...dictionary, stored];
+  return [...dictionary.filter((entry) => folded(entry) !== folded(stored)), stored];
+}
+
+/**
+ * A dictionary saved before Task F29 with its title-case entries in lowercase, each entry re-added as withWordAdded
+ * adds it ("Cutover" and "cutover" become one "cutover"). It only widens what is accepted. The same list when it has
+ * no title-case entry, so the caller saves only a changed one.
+ */
+export function withTitleCaseLowered(dictionary: string[]): string[] {
+  if (!dictionary.some((entry) => isTitleCase(entry.normalize('NFC')))) return dictionary;
+  return dictionary.reduce(withWordAdded, []);
 }
 
 /**

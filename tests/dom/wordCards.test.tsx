@@ -38,7 +38,7 @@ describe('word-list cards keep the user’s ticks across a re-check', () => {
     expect(box(card, 'Nashik').checked).toBe(false);
     fireEvent.click(within(card).getByRole('button', { name: /Add 2 to my dictionary/ }));
 
-    await waitFor(() => expect(saved.at(-1)?.dictionary).toEqual(['Anjali', 'Kulkarni']));
+    await waitFor(() => expect(saved.at(-1)?.dictionary).toEqual(['anjali', 'kulkarni'])); // stored in lowercase (Task F29)
   });
 
   it('terms card: an unticked term stays unticked after the re-check', async () => {

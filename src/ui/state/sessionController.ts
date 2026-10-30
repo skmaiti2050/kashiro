@@ -2,6 +2,7 @@ import { CheckSession } from '@/engine/session';
 import { carryDecisions, userDecisions } from '@/engine/carryDecisions';
 import type { ReviewDepth } from '@/engine/depth';
 import type { Dictionary } from '@/engine/dictionary/lookup';
+import { withTitleCaseLowered } from '@/engine/dictionaryWords';
 import type { RulesLinter } from '@/engine/linter';
 import type { Rewriter } from '@/engine/llm/suggest';
 import type { ModuleSwitches } from '@/engine/modules';
@@ -242,6 +243,9 @@ export class SessionController {
       announce: (message) => this.set({ announcement: { message, seq: ++this.announcements } }),
       applyRewrites: (ids) => this.act((s) => s.applyRewrites(ids), () => this.tally.made(ids.length), 'verb.applied'),
     });
+    // Title-case entries saved before Task F29 are lowercased once, and saved ("Cutover" → "cutover").
+    const dictionary = withTitleCaseLowered(deps.settings.dictionary);
+    if (dictionary !== deps.settings.dictionary) settingsActions.updateSettings(this.settingsHost, { dictionary });
   }
 
   /** What SessionPersistence sees of the controller: the settings and save actions' hosts, and the check. */

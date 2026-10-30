@@ -10,7 +10,8 @@ vi.mock('@/ui/platform/files', async () => (await import('./platformMocks')).pla
 vi.mock('@/ui/platform/linter', async () => (await import('./platformMocks')).platformLinter);
 vi.mock('@/ui/platform/settings', async () => (await import('./platformMocks')).platformSettings);
 
-const OWNER = ['Nashik', 'vantix', 'VPC', 'Vantix', 'ami', 'vpc', 'Anjali'];
+// No title-case entry: the controller lowercases those on load (Task F29).
+const OWNER = ['NASHIK', 'vantix', 'VPC', 'VANTIX', 'ami', 'vpc', 'DBInstances'];
 
 const panel = () => screen.getByRole('dialog', { name: 'Dictionary' });
 const words = () => within(within(panel()).getByRole('list')).queryAllByRole('listitem').map((li) => li.querySelector('[lang]')!.textContent);
@@ -29,7 +30,7 @@ describe('Dictionary panel', () => {
     const { more } = openDictionary();
     expect(within(panel()).getByRole('heading', { name: 'Dictionary' })).toBeTruthy();
     expect(within(panel()).getByText('7 words')).toBeTruthy();
-    expect(words()).toEqual(['ami', 'Anjali', 'vantix', 'Vantix', 'Nashik', 'VPC', 'vpc']);
+    expect(words()).toEqual(['ami', 'vantix', 'VANTIX', 'DBInstances', 'NASHIK', 'VPC', 'vpc']);
     fireEvent.click(within(panel()).getByRole('button', { name: 'Close' }));
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(document.activeElement).toBe(more);
@@ -39,7 +40,7 @@ describe('Dictionary panel', () => {
     openDictionary();
     const search = within(panel()).getByRole('searchbox', { name: 'Search the dictionary' });
     fireEvent.change(search, { target: { value: 'CRA' } });
-    expect(words()).toEqual(['vantix', 'Vantix']);
+    expect(words()).toEqual(['vantix', 'VANTIX']);
     expect(within(panel()).getByText('7 words')).toBeTruthy();
     fireEvent.change(search, { target: { value: 'zzz' } });
     expect(words()).toEqual([]);
@@ -48,20 +49,20 @@ describe('Dictionary panel', () => {
 
   it('Remove takes the word out (saved), and focus stays in the list', async () => {
     const { saved } = openDictionary();
-    fireEvent.click(within(panel()).getByRole('button', { name: 'Remove Nashik' }));
-    await waitFor(() => expect(words()).not.toContain('Nashik'));
-    expect(saved.at(-1)!.dictionary).toEqual(['vantix', 'VPC', 'Vantix', 'ami', 'vpc', 'Anjali']);
+    fireEvent.click(within(panel()).getByRole('button', { name: 'Remove NASHIK' }));
+    await waitFor(() => expect(words()).not.toContain('NASHIK'));
+    expect(saved.at(-1)!.dictionary).toEqual(['vantix', 'VPC', 'VANTIX', 'ami', 'vpc', 'DBInstances']);
     expect(within(panel()).getByText('6 words')).toBeTruthy();
     expect(panel().contains(document.activeElement)).toBe(true);
     expect(document.activeElement!.tagName).toBe('BUTTON');
   });
 
   it('Add uses the dictionary’s add rule: a lowercase word replaces its other cases', async () => {
-    const { saved } = openDictionary(['Nashik', 'Ubuntu']);
+    const { saved } = openDictionary(['NASHIK', 'UBUNTU']);
     fireEvent.change(within(panel()).getByRole('textbox', { name: 'Add a word' }), { target: { value: 'ubuntu' } });
     await act(async () => fireEvent.click(within(panel()).getByRole('button', { name: 'Add' })));
-    expect(saved.at(-1)!.dictionary).toEqual(['Nashik', 'ubuntu']);
-    expect(words()).toEqual(['Nashik', 'ubuntu']);
+    expect(saved.at(-1)!.dictionary).toEqual(['NASHIK', 'ubuntu']);
+    expect(words()).toEqual(['NASHIK', 'ubuntu']);
     expect((within(panel()).getByRole('textbox', { name: 'Add a word' }) as HTMLInputElement).value).toBe('');
   });
 
@@ -70,8 +71,8 @@ describe('Dictionary panel', () => {
     const merge = within(panel()).getByRole('button', { name: 'Merge duplicates' }) as HTMLButtonElement;
     expect(merge.disabled).toBe(false);
     await act(async () => fireEvent.click(merge));
-    expect(saved.at(-1)!.dictionary).toEqual(['Nashik', 'vantix', 'vpc', 'ami', 'Anjali']);
-    expect(words()).toEqual(['ami', 'Anjali', 'vantix', 'Nashik', 'vpc']);
+    expect(saved.at(-1)!.dictionary).toEqual(['NASHIK', 'vantix', 'vpc', 'ami', 'DBInstances']);
+    expect(words()).toEqual(['ami', 'vantix', 'DBInstances', 'NASHIK', 'vpc']);
     expect(within(panel()).getByRole('status').textContent).toBe('Merged 2 duplicates.');
     expect((within(panel()).getByRole('button', { name: 'Merge duplicates' }) as HTMLButtonElement).disabled).toBe(true);
   });
@@ -80,7 +81,7 @@ describe('Dictionary panel', () => {
     renderShell(makeController({ dictionary: OWNER }).controller);
     chooseFromMore('Settings');
     settingsTab('Checking');
-    expect(screen.queryByRole('button', { name: 'Remove Nashik' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Remove NASHIK' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Open the dictionary (7 words)' }));
     // Settings stays open under the panel, inert, for Back (F28 item 2: dictionaryBack.test.tsx).
     expect(screen.getByRole('dialog', { name: 'Settings' }).closest('[inert]')).not.toBeNull();
