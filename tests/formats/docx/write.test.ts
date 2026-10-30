@@ -8,6 +8,7 @@ import { adapterFor } from '@/formats/registry';
 import type { Edit } from '@/engine/session';
 import type { SaveMode } from '@/formats/types';
 import { buildDocx, documentXml } from '../../fixtures/make_docx';
+import { acceptAllTexts, rejectAllTexts } from '../../fixtures/tracked_changes';
 
 const NOW = new Date('2026-10-20T12:00:00.123Z');
 const DATE = '2026-10-20T12:00:00Z';
@@ -197,6 +198,100 @@ describe('docx writer: tracked', () => {
     expect(unplaceable).toHaveLength(1);
     expect(unplaceable[0].reason).toMatch(/tracked/);
     expect(xml).toBe(original);
+  });
+});
+
+/** Kashiro's revisions in document order, as "del: x" / "ins: y". */
+function revisions(xml: string): string[] {
+  return [...xml.matchAll(/<w:(ins|del) w:id="\d+" w:author="Kashiro"[^>]*>.*?<w:(?:t|delText)[^>]*>(.*?)<\/w:(?:t|delText)>.*?<\/w:\1>/g)].map((m) => `${m[1]}: ${m[2]}`);
+}
+
+describe('docx writer: tracked changes show only the words that changed (Task F30)', () => {
+  /** Write one tracked edit and check Accept All gives the clean text and Reject All gives the original. */
+  async function tracked(body: string, e: Edit) {
+    const res = await write(body, [e], 'tracked');
+    expect(res.unplaceable).toEqual([]);
+    expect(acceptAllTexts(res.xml)).toEqual(res.texts);
+    expect(rejectAllTexts(res.xml)).toEqual(res.paras.map((pa) => pa.text));
+    return res;
+  }
+
+  it('needs -> needs to: only " to" is inserted, nothing deleted', async () => {
+    const { xml, texts } = await tracked(p(r(t('It needs fixing.'), B)), edit(0, 3, 8, 'needs to'));
+    expect(texts).toEqual(['It needs to fixing.']);
+    expect(revisions(xml)).toEqual(['ins:  to']);
+    expect(xml).toContain(`<w:r>${B}<w:t xml:space="preserve">It needs</w:t></w:r><w:ins w:id="1" ${REV}><w:r>${B}<w:t xml:space="preserve"> to</w:t></w:r></w:ins>`);
+  });
+
+  it('the the -> the: the later " the" is deleted, the first word stays', async () => {
+    const { xml } = await tracked(p(r(t('to the the market'))), edit(0, 3, 10, 'the'));
+    expect(revisions(xml)).toEqual(['del:  the']);
+    expect(xml).toContain('<w:t xml:space="preserve">to the</w:t>');
+  });
+
+  it('a apple -> an apple: "a" is replaced by "an", "apple" is untouched', async () => {
+    const { xml } = await tracked(p(r(t('He ate a apple.'))), edit(0, 7, 14, 'an apple'));
+    expect(revisions(xml)).toEqual(['del: a', 'ins: an']);
+    expect(xml).toContain('<w:t xml:space="preserve"> apple.</w:t>');
+  });
+
+  it('recieve -> receive: the whole word is replaced, never letters inside it', async () => {
+    const { xml } = await tracked(p(r(t('I recieve mail'))), edit(0, 2, 9, 'receive'));
+    expect(revisions(xml)).toEqual(['del: recieve', 'ins: receive']);
+  });
+
+  it('issues . -> issues.: punctuation is a token, so only the space is deleted', async () => {
+    const { xml } = await tracked(p(r(t('No issues .'))), edit(0, 3, 11, 'issues.'));
+    expect(revisions(xml)).toEqual(['del:  ']);
+  });
+
+  it("an apostrophe inside a word keeps it one word: it's -> it is replaces the whole word", async () => {
+    const { xml } = await tracked(p(r(t("it's fine"))), edit(0, 0, 4, 'it is'));
+    expect(revisions(xml)).toEqual(["del: it's", 'ins: it is']);
+  });
+
+  it('a pure whitespace edit is written as today: the whole space run is replaced', async () => {
+    const { xml } = await tracked(p(r(t('We went  home.'))), edit(0, 7, 9, ' '));
+    expect(revisions(xml)).toEqual(['del:   ', 'ins:  ']);
+  });
+
+  it('a span across two runs with different formatting keeps each run\'s rPr on the unchanged words', async () => {
+    const I = '<w:rPr><w:i/></w:rPr>';
+    const { xml, texts } = await tracked(p(r(t('go to the '), B) + r(t('the shop'), I)), edit(0, 6, 13, 'the'));
+    expect(texts).toEqual(['go to the shop']);
+    expect(revisions(xml)).toEqual(['del:  ', 'del: the']);
+    expect(xml).toContain(`<w:r>${B}<w:t xml:space="preserve">go to the</w:t></w:r><w:del w:id="1" ${REV}><w:r>${B}<w:delText xml:space="preserve"> </w:delText></w:r></w:del>`);
+    expect(xml).toContain(`<w:del w:id="2" ${REV}><w:r>${I}<w:delText xml:space="preserve">the</w:delText></w:r></w:del><w:r>${I}<w:t xml:space="preserve"> shop</w:t></w:r>`);
+  });
+
+  it('a multi-run replacement: the shared word in the first run stays, the insertion takes the changed run\'s rPr', async () => {
+    const I = '<w:rPr><w:i/></w:rPr>';
+    const { xml } = await tracked(p(r(t('ate a '), B) + r(t('apple'), I)), edit(0, 4, 11, 'an apple'));
+    expect(revisions(xml)).toEqual(['del: a', 'ins: an']);
+    expect(xml).toContain(`<w:ins w:id="2" ${REV}><w:r>${B}<w:t xml:space="preserve">an</w:t></w:r></w:ins>`);
+    expect(xml).toContain(`<w:r>${I}<w:t xml:space="preserve">apple</w:t></w:r>`);
+  });
+
+  it('an edit at the start of a paragraph', async () => {
+    const { xml, texts } = await tracked(p(r(t('A apple fell.'))), edit(0, 0, 7, 'An apple'));
+    expect(texts).toEqual(['An apple fell.']);
+    expect(revisions(xml)).toEqual(['del: A', 'ins: An']);
+  });
+
+  it('an edit at the end of a paragraph', async () => {
+    const { xml, texts } = await tracked(p(r(t('It is done done'))), edit(0, 6, 15, 'done'));
+    expect(texts).toEqual(['It is done']);
+    expect(revisions(xml)).toEqual(['del:  done']);
+  });
+
+  it('only words shared at the start and the end are kept: a change at both ends replaces the whole span', async () => {
+    const { xml } = await tracked(p(r(t('needs work'))), edit(0, 0, 10, 'it needs work now'));
+    expect(revisions(xml)).toEqual(['del: needs work', 'ins: it needs work now']);
+  });
+
+  it('clean mode is untouched: needs -> needs to rewrites the w:t in place', async () => {
+    const { xml, original } = await write(p(r('<w:t>It needs fixing.</w:t>', B)), [edit(0, 3, 8, 'needs to')], 'clean');
+    expect(xml).toBe(original.replace('<w:t>It needs fixing.</w:t>', '<w:t xml:space="preserve">It needs to fixing.</w:t>'));
   });
 });
 

@@ -49,7 +49,8 @@ Anyone who writes for an audience. Check every default against these five:
    **Edits are written as native tracked changes by default** (`w:ins`/`w:del` attributed to author
    "writing-check" in .docx; `text:tracked-changes` in .odt), so Word and LibreOffice show them in their
    own Review tools and Google Docs imports them as Suggestions. No plugin or control of Word is needed:
-   it is markup in the file. Existing tracked changes in the document are preserved. "Save clean"
+   it is markup in the file. Each revision covers only the whole words that change (`needs` → `needs to`
+   inserts " to"; Task F30). Existing tracked changes in the document are preserved. "Save clean"
    (changes applied, no markup) is an option.
 5. **Writing goal presets**: Academic / Blog & news / Script / Business. A preset changes **which
    suggestions are shown and how they're tiered**, never the writer's voice (e.g. Academic flags

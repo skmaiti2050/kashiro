@@ -12,6 +12,7 @@ import type { Span } from '../../engine/types';
 import type { SaveMode } from '../types';
 import { extractDocx, type DocxPara, type TextPiece } from './extract';
 import { splitRawText, tokenize } from './tokenize';
+import { changedWords } from './changedWords';
 
 const REVISION_AUTHOR = 'Kashiro';
 
@@ -31,6 +32,8 @@ interface Plan {
   edit: Edit;
   /** In document order. A pure insertion has one segment with from === to. */
   segs: Seg[];
+  /** The text written over `segs`: the edit's replacement, narrowed to the changed words in tracked mode. */
+  replacement: string;
 }
 
 const TRACKED_CHANGE = 'inside an existing tracked change';
@@ -167,7 +170,46 @@ function plan(xml: string, dp: DocxPara | undefined, edit: Edit, mode: SaveMode)
     }
     if (mode === 'tracked' && s.pc.rPr.includes('<w:rPrChange')) return 'the text has a tracked formatting change';
   }
-  return { edit, segs };
+  return { edit, segs, replacement: edit.replacement };
+}
+
+/**
+ * Tracked mode: keep the whole words an edit leaves as they were as normal runs, and write only the changed
+ * middle as w:del / w:ins (Task F30). The narrowed plan reuses the checked plan's own pieces, so it can only
+ * touch less; when the middle can't be placed on them, the full plan is kept.
+ */
+function narrowToChangedWords(xml: string, full: Plan, paraText: string): Plan {
+  const { start, end } = full.edit.span;
+  const changed = changedWords(paraText.slice(start, end), full.edit.replacement);
+  const nothingShared = changed.start === 0 && changed.end === end - start;
+  const nothingChanged = changed.start === changed.end && changed.replacement === '';
+  if (nothingShared || nothingChanged) return full;
+  const from = start + changed.start;
+  const to = start + changed.end;
+  const segs = from < to ? segsWithin(full.segs, from, to) : insertionSeg(full.segs, from);
+  if (segs.length === 0) return full;
+  for (const s of segs) {
+    try {
+      splitRawText(xml.slice(s.pc.xmlStart, s.pc.xmlEnd), [s.from, s.to]);
+    } catch {
+      return full;
+    }
+  }
+  return { edit: full.edit, segs, replacement: changed.replacement };
+}
+
+/** The parts of `segs` inside paragraph offsets [from, to). */
+function segsWithin(segs: Seg[], from: number, to: number): Seg[] {
+  return segs
+    .map((s) => ({ pc: s.pc, from: Math.max(s.from, from - s.pc.paraOffset), to: Math.min(s.to, to - s.pc.paraOffset) }))
+    .filter((s) => s.from < s.to);
+}
+
+/** A zero-width segment at paragraph offset `at`, in the piece holding it, else the one ending there (its formatting), else the one starting there. */
+function insertionSeg(segs: Seg[], at: number): Seg[] {
+  const holds = (s: Seg) => s.pc.paraOffset < at && at < s.pc.paraOffset + s.pc.length;
+  const s = segs.find(holds) ?? segs.find((x) => x.pc.paraOffset + x.pc.length === at) ?? segs.find((x) => x.pc.paraOffset === at);
+  return s ? [{ pc: s.pc, from: at - s.pc.paraOffset, to: at - s.pc.paraOffset }] : [];
 }
 
 interface RunInfo {
@@ -290,9 +332,9 @@ function trackedSplices(xml: string, plans: Plan[], firstId: number, date: strin
         if (parts[2 * i]) buf += tOpen + parts[2 * i] + '</w:t>';
         flush();
         if (r.seg.to > r.seg.from) out += rev('del', `${head}<w:delText xml:space="preserve">${parts[2 * i + 1]}</w:delText></w:r>`);
-        if (r.last && r.plan.edit.replacement !== '') {
+        if (r.last && r.plan.replacement !== '') {
           const first = info(r.plan.segs[0].pc);
-          out += rev('ins', `${first.startTag}${first.rPr}<w:t xml:space="preserve">${escapeText(r.plan.edit.replacement)}</w:t></w:r>`);
+          out += rev('ins', `${first.startTag}${first.rPr}<w:t xml:space="preserve">${escapeText(r.plan.replacement)}</w:t></w:r>`);
         }
       });
       const rest = parts[parts.length - 1];
@@ -372,7 +414,7 @@ export function writeDocumentXml(
     if (typeof p === 'string') unplaceable.push({ edit: e, reason: p });
     else if (plans.some((q) => q.edit.paraId === e.paraId && editsClash(q.edit.span, e.span))) {
       unplaceable.push({ edit: e, reason: 'overlaps another edit' });
-    } else plans.push(p);
+    } else plans.push(mode === 'tracked' ? narrowToChangedWords(xml, p, byId.get(e.paraId)!.para.text) : p);
   }
 
   if (mode === 'tracked') {
