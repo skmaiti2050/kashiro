@@ -30,7 +30,7 @@ describe('Dictionary panel', () => {
     const { more } = openDictionary();
     expect(within(panel()).getByRole('heading', { name: 'Dictionary' })).toBeTruthy();
     expect(within(panel()).getByText('7 words')).toBeTruthy();
-    expect(words()).toEqual(['ami', 'vantix', 'VANTIX', 'DBInstances', 'NASHIK', 'VPC', 'vpc']);
+    expect(words()).toEqual(['ami', 'DBInstances', 'NASHIK', 'vantix', 'VANTIX', 'VPC', 'vpc']);
     fireEvent.click(within(panel()).getByRole('button', { name: 'Close' }));
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(document.activeElement).toBe(more);
@@ -39,7 +39,7 @@ describe('Dictionary panel', () => {
   it('the labelled search filters as you type, ignoring case; no match says so', () => {
     openDictionary();
     const search = within(panel()).getByRole('searchbox', { name: 'Search the dictionary' });
-    fireEvent.change(search, { target: { value: 'CRA' } });
+    fireEvent.change(search, { target: { value: 'VAN' } });
     expect(words()).toEqual(['vantix', 'VANTIX']);
     expect(within(panel()).getByText('7 words')).toBeTruthy();
     fireEvent.change(search, { target: { value: 'zzz' } });
@@ -72,7 +72,7 @@ describe('Dictionary panel', () => {
     expect(merge.disabled).toBe(false);
     await act(async () => fireEvent.click(merge));
     expect(saved.at(-1)!.dictionary).toEqual(['NASHIK', 'vantix', 'vpc', 'ami', 'DBInstances']);
-    expect(words()).toEqual(['ami', 'vantix', 'DBInstances', 'NASHIK', 'vpc']);
+    expect(words()).toEqual(['ami', 'DBInstances', 'NASHIK', 'vantix', 'vpc']);
     expect(within(panel()).getByRole('status').textContent).toBe('Merged 2 duplicates.');
     expect((within(panel()).getByRole('button', { name: 'Merge duplicates' }) as HTMLButtonElement).disabled).toBe(true);
   });

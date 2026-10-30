@@ -1394,9 +1394,10 @@ describe('SessionController: the writing helper model', () => {
 // Task F20 item 9b (owner): "Vantix" was stored while reviewing `vantix`, and a reopen flagged `vantix` in 26 places.
 describe('SessionController: a word added to the dictionary holds after a reopen', () => {
   it('stored as written (lowercase), saved, and no case of it is flagged when the document is opened again', async () => {
-    // The card's first place is the capitalised sentence start.
+    // The card's first place is the capitalised sentence start. "Vantix" is no slip of a word, so the Names card would
+    // take it; with that card off it joins the word's card.
     const text = 'Vantix is our app.\n\nWe use vantix daily, and vantix often.\n\nAsk vantix support.';
-    const { controller, saved } = makeController({ settings: { preset: 'blog', fallbackVariant: 'Indian' } });
+    const { controller, saved } = makeController({ settings: { preset: 'blog', fallbackVariant: 'Indian', modules: { ...DEFAULT_MODULES, namesCard: false } } });
     await controller.openText(text);
     const session = controller.getState().session!;
     const flag = session.candidates().find((c) => c.original === 'vantix')!;
