@@ -191,6 +191,16 @@ describe('axe-core: no serious or critical violations', () => {
     await audit('dictionary panel: merged');
   });
 
+  it('the Dictionary opened from Settings, over it, then Back to Settings (F28 item 2)', async () => {
+    renderShell(makeController({ dictionary: ['Vantix', 'Nashik'] }).controller);
+    chooseFromMore('Settings');
+    settingsTab('Checking');
+    fireEvent.click(screen.getByRole('button', { name: /^Open the dictionary/ }));
+    await audit('dictionary panel over Settings');
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    await audit('settings dialog › Checking, back from the dictionary');
+  });
+
   it('Report a bug', async () => {
     renderShell(makeController().controller);
     chooseFromMore('Report a bug…');

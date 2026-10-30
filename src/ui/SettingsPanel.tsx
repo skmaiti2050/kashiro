@@ -48,7 +48,7 @@ interface Props {
   state: ControllerState;
   /** Null when this PC has no local voice: Settings then says why read aloud is missing. */
   readAloud: ReadAloud | null;
-  /** Settings › Checking's link to the Dictionary panel (Settings closes, the panel opens). */
+  /** Settings › Checking's link to the Dictionary panel (it opens over Settings; Back returns here). */
   onOpenDictionary(): void;
   onClose(): void;
   /** The tab to open on (the command palette's "Settings: Reading", F23 item 6); the last one used by default. */

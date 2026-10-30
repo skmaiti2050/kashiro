@@ -5,6 +5,7 @@
 
   "app.starting": "शुरू हो रहा है…",
   "dialog.close": "बंद करें",
+  "dialog.back": "वापस जाएँ",
   "quote": "“{text}”",
 
   "language.label": "ऐप की भाषा",

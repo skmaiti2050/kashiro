@@ -11,6 +11,8 @@ const collator = new Intl.Collator('en', { sensitivity: 'base' });
 interface Props {
   controller: SessionController;
   dictionary: string[];
+  /** Opened from Settings › Checking, over Settings: its button reads "Back", and closing returns there (F28 item 2). */
+  overSettings?: boolean;
   onClose(): void;
 }
 
@@ -18,7 +20,7 @@ interface Props {
  * ⋯ › Dictionary… (F22 item 1): the personal dictionary, sorted, with a search, a count, Remove per word, Add and
  * "Merge duplicates". Every change goes through the controller's dictionary actions (re-check, take-back rules).
  */
-export function DictionaryPanel({ controller, dictionary, onClose }: Props) {
+export function DictionaryPanel({ controller, dictionary, overSettings = false, onClose }: Props) {
   const t = useT();
   const [query, setQuery] = useState('');
   const [newWord, setNewWord] = useState('');
@@ -63,7 +65,13 @@ export function DictionaryPanel({ controller, dictionary, onClose }: Props) {
   };
 
   return (
-    <Dialog title={t.t('dictionary.title')} className="dictionary-panel" describedBy={hintId} onClose={onClose}>
+    <Dialog
+      title={t.t('dictionary.title')}
+      className="dictionary-panel"
+      describedBy={hintId}
+      closeLabel={overSettings ? t.t('dialog.back') : undefined}
+      onClose={onClose}
+    >
       <p id={hintId} className="hint">
         {t.t('dictionary.count', { count: dictionary.length })}
       </p>

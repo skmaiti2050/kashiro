@@ -82,7 +82,8 @@ describe('Dictionary panel', () => {
     settingsTab('Checking');
     expect(screen.queryByRole('button', { name: 'Remove Nashik' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Open the dictionary (7 words)' }));
-    expect(screen.queryByRole('dialog', { name: 'Settings' })).toBeNull();
+    // Settings stays open under the panel, inert, for Back (F28 item 2: dictionaryBack.test.tsx).
+    expect(screen.getByRole('dialog', { name: 'Settings' }).closest('[inert]')).not.toBeNull();
     expect(panel()).toBeTruthy();
   });
 });

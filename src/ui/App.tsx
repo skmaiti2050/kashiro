@@ -117,7 +117,10 @@ export function Shell({ controller }: { controller: SessionController }) {
 
 function ShellView({ controller, state }: { controller: SessionController; state: ControllerState }) {
   const t = useT();
-  const [panel, setPanel] = useState<'none' | 'settings' | 'dictionary' | 'bug' | 'help' | 'shortcuts' | 'about' | 'palette' | 'tour'>('none');
+  /** The open panel; 'settings-dictionary' is the Dictionary opened from Settings, over it (F28 item 2). */
+  const [panel, setPanel] = useState<
+    'none' | 'settings' | 'settings-dictionary' | 'dictionary' | 'bug' | 'help' | 'shortcuts' | 'about' | 'palette' | 'tour'
+  >('none');
   /** The tab Settings opens on when the command palette names one; else Settings' own remembered tab. */
   const [settingsTab, setSettingsTab] = useState<SettingsTab | undefined>(undefined);
   /** The review panel's actions for the command palette (null while the panel is folded). */
@@ -360,13 +363,14 @@ function ShellView({ controller, state }: { controller: SessionController; state
           onDismiss={dismissUndoOffer}
         />
       )}
-      {panel === 'settings' && (
+      {/* Settings stays mounted (inert) under its Dictionary, so Back finds its tab and focus as they were. */}
+      {(panel === 'settings' || panel === 'settings-dictionary') && (
         <SettingsPanel
           controller={controller}
           state={state}
           readAloud={readAloud}
           initialTab={settingsTab}
-          onOpenDictionary={actions.onDictionary}
+          onOpenDictionary={() => setPanel('settings-dictionary')}
           onClose={closePanel}
         />
       )}
@@ -382,6 +386,9 @@ function ShellView({ controller, state }: { controller: SessionController; state
         />
       )}
       {panel === 'dictionary' && <DictionaryPanel controller={controller} dictionary={state.settings.dictionary} onClose={closePanel} />}
+      {panel === 'settings-dictionary' && (
+        <DictionaryPanel controller={controller} dictionary={state.settings.dictionary} overSettings onClose={() => setPanel('settings')} />
+      )}
       {panel === 'bug' && <BugReportDialog controller={controller} onClose={closePanel} />}
       {panel === 'help' && <GoogleDocsHelp onOpen={openFromHelp} onClose={closePanel} />}
       {panel === 'shortcuts' && <ShortcutsSheet readAloud={readAloud !== null} lookUp={lookUpOn} improve={aiOn} onClose={closePanel} />}

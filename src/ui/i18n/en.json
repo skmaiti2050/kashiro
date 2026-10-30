@@ -4,6 +4,7 @@
 
   "app.starting": "Starting…",
   "dialog.close": "Close",
+  "dialog.back": "Back",
   "quote": "“{text}”",
 
   "language.label": "App language",

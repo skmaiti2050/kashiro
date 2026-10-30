@@ -15,6 +15,8 @@ interface Props {
   describedBy?: string;
   /** The control focused on open; the first control by default. */
   initialFocus?: RefObject<HTMLElement | null>;
+  /** The header button's label: "Close" by default, "Back" for a dialog opened from another (F28 item 2). */
+  closeLabel?: string;
   children: ReactNode;
 }
 
@@ -22,7 +24,7 @@ interface Props {
  * A modal dialog (WCAG 2.1.2, 2.4.3): labelled by its title, aria-modal, focus moved in on open, Tab kept
  * inside, Escape closes, and focus goes back to where it was (the button that opened it) on close.
  */
-export function Dialog({ title, onClose, role = 'dialog', className, describedBy, initialFocus, children }: Props) {
+export function Dialog({ title, onClose, role = 'dialog', className, describedBy, initialFocus, closeLabel, children }: Props) {
   const t = useT();
   const backdrop = useRef<HTMLDivElement>(null);
   const box = useRef<HTMLElement>(null);
@@ -69,7 +71,7 @@ export function Dialog({ title, onClose, role = 'dialog', className, describedBy
           <h2 id={titleId}>{title}</h2>
           {role === 'dialog' && (
             <button className="quiet" onClick={onClose}>
-              {t.t('dialog.close')}
+              {closeLabel ?? t.t('dialog.close')}
             </button>
           )}
         </div>
