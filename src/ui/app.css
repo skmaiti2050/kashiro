@@ -1683,6 +1683,17 @@ button.link {
   padding: 16px 20px;
 }
 
+/*
+ * Every scroll box in a dialog keeps its overscroll (F28 item 1): at the end of a long licence in About, the wheel
+ * chained past the dialog and scrolled the page behind it. Dialog.tsx also locks the page's own scroll while open.
+ */
+.dialog,
+.dialog .tabpanel,
+.palette-list,
+.bug-report-text {
+  overscroll-behavior: contain;
+}
+
 .dialog header {
   display: flex;
   flex-wrap: wrap;

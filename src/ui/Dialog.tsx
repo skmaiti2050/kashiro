@@ -31,9 +31,11 @@ export function Dialog({ title, onClose, role = 'dialog', className, describedBy
   useEffect(() => {
     const previous = document.activeElement;
     const restorePage = backdrop.current ? inertOutside(backdrop.current) : () => {};
+    const unlockScroll = lockPageScroll();
     const first = initialFocus?.current ?? focusableIn(box.current)[0] ?? box.current;
     first?.focus();
     return () => {
+      unlockScroll();
       // The page first: an inert element can't take focus back.
       restorePage();
       focusIfConnected(previous);
@@ -104,6 +106,30 @@ function makeInert(el: Element, madeInert: Element[]): void {
   }
   el.setAttribute('inert', '');
   madeInert.push(el);
+}
+
+/** How many dialogs are open (one can open over another): the page scrolls again when the last one closes. */
+let openDialogs = 0;
+/** The page's own overflow and scrollbar gutter before the first dialog opened, put back after the last. */
+let pageStyle = { overflow: '', scrollbarGutter: '' };
+
+/**
+ * Locks the page's own scroll while a dialog is open (F28 item 1): a wheel that reaches the page does nothing. The
+ * scroll position stays where it was. When the page has a scrollbar (the stacked layout under 720 px), its gutter is
+ * kept, so the page behind the backdrop doesn't shift sideways. Returns the unlock.
+ */
+function lockPageScroll(): () => void {
+  const page = document.documentElement;
+  if (openDialogs++ === 0) {
+    pageStyle = { overflow: page.style.overflow, scrollbarGutter: page.style.scrollbarGutter };
+    if (page.scrollHeight > page.clientHeight) page.style.scrollbarGutter = 'stable';
+    page.style.overflow = 'hidden';
+  }
+  return () => {
+    if (--openDialogs > 0) return;
+    page.style.overflow = pageStyle.overflow;
+    page.style.scrollbarGutter = pageStyle.scrollbarGutter;
+  };
 }
 
 /** The controls inside `box` in document order (matches() per element: jsdom's querySelectorAll groups a selector list). */
