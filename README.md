@@ -7,6 +7,8 @@
 
 **[Download the latest test build](https://github.com/skmaiti2050/kashiro/releases)** · [Report a wrong change](https://github.com/skmaiti2050/kashiro/issues/new?template=wrong-change.yml) · [Report a bug](https://github.com/skmaiti2050/kashiro/issues/new?template=bug.yml)
 
+![Kashiro reviewing a sample paragraph: underlined slips in the text, and a card on the right offering two simple fixes to review and apply](docs/images/kashiro-review.png)
+
 A free, offline proofreader for your writing. Its mark is a touchstone, the dark stone gold is tested on, with one gold streak. It runs entirely on your computer: no account, no upload, no internet connection.
 
 Status: version 1.0, Windows. The app's interface is in English, Hindi and Bengali. Proofreading rules are English for now; Hindi rules are the next focus (see [Roadmap](#roadmap)).
