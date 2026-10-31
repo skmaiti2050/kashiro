@@ -33,6 +33,8 @@ jobs:
       # The licence-notices test reads the Rust crates offline (cargo metadata --offline); a fresh runner has none yet.
       - run: cargo fetch --locked
         working-directory: src-tauri
+      # The session-snapshot test reads trust/corpus/, which is generated (gitignored), not committed.
+      - run: python3 trust/make_corpus.py
       - run: npm test
       - run: npx tsx scripts/build-web.ts
       - uses: actions/configure-pages@v6
