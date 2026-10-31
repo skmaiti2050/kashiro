@@ -8,8 +8,8 @@ helper (about 45 MB of its files), so AI rewrites aren't available in them.
 
 | | With the AI helper | Without AI | Use it when |
 |---|---|---|---|
-| Installer | `Kashiro_1.0.0_x64-setup.exe` | `Kashiro-noai_1.0.0_x64-setup.exe` | You want a Start menu entry and an uninstaller. |
-| Portable | `Kashiro-1.0.0-win-x64.zip` | `Kashiro-1.0.0-win-x64-noai.zip` | You can't run installers, or want to keep it in one folder. |
+| Installer | `Kashiro_1.0.1_x64-setup.exe` | `Kashiro-noai_1.0.1_x64-setup.exe` | You want a Start menu entry and an uninstaller. |
+| Portable | `Kashiro-1.0.1-win-x64.zip` | `Kashiro-1.0.1-win-x64-noai.zip` | You can't run installers, or want to keep it in one folder. |
 
 **Which one?** Take the one with the AI helper unless you are sure you won't use AI rewrites or need the smaller
 download. Spelling, grammar and style checks are the same in all four.
@@ -81,7 +81,7 @@ The helper runs on your graphics card when it can, otherwise on the processor. I
 memory as the model's size.
 
 **If Settings says "AI helper not installed":** you have a version without AI. Run
-`Kashiro_1.0.0_x64-setup.exe` or use `Kashiro-1.0.0-win-x64.zip` instead; your settings and saved
+`Kashiro_1.0.1_x64-setup.exe` or use `Kashiro-1.0.1-win-x64.zip` instead; your settings and saved
 reviews carry over.
 
 The helper's Microsoft Visual C++ runtime ships with it (in the `llama` folder), so there is nothing else to
