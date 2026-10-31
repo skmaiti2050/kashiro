@@ -96,6 +96,14 @@ describe('the web’s wording', () => {
     expect(text).not.toContain('Check for updates');
   });
 
+  it('the start screen: the writing never leaves this browser, not "this PC"', () => {
+    platform.capabilities = PICKER;
+    renderShell(makeController().controller);
+    const text = document.querySelector('.empty-state')!.textContent ?? '';
+    expect(text).toContain('Works offline after the first visit. Your writing never leaves this browser.');
+    expect(text).not.toContain('this PC');
+  });
+
   it('Modules: saved reviews are kept in this browser', () => {
     platform.capabilities = PICKER;
     renderShell(makeController().controller);
@@ -136,6 +144,12 @@ describe('the desktop keeps its wording', () => {
     platform.capabilities = DESKTOP;
     renderShell(makeController().controller);
     expect(await aboutText()).toContain('Kashiro never connects to the internet');
+  });
+
+  it('the start screen: the writing never leaves this PC', () => {
+    platform.capabilities = DESKTOP;
+    renderShell(makeController().controller);
+    expect(document.querySelector('.empty-state')!.textContent).toContain('Works offline. Your writing never leaves this PC.');
   });
 
   it('Modules, Delete all and Reading name this computer and Windows Settings', () => {

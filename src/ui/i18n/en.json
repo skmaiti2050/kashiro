@@ -697,5 +697,6 @@
   "about.reloadToOpen": "Reload the page to open About: this page is from an earlier version of Kashiro.",
   "modules.savedSessionsCostWeb": "A small record per review, kept in this browser. It holds your decisions, not a copy of your file; pasted text is kept only if “Keep pasted text for resuming” is on.",
   "reviews.deleteTextWeb": "Every saved review is deleted from this browser, so none can be resumed. Your documents are not changed.",
-  "reading.noVoiceWeb": "No voice that works offline is installed, so Read aloud is hidden. Install an offline voice in your system’s speech settings."
+  "reading.noVoiceWeb": "No voice that works offline is installed, so Read aloud is hidden. Install an offline voice in your system’s speech settings.",
+  "empty.privacyWeb": "Works offline after the first visit. Your writing never leaves this browser."
 }

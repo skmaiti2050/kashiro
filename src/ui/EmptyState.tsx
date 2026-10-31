@@ -1,4 +1,5 @@
 import { Kbd } from './Kbd';
+import { capabilities } from './platform/capabilities';
 import { RecentReviews } from './RecentReviews';
 import { useT } from './i18n/useT';
 import type { RecentReview } from './state/sessionStore';
@@ -30,7 +31,7 @@ export function EmptyState({ onOpen, onPaste, onSample, recent, onOpenRecent, lo
             {t.t('empty.paste')} <Kbd>Ctrl+V</Kbd>
           </button>
         </div>
-        <p className="privacy">{t.t('empty.privacy')}</p>
+        <p className="privacy">{capabilities.web ? t.t('empty.privacyWeb') : t.t('empty.privacy')}</p>
         {lookUp && <p className="hint">{t.t('empty.lookUpHint')}</p>}
         <button className="link" onClick={onSample}>
           {t.t('empty.sample')}
