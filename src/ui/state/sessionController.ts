@@ -133,6 +133,7 @@ const PASTED_NAME = 'Untitled.txt';
 
 /** The edits the session writes into the text, as one string: equal strings mean the same text. */
 const editsOf = (session: CheckSession) => JSON.stringify(session.acceptedEdits());
+const appliedIds = (session: CheckSession) => new Set(userDecisions(session).filter((d) => d.status === 'applied').map((d) => d.candidateId));
 
 /**
  * The desktop flow without React: open → check → review → save. Holds one document and its
@@ -157,6 +158,8 @@ export class SessionController {
   private typingRefused: Message | null = null;
   /** The error the last failed check showed; a check that works takes it down. */
   private checkFailure: Message | null = null;
+  /** Fixes the user applied while a re-check was pending (#34): the next check says so for any it cannot carry. */
+  private appliedWhileChecking = new Set<string>();
   private readonly tally = new DecisionTally();
   /** The last errors and notices shown, for ⋯ › Report a bug (F22 item 4); in memory only. */
   readonly problems = new RecentProblems();
@@ -421,12 +424,17 @@ export class SessionController {
       if (run !== this.checks) return;
       // The depth may have moved while the check ran.
       session.setDepth(currentDepth(this.state.settings));
+      let applyLost = false;
       if (before) {
         const { unchanged, copies } = matchParagraphs(before.paragraphs(), loaded.paras);
+        const decisions = userDecisions(before);
+        // An Apply pressed in the typing pause went to the old text; if its paragraph changed, nothing carries it (#34).
+        applyLost = decisions.some((d) => d.status === 'applied' && this.appliedWhileChecking.has(d.candidateId) && !unchanged.has(d.paraId));
         // AI answers after the rule decisions: a rewrite was made for its sentence with the accepted fixes in it.
-        const carried = carryDecisions(userDecisions(before), session, unchanged, copies);
+        const carried = carryDecisions(decisions, session, unchanged, copies);
         this.tally.remap(new Map([...carried, ...this.ai.sessionReplaced(before, session, unchanged)]));
       }
+      this.appliedWhileChecking.clear();
       // A new document's result is announced; a re-check while typing stays quiet.
       // Hindi or Bengali text was skipped: never let "nothing to decide" read as an all-clear for it.
       const checked = uncheckedText(loaded.paras).paragraphs > 0 ? 'announce.checkedEnglishOnly' : 'announce.checked';
@@ -437,7 +445,14 @@ export class SessionController {
       const outdated = error !== null && (error === this.checkFailure || error.key === 'error.saveNotChecked');
       this.checkFailure = null;
       // A new session: an undo toast's places and batch belong to the old one.
-      this.reviewChanged({ phase: 'ready', session, checking: this.queue.waiting, ...announcement, ...(outdated ? { error: null } : {}) });
+      this.reviewChanged({
+        phase: 'ready',
+        session,
+        checking: this.queue.waiting,
+        ...announcement,
+        ...(outdated ? { error: null } : {}),
+        ...(applyLost ? { notice: msg('notice.applyLostToTyping') } : {}),
+      });
       if (before) this.reviews.changed();
       // After every check, so a goal switch (whose own modules may differ) releases too.
       this.releaseModules(session.modules);
@@ -672,12 +687,14 @@ export class SessionController {
     const session = this.state.session;
     if (!session) return;
     const editsBefore = editsOf(session);
+    const appliedBefore = this.state.checking ? appliedIds(session) : null;
     try {
       change(session);
     } catch (e) {
       this.set({ error: plainError(e) });
       return;
     }
+    if (appliedBefore) for (const id of appliedIds(session)) if (!appliedBefore.has(id)) this.appliedWhileChecking.add(id);
     this.changes++;
     count();
     // A reject or "Review again" changes no text, so an open preview stays.

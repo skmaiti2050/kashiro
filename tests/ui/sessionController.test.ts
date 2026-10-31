@@ -864,6 +864,61 @@ describe('SessionController: typing re-checks', () => {
     expect(pending.some((id) => id.startsWith('2:'))).toBe(true);
   });
 
+  // #34: an Apply pressed in the typing pause lands on the old text; the re-check must say so when the paragraph changed.
+  describe('an Apply lost to typing says so (#34)', () => {
+    const LOST = 'That fix wasn’t applied: the paragraph changed while you were typing. Check the updated suggestion.';
+
+    it('a card accepted during the pause, in a paragraph then changed: the notice shows once', async () => {
+      const { controller } = makeController();
+      await controller.openText("I can't go.");
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      controller.editText("I can't go home.");
+      controller.accept(controller.getState().session!.decisions().top[0].id);
+      await vi.advanceTimersByTimeAsync(300);
+      await controller.settled();
+      expect(english(controller.getState().notice)).toBe(LOST);
+      expect(controller.getState().session!.outputText(0)).toBe("I can't go home.");
+      // A later re-check does not repeat it.
+      controller.dismissNotice();
+      controller.editText("I can't go home now.");
+      await vi.advanceTimersByTimeAsync(300);
+      await controller.settled();
+      expect(controller.getState().notice).toBeNull();
+    });
+
+    it('a batch applied during the pause: the changed paragraph is reported, the unchanged one keeps its fix', async () => {
+      const { controller } = makeController();
+      await controller.openText(CANT);
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      controller.editText("I can't go.\n\nYou can't stay here.");
+      const batch = controller.getState().session!.decisions().top.find((d) => d.kind === 'batch')!;
+      controller.applyBatch(batch.id, batch.candidateIds);
+      await vi.advanceTimersByTimeAsync(300);
+      await controller.settled();
+      const s = controller.getState().session!;
+      expect(english(controller.getState().notice)).toBe(LOST);
+      expect(s.outputText(0)).toBe('I cannot go.');
+      expect(s.outputText(1)).toBe("You can't stay here.");
+      controller.dismissNotice();
+      controller.editText("I can't go.\n\nYou can't stay here, please.");
+      await vi.advanceTimersByTimeAsync(300);
+      await controller.settled();
+      expect(controller.getState().notice).toBeNull();
+    });
+
+    it('typing over a paragraph with an earlier fix, with no click during the pause, shows no notice', async () => {
+      const { controller } = makeController();
+      await controller.openText(CANT);
+      const batch = controller.getState().session!.decisions().top.find((d) => d.kind === 'batch')!;
+      controller.accept(batch.id);
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      controller.editText("I can't go.\n\nYou can't stay here.");
+      await vi.advanceTimersByTimeAsync(300);
+      await controller.settled();
+      expect(controller.getState().notice).toBeNull();
+    });
+  });
+
   // Final F14 review I-3 (owner decision, Task F15): copies paired in order put a decision on the other copy.
   describe('a paragraph whose text is found more than once, before or after the typing, keeps no decision', () => {
     const COPY = 'I recieve it.';
