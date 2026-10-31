@@ -203,7 +203,11 @@ export const onTextDrop: typeof desktop.onTextDrop = async (onDrop) => {
   window.addEventListener('dragstart', startDrag);
   window.addEventListener('dragend', endDrag);
   const stopDrops = listenForDrops((event) => {
-    if (draggingFromPage || event.defaultPrevented || !event.dataTransfer || event.dataTransfer.files.length > 0) return;
+    const fromPage = draggingFromPage;
+    // A drop ends its drag: no dragend reaches the window when the drag's source was removed during the drop
+    // (CodeMirror moving text, a card unmounting), and a flag left on would ignore every later drop (re-review).
+    draggingFromPage = false;
+    if (fromPage || event.defaultPrevented || !event.dataTransfer || event.dataTransfer.files.length > 0) return;
     if (inEditableField(event.target)) return;
     const text = event.dataTransfer.getData('text/plain');
     if (!text) return;

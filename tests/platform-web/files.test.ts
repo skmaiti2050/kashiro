@@ -357,6 +357,18 @@ describe('dropping on the page', () => {
     stop();
   });
 
+  // Re-review: no dragend reaches the window when the drag's source was removed during its drop (CodeMirror moving
+  // text, a card unmounting); the drop itself ends the drag, so later drops from other apps still open.
+  it('a page drag whose dragend never comes: the next text dropped from another app still opens', async () => {
+    const texts: string[] = [];
+    const stop = await onTextDrop((text) => texts.push(text));
+    document.body.dispatchEvent(new Event('dragstart', { bubbles: true }));
+    document.body.dispatchEvent(dropEvent({ text: 'moved inside the page' }));
+    document.body.dispatchEvent(dropEvent({ text: 'from another app' }));
+    expect(texts).toEqual(['from another app']);
+    stop();
+  });
+
   it('after unsubscribing, drops reach nobody', async () => {
     const texts: string[] = [];
     const seen: DroppedFile[][] = [];
