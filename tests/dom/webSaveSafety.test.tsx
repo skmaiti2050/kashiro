@@ -18,22 +18,25 @@ vi.mock('@/ui/platform/capabilities', () => platform);
 const english = createTranslator('en', ['en-US']);
 const reportDocx = () => buildDocx('<w:p><w:r><w:t>She recieved the letter yesterday.</w:t></w:r></w:p>');
 
-/** Open picks report.docx; the save picker returns `pickedName`, and `write` runs for its bytes. */
-async function installPickers(pickedName: string, write: (data: Uint8Array) => Promise<void> = async () => {}) {
-  const bytes = await reportDocx();
-  const open = async () => [{ getFile: async () => new File([bytes.slice()], 'report.docx') }];
-  const save = async () => ({ name: pickedName, createWritable: async () => ({ write, close: async () => {} }) });
-  Object.defineProperty(window, 'showOpenFilePicker', { value: open, configurable: true });
-  Object.defineProperty(window, 'showSaveFilePicker', { value: save, configurable: true });
-}
-
-/** Open's file input picks report.docx; downloads are caught in `downloaded` (names). */
-async function installDownloads() {
+/** Open's file input picks report.docx. */
+async function installOpenInput() {
   const bytes = await reportDocx();
   vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(function (this: HTMLInputElement) {
     Object.defineProperty(this, 'files', { value: [new File([bytes.slice()], 'report.docx')] });
     this.dispatchEvent(new Event('change'));
   });
+}
+
+/** Open picks report.docx; the save picker returns `pickedName`, and `write` runs for its bytes. */
+async function installPickers(pickedName: string, write: (data: Uint8Array) => Promise<void> = async () => {}) {
+  await installOpenInput();
+  const save = async () => ({ name: pickedName, createWritable: async () => ({ write, close: async () => {} }) });
+  Object.defineProperty(window, 'showSaveFilePicker', { value: save, configurable: true });
+}
+
+/** Open's file input picks report.docx; downloads are caught in `downloaded` (names). */
+async function installDownloads() {
+  await installOpenInput();
   const downloaded: string[] = [];
   vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
     downloaded.push(this.download);
@@ -56,7 +59,6 @@ beforeAll(warmLinter);
 
 afterEach(() => {
   delete (window as { showSaveFilePicker?: unknown }).showSaveFilePicker;
-  delete (window as { showOpenFilePicker?: unknown }).showOpenFilePicker;
   vi.restoreAllMocks();
 });
 

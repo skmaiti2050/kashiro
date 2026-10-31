@@ -10,14 +10,13 @@ const ANY_FILE = 'application/octet-stream';
 /** The media type the pickers and downloads give each extension Kashiro writes. */
 const MEDIA_TYPES: Record<string, string> = { docx: WORD, txt: 'text/plain', md: 'text/markdown', markdown: 'text/markdown' };
 
-/** What Open offers: the file input's `accept`, and the open picker's filter by media type. */
+/** What Open offers: the file input's `accept`. */
 const OPEN_EXTENSIONS = ['.docx', '.txt', '.md', '.markdown'];
-const OPEN_ACCEPT = { [WORD]: ['.docx'], 'text/plain': ['.txt'], 'text/markdown': ['.md', '.markdown'] };
 
 /** How long a download's blob is kept: Firefox reads it after the click returns (FileSaver.js keeps it 40 s). */
 const DOWNLOAD_BLOB_MS = 40_000;
 
-/** The File System Access pickers (Chrome, Edge); TypeScript's DOM types don't have them yet. */
+/** The File System Access save picker (Chrome, Edge); TypeScript's DOM types don't have it yet. */
 interface PickerType {
   description: string;
   accept: Record<string, string[]>;
@@ -27,17 +26,12 @@ interface SaveHandle {
   createWritable(): Promise<{ write(data: Uint8Array): Promise<void>; close(): Promise<void> }>;
 }
 interface Pickers {
-  showOpenFilePicker?(options: { types: PickerType[]; multiple: false }): Promise<{ getFile(): Promise<File> }[]>;
   showSaveFilePicker?(options: { suggestedName: string; types: PickerType[] }): Promise<SaveHandle>;
 }
 const pickers = () => window as Window & Pickers;
 
-/** The Open dialog's filter name ("Documents") in the UI language; the app sets it when the language changes. */
-let documentsLabel = 'Documents';
-
-export const setDialogLabels: typeof desktop.setDialogLabels = ({ documents }) => {
-  documentsLabel = documents;
-};
+/** The file input's dialog has no filter name to translate (desktop: "Documents"). */
+export const setDialogLabels: typeof desktop.setDialogLabels = () => {};
 
 const fileName = (path: string) => path.slice(Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\')) + 1);
 const extension = (name: string) => {
@@ -55,18 +49,10 @@ async function opened(file: File): Promise<OpenedFile> {
   return { name: file.name, path: file.name, bytes: new Uint8Array(await file.arrayBuffer()) };
 }
 
-/** The file the user picks with the open picker, or null when they cancel. */
-async function pickWithOpenPicker(showOpenFilePicker: NonNullable<Pickers['showOpenFilePicker']>): Promise<File | null> {
-  try {
-    const [handle] = await showOpenFilePicker({ types: [{ description: documentsLabel, accept: OPEN_ACCEPT }], multiple: false });
-    return await handle.getFile();
-  } catch (e) {
-    if (isCancel(e)) return null;
-    throw e;
-  }
-}
-
-/** The file the user picks with a file input (Firefox, Safari), or null when they cancel. */
+/**
+ * The file the user picks with a file input, or null when they cancel. Not Chrome's open picker: its live handle
+ * makes Chrome warn "this site can see edits you make", and Kashiro reads the file only once.
+ */
 function pickWithInput(): Promise<File | null> {
   return new Promise((resolve) => {
     const input = document.createElement('input');
@@ -108,8 +94,7 @@ function download(bytes: Uint8Array, name: string, type: string): void {
 export const files = {
   // `defaultPath` (a saved review's file) is only a name on the web: the user picks the file again.
   async open(_defaultPath?: string) {
-    const { showOpenFilePicker } = pickers();
-    const file = showOpenFilePicker ? await pickWithOpenPicker(showOpenFilePicker.bind(window)) : await pickWithInput();
+    const file = await pickWithInput();
     return file ? opened(file) : null;
   },
 

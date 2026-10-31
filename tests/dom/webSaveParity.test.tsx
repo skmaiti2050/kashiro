@@ -62,12 +62,15 @@ function desktopFiles(file: OpenedFile) {
 }
 
 /**
- * The browser's pickers: Open picks a file named `name` holding `bytes`; Save keeps the suggested name and
- * `written` records it with the bytes. `onSavePicker` runs when the save picker opens.
+ * The browser's dialogs: Open's file input picks a file named `name` holding `bytes`; Save keeps the suggested name
+ * and `written` records it with the bytes. `onSavePicker` runs when the save picker opens.
  */
 function installPickers(name: string, bytes: Uint8Array, onSavePicker: () => void = () => {}) {
   const written: Written[] = [];
-  const open = async () => [{ getFile: async () => new File([bytes.slice()], name) }];
+  vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(function (this: HTMLInputElement) {
+    Object.defineProperty(this, 'files', { value: [new File([bytes.slice()], name)] });
+    this.dispatchEvent(new Event('change'));
+  });
   const save = async ({ suggestedName }: { suggestedName: string }) => {
     onSavePicker();
     return {
@@ -78,7 +81,6 @@ function installPickers(name: string, bytes: Uint8Array, onSavePicker: () => voi
       }),
     };
   };
-  Object.defineProperty(window, 'showOpenFilePicker', { value: open, configurable: true });
   Object.defineProperty(window, 'showSaveFilePicker', { value: save, configurable: true });
   return written;
 }
@@ -114,7 +116,7 @@ beforeAll(warmLinter);
 
 afterEach(() => {
   delete (window as { showSaveFilePicker?: unknown }).showSaveFilePicker;
-  delete (window as { showOpenFilePicker?: unknown }).showOpenFilePicker;
+  vi.restoreAllMocks();
   vi.useRealTimers();
 });
 

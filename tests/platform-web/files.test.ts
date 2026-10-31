@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// Web Task 3: files in the browser. Open uses the open picker (or a file input), Save the save picker (or a download)
+// Web Task 3: files in the browser. Open uses a file input, Save the save picker (or a download)
 // with the name desktop suggests (once the picker returns a file it is always written: final review R1), and files or
 // text dropped on the page reach the app. On the web a file's path is its name: that is what saved reviews are keyed by.
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -34,16 +34,6 @@ function installSavePicker(pickedName: string | null) {
   });
   Object.defineProperty(window, 'showSaveFilePicker', { value: picker, configurable: true });
   return calls;
-}
-
-/** An open picker where the user picks a file named `name` holding `bytes` (null: they cancel). */
-function installOpenPicker(name: string | null, bytes = BYTES) {
-  const picker = vi.fn(async () => {
-    if (name === null) throw new DOMException('The user aborted a request.', 'AbortError');
-    return [{ getFile: async () => new File([bytes], name) }];
-  });
-  Object.defineProperty(window, 'showOpenFilePicker', { value: picker, configurable: true });
-  return picker;
 }
 
 /** A drop on the page carrying `files` and/or plain `text`, as the browser fires it. */
@@ -227,24 +217,31 @@ describe('Save as a download (Firefox, Safari)', () => {
   });
 });
 
+/** A file input whose click picks a file named `name` holding BYTES. */
+function pickWithFileInput(name: string) {
+  vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(function (this: HTMLInputElement) {
+    Object.defineProperty(this, 'files', { value: [new File([BYTES], name)] });
+    this.dispatchEvent(new Event('change'));
+  });
+}
+
 describe('Open', () => {
-  it('with the open picker: the file’s name is also its path', async () => {
-    const picker = installOpenPicker('a.docx');
+  // Chrome's open picker keeps a live handle and warns "this site can see edits you make"; Kashiro reads the file
+  // once, so Open always uses the file input, which hands over one copy and shows no warning.
+  it('uses the file input even where Chrome’s open picker exists; the file’s name is also its path', async () => {
+    const picker = vi.fn();
+    Object.defineProperty(window, 'showOpenFilePicker', { value: picker, configurable: true });
+    pickWithFileInput('a.docx');
     expect(await files.open()).toEqual({ name: 'a.docx', path: 'a.docx', bytes: BYTES });
-    expect(picker).toHaveBeenCalledTimes(1);
+    expect(picker).not.toHaveBeenCalled();
   });
 
   it('a saved review’s file is picked again (the path given is only a name on the web)', async () => {
-    installOpenPicker('a.docx');
+    pickWithFileInput('a.docx');
     expect(await files.open('a.docx')).toEqual({ name: 'a.docx', path: 'a.docx', bytes: BYTES });
   });
 
-  it('a cancelled open picker returns null', async () => {
-    installOpenPicker(null);
-    expect(await files.open()).toBeNull();
-  });
-
-  it('without the open picker: a file input for .docx, .txt and .md, and the chosen file', async () => {
+  it('a file input for .docx, .txt and .md, and the chosen file', async () => {
     let input: HTMLInputElement | null = null;
     vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(function (this: HTMLInputElement) {
       input = this;
@@ -258,7 +255,7 @@ describe('Open', () => {
     expect(await opening).toEqual({ name: 'notes.md', path: 'notes.md', bytes: BYTES });
   });
 
-  it('without the open picker: a cancelled file input returns null', async () => {
+  it('a cancelled file input returns null', async () => {
     let input: HTMLInputElement | null = null;
     vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(function (this: HTMLInputElement) {
       input = this;
