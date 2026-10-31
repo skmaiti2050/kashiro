@@ -28,7 +28,7 @@ import { translatorFor } from './i18n/translatorFor';
 import { TranslatorProvider, useT } from './i18n/useT';
 import { capabilities } from './platform/capabilities';
 import { loadAppDictionary } from './platform/dictionary';
-import { files, onFileDrop, setDialogLabels } from './platform/files';
+import { files, onFileDrop, onTextDrop, setDialogLabels } from './platform/files';
 import { helperInstalled, modelFiles, startAppHelper, stopAppHelper } from './platform/helper';
 import { createAppLinter } from './platform/linter';
 import { openProjectPage } from './platform/links';
@@ -175,18 +175,30 @@ function ShellView({ controller, state }: { controller: SessionController; state
     );
   }, [controller, unlessUnsaved]);
 
+  // Text dropped on the page (the web only: capabilities.textDrop) opens as Paste does, closing a panel as a file drop does.
+  useEffect(() => {
+    return listenWhileMounted(
+      onTextDrop((text) => {
+        setPanel('none');
+        unlessUnsaved(() => void controller.openText(text));
+      }),
+    );
+  }, [controller, unlessUnsaved]);
+
   useEffect(() => {
     return listenWhileMounted(
       onWindowCloseRequested(async (event) => {
+        // Decided before any await: a browser shows its "Leave site?" prompt only for a synchronous preventDefault.
+        const unsaved = controller.hasUnsavedWork();
+        if (unsaved) event.preventDefault();
         // The autosave waiting for its 1 s pause is written before the window goes (Tauri awaits this handler).
         // If that write fails, the window stays open with the error showing; closing again goes ahead.
         if (!(await controller.reviews.flush())) {
           event.preventDefault();
           return;
         }
-        if (!controller.hasUnsavedWork()) return;
-        event.preventDefault();
-        setAfterUnsaved(() => () => void closeWindow());
+        // In a browser its own prompt has asked already, and a page can't close its tab.
+        if (unsaved && !capabilities.web) setAfterUnsaved(() => () => void closeWindow());
       }),
     );
   }, [controller]);

@@ -56,6 +56,7 @@
   "save.newCopyDetail": "Saved beside the original as {name}. The original is not touched.",
   "save.overwrite": "Overwrite (keeps a backup)",
   "save.overwriteDetail": "Replaces the original after copying it to a .bak file. Pasted text is always saved as a new copy.",
+  "save.webNoBackup": "No backup on the web: the original is replaced.",
 
   "variant.American": "American",
   "variant.British": "British",

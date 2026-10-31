@@ -3,6 +3,7 @@ import type { CheckSession } from '@/engine/session';
 import { exportReport } from '@/engine/report';
 import type { FormatAdapter } from '@/formats/types';
 import { msg, type Message } from '../i18n/message';
+import { capabilities } from '../platform/capabilities';
 import { siblingPath } from './documentText';
 import type { Settings } from './settings';
 
@@ -49,6 +50,8 @@ interface SaveRequest {
   path: string | null;
   settings: Settings;
   files: Files;
+  /** Shows a notice while the save dialog is open (the web's "No backup on the web"). */
+  notify(notice: Message): void;
 }
 
 const sameEdit = (a: Edit, b: Edit | undefined) =>
@@ -59,7 +62,7 @@ const sameEdit = (a: Edit, b: Edit | undefined) =>
  * after a backup). Edits the adapter could not place are marked on the session, so the change log
  * shows them. Returns the notice for the user, or null when they cancelled the save dialog.
  */
-export async function saveDocument({ session, adapter, handle, name, path, settings, files }: SaveRequest): Promise<Message | null> {
+export async function saveDocument({ session, adapter, handle, name, path, settings, files, notify }: SaveRequest): Promise<Message | null> {
   const { bytes, unplaceable } = await adapter.write(handle, session.acceptedEdits(), settings.saveMode);
   for (const { edit, reason } of unplaceable) {
     const outcome = session.outcomes().find((o) => {
@@ -70,6 +73,8 @@ export async function saveDocument({ session, adapter, handle, name, path, setti
   }
   const overwrite = settings.overwrite && path !== null;
   const target = overwrite ? path : siblingPath(path ?? name, '.checked');
+  // A browser keeps no .bak: said before its save picker opens, where the user confirms "Replace?" (web spec).
+  if (overwrite && capabilities.web) notify(msg('save.webNoBackup'));
   const saved = await files.save(target, bytes, { overwrite, original: path });
   if (!saved) return null;
   const notice = saved.backup ? msg('notice.savedBackup', { path: saved.path, backup: saved.backup }) : msg('notice.saved', { path: saved.path });

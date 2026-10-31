@@ -47,7 +47,16 @@ export async function save(host: SaveHost): Promise<boolean> {
   }
   const { adapter, handle } = loaded;
   try {
-    const notice = await saveDocument({ session, adapter, handle, name: document.name, path: document.path, settings, files: host.files });
+    const notice = await saveDocument({
+      session,
+      adapter,
+      handle,
+      name: document.name,
+      path: document.path,
+      settings,
+      files: host.files,
+      notify: (shown) => host.set({ notice: shown, error: null }),
+    });
     // Unplaceable edits may have been marked on the session, so this always re-renders.
     host.set({ notice, error: null });
     if (notice === null) return false;

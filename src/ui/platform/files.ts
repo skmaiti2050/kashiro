@@ -73,3 +73,11 @@ export async function onFileDrop(onDrop: (files: DroppedFile[]) => void): Promis
     onDrop(event.payload.paths.map((path) => ({ name: fileName(path), read: () => readChosen(path) })));
   });
 }
+
+/**
+ * Text dropped on the window. Never called under Tauri, whose drop target takes files only (see onFileDrop); the web
+ * build's twin opens dropped text (capabilities.textDrop). Returns the unsubscribe function.
+ */
+export async function onTextDrop(_onDrop: (text: string) => void): Promise<() => void> {
+  return () => {};
+}

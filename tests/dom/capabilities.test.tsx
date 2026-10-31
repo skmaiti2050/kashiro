@@ -17,6 +17,14 @@ vi.mock('@/ui/platform/linter', async () => (await import('./platformMocks')).pl
 vi.mock('@/ui/platform/settings', async () => (await import('./platformMocks')).platformSettings);
 
 const WEB_AI = 'AI rewrites are available in the desktop app';
+/** Settings › Saving's desktop hint about saved reviews (Web Task 3: the web's storage note says where they are). */
+const APP_FOLDER_HINT = 'Kept in the app’s own folder on this computer';
+
+function savingSettingsText(): string {
+  chooseFromMore('Settings');
+  settingsTab('Saving');
+  return screen.getByRole('dialog', { name: 'Settings' }).textContent ?? '';
+}
 
 function moreMenuItems(): string[] {
   fireEvent.click(screen.getByRole('button', { name: 'More' }));
@@ -68,6 +76,11 @@ describe('with the web capabilities', () => {
     expect(text).toContain('Preview');
     expect(screen.queryByRole('button', { name: 'Check for updates' })).toBeNull();
   });
+
+  it('Settings › Saving has no "app’s own folder" hint', () => {
+    renderShell(makeController().controller);
+    expect(savingSettingsText()).not.toContain(APP_FOLDER_HINT);
+  });
 });
 
 describe('with the desktop capabilities', () => {
@@ -94,5 +107,10 @@ describe('with the desktop capabilities', () => {
     expect(text).not.toContain(WEB_AI);
     expect(text).not.toContain('Preview');
     expect(screen.getByRole('button', { name: 'Check for updates' })).toBeTruthy();
+  });
+
+  it('Settings › Saving has the "app’s own folder" hint', () => {
+    renderShell(makeController().controller);
+    expect(savingSettingsText()).toContain(APP_FOLDER_HINT);
   });
 });

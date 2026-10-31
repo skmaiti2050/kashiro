@@ -1,6 +1,7 @@
 import { useId, useRef, useState } from 'react';
 import { Dialog } from './Dialog';
 import { useT } from './i18n/useT';
+import { capabilities } from './platform/capabilities';
 import type { SessionController } from './state/sessionController';
 import type { Settings } from './state/settings';
 
@@ -22,11 +23,14 @@ export function SavedReviewsSettings({ controller, settings }: Props) {
   const choices = RETENTION_CHOICES.includes(days) ? RETENTION_CHOICES : [...RETENTION_CHOICES, days].sort((a, b) => a - b);
 
   return (
-    <fieldset aria-describedby={hintId}>
+    <fieldset aria-describedby={capabilities.web ? undefined : hintId}>
       <legend>{t.t('modules.savedSessions')}</legend>
-      <p id={hintId} className="hint">
-        {t.t('settings.savedReviewsHint')}
-      </p>
+      {/* "In the app's own folder" isn't so on the web: its storage note (WebStorageSettings) says where they are. */}
+      {!capabilities.web && (
+        <p id={hintId} className="hint">
+          {t.t('settings.savedReviewsHint')}
+        </p>
+      )}
       <label>
         <input type="checkbox" checked={settings.keepPastedText} onChange={(e) => void controller.reviews.setKeepPastedText(e.target.checked)} />
         {t.t('settings.keepPasted')}

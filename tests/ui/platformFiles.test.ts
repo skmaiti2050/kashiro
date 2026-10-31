@@ -14,7 +14,7 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({ open: vi.fn(), save: tauri.save })
 vi.mock('@tauri-apps/plugin-fs', () => ({ readFile: vi.fn(), writeFile: tauri.writeFile }));
 vi.mock('@tauri-apps/api/webview', () => ({ getCurrentWebview: vi.fn() }));
 
-const { files, onFileDrop } = await import('@/ui/platform/files');
+const { files, onFileDrop, onTextDrop } = await import('@/ui/platform/files');
 const { getCurrentWebview } = await import('@tauri-apps/api/webview');
 const { readFile } = await import('@tauri-apps/plugin-fs');
 type DroppedFile = import('@/ui/platform/files').DroppedFile;
@@ -77,5 +77,13 @@ describe('a file dropped on the window (Task F21b item 9)', () => {
     expect(seen.map((d) => d.map((f) => f.name))).toEqual([['photo.png', 'notes.md']]);
     expect(readFile).not.toHaveBeenCalled();
     expect(await seen[0][1].read()).toEqual({ name: 'notes.md', path: 'C:\\Docs\\notes.md', bytes: BYTES });
+  });
+
+  it('text never reaches the page under Tauri: onTextDrop subscribes to nothing and unsubscribes cleanly (Web Task 3)', async () => {
+    const stop = await onTextDrop(() => {
+      throw new Error('no text drop on desktop');
+    });
+    expect(getCurrentWebview).not.toHaveBeenCalled();
+    expect(stop()).toBeUndefined();
   });
 });
