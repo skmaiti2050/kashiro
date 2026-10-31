@@ -1,11 +1,11 @@
 # Kashiro
 
-[![Latest release](https://img.shields.io/github/v/release/skmaiti2050/kashiro?include_prereleases&label=download)](https://github.com/skmaiti2050/kashiro/releases)
+[![Latest release](https://img.shields.io/github/v/release/skmaiti2050/kashiro?label=download)](https://github.com/skmaiti2050/kashiro/releases/latest)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 ![Platform: Windows](https://img.shields.io/badge/platform-Windows%2010%2F11-0078D4)
 ![Offline](https://img.shields.io/badge/works-offline-2ea44f)
 
-**[Download the latest test build](https://github.com/skmaiti2050/kashiro/releases)** · [Try it in your browser (preview)](https://skmaiti2050.github.io/kashiro/) · [Report a wrong change](https://github.com/skmaiti2050/kashiro/issues/new?template=wrong-change.yml) · [Report a bug](https://github.com/skmaiti2050/kashiro/issues/new?template=bug.yml)
+**[Download Kashiro](https://github.com/skmaiti2050/kashiro/releases/latest)** · [Try it in your browser](https://skmaiti2050.github.io/kashiro/) · [Report a wrong change](https://github.com/skmaiti2050/kashiro/issues/new?template=wrong-change.yml) · [Report a bug](https://github.com/skmaiti2050/kashiro/issues/new?template=bug.yml)
 
 ![Kashiro reviewing a sample paragraph: underlined slips in the text, and a card on the right offering two simple fixes to review and apply](docs/images/kashiro-review.png)
 
