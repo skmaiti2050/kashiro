@@ -8,6 +8,8 @@ import { ModulesSettings } from './ModulesSettings';
 import { ReadingSettings } from './ReadingSettings';
 import { SavedReviewsSettings } from './SavedReviewsSettings';
 import { Tabs } from './Tabs';
+import { WebStorageSettings } from './WebStorageSettings';
+import { capabilities } from './platform/capabilities';
 import type { ReadAloud } from './useReadAloud';
 import { PRESET_KEYS, VARIANT_KEYS, VARIANTS } from './Toolbar';
 import type { UiLocale } from './i18n/catalogues';
@@ -122,6 +124,7 @@ function SavingSettings({ controller, settings }: SectionProps) {
         </label>
       </fieldset>
       <SavedReviewsSettings controller={controller} settings={settings} />
+      {capabilities.web && <WebStorageSettings controller={controller} settings={settings} />}
     </>
   );
 }

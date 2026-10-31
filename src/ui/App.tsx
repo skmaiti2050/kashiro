@@ -34,7 +34,7 @@ import { createAppLinter } from './platform/linter';
 import { openProjectPage } from './platform/links';
 import { sessionFiles } from './platform/sessions';
 import { changeLogWasOpen, rememberChangeLogOpen } from './changeLogMemory';
-import { loadSettings, saveSettings } from './platform/settings';
+import { loadSettings, saveSettings, storageIsPersistent } from './platform/settings';
 import { closeWindow, onWindowCloseRequested, setWindowTitle } from './platform/window';
 import { explain } from './state/errors';
 import { readingStyle } from './state/readingSettings';
@@ -85,6 +85,8 @@ export default function App() {
           helperInstalled: installed,
         });
         setController(c);
+        // A browser that keeps nothing (a private window): said once, at the start (web plan, Review focus 1).
+        if (!storageIsPersistent()) c.showNotice(msg('notice.noStorage'));
         // Deletes saved reviews past their retention, then lists the rest (failures show as an error banner).
         void c.reviews.startUp();
         // Pre-warm Harper so the first check is quick (its first start takes ~650 ms).

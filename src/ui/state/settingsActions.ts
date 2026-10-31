@@ -162,6 +162,16 @@ export async function mergeDictionaryDuplicates(host: SettingsHost): Promise<num
   return merged;
 }
 
+/**
+ * Settings › Import dictionary (web): each word added with the dictionary's add rule (withWordAdded: case and NFC),
+ * then the linter rebuilt and the document checked again, as when a word leaves.
+ */
+export async function importDictionaryWords(host: SettingsHost, words: readonly string[]): Promise<void> {
+  const composed = words.map((word) => word.trim().normalize('NFC')).filter((word) => word !== '');
+  await replaceDictionary(host, composed.reduce(withWordAdded, host.state().settings.dictionary));
+  host.set({ notice: msg('notice.dictionaryImported', { count: composed.length }) });
+}
+
 /** A word left the dictionary: the linter is rebuilt from the saved list and the document checked again. */
 async function replaceDictionary(host: SettingsHost, dictionary: string[]): Promise<void> {
   updateSettings(host, { dictionary });

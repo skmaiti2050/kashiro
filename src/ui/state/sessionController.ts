@@ -611,6 +611,11 @@ export class SessionController {
     return settingsActions.mergeDictionaryDuplicates(this.settingsHost);
   }
 
+  /** See settingsActions.importDictionaryWords. */
+  importDictionaryWords(words: readonly string[]): Promise<void> {
+    return settingsActions.importDictionaryWords(this.settingsHost, words);
+  }
+
   /** See settingsActions.setModule. */
   setModule(name: keyof ModuleSwitches, on: boolean): void {
     settingsActions.setModule(this.settingsHost, name, on);

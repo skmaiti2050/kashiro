@@ -6,8 +6,11 @@ import type { ControllerState, SessionController } from './state/sessionControll
 /** How long a notice stays before it clears on its own. */
 const NOTICE_MS = 6000;
 
-/** Notices that stay until dismissed, like errors: changes left out of the saved file must not go unseen. */
-const LASTING_NOTICES: ReadonlySet<MessageKey> = new Set(['notice.savedUnplaced']);
+/**
+ * Notices that stay until dismissed, like errors: changes left out of the saved file, or settings the browser won't
+ * keep, must not go unseen.
+ */
+const LASTING_NOTICES: ReadonlySet<MessageKey> = new Set(['notice.savedUnplaced', 'notice.noStorage']);
 
 /**
  * The error and notice banners. A notice ("Saved as …") clears on its own; an error, or a notice that something
