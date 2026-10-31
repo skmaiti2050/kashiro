@@ -143,6 +143,19 @@ const INDIC_SCRIPTS = [
 ];
 const ZWNJ = '\u{200C}';
 const ZWJ = '\u{200D}';
+/** The emoji variation selector: U+FE0F draws the emoji before it as a picture ("☺️"). */
+const VS16 = '\u{FE0F}';
+/** An emoji or a keycap's mark: what an emoji sequence's joiner and selector sit with ("👨‍👩‍👧‍👦", "☺️"). */
+const EMOJI = /[\p{Extended_Pictographic}\p{Emoji_Modifier}\u{FE0F}\u{20E3}]/u;
+
+/** The character ending just before `i`, and the one starting just after it ("👨" and "👩" around a ZWJ). */
+function around(text: string, i: number): [string, string] {
+  let before = text[i - 1] ?? '';
+  if (before >= '\u{DC00}' && before <= '\u{DFFF}') before = (text[i - 2] ?? '') + before;
+  let after = text[i + 1] ?? '';
+  if (after >= '\u{D800}' && after <= '\u{DBFF}') after += text[i + 2] ?? '';
+  return [before, after];
+}
 
 /** True when `text[i]` is a ZWJ or ZWNJ inside a word of one Indic script, as hygiene keeps it. */
 function isIndicJoiner(text: string, i: number): boolean {
@@ -151,12 +164,24 @@ function isIndicJoiner(text: string, i: number): boolean {
   return INDIC_SCRIPTS.some((script) => script.test(before) && script.test(after));
 }
 
+/** True when `text[i]` is a ZWJ beside an emoji or a selector after one, as hygiene keeps it. */
+function isEmojiJoiner(text: string, i: number): boolean {
+  const ch = text[i];
+  if (ch !== ZWJ && ch !== VS16) return false;
+  const [before, after] = around(text, i);
+  if (ch === VS16) return EMOJI.test(before);
+  return EMOJI.test(before) || EMOJI.test(after);
+}
+
 /**
- * The context `text` named like the change, except a joiner inside a Hindi or Bengali word: drawn as the real
- * character, so the word reads right and a screen reader doesn't read "U+200D" (F7 re-review 6, M-3).
+ * The context `text` named like the change, except a joiner inside a Hindi or Bengali word or in an emoji sequence
+ * ("👨‍👩‍👧‍👦", "☺️"): drawn as the real character, so the word reads right and a screen reader doesn't read
+ * "U+200D" (F7 re-review 6, M-3).
  */
 function namedContext(text: string): string {
-  return text.replace(INVISIBLE, (ch: string, at: number) => (isIndicJoiner(text, at) ? ch : nameOf(ch)));
+  return text.replace(INVISIBLE, (ch: string, at: number) =>
+    isIndicJoiner(text, at) || isEmojiJoiner(text, at) ? ch : nameOf(ch),
+  );
 }
 
 /** How whitespace at a change's edge is drawn, so a spacing fix isn't blank: "··" → "·", " ," → ", ". */
