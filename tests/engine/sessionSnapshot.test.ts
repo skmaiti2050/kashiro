@@ -253,7 +253,7 @@ describe('restore', () => {
 
   // Final F15 review M-13: a change made without a click and undone on one copy came back applied on both.
   it('a change made without a click and undone on a copy is never made again when the document changed: both copies show it as a card', async () => {
-    const TOTAL = 'Total:  five items.';
+    const TOTAL = 'We bought  five items.';
     const paras: Paragraph[] = [
       { id: 0, text: TOTAL },
       { id: 1, text: TOTAL },

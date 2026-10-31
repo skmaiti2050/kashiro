@@ -69,6 +69,20 @@ describe('isZeroClickChange (Task F4: only invisible characters and spaces betwe
     expect(zeroClick(flag(text, run[0], ' ', 'Formatting', run.index), para(text, over))).toBe(false);
   });
 
+  it.each([
+    ['aligned key-value lines in one paragraph (#8)', 'Name:      Rahul\nPhone: 98200 00000', 'Name:      Rahul'],
+    ['a lone key-value line ending with a full stop (#8)', 'Address:  12 MG Road.', 'Address:  12 MG Road.'],
+    ['a colon key before a value ending with a full stop (#8 ruling)', 'Note:  this is wrong.', 'Note:  this is wrong.'],
+  ])('leaves the gap after a key with a colon: %s', (_name, text) => {
+    const run = text.match(/ {2,}/)!;
+    expect(zeroClick(flag(text, run[0], ' ', 'Formatting', run.index), para(text))).toBe(false);
+  });
+
+  it('still collapses a double space in a sentence without a colon key (#8)', () => {
+    const text = 'This is  wrong.';
+    expect(zeroClick(flag(text, '  ', ' '), para(text))).toBe(true);
+  });
+
   it('leaves spaces in a paragraph lined up with its neighbours', () => {
     const text = 'Name      Rahul Sharma';
     expect(zeroClick(flag(text, '      ', ' '), para(text), true)).toBe(false);
@@ -94,6 +108,7 @@ describe('findAlignedParagraphs (F4 re-review 3, M-3)', () => {
     ['a block with one line ending with a full stop', ['Name      Rahul', 'Role      Engg. Lead.', 'City      Pune'], [0, 1, 2]],
     ['a lone line with a short key, between sentences', ['We went home.', 'Total      500', 'It rained.'], [1]],
     ['a lone line with a colon key', ['It rained.', 'Name:   Rahul Sharma', 'It rained.'], [1]],
+    ['a lone colon-key line ending with a full stop (#8)', ['It rained.', 'Address:  12 MG Road.', 'It rained.'], [1]],
   ] as const)('finds %s (F5 re-review 4, M-3)', (_name, texts, aligned) => {
     expect([...findAlignedParagraphs(paras(...texts))]).toEqual(aligned);
   });

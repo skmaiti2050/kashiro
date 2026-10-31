@@ -904,12 +904,12 @@ describe('SessionController: typing re-checks', () => {
 
     // Final F15 review M-13: the undone change came back applied, with no click and no card.
     describe('a change made without a click and undone on a copy is never made again: both copies show it as a card', () => {
-      const TOTAL = 'Total:  five items.';
+      const TOTAL = 'We bought  five items.';
       const collapses = (c: SessionController) =>
         c.getState().session!.outcomes().filter((o) => o.candidate.original === '  ').map((o) => [o.status, o.auto]);
       const offered = (c: SessionController) => {
         const { top, more } = c.getState().session!.decisions();
-        return [...top, ...more].flatMap((d) => d.candidateIds).filter((id) => id.endsWith(':6:8:Formatting'));
+        return [...top, ...more].flatMap((d) => d.candidateIds).filter((id) => id.endsWith(':9:11:Formatting'));
       };
       async function undoFirstCollapse(text: string) {
         const { controller } = makeController({ settings: { preset: 'blog' } });
@@ -920,7 +920,7 @@ describe('SessionController: typing re-checks', () => {
 
       it('typing in another paragraph, twice', async () => {
         const controller = await undoFirstCollapse(`${TOTAL}\n\n${TOTAL}\n\nMore.`);
-        expect(output(controller)).toEqual([TOTAL, 'Total: five items.', 'More.']);
+        expect(output(controller)).toEqual([TOTAL, 'We bought five items.', 'More.']);
 
         await retype(controller, `${TOTAL}\n\n${TOTAL}\n\nMore text.`);
         expect(output(controller)).toEqual([TOTAL, TOTAL, 'More text.']);
@@ -928,18 +928,18 @@ describe('SessionController: typing re-checks', () => {
           ['pending', false],
           ['pending', false],
         ]);
-        expect(offered(controller)).toEqual(['0:6:8:Formatting', '1:6:8:Formatting']);
+        expect(offered(controller)).toEqual(['0:9:11:Formatting', '1:9:11:Formatting']);
 
         await retype(controller, `${TOTAL}\n\n${TOTAL}\n\nMore text here.`);
         expect(output(controller)).toEqual([TOTAL, TOTAL, 'More text here.']);
-        expect(offered(controller)).toEqual(['0:6:8:Formatting', '1:6:8:Formatting']);
+        expect(offered(controller)).toEqual(['0:9:11:Formatting', '1:9:11:Formatting']);
       });
 
       it('a copy pasted of the paragraph where it was undone', async () => {
         const controller = await undoFirstCollapse(`${TOTAL}\n\nMore.`);
         await retype(controller, `${TOTAL}\n\n${TOTAL}\n\nMore.`);
         expect(output(controller)).toEqual([TOTAL, TOTAL, 'More.']);
-        expect(offered(controller)).toEqual(['0:6:8:Formatting', '1:6:8:Formatting']);
+        expect(offered(controller)).toEqual(['0:9:11:Formatting', '1:9:11:Formatting']);
       });
     });
   });
@@ -978,12 +978,12 @@ describe('SessionController: typing re-checks', () => {
 
     it('a change made without a click and undone on one copy stays undone there, and stays made on the other', async () => {
       const { controller } = makeController({ settings: { preset: 'blog' } });
-      await controller.openText('Total:  five items.\n\nTotal:  five items.\n\nMore.');
+      await controller.openText('We bought  five items.\n\nWe bought  five items.\n\nMore.');
       const collapse = (c: SessionController) => c.getState().session!.outcomes().filter((o) => o.candidate.original === '  ');
       controller.undo(collapse(controller)[0].candidate.id);
       controller.setPreset('academic');
       await controller.settled();
-      expect(output(controller)).toEqual(['Total:  five items.', 'Total: five items.', 'More.']);
+      expect(output(controller)).toEqual(['We bought  five items.', 'We bought five items.', 'More.']);
       expect(collapse(controller).map((o) => [o.status, o.auto])).toEqual([
         ['rejected', false],
         ['applied', true],

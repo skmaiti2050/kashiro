@@ -20,12 +20,17 @@ const INDENT_OR_TAB = /\t|(?:^|[\r\n]) /;
 const COLUMN_GAP = /(?<=[^\s.?!:;,]) {2,}(?=\S)/g;
 const LINE_BREAK = /\r\n|\r|\n/;
 
+/** A line of one to three words ending in a colon, then a gap of two or more spaces: "Name:      Rahul", "Address:  12 MG Road." */
+const KEY_COLON_THEN_GAP = /^[^\s:]+(?: [^\s:]+){0,2}: {2,}\S/;
+
 /**
  * True when the paragraph's spaces look like layout rather than slips: a tab or an indented line, a line with
- * two column gaps ("Name    Age    City"), or two lines with one each (a small table lined up with spaces).
+ * two column gaps ("Name    Age    City"), two lines with one each (a small table lined up with spaces), or a
+ * "Key:  value" line (even when the value ends with a full stop: skipping is the safe side, #8).
  */
 function looksLaidOut(text: string): boolean {
   if (INDENT_OR_TAB.test(text)) return true;
+  if (text.split(LINE_BREAK).some((line) => KEY_COLON_THEN_GAP.test(line))) return true;
   const gaps = text.split(LINE_BREAK).map((line) => line.match(COLUMN_GAP)?.length ?? 0);
   return gaps.some((n) => n >= 2) || gaps.filter((n) => n > 0).length >= 2;
 }
@@ -49,7 +54,8 @@ function isKeyValueLine(text: string): boolean {
 
 /** A key–value line that stands alone: a short key, a gap, no sentence end ("Total      500" between sentences). */
 function isShortKeyValueLine(text: string): boolean {
-  return !LINE_BREAK.test(text) && SHORT_KEY_THEN_GAP.test(text) && !ENDS_SENTENCE.test(text);
+  if (LINE_BREAK.test(text)) return false;
+  return KEY_COLON_THEN_GAP.test(text) || (SHORT_KEY_THEN_GAP.test(text) && !ENDS_SENTENCE.test(text));
 }
 
 /**
