@@ -108,11 +108,24 @@ describe('ChangeLog: one row for the simple-fixes card (Task F4)', () => {
   });
 
   it.each([
-    // A joiner outside an Indic word, between two scripts, or at the context's edge, and a direction control.
+    // The ZWJs of a family emoji, and the selector of an emoji, are parts of the sequence, as hygiene keeps them.
+    ['👨\u{200D}👩\u{200D}👧\u{200D}👦 the the cat', '👨\u{200D}👩\u{200D}👧\u{200D}👦 '],
+    ['☺\u{FE0F} the the cat', '☺\u{FE0F} '],
+    ['❤\u{FE0F} the the cat', '❤\u{FE0F} '],
+  ])('shows an emoji sequence of the context as itself, not as a code: "%s"', (text, before) => {
+    const { container } = renderLog([applied('d', 'the the', 'the', 'Repetition', text)], text);
+    expect(container.querySelector('.change .context')!.textContent).toBe(before);
+    expect(container.querySelector('.change')!.textContent).not.toContain('U+');
+  });
+
+  it.each([
+    // A joiner outside an Indic word, between two scripts, or at the context's edge, a direction control, and a
+    // selector not after an emoji.
     ['a\u{200D}b the the cat', 'a‹U+200D›b '],
     ['क\u{200D}b the the cat', 'क‹U+200D›b '],
     ['क्\u{200D}the the cat', 'क्‹U+200D›'],
     ['क\u{202E}ष the the cat', 'क‹U+202E›ष '],
+    ['a\u{FE0F}b the the cat', 'a‹U+FE0F›b '],
   ])('still names other invisible characters in the context: "%s" (F7 re-review 6, M-3)', (text, before) => {
     const { container } = renderLog([applied('d', 'the the', 'the', 'Repetition', text)], text);
     expect(container.querySelector('.change .context')!.textContent).toBe(before);
