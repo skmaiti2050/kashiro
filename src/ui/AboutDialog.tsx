@@ -18,6 +18,7 @@ export function AboutDialog({ onCheckUpdates, onClose }: { onCheckUpdates: (() =
       <p>
         {t.t('about.version', { version: APP_VERSION })}
         {capabilities.web && <> · {t.t('about.preview')}</>}
+        {import.meta.env.VITE_BUILD_DATE && <> · {t.t('about.buildDate', { date: import.meta.env.VITE_BUILD_DATE })}</>}
       </p>
       {/* F23 item 4: the Releases page, in the browser, only on this click. Null where there is none (the web). */}
       {onCheckUpdates && (

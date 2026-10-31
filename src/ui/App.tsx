@@ -15,6 +15,7 @@ import { ShortcutsSheet } from './ShortcutsSheet';
 import { StatusBar } from './StatusBar';
 import { Toolbar } from './Toolbar';
 import { UndoToast } from './UndoToast';
+import { UpdateToast } from './UpdateToast';
 import { SaveReadyDialog } from './SaveReadyDialog';
 import { UnsavedChangesDialog } from './UnsavedChangesDialog';
 import { rememberTourSeen, tourSeen, WelcomeTour } from './WelcomeTour';
@@ -36,6 +37,7 @@ import { openProjectPage } from './platform/links';
 import { sessionFiles } from './platform/sessions';
 import { changeLogWasOpen, rememberChangeLogOpen } from './changeLogMemory';
 import { loadSettings, onStorageLost, saveSettings } from './platform/settings';
+import { useUpdateReady } from './platform/updates';
 import { closeWindow, onWindowCloseRequested, setWindowTitle } from './platform/window';
 import { explain } from './state/errors';
 import { readingStyle } from './state/readingSettings';
@@ -145,6 +147,8 @@ function ShellView({ controller, state }: { controller: SessionController; state
   /** What to do once the user has answered "Save, Discard, or Cancel?". */
   const [afterUnsaved, setAfterUnsaved] = useState<(() => void) | null>(null);
   const [saveClick, setSaveClick] = useState<SaveClickRequest | null>(null);
+  /** The web: a new deploy's Reload, once its service worker waits (desktop: always null). */
+  const reloadForUpdate = useUpdateReady();
   const split = usePanelSplit();
   const closePanel = () => setPanel('none');
   /** Shows the card of `candidateId`; a new seq makes the same card come back after the user moved on. */
@@ -385,6 +389,10 @@ function ShellView({ controller, state }: { controller: SessionController; state
           }}
           onDismiss={dismissUndoOffer}
         />
+      )}
+      {/* After any Undo offer, in the same place; it waits for the user's Reload however long the review takes. */}
+      {reloadForUpdate && !state.undoOffer && !dialogOpen && (
+        <UpdateToast message={t.t('update.ready')} reloadLabel={t.t('update.reload')} onReload={reloadForUpdate} />
       )}
       {/* Settings stays mounted (inert) under its Dictionary, so Back finds its tab and focus as they were. */}
       {(panel === 'settings' || panel === 'settings-dictionary') && (

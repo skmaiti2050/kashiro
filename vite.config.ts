@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 import { readFile } from "node:fs/promises";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { webIcons, webPageHead } from "./scripts/webBuild.ts";
 
 const host = process.env.TAURI_DEV_HOST;
 
@@ -44,10 +45,15 @@ function webDictionary(): Plugin {
   };
 }
 
+// GitHub Pages serves the site under /kashiro/; KASHIRO_WEB_BASE=/ for a custom domain or Cloudflare Pages.
+const webBase = process.env.KASHIRO_WEB_BASE ?? "/kashiro/";
+const ICONS = fileURLToPath(new URL("./src-tauri/icons", import.meta.url));
+
 export default defineConfig(() => ({
-  plugins: web ? [webPlatform(), webDictionary(), react()] : [react()],
-  // GitHub Pages serves the site under /kashiro/; KASHIRO_WEB_BASE=/ for a custom domain or Cloudflare Pages.
-  base: web ? (process.env.KASHIRO_WEB_BASE ?? "/kashiro/") : "/",
+  plugins: web ? [webPlatform(), webDictionary(), webIcons(ICONS), webPageHead(webBase), react()] : [react()],
+  base: web ? webBase : "/",
+  // The web app's manifest (start_url and scope are relative to it, so they follow the base path).
+  publicDir: web ? "public-web" : "public",
   resolve: {
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },

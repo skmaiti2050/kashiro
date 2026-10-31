@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { countWords } from '@/engine/words';
 import type { MessageKey } from './i18n/catalogues';
+import { capabilities } from './platform/capabilities';
 import { useT } from './i18n/useT';
 import type { ControllerState } from './state/sessionController';
 import { VARIANT_KEYS } from './Toolbar';
@@ -12,7 +13,7 @@ function variantKey(picked: boolean, fromFallback: boolean): MessageKey {
 }
 
 /**
- * The bottom status bar: the permanent offline promise, then word count, English variant and whether
+ * The bottom status bar: the permanent offline promise, "Preview" and the build date on the web, then word count, English variant and whether
  * the review reflects the text as it is now.
  */
 export function StatusBar({ state }: { state: ControllerState }) {
@@ -20,12 +21,15 @@ export function StatusBar({ state }: { state: ControllerState }) {
   const { document, session, variantOverride, phase, checking } = state;
   const words = useMemo(() => (document ? countWords(document.text) : 0), [document?.text]);
   const busy = phase === 'checking' || checking;
+  // Set by scripts/build-web.ts; a development server has none.
+  const buildDate = import.meta.env.VITE_BUILD_DATE;
 
   return (
     <footer className="statusbar">
       <span className="offline" title={t.t('status.offlineTitle')}>
         <span className="dot" aria-hidden="true" /> {t.t('status.offline')}
       </span>
+      {capabilities.web && <span>{buildDate ? t.t('status.preview', { date: buildDate }) : t.t('about.preview')}</span>}
       {document && (
         <>
           <span>{t.t('status.words', { count: words })}</span>
