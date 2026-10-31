@@ -60,7 +60,10 @@ export interface RewriteHost {
 export class HelperRewrites {
   /** Sentences already sent to the LLM helper: sentenceKey(paraId, span) → the text it was sent. */
   private readonly sent = new Map<string, string>();
-  /** LLM rewrites added by add (they passed the meaning-drift guard): id → the sentence text they rewrite. */
+  /**
+   * LLM rewrites that passed the meaning-drift guard: id → the sentence text they rewrite now. One kept by keepApplied
+   * passed it when the user accepted it, in an earlier check, against that sentence with a fix since gone.
+   */
   private readonly guarded = new Map<string, string>();
   /** Rewrites withdrawStale took out of the review (their sentence may be asked about again). */
   private readonly withdrawn = new Set<string>();

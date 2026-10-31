@@ -9,6 +9,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { CheckSession, type CheckOptions } from '@/engine/session';
 import { carryDecisions, userDecisions } from '@/engine/carryDecisions';
+import { restore, snapshot } from '@/engine/sessionSnapshot';
 import { createLinter, type RulesLinter } from '@/engine/linter';
 import { dictionaryAccepts, dictionaryForm, duplicateCount, withDuplicatesMerged, withTitleCaseLowered, withWordAdded } from '@/engine/dictionaryWords';
 import type { Paragraph } from '@/engine/types';
@@ -20,6 +21,7 @@ beforeAll(async () => {
 
 const opts = (over: Partial<CheckOptions> = {}): CheckOptions => ({ preset: 'blog', fallbackVariant: 'Indian', language: 'plaintext', dictionary: [], ...over });
 const paras = (...texts: string[]): Paragraph[] => texts.map((text, id) => ({ id, text }));
+const VIEW = { preset: 'blog' as const, variantOverride: null, documentIgnoredRules: [] };
 
 /** The decision holding the candidate at `original` in paragraph `paraId`. */
 function decisionOf(s: CheckSession, paraId: number, original: string) {
@@ -166,6 +168,32 @@ describe('adding a word undoes the applied fixes of it (Task F20 item 9a, M-12)'
     const after = await CheckSession.start(TEXT, opts({ dictionary: s.addedWords() }), { linter: own });
     recheck(s, after);
     expect(after.outputText(0)).toBe('I do receive it.');
+  });
+
+  it('a kept rewrite reads byte for byte the same after the re-check; the other fix stays under it, and a resume keeps that fix (#11)', async () => {
+    const own = await createLinter('Indian');
+    const TEXT2 = paras('I recieve the pakage daily.', 'I recieve mail.');
+    const s = await CheckSession.start(TEXT2, opts(), { linter: own });
+    for (const word of ['recieve', 'pakage']) s.accept(decisionOf(s, 0, word).candidate.id);
+    expect(s.outputText(0)).toBe('I receive the package daily.');
+    const sentence = { start: 0, end: 'I recieve the pakage daily.'.length };
+    expect(s.addRewrite(0, sentence, 'I do receive the package daily.', 'I receive the package daily.')).toEqual({ ok: true });
+    s.accept(s.candidates().find((c) => c.source === 'llm')!.id);
+    await s.addTypedWord('recieve');
+
+    const after = await CheckSession.start(TEXT2, opts({ dictionary: s.addedWords() }), { linter: own });
+    recheck(s, after);
+    expect(after.paragraphs().map((p) => after.outputText(p.id))).toEqual(TEXT2.map((p) => s.outputText(p.id)));
+    expect(after.outputText(0)).toBe('I do receive the package daily.');
+    const ai = after.candidates().find((c) => c.source === 'llm')!;
+    const pakage = after.candidates().find((c) => c.original === 'pakage')!;
+    expect(after.appliedOver(pakage.id)).toBe(ai.id);
+
+    // No AI rewrite is saved: a resume gives the text with the fix under it, as undoing the rewrite does.
+    const { session: resumed } = await restore(TEXT2, await snapshot(after, VIEW), opts({ dictionary: s.addedWords() }), { linter: own });
+    expect(resumed.outputText(0)).toBe('I recieve the package daily.');
+    after.undo(ai.id);
+    expect(after.outputText(0)).toBe('I recieve the package daily.');
   });
 
   it('adding another word of the paragraph keeps the rewrite and the fix under it through a re-check (#11)', async () => {
