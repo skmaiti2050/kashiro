@@ -168,8 +168,11 @@ export async function mergeDictionaryDuplicates(host: SettingsHost): Promise<num
  */
 export async function importDictionaryWords(host: SettingsHost, words: readonly string[]): Promise<void> {
   const composed = words.map((word) => word.trim().normalize('NFC')).filter((word) => word !== '');
-  await replaceDictionary(host, composed.reduce(withWordAdded, host.state().settings.dictionary));
-  host.set({ notice: msg('notice.dictionaryImported', { count: composed.length }) });
+  const before = host.state().settings.dictionary;
+  const after = composed.reduce(withWordAdded, before);
+  await replaceDictionary(host, after);
+  // The words actually added: ones already there, or repeated in the file, don't count (final review item 9).
+  host.set({ notice: msg('notice.dictionaryImported', { count: after.length - before.length }) });
 }
 
 /** A word left the dictionary: the linter is rebuilt from the saved list and the document checked again. */

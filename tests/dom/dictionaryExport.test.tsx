@@ -87,6 +87,14 @@ describe('Settings › Saving on the web', () => {
     expect(screen.getByText('Imported 1 word')).toBeTruthy();
   });
 
+  // Final review item 9: the count is the dictionary's growth, not the file's length.
+  it('Import counts only the words it added: one already there and one repeated are not counted', async () => {
+    const { saved } = openSavingSettings(['ARN']);
+    await importFile(JSON.stringify({ version: 1, words: ['ARN', 'cutover', 'Cutover'] }));
+    await waitFor(() => expect(saved.at(-1)?.dictionary).toEqual(['ARN', 'cutover']));
+    expect(screen.getByText('Imported 1 word')).toBeTruthy();
+  });
+
   it('a file that is not a Kashiro dictionary changes nothing and says so', async () => {
     const { saved } = openSavingSettings(['ARN']);
     await importFile('{"words": "ARN"}');
