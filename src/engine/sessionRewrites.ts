@@ -13,6 +13,18 @@ const parseSentenceKey = (key: string): [number, Span] => {
 /** The id of the AI rewrite of a sentence. */
 export const rewriteId = (paraId: number, span: Span) => `llm:${sentenceKey(paraId, span)}`;
 
+/** The AI rewrite of the sentence at `span` of `p`: a review candidate replacing the whole sentence. */
+const rewriteCandidate = (p: Paragraph, span: Span, rewrite: string): Candidate => ({
+  id: rewriteId(p.id, span),
+  paraId: p.id,
+  span: { ...span },
+  original: p.text.slice(span.start, span.end),
+  replacements: [rewrite],
+  kind: 'Rewrite',
+  message: 'Suggested rewrite of the sentence. Check the meaning before accepting.',
+  source: 'llm',
+});
+
 /** Why a pending AI rewrite left the queue: an edit in its sentence was accepted or undone after it was made. */
 export const REWRITE_OUT_OF_DATE = 'the sentence changed after the AI suggestion was made';
 
@@ -87,16 +99,7 @@ export class HelperRewrites {
     const verdict = passesGuard(now, rewrite, lockedTokens(now));
     if (!verdict.ok) return verdict;
     const id = rewriteId(paraId, span);
-    const candidate: Candidate = {
-      id,
-      paraId,
-      span: { ...span },
-      original: p.text.slice(span.start, span.end),
-      replacements: [rewrite],
-      kind: 'Rewrite',
-      message: 'Suggested rewrite of the sentence. Check the meaning before accepting.',
-      source: 'llm',
-    };
+    const candidate = rewriteCandidate(p, span, rewrite);
     // Asked again after its suggestion was withdrawn: the new suggestion takes that id, pending again. Any other
     // state means the sentence is still sent, so it is never asked again (CheckSession keeps one rewrite per sentence).
     if (this.host.candidate(id) === undefined) this.host.addCandidate(candidate);
@@ -131,15 +134,22 @@ export class HelperRewrites {
    * After a re-check (`before` is the previous check of the same document, `unchanged` maps its paragraph ids to
    * this check's): the AI answers on unchanged paragraphs come back. Each rewrite is added again through the
    * guard, then its accept or reject is replayed; sentences answered with nothing stay sent. Any whose sentence
-   * now reads differently (a rule fix it included is gone) is dropped. Returns old candidate id → new id.
+   * now reads differently (a rule fix it included is gone) is dropped, unless it was applied (keepApplied).
+   * Returns old candidate id → new id.
    */
   carryFrom(before: HelperRewrites, unchanged: Map<number, number>): Map<string, string> {
     const carried = new Map<string, string>();
     for (const [key, sent] of before.sent) {
       const [oldPara, span] = parseSentenceKey(key);
       const paraId = unchanged.get(oldPara);
-      if (paraId === undefined || this.host.sentenceNow(paraId, span) !== sent) continue;
+      if (paraId === undefined) continue;
       const oldId = `llm:${key}`;
+      if (this.host.sentenceNow(paraId, span) !== sent) {
+        if (before.guarded.has(oldId) && before.host.status(oldId) === 'applied' && this.keepApplied(paraId, span, before.host.candidate(oldId)!)) {
+          carried.set(oldId, rewriteId(paraId, span));
+        }
+        continue;
+      }
       const rewritten = before.guarded.has(oldId) ? before.host.candidate(oldId)!.replacements[0] : null;
       const verdict = this.add(paraId, span, rewritten, sent);
       if (verdict !== null && verdict !== 'stale' && verdict.ok) carried.set(oldId, rewriteId(paraId, span));
@@ -151,6 +161,22 @@ export class HelperRewrites {
       else if (status === 'rejected' && before.host.rejectedByUser(oldId)) this.host.reject(newId);
     }
     return carried;
+  }
+
+  /**
+   * A rewrite the user applied, whose sentence lost a fix it was made over (its word added to the dictionary, #11):
+   * dropping it would change the text without a word. Its paragraph is unchanged, so it replaces the same original
+   * text as before and the output reads as it did; it is added as made, to be accepted again. False when an accepted
+   * edit crosses the sentence's edge (it can no longer be placed), and it is dropped as before.
+   */
+  private keepApplied(paraId: number, span: Span, old: Candidate): boolean {
+    const now = this.host.sentenceNow(paraId, span);
+    if (now === null) return false;
+    const candidate = rewriteCandidate(this.host.paragraph(paraId)!, span, old.replacements[0]);
+    this.host.addCandidate(candidate);
+    this.sent.set(sentenceKey(paraId, span), now);
+    this.guarded.set(candidate.id, now);
+    return true;
   }
 
   /** Withdrawn by withdrawStale: its sentence changed while it waited for review. */

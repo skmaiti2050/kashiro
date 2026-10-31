@@ -71,8 +71,8 @@ export async function snapshot(session: CheckSession, view: SnapshotView): Promi
     paragraphs: await Promise.all(paras.map((p) => sha256Hex(p.text))),
     decisions: await Promise.all(
       userDecisions(session)
-        // No AI rewrite is saved, so neither is an edit under one: it is carried only with its rewrite.
-        .filter((d) => d.source !== 'llm' && d.under === undefined)
+        // No AI rewrite is saved. A fix accepted under one is, without it: resumed as a plain accepted fix (#11).
+        .filter((d) => d.source !== 'llm')
         .map(async (d) => ({
           paragraph: position.get(d.paraId)!,
           kind: d.kind,

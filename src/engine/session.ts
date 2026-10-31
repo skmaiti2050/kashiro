@@ -485,8 +485,8 @@ export class CheckSession {
    * Adds `word` to the linter and rejects every Spelling/Typo flag the entry accepts (dictionaryAccepts) that is
    * pending, or withdrawn under an edit the user applied (else undoing that edit would bring it back as a card: final
    * F14 review M-10). A fix of the word the user applied is taken back, as its Undo would: the next check no longer
-   * flags the word, so it would drop the fix without a word (M-12, F20 item 9a). Only that fix: one an AI rewrite was
-   * made over is no longer applied (superseded) and stays as it is, with the rewrite.
+   * flags the word, so it would drop the fix without a word (M-12, F20 item 9a). So is a fix the user accepted and an
+   * AI rewrite was then made over, with the same log entry (#11); the rewrite stays, since it holds the text it replaced.
    */
   private async addWord(written: string): Promise<void> {
     const word = storedForm(written); // "Cutover" is stored as "cutover" (Task F29)
@@ -497,7 +497,7 @@ export class CheckSession {
       if (!WORD_REWRITE_KINDS.has(c.kind) || !dictionaryAccepts(word, c.original)) continue;
       const status = this.ledger.status.get(c.id);
       if (status === 'applied' && !this.ledger.autoApplied.has(c.id)) this.undo(c.id);
-      else if (status !== 'pending' && !this.ledger.isCovered(c.id)) continue;
+      else if (status !== 'pending' && !this.ledger.isCovered(c.id) && this.ledger.appliedOver(c.id) === undefined) continue;
       this.userRejected.add(c.id);
       this.ledger.record(c.id, 'rejected', false, reason);
     }

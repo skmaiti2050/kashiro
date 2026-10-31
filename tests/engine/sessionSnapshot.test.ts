@@ -119,15 +119,26 @@ describe('snapshot', () => {
     }
   });
 
-  // Task F15 carries a fix under an accepted rewrite across a re-check; a saved review still keeps neither (no AI is saved).
-  it('leaves out a fix the user accepted and then an accepted AI rewrite superseded', async () => {
+  // #11: the fix came back pending on resume. No AI rewrite is saved, so the fix is saved (and resumed) on its own.
+  it('keeps a fix the user accepted under an accepted AI rewrite, and resumes it as a plain accepted fix', async () => {
     const POST = 'I recieve post daily.';
-    const s = await start([{ id: 0, text: POST }]);
+    const paras = [{ id: 0, text: POST }];
+    const s = await start(paras);
     s.accept(byOriginal(s, 'recieve').id);
-    expect(s.addRewrite(0, { start: 0, end: POST.length }, 'Post reaches me daily.', 'I receive post daily.')).toEqual({ ok: true });
+    const rewrite = 'Post reaches me daily.';
+    expect(s.addRewrite(0, { start: 0, end: POST.length }, rewrite, 'I receive post daily.')).toEqual({ ok: true });
     s.accept('llm:0:0-21');
     expect(s.outcomes().find((o) => o.candidate.original === 'recieve')!.status).toBe('superseded');
-    expect((await snapshot(s, VIEW)).decisions).toEqual([]);
+    const snap = await snapshot(s, VIEW);
+    expect(snap.decisions).toEqual([
+      { paragraph: 0, kind: 'Spelling', start: 2, end: 9, status: 'applied', replacementHash: (await sha256Hex('receive')).slice(0, 16) },
+    ]);
+    expect(JSON.stringify(snap)).not.toContain(rewrite);
+
+    const { session, restored } = await restore(paras, snap, opts, { linter });
+    expect(session.outcomes().find((o) => o.candidate.original === 'recieve')!.status).toBe('applied');
+    expect(session.outputText(0)).toBe('I receive post daily.');
+    expect(restored).toBe(1);
   });
 
   it('leaves out pending flags, auto-fixes still applied and words added to the dictionary', async () => {

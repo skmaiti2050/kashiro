@@ -8,6 +8,7 @@
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import { CheckSession, type CheckOptions } from '@/engine/session';
+import { carryDecisions, userDecisions } from '@/engine/carryDecisions';
 import { createLinter, type RulesLinter } from '@/engine/linter';
 import { dictionaryAccepts, dictionaryForm, duplicateCount, withDuplicatesMerged, withTitleCaseLowered, withWordAdded } from '@/engine/dictionaryWords';
 import type { Paragraph } from '@/engine/types';
@@ -145,8 +146,10 @@ describe('adding a word undoes the applied fixes of it (Task F20 item 9a, M-12)'
     expect(outcome).toMatchObject({ status: 'rejected', reason: '"recieve" added to dictionary' });
   });
 
-  it('never another change: a fix an AI rewrite was made over stays, and so does the rewrite', async () => {
-    const s = await CheckSession.start(TEXT, opts(), { linter: await createLinter('Indian') });
+  // #11: the fix under the rewrite was left alone, and the next re-check dropped it and the rewrite without a word.
+  it('a fix an AI rewrite was made over is taken back with the same log entry; the rewrite stays, through a re-check too', async () => {
+    const own = await createLinter('Indian');
+    const s = await CheckSession.start(TEXT, opts(), { linter: own });
     const one = decisionOf(s, 0, 'recieve');
     s.applyBatch(one.decision.id, [one.candidate.id]);
     expect(s.addRewrite(0, { start: 0, end: 'I recieve it.'.length }, 'I do receive it.', 'I receive it.')).toEqual({ ok: true });
@@ -155,8 +158,44 @@ describe('adding a word undoes the applied fixes of it (Task F20 item 9a, M-12)'
     expect(s.outputText(0)).toBe('I do receive it.');
     await s.addToDictionary(decisionOf(s, 1, 'recieve').decision.id);
     expect(s.outputText(0)).toBe('I do receive it.');
+    const reason = '"recieve" added to dictionary';
+    expect(s.outcomes().find((o) => o.candidate.id === one.candidate.id)).toMatchObject({ status: 'rejected', reason });
+    expect(s.log().filter((e) => e.candidateId === one.candidate.id).at(-1)).toMatchObject({ status: 'rejected', reason });
+    expect(s.outcomes().find((o) => o.candidate.id === ai.id)!.status).toBe('applied');
+
+    const after = await CheckSession.start(TEXT, opts({ dictionary: s.addedWords() }), { linter: own });
+    recheck(s, after);
+    expect(after.outputText(0)).toBe('I do receive it.');
+  });
+
+  it('adding another word of the paragraph keeps the rewrite and the fix under it through a re-check (#11)', async () => {
+    const own = await createLinter('Indian');
+    const POST = paras('I recieve vantix post daily.');
+    const s = await CheckSession.start(POST, opts(), { linter: own });
+    const fix = decisionOf(s, 0, 'recieve').candidate;
+    s.accept(fix.id);
+    const sentence = { start: 0, end: 'I recieve vantix post daily.'.length };
+    expect(s.addRewrite(0, sentence, 'I do receive vantix post daily.', 'I receive vantix post daily.')).toEqual({ ok: true });
+    const ai = s.candidates().find((c) => c.source === 'llm')!;
+    s.accept(ai.id);
+    await s.addTypedWord('vantix');
+    expect(s.outputText(0)).toBe('I do receive vantix post daily.');
+    expect(s.appliedOver(fix.id)).toBe(ai.id);
+
+    const after = await CheckSession.start(POST, opts({ dictionary: s.addedWords() }), { linter: own });
+    recheck(s, after);
+    expect(after.outputText(0)).toBe('I do receive vantix post daily.');
+    const twin = after.candidates().find((c) => c.original === 'recieve')!;
+    expect(after.appliedOver(twin.id)).toBe(ai.id);
   });
 });
+
+/** A re-check of the same text, as the controller runs it: rule decisions first, then the AI answers. */
+function recheck(before: CheckSession, after: CheckSession): void {
+  const same = new Map(before.paragraphs().map((p) => [p.id, p.id]));
+  carryDecisions(userDecisions(before), after, same, new Map());
+  after.carryRewritesFrom(before, same);
+}
 
 /**
  * Task F29 (owner, 2026-10-30): the owner removed "Cutover", added it back, and it was stored as "Cutover" again, so
