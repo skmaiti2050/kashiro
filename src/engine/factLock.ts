@@ -22,8 +22,6 @@ const PATTERNS: RegExp[] = [
   /“[^”\n]+”/g,
   // citations
   /\[\d+(?:\s*[,–-]\s*\d+)*\]/g,
-  // Markdown link label or definition, label-sized: "[the the](url)", "[the the][ref]", "[the the]: url" (#7)
-  /\[[^[\]\n]{1,40}\](?=[[(:])/g,
   // (Author, 2020), (Author et al., 2020, p. 4), (A, 2010; B and C, 2014)
   new RegExp(
     String.raw`\(${AUTHOR_YEAR}(?:;\s*${AUTHOR_YEAR})*\)`,
@@ -191,27 +189,41 @@ const LINK_DEFINITION = /^[ \t]{0,3}\[([^[\]\n]{1,40})\]:/gm;
 /** A label-sized bracket pair with no nested brackets: "[the the]". */
 const BRACKET_LABEL = /\[([^[\]\n]{1,40})\]/g;
 
-/** The labels (lowercased) that `texts` define: the definition and its paragraph can differ, so pass the whole document. */
+/** A word written twice inside a label: "the the", "With with". */
+const DOUBLED_WORD = /(?<![\p{L}\p{N}])(\p{L}+)\s+\1(?![\p{L}\p{N}])/iu;
+/** What follows a label that makes it a link: "(url)", "[ref]" or ": url" (a definition). */
+const LINK_TAIL = /^[[(:]/;
+
+/** Markdown label matching ignores case and runs of whitespace: "[The  The]" is "[the the]". */
+const normalisedLabel = (label: string): string => label.toLowerCase().replace(/\s+/g, ' ').trim();
+
+/** The labels (normalised) that `texts` define: the definition and its paragraph can differ, so pass the whole document. */
 export function definedLinkLabels(texts: Iterable<string>): Set<string> {
   const labels = new Set<string>();
-  for (const text of texts) for (const m of text.matchAll(LINK_DEFINITION)) labels.add(m[1].toLowerCase());
+  for (const text of texts) for (const m of text.matchAll(LINK_DEFINITION)) labels.add(normalisedLabel(m[1]));
   return labels;
 }
 
-/** Defined labels used shortcut-style ("See [the the] for details."): link text, not prose. */
-function definedLabelSpans(text: string, labels: ReadonlySet<string>): Span[] {
-  if (labels.size === 0) return [];
-  return [...text.matchAll(BRACKET_LABEL)]
-    .filter((m) => labels.has(m[1].toLowerCase()))
-    .map((m) => ({ start: m.index!, end: m.index! + m[0].length }));
+/**
+ * Markdown link labels with a doubled word ("[the the](url)", "[with with][ref]", "[the the]: url", or "[the the]"
+ * defined elsewhere): the doubling is the label's name, not a slip (#7). Other labels stay open to checking.
+ */
+function doubledLabelSpans(text: string, defined: ReadonlySet<string>): Span[] {
+  const spans: Span[] = [];
+  for (const m of text.matchAll(BRACKET_LABEL)) {
+    const end = m.index! + m[0].length;
+    if (!DOUBLED_WORD.test(m[1])) continue;
+    if (LINK_TAIL.test(text.slice(end, end + 1)) || defined.has(normalisedLabel(m[1]))) spans.push({ start: m.index!, end });
+  }
+  return spans;
 }
 
 /**
- * Ranges that must never be auto-changed. Sorted, merged. `linkLabels` are the reference-link labels the whole
- * document defines (definedLinkLabels); by default only this text's own count.
+ * Ranges that must never be auto-changed. Sorted, merged. `linkLabels` is the reference-link labels a Markdown
+ * document defines (definedLinkLabels); leave it out for other formats, where "[x]" is plain text.
  */
-export function findLockedSpans(text: string, linkLabels: ReadonlySet<string> = definedLinkLabels([text])): Span[] {
-  const spans: Span[] = definedLabelSpans(text, linkLabels);
+export function findLockedSpans(text: string, linkLabels?: ReadonlySet<string>): Span[] {
+  const spans: Span[] = linkLabels ? doubledLabelSpans(text, linkLabels) : [];
   for (const re of PATTERNS) {
     for (const m of text.matchAll(re)) {
       const start = m.index!;

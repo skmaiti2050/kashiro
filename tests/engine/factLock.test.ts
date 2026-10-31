@@ -8,20 +8,39 @@ function covered(text: string, needle: string, from = 0): boolean {
   return spans.some((s) => s.start <= start && s.end >= start + needle.length);
 }
 
-describe('Markdown reference-link labels (#7)', () => {
-  it.each(['[the the](https://example.com)', '[the the][ref]', '[the the]: https://example.com'])('locks the label of %s', (link) => {
-    expect(covered(`See ${link} for details.`, '[the the]')).toBe(true);
+describe('Markdown link labels with a doubled word (#7)', () => {
+  const lockedIn = (text: string, needle: string, labels: ReadonlySet<string> = definedLinkLabels([text])) =>
+    findLockedSpans(text, labels).some((s) => s.start <= text.indexOf(needle) && s.end >= text.indexOf(needle) + needle.length);
+
+  it.each(['[the the](https://example.com)', '[the the][ref]', '[with with][ref]', '[the the]: https://example.com'])(
+    'locks the label of %s',
+    (link) => {
+      const label = link.slice(0, link.indexOf(']') + 1);
+      expect(lockedIn(`See ${link} for details.`, label)).toBe(true);
+    },
+  );
+
+  it('locks a shortcut label only when a definition of it exists, ignoring case and spacing', () => {
+    const text = 'See [the  The] for details.';
+    expect(lockedIn(text, '[the  The]')).toBe(false);
+    expect(lockedIn(text, '[the  The]', definedLinkLabels(['[The the]: https://example.com']))).toBe(true);
   });
 
-  it('locks a shortcut label only when a definition of it exists', () => {
-    const text = 'See [the the] for details.';
-    expect(covered(text, '[the the]')).toBe(false);
-    expect(findLockedSpans(text, definedLinkLabels(['[The The]: https://example.com']))).toContainEqual({ start: 4, end: 13 });
+  it.each([
+    ['See [teh docs](https://x.com) now.', 'teh'],
+    ['[Name]: hello there', 'Name'],
+    ['See [note]: text', 'note'],
+  ])('does not lock a label without a doubled word: %s', (text, needle) => {
+    expect(lockedIn(text, needle)).toBe(false);
+  });
+
+  it('does not lock labels when no label set is passed (not Markdown)', () => {
+    expect(findLockedSpans('See [the the](https://x.com) now.')).not.toContainEqual({ start: 4, end: 13 });
   });
 
   it('keeps a long bracketed aside open to checking', () => {
     const text = 'He left [and then he went to the the shop on teh corner today] quickly.';
-    expect(covered(text, 'the the')).toBe(false);
+    expect(lockedIn(text, 'the the')).toBe(false);
   });
 });
 

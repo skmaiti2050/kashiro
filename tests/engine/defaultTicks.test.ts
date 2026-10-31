@@ -277,6 +277,32 @@ describe('legitimately doubled keywords are not repeated-word slips (#7)', () =>
     expect(session.outputText(0)).toBe('See [the the] and teh cat of mine.');
   });
 
+  it('locks a label whose spacing and case differ from its definition, in Markdown', async () => {
+    const { paras } = await markdownAdapter.read(new TextEncoder().encode('See [The  The] for details.\n\n[the the]: https://example.com\n'));
+    const { session, ticked } = await applyAllWithDefaultTicks(paras, { language: 'markdown' });
+    expect(ticked).toEqual([]);
+    expect(paras.map((p) => session.outputText(p.id))).toEqual(paras.map((p) => p.text));
+  });
+
+  it('leaves the typo in an ordinary link label an ordinary fix', async () => {
+    const { paras } = await markdownAdapter.read(new TextEncoder().encode('See [teh docs](https://x.com) now.\n'));
+    const { session, unticked } = await applyAllWithDefaultTicks(paras, { language: 'markdown' });
+    expect(unticked).toEqual(['teh → the']);
+    expect(session.candidates().map((c) => c.original)).toEqual(['teh']);
+  });
+
+  it('locks nothing for "[Name]: hello" in a plain-text document', async () => {
+    const s = await CheckSession.start([{ id: 0, text: '[Name]: hello teh world' }], opts(), { linter });
+    const c = s.candidates().find((x) => x.original === 'teh')!;
+    expect(s.decisions().top.flatMap((d) => d.candidateIds)).toContain(c.id);
+  });
+
+  it('does not label-lock "[the the]" with a definition in a plain-text document', async () => {
+    const paras = [{ id: 0, text: 'See [the the] for details.' }, { id: 1, text: '[the the]: https://example.com' }];
+    const { ticked } = await applyAllWithDefaultTicks(paras);
+    expect(ticked).toEqual(['the the → the']);
+  });
+
   it('does not lock a long bracketed aside, so a typo inside it is still found', async () => {
     const s = await CheckSession.start([{ id: 0, text: 'He left [and then he went to the the shop on teh corner] quickly.' }], opts(), { linter });
     expect(doubledOffers(s)).toEqual(['the the']);
