@@ -3,6 +3,7 @@ import { act, fireEvent } from '@testing-library/react';
 import { createLinter } from '@/engine/linter';
 import { adapterFor } from '@/formats/registry';
 import type { FormatAdapter } from '@/formats/types';
+import type { Files } from '@/ui/state/saveFlow';
 import { SessionController } from '@/ui/state/sessionController';
 import { defaultSettings } from '@/ui/state/settings';
 import { noFiles, warmLinter } from './harness';
@@ -30,9 +31,10 @@ const previewOpen = () => reviewPanel().querySelector('.batch-preview') !== null
 // Issue #35: a save marks an edit unplaceable (and may give back the edits it superseded) without a change to the
 // text that the open preview could notice, so a preview opened before the save stayed open on stale members.
 describe('a save that makes an edit unplaceable closes an open preview (#35)', () => {
-  it('the preview of another card closes', async () => {
+  /** Opens a two-batch document, accepts the first batch and opens the preview of the other card. */
+  async function withOpenPreview(files: Files) {
     const controller = new SessionController({
-      files: noFiles,
+      files,
       adapterFor: () => refusingFirstEdit,
       createLinter: (variant, words) => createLinter(variant, words),
       saveSettings: async () => {},
@@ -47,12 +49,27 @@ describe('a save that makes an edit unplaceable closes an open preview (#35)', (
 
     fireEvent.keyDown(reviewPanel(), { key: 'Enter' });
     expect(previewOpen()).toBe(true);
+    return controller;
+  }
 
+  it('the preview of another card closes', async () => {
+    const controller = await withOpenPreview(noFiles);
     await act(async () => {
       await controller.save();
     });
     const session = controller.getState().session!;
     expect(session.outcomes().some((o) => o.unplaceable !== undefined)).toBe(true);
+    expect(previewOpen()).toBe(false);
+  });
+
+  it('the preview closes even when the write then fails, and the error is still shown', async () => {
+    const controller = await withOpenPreview({ ...noFiles, save: async () => Promise.reject(new Error('disk full')) });
+    await act(async () => {
+      await controller.save();
+    });
+    const { session, error } = controller.getState();
+    expect(session!.outcomes().some((o) => o.unplaceable !== undefined)).toBe(true);
+    expect(error).not.toBeNull();
     expect(previewOpen()).toBe(false);
   });
 });

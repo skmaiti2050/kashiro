@@ -47,8 +47,11 @@ export async function save(host: SaveHost): Promise<boolean> {
     return false;
   }
   const { adapter, handle } = loaded;
+  const editsBefore = JSON.stringify(session.acceptedEdits());
+  // Unplaceable edits are marked before the file is written, so a failed write changes them too (#35).
+  const textChangesIfEditsChanged = () =>
+    JSON.stringify(session.acceptedEdits()) !== editsBefore ? { textChanges: host.state().textChanges + 1 } : {};
   try {
-    const editsBefore = JSON.stringify(session.acceptedEdits());
     const notice = await saveDocument({
       session,
       adapter,
@@ -61,14 +64,13 @@ export async function save(host: SaveHost): Promise<boolean> {
     });
     // Unplaceable edits may have been marked on the session, so this always re-renders. Marking one changes the
     // accepted edits like any other change to the text, so open previews close by the same textChanges rule (#35).
-    const editsChanged = JSON.stringify(session.acceptedEdits()) !== editsBefore;
-    host.set({ notice, error: null, ...(editsChanged && { textChanges: host.state().textChanges + 1 }) });
+    host.set({ notice, error: null, ...textChangesIfEditsChanged() });
     if (notice === null) return false;
     // A download may never reach a folder the user keeps: the work stays unsaved, so leaving still asks (final review R2).
     if (capabilities.saveInPlace !== 'download') host.markSaved(changes);
     return true;
   } catch (e) {
-    host.set({ error: saveError(e, msg('error.save', { name: document.name }), document.name) });
+    host.set({ error: saveError(e, msg('error.save', { name: document.name }), document.name), ...textChangesIfEditsChanged() });
     return false;
   }
 }
