@@ -303,6 +303,7 @@
   "unplaceable.textBox": "इसी हिस्से में एक टेक्स्ट बॉक्स भी है, जिसमें बदलाव हो रहा है",
   "unplaceable.overlaps": "किसी दूसरे बदलाव से टकराता है",
   "unplaceable.textNotFound": "पैराग्राफ़ या हिस्सा नहीं मिला",
+  "unplaceable.restoredInvisible": "आपका वापस रखा हुआ अदृश्य अक्षर हट जाएगा",
 
   "status.offline": "ऑफ़लाइन · कुछ भी इस PC से बाहर नहीं जाता",
   "status.offlineTitle": "आपके टेक्स्ट की जाँच इसी PC पर होती है, उसे कहीं नहीं भेजा जाता।",

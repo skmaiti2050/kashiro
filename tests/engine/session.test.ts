@@ -281,6 +281,19 @@ describe('invisible characters (review #4, C3)', () => {
     expect(outcome.unplaceable).toMatch(/invisible/i);
   });
 
+  it('the character stays restored after a re-check of another paragraph (#9)', async () => {
+    const text = 'We recie\u{200B}ved the file.';
+    const before = await start([{ id: 0, text }, { id: 1, text: 'One.' }]);
+    before.undo(before.candidates().find((c) => c.kind === 'Invisible')!.id);
+    before.accept(before.candidates().find((c) => c.kind === 'Spelling' || c.kind === 'Typo')!.id);
+    expect(before.outputText(0)).toBe(text);
+    const after = await start([{ id: 0, text }, { id: 1, text: 'Two.' }]);
+    carryDecisions(userDecisions(before), after, new Map([[0, 0]]), new Map());
+    expect(after.outputText(0)).toBe(text);
+    after.accept(after.candidates().find((c) => c.kind === 'Spelling' || c.kind === 'Typo')!.id);
+    expect(after.outputText(0)).toBe(text);
+  });
+
   it('a card that does not cover the restored character leaves it alone (#9)', async () => {
     const text = 'I think teh cat\u{200B} sat.';
     const s = await start([{ id: 0, text }]);

@@ -26,6 +26,8 @@ const UNPLACEABLE: Record<string, MessageKey> = {
   'the run also holds a text box that is being edited': 'unplaceable.textBox',
   'overlaps another edit': 'unplaceable.overlaps',
   'paragraph or span not found': 'unplaceable.textNotFound',
+  // From the engine (session.ts RESTORED_INVISIBLE_REASON), not the formats.
+  'it would delete an invisible character you restored': 'unplaceable.restoredInvisible',
 };
 
 /** An unknown text (a newer format reason) is shown as it is, in English. */

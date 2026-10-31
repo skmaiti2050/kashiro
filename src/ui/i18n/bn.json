@@ -303,6 +303,7 @@
   "unplaceable.textBox": "একই অংশে একটা টেক্সট বক্সও আছে, যেটা বদলানো হচ্ছে",
   "unplaceable.overlaps": "অন্য একটা পরিবর্তনের সঙ্গে একই জায়গায় পড়ে",
   "unplaceable.textNotFound": "অনুচ্ছেদ বা অংশ পাওয়া যায়নি",
+  "unplaceable.restoredInvisible": "আপনার ফিরিয়ে রাখা অদৃশ্য অক্ষরটি মুছে যাবে",
 
   "status.offline": "অফলাইন · কিছুই এই PC-র বাইরে যায় না",
   "status.offlineTitle": "আপনার লেখা এই PC-তেই পরীক্ষা হয়, কোথাও পাঠানো হয় না।",

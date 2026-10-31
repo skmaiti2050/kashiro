@@ -302,6 +302,7 @@
   "unplaceable.textBox": "the run also holds a text box that is being edited",
   "unplaceable.overlaps": "overlaps another edit",
   "unplaceable.textNotFound": "paragraph or span not found",
+  "unplaceable.restoredInvisible": "it would delete an invisible character you restored",
 
   "status.offline": "Offline · nothing leaves this PC",
   "status.offlineTitle": "Your text is checked on this PC and never sent anywhere.",

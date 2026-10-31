@@ -145,6 +145,27 @@ describe('ChangeLog: one row for the simple-fixes card (Task F4)', () => {
   });
 });
 
+describe('ChangeLog: a card blocked by a restored invisible character (#9)', () => {
+  const blocked = (): Outcome => ({
+    ...applied('r', 'recie\u{200B}ved', 'received', 'Spelling', 'We recie\u{200B}ved it.'),
+    status: 'rejected',
+    batch: undefined,
+    unplaceable: 'it would delete an invisible character you restored',
+  });
+
+  it.each([
+    ['en', 'it would delete an invisible character you restored'],
+    ['hi', 'आपका वापस रखा हुआ अदृश्य अक्षर हट जाएगा'],
+    ['bn', 'আপনার ফিরিয়ে রাখা অদৃশ্য অক্ষরটি মুছে যাবে'],
+  ] as const)('%s: shows the translated reason, not the raw engine text', (language, said) => {
+    const { container } = renderLog([blocked()], 'We recie\u{200B}ved it.', language);
+    const text = container.querySelector('.entries li')!.textContent!;
+    expect(text).toContain(said);
+    expect(text).not.toContain('unplaceable:');
+    if (language !== 'en') expect(text).not.toContain('invisible character you restored');
+  });
+});
+
 /** The column sizes of a grid ("48px minmax(0, 1fr) auto" → ["48px", "minmax(0, 1fr)", "auto"]). */
 const gridTracks = (template: string) => template.match(/[\w.-]+\([^)]*\)|\S+/g) ?? [];
 
