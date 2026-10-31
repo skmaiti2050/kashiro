@@ -1,5 +1,5 @@
 import { createElement } from 'react';
-import { binary } from 'harper.js/binary';
+import { harperWasmUrl } from '../web/harperWasm';
 import { LoadingScreen } from '../web/LoadingScreen';
 import { downloadWithProgress } from '../web/loadingProgress';
 import type * as desktop from '../platform/startup';
@@ -10,7 +10,7 @@ import type * as desktop from '../platform/startup';
  */
 export const startApp: typeof desktop.startApp = (root, app) => {
   const show = (megabytes: number | null) => root.render(createElement(LoadingScreen, { megabytes }));
-  const wasmUrl = typeof binary.url === 'string' ? binary.url : binary.url.href;
+  const wasmUrl = harperWasmUrl();
   // A failed download still shows the app: Harper's own load then fails the same way, and the app says the
   // proofreader couldn't start (error.checkerStart), with what to do next.
   downloadWithProgress(wasmUrl, show).then(

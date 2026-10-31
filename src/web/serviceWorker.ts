@@ -47,7 +47,8 @@ async function precache(): Promise<void> {
 /**
  * Caches `url` from a copy that needs no download: the previous build's cache (an update that kept the same wasm), or
  * the browser's HTTP cache (the first visit's loading screen downloaded the wasm before this worker was registered).
- * Otherwise does nothing; the page's next fetch caches it.
+ * Otherwise does nothing; the page's next fetch caches it. Safari refuses only-if-cached: there the page fetches the
+ * wasm again once this worker controls it (src/ui/web/useServiceWorker.ts), so a first visit still works offline.
  */
 async function keepCopyAtHand(cache: Cache, url: string): Promise<void> {
   const previous = await caches.match(url);

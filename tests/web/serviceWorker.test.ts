@@ -284,12 +284,49 @@ class FakeContainer extends EventTarget {
 }
 
 describe('the page’s update notice', () => {
-  async function watch(container: FakeContainer) {
+  async function watch(container: FakeContainer, refetch: (url: string) => void = () => {}) {
     const offers: (() => void)[] = [];
     const reload = vi.fn();
-    await watchServiceWorker(container as unknown as ServiceWorkerContainer, '/kashiro/sw.js', (apply) => offers.push(apply), reload);
+    await watchServiceWorker(container as unknown as ServiceWorkerContainer, '/kashiro/sw.js', (apply) => offers.push(apply), reload, {
+      firstUse: [WASM],
+      refetch,
+    });
     return { offers, reload };
   }
+
+  // Final review item 5: another tab applied the update, so this page's worker is no longer waiting.
+  it('Reload when the new version already took over elsewhere reloads at once', async () => {
+    const container = new FakeContainer({});
+    const { offers, reload } = await watch(container);
+    const worker = container.registration.found();
+    worker.become('installed');
+    worker.become('activated');
+    offers[0]();
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+
+  // Final review item 6: Safari refuses only-if-cached, so the worker can't take the first visit's wasm from the HTTP
+  // cache at install. Once it controls the page, the page asks for the wasm again and the worker caches it.
+  it('the first visit fetches the first-use files again once the worker controls the page', async () => {
+    const container = new FakeContainer(null);
+    const refetch = vi.fn();
+    const { reload } = await watch(container, refetch);
+    expect(refetch).not.toHaveBeenCalled();
+    container.controller = {};
+    container.dispatchEvent(new Event('controllerchange'));
+    container.dispatchEvent(new Event('controllerchange'));
+    expect(refetch.mock.calls).toEqual([[WASM]]);
+    expect(reload).not.toHaveBeenCalled();
+  });
+
+  it('a page the worker already controlled fetches nothing again', async () => {
+    const container = new FakeContainer({});
+    const refetch = vi.fn();
+    await watch(container, refetch);
+    container.registration.found().become('installed');
+    container.dispatchEvent(new Event('controllerchange'));
+    expect(refetch).not.toHaveBeenCalled();
+  });
 
   it('registers the worker under the base path', async () => {
     const container = new FakeContainer(null);
