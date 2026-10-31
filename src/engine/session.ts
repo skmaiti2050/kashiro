@@ -45,6 +45,7 @@ export { REWRITE_OUT_OF_DATE } from './sessionRewrites';
 
 /** Why a change made without a click was taken back by the token check (holdBackChangedTokens). */
 const HELD_BACK_REASON = 'held back: it would change a word';
+const RESTORED_INVISIBLE_REASON = 'it would delete an invisible character you restored';
 
 /** The cards answered by their own method, never by accept: card id → its name and method. */
 const CARD_ACCEPT_METHODS = new Map([
@@ -377,6 +378,10 @@ export class CheckSession {
       }
       // Never over an edit the user applied, one made a moment ago in this batch included: withdrawCovered takes it out.
       if (c.source !== 'llm' && this.ledger.userEditOver(c)) continue;
+      if (this.coversRestoredInvisible(c)) {
+        this.markUnplaceable(c.id, RESTORED_INVISIBLE_REASON);
+        continue;
+      }
       this.ledger.apply(c, c.replacements[replacementIndex], false);
     }
     this.withdrawOutdated();
@@ -389,6 +394,18 @@ export class CheckSession {
   private withdrawOutdated(): void {
     this.ledger.withdrawCovered();
     this.rewrites.withdrawStale();
+  }
+
+  /**
+   * A fix's replacement was made on text without invisible characters, so over one the user kept (undid or
+   * declined its removal) it would delete that character again (#9). Known only after setup, so checked on accept.
+   */
+  private coversRestoredInvisible(c: Candidate): boolean {
+    if (c.kind === 'Invisible') return false;
+    return [...this.userRejected].some((id) => {
+      const o = this.cands.get(id);
+      return o?.kind === 'Invisible' && o.paraId === c.paraId && c.span.start <= o.span.start && o.span.end <= c.span.end;
+    });
   }
 
   reject(decisionId: string): void {

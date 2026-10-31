@@ -266,6 +266,30 @@ describe('invisible characters (review #4, C3)', () => {
     expect(kept.every((c) => s.tier(c.id) === 'review')).toBe(true);
   });
 
+  it('a character the user restored is not deleted again by a card covering it (#9)', async () => {
+    const text = 'We recie\u{200B}ved the file.';
+    const s = await start([{ id: 0, text }]);
+    const invisible = s.candidates().find((c) => c.kind === 'Invisible')!;
+    expect(s.outputText(0)).toBe('We recieved the file.');
+    s.undo(invisible.id);
+    expect(s.outputText(0)).toBe(text);
+    const typo = s.candidates().find((c) => c.kind === 'Spelling' || c.kind === 'Typo')!;
+    s.accept(typo.id);
+    expect(s.outputText(0)).toBe(text);
+    const outcome = s.outcomes().find((o) => o.candidate.id === typo.id)!;
+    expect(outcome.status).toBe('rejected');
+    expect(outcome.unplaceable).toMatch(/invisible/i);
+  });
+
+  it('a card that does not cover the restored character leaves it alone (#9)', async () => {
+    const text = 'I think teh cat\u{200B} sat.';
+    const s = await start([{ id: 0, text }]);
+    const invisible = s.candidates().find((c) => c.kind === 'Invisible')!;
+    s.undo(invisible.id);
+    s.accept(s.candidates().find((c) => c.kind === 'Typo')!.id);
+    expect(s.outputText(0)).toBe('I think the cat\u{200B} sat.');
+  });
+
   it('flags after one keep their offsets in the paragraph', async () => {
     const text = '\u{200B}I think teh cat sat.';
     const s = await startFixed([{ id: 0, text }]);
