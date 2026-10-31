@@ -1,7 +1,7 @@
 import { createLinter, type RulesLinter } from './linter';
 import { detectVariant } from './variant';
 import { findInvisible, visibleText, type VisibleText } from './hygiene';
-import { findLockedSpans } from './factLock';
+import { definedLinkLabels, findLockedSpans } from './factLock';
 import { findCommandText, withoutCaseOnlyFixOnCommand } from './commands';
 import { withTechnicalWordRules } from './technicalWords';
 import { lintInChunks } from './chunks';
@@ -68,7 +68,8 @@ export async function prepareCheck(
   // other rule's flag on them (Task F20 item 1).
   const { surely: commandSpans, maybe: maybeCommandSpans } = findCommandText(paras);
   const locked = new Map<number, Span[]>();
-  for (const p of paras) locked.set(p.id, [...findLockedSpans(p.text), ...commandSpans.get(p.id)!, ...(p.locked ?? [])]);
+  const linkLabels = definedLinkLabels(paras.map((p) => p.text));
+  for (const p of paras) locked.set(p.id, [...findLockedSpans(p.text, linkLabels), ...commandSpans.get(p.id)!, ...(p.locked ?? [])]);
   // The linter reads each paragraph without its invisible junk; its spans are mapped back below.
   const invisible = new Map(paras.map((p) => [p.id, findInvisible(p, locked.get(p.id))]));
   const visible = new Map(paras.map((p) => [p.id, visibleText(p, invisible.get(p.id)!)]));

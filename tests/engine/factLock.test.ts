@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { findLockedSpans, followsAbbreviation, isSentenceStart } from '../../src/engine/factLock';
+import { definedLinkLabels, findLockedSpans, followsAbbreviation, isSentenceStart } from '../../src/engine/factLock';
 
 function covered(text: string, needle: string, from = 0): boolean {
   const start = text.indexOf(needle, from);
@@ -7,6 +7,23 @@ function covered(text: string, needle: string, from = 0): boolean {
   const spans = findLockedSpans(text);
   return spans.some((s) => s.start <= start && s.end >= start + needle.length);
 }
+
+describe('Markdown reference-link labels (#7)', () => {
+  it.each(['[the the](https://example.com)', '[the the][ref]', '[the the]: https://example.com'])('locks the label of %s', (link) => {
+    expect(covered(`See ${link} for details.`, '[the the]')).toBe(true);
+  });
+
+  it('locks a shortcut label only when a definition of it exists', () => {
+    const text = 'See [the the] for details.';
+    expect(covered(text, '[the the]')).toBe(false);
+    expect(findLockedSpans(text, definedLinkLabels(['[The The]: https://example.com']))).toContainEqual({ start: 4, end: 13 });
+  });
+
+  it('keeps a long bracketed aside open to checking', () => {
+    const text = 'He left [and then he went to the the shop on teh corner today] quickly.';
+    expect(covered(text, 'the the')).toBe(false);
+  });
+});
 
 describe('findLockedSpans', () => {
   it.each([

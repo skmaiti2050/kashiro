@@ -245,3 +245,40 @@ describe('the simple-fixes card ticks only a closed set of fixes (Task F6, owner
     expect(session.outputText(0)).toBe('Use tabs\t\there please.');
   });
 });
+
+describe('legitimately doubled keywords are not repeated-word slips (#7)', () => {
+  /** The doubled words on the simple-fixes card: locked text is never auto-applied, so a locked doubling must not be on it. */
+  const doubledOffers = (s: CheckSession) => {
+    const card = s.decisions().top.find((d) => d.id === SIMPLE_FIXES_ID);
+    const onCard = new Set(card?.candidateIds ?? []);
+    return s.candidates().filter((c) => onCard.has(c.id) && /^(\S+)\s+\1$/iu.test(c.original)).map((c) => c.original);
+  };
+
+  it.each([
+    ['a reference-link label and its definition', 'See [the the] for details.\n\n[the the]: https://example.com\n', 'markdown'],
+    ['a reference-link label with a second label', 'See [the the][ref] for details.\n\n[ref]: https://example.com\n', 'markdown'],
+    ['an inline link label', 'See [the the](https://example.com) for details.\n', 'markdown'],
+    ['a label defined later in the document', 'First read the intro.\n\nSee [of of] for details.\n\n[of of]: https://example.com\n', 'markdown'],
+    ['a quoted keyword', 'Open files with "with with".\n', 'plaintext'],
+    ['a backticked keyword', 'Open files with `with with`.\n', 'plaintext'],
+  ] as const)('never offers or changes the doubling in %s', async (_what, text, language) => {
+    const adapter = language === 'markdown' ? markdownAdapter : plaintextAdapter;
+    const { paras } = await adapter.read(new TextEncoder().encode(text));
+    const { session, ticked } = await applyAllWithDefaultTicks(paras, { language });
+    expect(ticked).toEqual([]);
+    expect(doubledOffers(session)).toEqual([]);
+    expect(paras.map((p) => session.outputText(p.id))).toEqual(paras.map((p) => p.text));
+  });
+
+  it('still offers a real slip next to a reference-link label, ticked as usual', async () => {
+    const { paras } = await markdownAdapter.read(new TextEncoder().encode('See [the the] and teh cat of of mine.\n\n[the the]: https://example.com\n'));
+    const { session, ticked } = await applyAllWithDefaultTicks(paras, { language: 'markdown' });
+    expect(ticked).toEqual(['of of → of']);
+    expect(session.outputText(0)).toBe('See [the the] and teh cat of mine.');
+  });
+
+  it('does not lock a long bracketed aside, so a typo inside it is still found', async () => {
+    const s = await CheckSession.start([{ id: 0, text: 'He left [and then he went to the the shop on teh corner] quickly.' }], opts(), { linter });
+    expect(doubledOffers(s)).toEqual(['the the']);
+  });
+});

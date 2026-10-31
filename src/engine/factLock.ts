@@ -22,6 +22,8 @@ const PATTERNS: RegExp[] = [
   /“[^”\n]+”/g,
   // citations
   /\[\d+(?:\s*[,–-]\s*\d+)*\]/g,
+  // Markdown link label or definition, label-sized: "[the the](url)", "[the the][ref]", "[the the]: url" (#7)
+  /\[[^[\]\n]{1,40}\](?=[[(:])/g,
   // (Author, 2020), (Author et al., 2020, p. 4), (A, 2010; B and C, 2014)
   new RegExp(
     String.raw`\(${AUTHOR_YEAR}(?:;\s*${AUTHOR_YEAR})*\)`,
@@ -184,9 +186,32 @@ export function isSentenceStart(text: string, i: number): boolean {
   return '.?!:।॥'.includes(text[j - 1]);
 }
 
-/** Ranges that must never be auto-changed. Sorted, merged. */
-export function findLockedSpans(text: string): Span[] {
-  const spans: Span[] = [];
+/** A Markdown reference definition at a line start: "[the the]: https://example.com" (group 1 is the label). */
+const LINK_DEFINITION = /^[ \t]{0,3}\[([^[\]\n]{1,40})\]:/gm;
+/** A label-sized bracket pair with no nested brackets: "[the the]". */
+const BRACKET_LABEL = /\[([^[\]\n]{1,40})\]/g;
+
+/** The labels (lowercased) that `texts` define: the definition and its paragraph can differ, so pass the whole document. */
+export function definedLinkLabels(texts: Iterable<string>): Set<string> {
+  const labels = new Set<string>();
+  for (const text of texts) for (const m of text.matchAll(LINK_DEFINITION)) labels.add(m[1].toLowerCase());
+  return labels;
+}
+
+/** Defined labels used shortcut-style ("See [the the] for details."): link text, not prose. */
+function definedLabelSpans(text: string, labels: ReadonlySet<string>): Span[] {
+  if (labels.size === 0) return [];
+  return [...text.matchAll(BRACKET_LABEL)]
+    .filter((m) => labels.has(m[1].toLowerCase()))
+    .map((m) => ({ start: m.index!, end: m.index! + m[0].length }));
+}
+
+/**
+ * Ranges that must never be auto-changed. Sorted, merged. `linkLabels` are the reference-link labels the whole
+ * document defines (definedLinkLabels); by default only this text's own count.
+ */
+export function findLockedSpans(text: string, linkLabels: ReadonlySet<string> = definedLinkLabels([text])): Span[] {
+  const spans: Span[] = definedLabelSpans(text, linkLabels);
   for (const re of PATTERNS) {
     for (const m of text.matchAll(re)) {
       const start = m.index!;
