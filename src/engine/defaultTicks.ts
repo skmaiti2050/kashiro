@@ -36,8 +36,23 @@ function startsTicked(c: Candidate, ctx: TickContext): boolean {
   const text = ctx.paraText.get(c.paraId);
   if (text === undefined || c.replacements.length !== 1 || ctx.optedIn(c) || isLetterPair(c)) return false;
   if (text.slice(c.span.start, c.span.end) !== c.original || !isSlipDoubling(c, text)) return false;
+  if (followsMentionWord(text, c.span)) return false;
   // Only in a clear prose sentence (Task F21d, owner decision 2026-10-29): elsewhere it may be command text.
   return isClearProseSentence(text, c.span, { commandText: ctx.commandText(c.paraId), unknownWords: ctx.unknownWords(c.paraId) });
+}
+
+/** A mention word and the space after it, at the end of the text before a fix: "use the keyword " (#38). */
+const MENTION_WORD_BEFORE = /\b(?:keyword|command|option|flag)s?\s+$/iu;
+
+/** How far back to look: the longest mention word plus a little space, so a long paragraph is never rescanned. */
+const MENTION_LOOKBEHIND = 40;
+
+/**
+ * A doubled word right after "keyword", "command", "option" or "flag" ("use the keyword with with the path") may be
+ * the keyword itself, as in a how-to; nothing marks it, so it is offered but never ticked.
+ */
+function followsMentionWord(text: string, span: Span): boolean {
+  return MENTION_WORD_BEFORE.test(text.slice(Math.max(0, span.start - MENTION_LOOKBEHIND), span.start));
 }
 
 /** The doubled words that are also letters or sounds on a worksheet. */

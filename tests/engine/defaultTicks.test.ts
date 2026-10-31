@@ -246,6 +246,29 @@ describe('the simple-fixes card ticks only a closed set of fixes (Task F6, owner
   });
 });
 
+describe('a doubled word right after a mention word is offered but never pre-ticked (#38)', () => {
+  it.each([
+    ['To open files, use the keyword with with the path.', 'with with → with'],
+    ['Pass the Command the the file name.', 'the the → the'],
+    ['Each of the options of of this tool is documented.', 'of of → of'],
+    ['Set the FLAGS and and the paths before you start.', 'and and → and'],
+  ])('starts unticked, leaves the text alone, and still lists it: "%s"', async (text, fix) => {
+    const { session, ticked, unticked } = await applyAllWithDefaultTicks([{ id: 0, text }]);
+    expect(ticked).toEqual([]);
+    expect(unticked).toContain(fix);
+    expect(session.outputText(0)).toBe(text);
+  });
+
+  it.each([
+    ['We went to the the market.', 'the the → the'],
+    ['Open files with with care.', 'with with → with'],
+    ['The keyword list has a typo of of one letter.', 'of of → of'],
+  ])('still starts a real slip ticked: "%s"', async (text, fix) => {
+    const { ticked } = await applyAllWithDefaultTicks([{ id: 0, text }]);
+    expect(ticked).toEqual([fix]);
+  });
+});
+
 describe('legitimately doubled keywords are not repeated-word slips (#7)', () => {
   /** The doubled words on the simple-fixes card: locked text is never auto-applied, so a locked doubling must not be on it. */
   const doubledOffers = (s: CheckSession) => {
