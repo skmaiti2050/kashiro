@@ -52,33 +52,43 @@ export function webIcons(iconsDir: string): Plugin {
   };
 }
 
-/** Written next to the files they describe; the service worker never precaches itself or its list. */
-const NOT_PRECACHED = new Set(['sw.js', 'precache.json']);
+/** Written next to the files they describe; the service worker never caches itself or its list. */
+const NOT_LISTED = new Set(['sw.js', 'precache.json']);
+
+/**
+ * Cached by the service worker on first use, not at install: Harper's wasm (about 20 MB), which the loading screen
+ * downloads anyway, and the dictionary (3.5 MB), fetched only when word lookup is used. Matches
+ * "assets/harper_wasm_bg-abc.wasm" and "dictionary/oewn.json.gz".
+ */
+const ON_FIRST_USE = /\.wasm$|^dictionary\//;
 
 /** Every file in the built site, as paths relative to the base ("assets/index-abc.js"), sorted. */
-export async function precacheFiles(dir: string): Promise<string[]> {
+export async function siteFiles(dir: string): Promise<string[]> {
   const entries = await readdir(dir, { recursive: true, withFileTypes: true });
   return entries
     .filter((entry) => entry.isFile())
     .map((entry) => relative(dir, join(entry.parentPath, entry.name)).replaceAll('\\', '/'))
-    .filter((path) => !NOT_PRECACHED.has(path))
+    .filter((path) => !NOT_LISTED.has(path))
     .sort();
 }
 
 /**
- * Writes precache.json ({ build, files }) into the built site and returns the build id: a hash of every file's path and
- * content, so a deploy with any change gets a new cache, and rebuilding the same source does not.
+ * Writes precache.json ({ build, files, onFirstUse }) into the built site and returns the build id: a hash of every
+ * file's path and content, so a deploy with any change gets a new cache, and rebuilding the same source does not.
+ * `files` are cached at install; `onFirstUse` when the page first fetches them.
  */
 export async function writePrecache(dir: string): Promise<string> {
-  const files = await precacheFiles(dir);
+  const all = await siteFiles(dir);
+  const files = all.filter((file) => !ON_FIRST_USE.test(file));
+  const onFirstUse = all.filter((file) => ON_FIRST_USE.test(file));
   const hash = createHash('sha256');
-  for (const file of files) {
+  for (const file of all) {
     // The NUL keeps "a" + "bc" apart from "ab" + "c".
     hash.update(`${file}\0`);
     hash.update(await readFile(join(dir, file)));
     hash.update('\0');
   }
   const build = hash.digest('hex').slice(0, 12);
-  await writeFile(join(dir, 'precache.json'), JSON.stringify({ build, files }, null, 2) + '\n');
+  await writeFile(join(dir, 'precache.json'), JSON.stringify({ build, files, onFirstUse }, null, 2) + '\n');
   return build;
 }

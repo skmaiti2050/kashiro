@@ -1,10 +1,10 @@
 // Web Task 5: the web build lists every file it emitted in precache.json, and names the build by their content, so the
-// service worker caches all of them and a new deploy (new content) installs a new cache.
+// service worker caches all of them (the heavy ones on first use) and a new deploy (new content) installs a new cache.
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { precacheFiles, writePrecache } from '../../scripts/webBuild';
+import { siteFiles, writePrecache } from '../../scripts/webBuild';
 
 let dir: string;
 
@@ -30,7 +30,7 @@ afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 describe('the precache list', () => {
   it('lists every emitted file, relative to the base, sorted, without sw.js and precache.json', async () => {
-    expect(await precacheFiles(dir)).toEqual([
+    expect(await siteFiles(dir)).toEqual([
       'assets/harper_wasm_bg-def.wasm',
       'assets/index-abc.js',
       'dictionary/oewn.json.gz',
@@ -44,8 +44,21 @@ describe('the precache list', () => {
     const build = await writePrecache(dir);
     const written = JSON.parse(readFileSync(join(dir, 'precache.json'), 'utf8'));
     expect(written.build).toBe(build);
-    expect(written.files).toEqual(await precacheFiles(dir));
     expect(build).toMatch(/^[0-9a-f]{12}$/);
+  });
+
+  // Task 7 fix: the loading screen already downloads the wasm; precaching it at install downloaded it a second time.
+  it('leaves the wasm and the dictionary out of the install-time list; the worker caches them on first use', async () => {
+    await writePrecache(dir);
+    const written = JSON.parse(readFileSync(join(dir, 'precache.json'), 'utf8'));
+    expect(written.files).toEqual(['assets/index-abc.js', 'icons/icon-512.png', 'index.html', 'manifest.webmanifest']);
+    expect(written.onFirstUse).toEqual(['assets/harper_wasm_bg-def.wasm', 'dictionary/oewn.json.gz']);
+  });
+
+  it('a changed wasm still gives a new build id', async () => {
+    const first = await writePrecache(dir);
+    put('assets/harper_wasm_bg-def.wasm', 'new wasm');
+    expect(await writePrecache(dir)).not.toBe(first);
   });
 
   it('the same files give the same build id; a changed file gives a new one', async () => {

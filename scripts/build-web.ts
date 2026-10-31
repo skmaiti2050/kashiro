@@ -14,7 +14,7 @@ process.env.VITE_BUILD_DATE ??= new Date().toISOString().slice(0, 10);
 
 await build({ root });
 
-// The service worker comes last: it caches every file of the build (precache.json), in a cache named by their hash.
+// The service worker comes last: it caches the build's files (precache.json), in a cache named by their hash.
 // A classic script (IIFE), so every browser with service workers can run it.
 process.env.VITE_KASHIRO_BUILD_ID = await writePrecache(outDir);
 await build({
