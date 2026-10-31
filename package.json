@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "build:web": "tsc && tsx scripts/build-web.ts",
     "preview": "vite preview",
     "test": "vitest run",
     "check-file": "tsx cli/check-file.ts",

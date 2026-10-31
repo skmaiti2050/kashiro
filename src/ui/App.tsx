@@ -1,5 +1,4 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
-import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Banners } from './Banners';
 import { BugReportDialog } from './BugReportDialog';
 import { ChangeLog } from './ChangeLog';
@@ -27,6 +26,7 @@ import { useShowWindowWhenDrawn } from './useShowWindowWhenDrawn';
 import { msg, type Message } from './i18n/message';
 import { translatorFor } from './i18n/translatorFor';
 import { TranslatorProvider, useT } from './i18n/useT';
+import { capabilities } from './platform/capabilities';
 import { loadAppDictionary } from './platform/dictionary';
 import { files, onFileDrop, setDialogLabels } from './platform/files';
 import { helperInstalled, modelFiles, startAppHelper, stopAppHelper } from './platform/helper';
@@ -35,6 +35,7 @@ import { openProjectPage } from './platform/links';
 import { sessionFiles } from './platform/sessions';
 import { changeLogWasOpen, rememberChangeLogOpen } from './changeLogMemory';
 import { loadSettings, saveSettings } from './platform/settings';
+import { closeWindow, onWindowCloseRequested, setWindowTitle } from './platform/window';
 import { explain } from './state/errors';
 import { readingStyle } from './state/readingSettings';
 import { SessionController, type ControllerState } from './state/sessionController';
@@ -69,7 +70,8 @@ export default function App() {
     // StrictMode runs effects twice in development; one controller (and one linter) is enough.
     if (started.current) return;
     started.current = true;
-    Promise.all([loadSettings(), helperInstalled()]).then(
+    // Where there is no AI (the web), nothing asks for the helper.
+    Promise.all([loadSettings(), capabilities.ai ? helperInstalled() : false]).then(
       ([settings, installed]) => {
         const c = new SessionController({
           files,
@@ -173,9 +175,8 @@ function ShellView({ controller, state }: { controller: SessionController; state
   }, [controller, unlessUnsaved]);
 
   useEffect(() => {
-    const appWindow = getCurrentWindow();
     return listenWhileMounted(
-      appWindow.onCloseRequested(async (event) => {
+      onWindowCloseRequested(async (event) => {
         // The autosave waiting for its 1 s pause is written before the window goes (Tauri awaits this handler).
         // If that write fails, the window stays open with the error showing; closing again goes ahead.
         if (!(await controller.reviews.flush())) {
@@ -184,7 +185,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
         }
         if (!controller.hasUnsavedWork()) return;
         event.preventDefault();
-        setAfterUnsaved(() => () => void appWindow.destroy());
+        setAfterUnsaved(() => () => void closeWindow());
       }),
     );
   }, [controller]);
@@ -193,7 +194,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
   // the unsaved-changes prompt would ask about (F21b item 7); the controller's state changes with every such change.
   const title = windowTitle(state.document, state.document !== null && controller.hasUnsavedWork());
   useEffect(() => {
-    void getCurrentWindow().setTitle(title);
+    void setWindowTitle(title);
   }, [title]);
 
   const paste = async () => {
@@ -207,8 +208,10 @@ function ShellView({ controller, state }: { controller: SessionController; state
   const onOpen = () => unlessUnsaved(() => void controller.open());
   const onPaste = () => unlessUnsaved(() => void paste());
   const onClose = () => unlessUnsaved(() => void controller.close());
-  // Only on the user's click: nothing checks for updates on its own (F23 item 4).
-  const checkForUpdates = () => void openProjectPage('releases').catch(() => controller.showError(msg('updates.openFailed')));
+  // Only on the user's click: nothing checks for updates on its own (F23 item 4). Null where there is none (the web).
+  const checkForUpdates = capabilities.updates
+    ? () => void openProjectPage('releases').catch(() => controller.showError(msg('updates.openFailed')))
+    : null;
   const openFromHelp = () => {
     closePanel();
     onOpen();

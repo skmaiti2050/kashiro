@@ -38,8 +38,8 @@ interface Props {
   onSettings(): void;
   onDictionary(): void;
   onReportBug(): void;
-  /** Opens the Releases page in the browser (F23 item 4). */
-  onCheckUpdates(): void;
+  /** Opens the Releases page in the browser (F23 item 4); null hides the item (the web has no update check). */
+  onCheckUpdates: (() => void) | null;
   onHelp(): void;
   onShortcuts(): void;
   onAbout(): void;
@@ -88,7 +88,7 @@ export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onDict
     { label: t.t('toolbar.settings'), keys: 'Ctrl+,', onChoose: onSettings },
     { label: t.t('toolbar.dictionary'), onChoose: onDictionary },
     { label: t.t('toolbar.reportBug'), onChoose: onReportBug },
-    { label: t.t('toolbar.checkUpdates'), onChoose: onCheckUpdates },
+    ...(onCheckUpdates ? [{ label: t.t('toolbar.checkUpdates'), onChoose: onCheckUpdates }] : []),
     { label: t.t('toolbar.tour'), onChoose: onTour },
     { label: t.t('toolbar.about'), onChoose: onAbout },
   ];

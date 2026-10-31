@@ -626,6 +626,8 @@
   "toolbar.checkUpdates": "Check for updates…",
   "about.checkUpdates": "Check for updates",
   "about.checkUpdatesHint": "Opens the Releases page on GitHub in your browser. Kashiro never checks or downloads anything on its own.",
+  "about.webAi": "AI rewrites are available in the desktop app.",
+  "about.preview": "Preview",
   "updates.openFailed": "Couldn’t open the browser to check for updates.",
   "quickFix.label": "Quick fix for {word}",
   "shortcuts.quickFix": "Quick fix for the underline at the cursor (or click the underline)",

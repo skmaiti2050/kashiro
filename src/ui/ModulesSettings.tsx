@@ -3,6 +3,7 @@ import type { ModuleSwitches } from '@/engine/modules';
 import type { MessageKey } from './i18n/catalogues';
 import { useT } from './i18n/useT';
 import { ModelFile } from './ModelFile';
+import { capabilities } from './platform/capabilities';
 import type { HelperBackend } from './state/optionalModules';
 import type { Settings } from './state/settings';
 import type { SessionController } from './state/sessionController';
@@ -57,6 +58,8 @@ export function ModulesSettings({ controller, settings, checkingModel, helperBac
   // The version without the AI helper: the switch shows, off and locked, with a note instead of the model file.
   const notInstalled = !controller.helperInstalled;
   const aiHint = notInstalled ? t.t('modules.aiNotInstalled') : t.t('modules.needsModel');
+  // Where there is no AI at all (the web), its switch and model file are left out rather than locked.
+  const shownModules = capabilities.ai ? MODULES : MODULES.filter((m) => m.name !== 'aiRewrites');
 
   return (
     <fieldset>
@@ -65,7 +68,7 @@ export function ModulesSettings({ controller, settings, checkingModel, helperBac
         <input type="checkbox" checked={own !== undefined} onChange={(e) => controller.useModulesForPreset(e.target.checked)} />
         {t.t('modules.perGoal', { goal: t.t(PRESET_KEYS[settings.preset]) })}
       </label>
-      {MODULES.map((m) => {
+      {shownModules.map((m) => {
         const locked = m.name === 'aiRewrites' && (noModel || notInstalled);
         return (
           <label key={m.name} className="module-switch">
@@ -84,7 +87,7 @@ export function ModulesSettings({ controller, settings, checkingModel, helperBac
           </label>
         );
       })}
-      {!notInstalled && <ModelFile controller={controller} settings={settings} checking={checkingModel} backend={helperBackend} />}
+      {capabilities.ai && !notInstalled && <ModelFile controller={controller} settings={settings} checking={checkingModel} backend={helperBackend} />}
       <p className="hint">{t.t('modules.alwaysOn')}</p>
     </fieldset>
   );

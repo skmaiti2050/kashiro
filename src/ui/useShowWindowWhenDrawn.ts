@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { getCurrentWindow } from '@tauri-apps/api/window';
+import { capabilities } from './platform/capabilities';
+import { showMainWindow } from './platform/window';
 import { rememberWindowPlacement } from './platform/windowPlacement';
 
 /**
@@ -18,7 +19,8 @@ const PLACED_AT_LATEST_MS = 500;
  */
 export function useShowWindowWhenDrawn(): void {
   useEffect(() => {
-    const placement = rememberWindowPlacement();
+    // Without window memory (the web) there is no place to restore.
+    const placement = capabilities.windowMemory ? rememberWindowPlacement() : { restored: Promise.resolve(), stop: () => {} };
     let drawn = false;
     let placed = false;
     let shown = false;
@@ -26,9 +28,7 @@ export function useShowWindowWhenDrawn(): void {
       if (shown || !drawn || !placed) return;
       shown = true;
       // Nothing on screen can say it yet; the Rust safety net shows the window within 5 s anyway.
-      getCurrentWindow()
-        .show()
-        .catch((e: unknown) => console.error('Could not show the window:', e));
+      showMainWindow().catch((e: unknown) => console.error('Could not show the window:', e));
     };
     const markDrawn = () => {
       drawn = true;

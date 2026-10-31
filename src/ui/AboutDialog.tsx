@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Dialog } from './Dialog';
 import { useT } from './i18n/useT';
 import { focusButtonAt } from './focus';
+import { capabilities } from './platform/capabilities';
 import { APP_VERSION, THIRD_PARTY_NOTICES, type Notice } from './notices';
 import { markdownBlocks, type Inline } from './state/noticeBlocks';
 
@@ -10,15 +11,21 @@ import { markdownBlocks, type Inline } from './state/noticeBlocks';
  * data, fonts and libraries), one per notice file, word for word. The notices are English, marked lang="en".
  * App.tsx loads this module on demand, so the notice texts are not in the main bundle.
  */
-export function AboutDialog({ onCheckUpdates, onClose }: { onCheckUpdates(): void; onClose(): void }) {
+export function AboutDialog({ onCheckUpdates, onClose }: { onCheckUpdates: (() => void) | null; onClose(): void }) {
   const t = useT();
   return (
     <Dialog title={t.t('about.title')} className="about" onClose={onClose}>
-      <p>{t.t('about.version', { version: APP_VERSION })}</p>
-      {/* F23 item 4: the Releases page, in the browser, only on this click. */}
-      <p className="about-updates">
-        <button onClick={onCheckUpdates}>{t.t('about.checkUpdates')}</button> <span className="hint">{t.t('about.checkUpdatesHint')}</span>
+      <p>
+        {t.t('about.version', { version: APP_VERSION })}
+        {capabilities.web && <> · {t.t('about.preview')}</>}
       </p>
+      {/* F23 item 4: the Releases page, in the browser, only on this click. Null where there is none (the web). */}
+      {onCheckUpdates && (
+        <p className="about-updates">
+          <button onClick={onCheckUpdates}>{t.t('about.checkUpdates')}</button> <span className="hint">{t.t('about.checkUpdatesHint')}</span>
+        </p>
+      )}
+      {!capabilities.ai && <p>{t.t('about.webAi')}</p>}
       <p>{t.t('about.privacy')}</p>
       <p>{t.t('about.licence')}</p>
       <h3>{t.t('about.notices')}</h3>

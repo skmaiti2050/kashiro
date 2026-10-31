@@ -24,7 +24,8 @@ export interface PaletteActions {
   onShortcuts(): void;
   onHelp(): void;
   onReportBug(): void;
-  onCheckUpdates(): void;
+  /** Null where there is no update check (the web; left out, as the ⋯ item is). */
+  onCheckUpdates: (() => void) | null;
   onAbout(): void;
   onTour(): void;
   /** Find in the document, as Ctrl+F. */
@@ -81,7 +82,7 @@ export function paletteCommands(t: Translator, a: PaletteActions): PaletteComman
     { id: 'shortcuts', label: t.t('toolbar.shortcuts'), keys: 'F1', enabled: always, run: a.onShortcuts },
     { id: 'googleDocs', label: t.t('toolbar.googleDocs'), enabled: always, run: a.onHelp },
     { id: 'reportBug', label: t.t('toolbar.reportBug'), enabled: always, run: a.onReportBug },
-    { id: 'checkUpdates', label: t.t('toolbar.checkUpdates'), enabled: always, run: a.onCheckUpdates },
+    ...(a.onCheckUpdates ? [{ id: 'checkUpdates', label: t.t('toolbar.checkUpdates'), enabled: always, run: a.onCheckUpdates }] : []),
     { id: 'tour', label: t.t('toolbar.tour'), enabled: always, run: a.onTour },
     { id: 'about', label: t.t('toolbar.about'), enabled: always, run: a.onAbout },
   ];

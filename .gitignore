@@ -2,6 +2,10 @@ node_modules/
 # A fake project for the licence check's tests (tests/deps/licences.test.ts).
 !tests/fixtures/licences/**/node_modules/
 dist/
+# The web app (npm run build:web).
+dist-web/
+# A design checker's local config.
+.impeccable/
 # The portable zip (npm run portable:zip).
 dist-portable/
 # Reports from npm run deps:status and npm run upgrade:check.

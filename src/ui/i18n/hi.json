@@ -627,6 +627,8 @@
   "toolbar.checkUpdates": "अपडेट देखें…",
   "about.checkUpdates": "अपडेट देखें",
   "about.checkUpdatesHint": "आपके ब्राउज़र में GitHub पर Releases पेज खोलता है। Kashiro अपने-आप कुछ भी नहीं जाँचता या डाउनलोड करता।",
+  "about.webAi": "AI रीराइट डेस्कटॉप ऐप में उपलब्ध है।",
+  "about.preview": "प्रीव्यू",
   "updates.openFailed": "अपडेट देखने के लिए ब्राउज़र नहीं खुल सका।",
   "quickFix.label": "{word} का झटपट सुधार",
   "shortcuts.quickFix": "कर्सर वाले रेखांकन का झटपट सुधार (या रेखांकन पर क्लिक करें)",
