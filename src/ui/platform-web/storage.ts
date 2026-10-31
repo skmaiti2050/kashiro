@@ -23,19 +23,83 @@ export interface KeyValueStore {
 
 let persistent = true;
 let opened: Promise<KeyValueStore> | null = null;
+let lostListeners: (() => void)[] = [];
 
 /** False once the browser has refused storage: what this tab saves is lost when it closes. */
 export function storageIsPersistent(): boolean {
   return persistent;
 }
 
+/**
+ * Calls `listener` once when the browser stops keeping what this tab saves: at once if it already has (no
+ * IndexedDB), else on the first failed write.
+ */
+export function onStorageLost(listener: () => void): void {
+  if (persistent) lostListeners.push(listener);
+  else listener();
+}
+
+function storageLost(): void {
+  if (!persistent) return;
+  persistent = false;
+  const listeners = lostListeners;
+  lostListeners = [];
+  for (const listener of listeners) listener();
+}
+
 /** The database, opened on first use; the memory store when the browser has none or refuses it. */
 export function storage(): Promise<KeyValueStore> {
-  opened ??= openDatabase().then(indexedDbStore, () => {
-    persistent = false;
-    return memoryStore();
-  });
+  opened ??= openDatabase().then(
+    (db) => withMemoryFallback(indexedDbStore(db)),
+    () => {
+      storageLost();
+      return memoryStore();
+    },
+  );
   return opened;
+}
+
+/**
+ * `database`, until a write fails (a full quota; Safari's private mode opens the database, then refuses writes).
+ * From then on everything goes to memory, seeded with what the database held, and the write is done there.
+ */
+function withMemoryFallback(database: KeyValueStore): KeyValueStore {
+  let fallback: Promise<KeyValueStore> | null = null;
+  const current = () => fallback ?? Promise.resolve(database);
+  const toMemory = () => {
+    fallback ??= seededMemoryStore(database).then((memory) => {
+      storageLost();
+      return memory;
+    });
+    return fallback;
+  };
+  /** Runs `write` on the current store; if the database refuses it, on memory instead. */
+  const write = async (run: (store: KeyValueStore) => Promise<void>) => {
+    const store = await current();
+    try {
+      await run(store);
+    } catch (e) {
+      if (store !== database) throw e; // memory failing is a real error
+      await run(await toMemory());
+    }
+  };
+  return {
+    get: async (store, key) => (await current()).get(store, key),
+    entries: async (store) => (await current()).entries(store),
+    put: (store, key, value) => write((s) => s.put(store, key, value)),
+    update: (store, key, change) => write((s) => s.update(store, key, change)),
+    delete: (store, key) => write((s) => s.delete(store, key)),
+  };
+}
+
+/** A memory store holding what `database` holds; empty stores where it can't even be read. */
+async function seededMemoryStore(database: KeyValueStore): Promise<KeyValueStore> {
+  const memory = memoryStore();
+  for (const name of STORES) {
+    const entries = await database.entries(name).catch(() => []);
+    for (const [key, value] of entries) await memory.put(name, key, value);
+  }
+  return memory;
 }
 
 function openDatabase(): Promise<IDBDatabase> {

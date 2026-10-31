@@ -21,6 +21,8 @@ class FakeRequest<T> {
  */
 function fakeIndexedDB() {
   const databases = new Map<string, Map<string, Map<string, Value>>>();
+  /** When true, every write fails and aborts its transaction, like Safari's private mode or a full quota. */
+  const writes = { fail: false };
 
   function transaction(stores: Map<string, Map<string, Value>>, name: string) {
     const data = stores.get(name);
@@ -51,11 +53,22 @@ function fakeIndexedDB() {
       });
       return request;
     }
+    function refuse() {
+      const request = new FakeRequest<undefined>();
+      queueMicrotask(() => {
+        request.error = tx.error = new Error('QuotaExceededError');
+        request.onerror?.();
+        done = true;
+        tx.onabort?.();
+      });
+      return request;
+    }
+    const write = (run: () => void) => (writes.fail ? refuse() : ask(run));
     const sortedKeys = () => [...data.keys()].sort();
     const store = {
       get: (key: string) => ask(() => structuredClone(data.get(key))),
-      put: (value: Value, key: string) => ask(() => void data.set(key, structuredClone(value))),
-      delete: (key: string) => ask(() => void data.delete(key)),
+      put: (value: Value, key: string) => write(() => void data.set(key, structuredClone(value))),
+      delete: (key: string) => write(() => void data.delete(key)),
       getAllKeys: () => ask(() => sortedKeys()),
       getAll: () => ask(() => sortedKeys().map((key) => structuredClone(data.get(key)))),
     };
@@ -81,6 +94,7 @@ function fakeIndexedDB() {
     },
     /** What is stored under `key` in `store` of the "kashiro" database. */
     stored: (store: string, key: string) => databases.get('kashiro')?.get(store)?.get(key),
+    writes,
   };
 }
 
@@ -179,7 +193,50 @@ describe('web saved reviews', () => {
   });
 });
 
+describe('when writes start failing after the database opened (a full quota, Safari private mode)', () => {
+  it('carries on in memory from what was stored, and reports the loss exactly once', async () => {
+    const tab = await openTab();
+    const lost = vi.fn();
+    tab.onStorageLost(lost);
+    const settings = await tab.loadSettings();
+    await tab.saveSettings({ ...settings, dictionary: ['nashik'] });
+    await tab.sessionFiles.save('a1', '{"name":"one"}');
+    expect(lost).not.toHaveBeenCalled();
+
+    idb.writes.fail = true;
+    const withVantix = { ...settings, dictionary: ['nashik', 'vantix'] };
+    await tab.saveSettings(withVantix); // no error: the save went to memory
+    await tab.sessionFiles.save('b2', '{"name":"two"}');
+    await tab.sessionFiles.delete('a1');
+    await tab.saveSettings({ ...withVantix, preset: 'academic' });
+
+    expect(await tab.loadSettings()).toEqual({ ...withVantix, preset: 'academic' });
+    expect(await tab.sessionFiles.list()).toEqual({ sessions: [{ key: 'b2', json: '{"name":"two"}' }], problems: [] });
+    expect(tab.storageIsPersistent()).toBe(false);
+    expect(lost).toHaveBeenCalledTimes(1);
+  });
+
+  it('seeds memory from both stores, so earlier reviews are still listed', async () => {
+    const tab = await openTab();
+    await tab.sessionFiles.save('a1', '{"name":"one"}');
+    idb.writes.fail = true;
+    await tab.saveSettings({ ...(await tab.loadSettings()), preset: 'academic' });
+    expect(await tab.sessionFiles.load('a1')).toBe('{"name":"one"}');
+    expect((await tab.loadSettings()).preset).toBe('academic');
+  });
+});
+
 describe('without IndexedDB (a private window)', () => {
+  it('reports the loss once, at once, to a listener that subscribes after the start', async () => {
+    vi.stubGlobal('indexedDB', undefined);
+    const tab = await openTab();
+    await tab.loadSettings();
+    const lost = vi.fn();
+    tab.onStorageLost(lost);
+    await tab.saveSettings(await tab.loadSettings());
+    expect(lost).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps settings and reviews in memory for this tab, and says storage is not persistent', async () => {
     vi.stubGlobal('indexedDB', undefined);
     const tab = await openTab();

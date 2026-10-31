@@ -65,6 +65,11 @@ export interface ControllerDeps {
   sessions?: SessionFiles;
   /** Waits while the browser handles input between chunks of a long check (default yieldToBrowser). */
   yieldToBrowser?: () => Promise<void>;
+  /**
+   * Subscribes to the platform's storage loss (platform/settings.ts): the listener is called once, at once if the
+   * browser already keeps nothing. The controller then shows notice.noStorage.
+   */
+  onStorageLost?: (listener: () => void) => void;
 }
 
 /** Thrown at a check's pause when a newer check has started: the old one stops there, its result unused. */
@@ -246,6 +251,8 @@ export class SessionController {
     // Title-case entries saved before Task F29 are lowercased once, and saved ("Cutover" → "cutover").
     const dictionary = withTitleCaseLowered(deps.settings.dictionary);
     if (dictionary !== deps.settings.dictionary) settingsActions.updateSettings(this.settingsHost, { dictionary });
+    // Web plan, Review focus 1: a browser that keeps nothing, from the start or once writes fail, is said once.
+    deps.onStorageLost?.(() => this.showNotice(msg('notice.noStorage')));
   }
 
   /** What SessionPersistence sees of the controller: the settings and save actions' hosts, and the check. */

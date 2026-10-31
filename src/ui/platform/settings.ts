@@ -28,10 +28,11 @@ export async function loadSettings(): Promise<Settings> {
   return withSavedSettings(defaultSettings(locale), markDeliberateFallback(saved, navigator.language));
 }
 
-/** The desktop's settings file always lasts; on the web the browser may keep nothing (platform-web/storage.ts). */
-export function storageIsPersistent(): boolean {
-  return true;
-}
+/**
+ * Calls `listener` if storage stops keeping what is saved. Never on the desktop, whose settings file always lasts;
+ * on the web the browser may keep nothing (platform-web/storage.ts).
+ */
+export function onStorageLost(_listener: () => void): void {}
 
 export async function saveSettings(settings: Settings): Promise<void> {
   const s = await getStore();

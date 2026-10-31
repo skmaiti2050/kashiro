@@ -1,9 +1,9 @@
 import { withWordAdded } from '@/engine/dictionaryWords';
 import type * as desktop from '../platform/settings';
 import { defaultSettings, withSavedSettings, type Settings } from '../state/settings';
-import { storage, storageIsPersistent as isPersistent } from './storage';
+import { onStorageLost as reportStorageLoss, storage } from './storage';
 
-export const storageIsPersistent: typeof desktop.storageIsPersistent = isPersistent;
+export const onStorageLost: typeof desktop.onStorageLost = reportStorageLoss;
 
 const KEY = 'settings';
 
