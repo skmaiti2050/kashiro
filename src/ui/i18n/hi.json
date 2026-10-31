@@ -578,7 +578,7 @@
   "settings.exportDictionary": "डिक्शनरी एक्सपोर्ट करें",
   "settings.importDictionary": "डिक्शनरी इम्पोर्ट करें",
   "notice.applyLostToTyping": "वह सुधार लागू नहीं हुआ: टाइप करते समय अनुच्छेद बदल गया। अपडेट किया गया सुझाव देखें।",
-  "notice.noStorage":"यह ब्राउज़र Kashiro की सेटिंग्स नहीं रख रहा; ये टैब बंद करने तक ही रहेंगी।",
+  "notice.noStorage": "यह ब्राउज़र Kashiro की सेटिंग्स नहीं रख रहा; ये टैब बंद करने तक ही रहेंगी।",
   "notice.dictionaryImported": "{count, plural, one {# शब्द इम्पोर्ट किया} other {# शब्द इम्पोर्ट किए}}",
   "error.dictionaryImport": "यह फ़ाइल Kashiro की डिक्शनरी नहीं है। \"डिक्शनरी एक्सपोर्ट करें\" से बनी kashiro-dictionary.json फ़ाइल चुनें।",
   "reviews.deleted": "सहेजी गई समीक्षाएँ मिटा दी गईं।",

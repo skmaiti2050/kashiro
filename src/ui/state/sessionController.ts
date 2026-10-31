@@ -434,7 +434,8 @@ export class SessionController {
         const carried = carryDecisions(decisions, session, unchanged, copies);
         this.tally.remap(new Map([...carried, ...this.ai.sessionReplaced(before, session, unchanged)]));
       }
-      this.appliedWhileChecking.clear();
+      // Typing queued behind this check: a fix applied in a paragraph it left alone may be lost by the next one.
+      if (!this.queue.waiting) this.appliedWhileChecking.clear();
       // A new document's result is announced; a re-check while typing stays quiet.
       // Hindi or Bengali text was skipped: never let "nothing to decide" read as an all-clear for it.
       const checked = uncheckedText(loaded.paras).paragraphs > 0 ? 'announce.checkedEnglishOnly' : 'announce.checked';

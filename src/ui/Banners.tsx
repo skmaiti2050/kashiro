@@ -7,10 +7,10 @@ import type { ControllerState, SessionController } from './state/sessionControll
 const NOTICE_MS = 6000;
 
 /**
- * Notices that stay until dismissed, like errors: changes left out of the saved file, or settings the browser won't
- * keep, must not go unseen.
+ * Notices that stay until dismissed, like errors: changes left out of the saved file, settings the browser won't
+ * keep, or an Apply that typing lost, must not go unseen.
  */
-const LASTING_NOTICES: ReadonlySet<MessageKey> = new Set(['notice.savedUnplaced', 'notice.noStorage']);
+const LASTING_NOTICES: ReadonlySet<MessageKey> = new Set(['notice.savedUnplaced', 'notice.noStorage', 'notice.applyLostToTyping']);
 
 /**
  * The error and notice banners. A notice ("Saved as …") clears on its own; an error, or a notice that something

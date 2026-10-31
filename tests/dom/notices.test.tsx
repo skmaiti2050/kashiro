@@ -68,6 +68,20 @@ describe('banners', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss this message' }));
     expect(screen.queryByText(/2 changes couldn’t be placed/)).toBeNull();
   });
+
+  // #34: the user believes the Apply worked, so 6 s (easily missed while typing) is too short.
+  it('"That fix wasn’t applied" stays until its × is pressed', async () => {
+    const { controller } = makeController({}, noFiles);
+    renderShell(controller);
+    vi.useFakeTimers();
+    act(() => controller.showNotice(msg('notice.applyLostToTyping')));
+    await act(async () => {
+      vi.advanceTimersByTime(30_000);
+    });
+    expect(screen.getByText(/That fix wasn’t applied/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss this message' }));
+    expect(screen.queryByText(/That fix wasn’t applied/)).toBeNull();
+  });
 });
 
 describe('Close document', () => {

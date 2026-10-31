@@ -578,7 +578,7 @@
   "settings.exportDictionary": "অভিধান এক্সপোর্ট করুন",
   "settings.importDictionary": "অভিধান ইমপোর্ট করুন",
   "notice.applyLostToTyping": "ওই সংশোধনটি প্রয়োগ হয়নি: টাইপ করার সময় অনুচ্ছেদটি বদলে গেছে। হালনাগাদ করা পরামর্শটি দেখুন।",
-  "notice.noStorage":"এই ব্রাউজার Kashiro-র সেটিংস রাখছে না; ট্যাব বন্ধ করা পর্যন্তই এগুলো থাকবে।",
+  "notice.noStorage": "এই ব্রাউজার Kashiro-র সেটিংস রাখছে না; ট্যাব বন্ধ করা পর্যন্তই এগুলো থাকবে।",
   "notice.dictionaryImported": "{count, plural, other {#টি শব্দ ইমপোর্ট হয়েছে}}",
   "error.dictionaryImport": "এই ফাইলটি Kashiro-র অভিধান নয়। \"অভিধান এক্সপোর্ট করুন\" দিয়ে তৈরি kashiro-dictionary.json ফাইল বেছে নিন।",
   "reviews.deleted": "সেভ করা রিভিউ মুছে ফেলা হয়েছে।",

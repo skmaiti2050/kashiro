@@ -906,6 +906,24 @@ describe('SessionController: typing re-checks', () => {
       expect(controller.getState().notice).toBeNull();
     });
 
+    it('a click in a paragraph typed while an earlier check runs is still reported by the next check', async () => {
+      // No browser pauses: with them, check N+1 would replace N before N finishes.
+      const { controller } = makeController({ yieldToBrowser: async () => {} });
+      await controller.openText("I can't go.\n\nI recieve it.");
+      let release!: () => void;
+      lintGate = new Promise((r) => (release = r));
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      controller.editText("I can't go.\n\nI recieve it now."); // check N starts and waits on the gate
+      await vi.advanceTimersByTimeAsync(300);
+      controller.editText("I can't go home.\n\nI recieve it now."); // check N+1 is queued
+      const card = controller.getState().session!.decisions().top.find((d) => d.candidateIds.every((id) => id.startsWith('0:')))!;
+      controller.accept(card.id);
+      release();
+      await vi.advanceTimersByTimeAsync(300);
+      await controller.settled();
+      expect(english(controller.getState().notice)).toBe(LOST);
+    });
+
     it('typing over a paragraph with an earlier fix, with no click during the pause, shows no notice', async () => {
       const { controller } = makeController();
       await controller.openText(CANT);
