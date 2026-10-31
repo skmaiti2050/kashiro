@@ -1,4 +1,5 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ComponentType, type CSSProperties } from 'react';
+import { AboutUnavailable } from './AboutUnavailable';
 import { Banners } from './Banners';
 import { BugReportDialog } from './BugReportDialog';
 import { ChangeLog } from './ChangeLog';
@@ -50,8 +51,19 @@ import './fonts';
 import './app.css';
 import './a11y.css';
 
-// Loaded when first opened: the notice texts stay out of the main bundle.
-const AboutDialog = lazy(() => import('./AboutDialog').then((module) => ({ default: module.AboutDialog })));
+interface AboutProps {
+  onCheckUpdates: (() => void) | null;
+  onClose(): void;
+}
+
+// Loaded when first opened: the notice texts stay out of the main bundle. A chunk an update removed (another tab
+// applied it) shows "Reload to open About" instead; a rejected lazy import would unmount the whole app (final review 5).
+const AboutDialog = lazy<ComponentType<AboutProps>>(() =>
+  import('./AboutDialog').then(
+    (module) => ({ default: module.AboutDialog }),
+    () => ({ default: AboutUnavailable }),
+  ),
+);
 
 /** Loading shorter than this shows no "Starting…", so a quick start doesn't flash it. */
 const SLOW_START_MS = 300;
@@ -392,7 +404,8 @@ function ShellView({ controller, state }: { controller: SessionController; state
       )}
       {/* After any Undo offer, in the same place; it waits for the user's Reload however long the review takes. */}
       {reloadForUpdate && !state.undoOffer && !dialogOpen && (
-        <UpdateToast message={t.t('update.ready')} reloadLabel={t.t('update.reload')} onReload={reloadForUpdate} />
+        // A reload drops unsaved work: "Save, Discard, or Cancel?" first, as for Open (final review item 5).
+        <UpdateToast message={t.t('update.ready')} reloadLabel={t.t('update.reload')} onReload={() => unlessUnsaved(reloadForUpdate)} />
       )}
       {/* Settings stays mounted (inert) under its Dictionary, so Back finds its tab and focus as they were. */}
       {(panel === 'settings' || panel === 'settings-dictionary') && (

@@ -68,7 +68,7 @@ function DeleteAllDialog({ onDelete, onCancel }: { onDelete(): void; onCancel():
   const cancelButton = useRef<HTMLButtonElement>(null);
   return (
     <Dialog title={t.t('reviews.deleteTitle')} role="alertdialog" describedBy="delete-reviews-text" initialFocus={cancelButton} onClose={onCancel}>
-      <p id="delete-reviews-text">{t.t('reviews.deleteText')}</p>
+      <p id="delete-reviews-text">{capabilities.web ? t.t('reviews.deleteTextWeb') : t.t('reviews.deleteText')}</p>
       <div className="actions end">
         <button ref={cancelButton} onClick={onCancel}>
           {t.t('reviews.deleteCancel')}

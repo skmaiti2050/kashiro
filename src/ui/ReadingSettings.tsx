@@ -1,5 +1,6 @@
 import type { MessageKey } from './i18n/catalogues';
 import { useT } from './i18n/useT';
+import { capabilities } from './platform/capabilities';
 import {
   LETTER_SPACINGS,
   LINE_SPACINGS,
@@ -108,7 +109,7 @@ export function ReadingSettings({ controller, reading, readAloud }: Props) {
 
       <fieldset>
         <legend>{t.t('reading.readAloud')}</legend>
-        {readAloud ? <VoiceSettings reading={reading} readAloud={readAloud} change={change} /> : <p className="hint">{t.t('reading.noVoice')}</p>}
+        {readAloud ? <VoiceSettings reading={reading} readAloud={readAloud} change={change} /> : <p className="hint">{capabilities.web ? t.t('reading.noVoiceWeb') : t.t('reading.noVoice')}</p>}
       </fieldset>
     </>
   );

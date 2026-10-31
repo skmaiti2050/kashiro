@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 // Web Task 3: files in the browser. Open uses the open picker (or a file input), Save the save picker (or a download)
-// with the name desktop suggests, a copy over the open document is refused as on desktop, and files or text dropped
-// on the page reach the app. On the web a file's path is its name: that is what saved reviews are keyed by.
+// with the name desktop suggests (once the picker returns a file it is always written: final review R1), and files or
+// text dropped on the page reach the app. On the web a file's path is its name: that is what saved reviews are keyed by.
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { files, onFileDrop, onSaveNeedsClick, onTextDrop, type DroppedFile, type SaveClickRequest } from '@/ui/platform-web/files';
-import { SaveOverOriginalError } from '@/ui/state/saveFlow';
+import { ChosenFileMayBeEmptyError } from '@/ui/state/saveFlow';
 
 const BYTES = new Uint8Array([80, 75, 3, 4, 1, 2, 3]);
 
@@ -82,12 +82,28 @@ describe('Save with the save picker (Chrome, Edge)', () => {
     expect(calls[0].written).toEqual(BYTES);
   });
 
-  it('a copy picked over the open document (any case) is refused and nothing is written', async () => {
+  // Final review R1: Chromium empties the chosen file when the user confirms its "Replace?", so refusing now would
+  // leave the original empty. The browser's prompt was the confirmation: the bytes are written.
+  it('a copy picked over the open document (any case) is written: the browser already asked "Replace?"', async () => {
     const calls = installSavePicker('REPORT.docx');
-    await expect(files.save('report.checked.docx', BYTES, { overwrite: false, original: 'report.docx' })).rejects.toBeInstanceOf(
-      SaveOverOriginalError,
-    );
-    expect(calls[0].written).toBeNull();
+    expect(await files.save('report.checked.docx', BYTES, { overwrite: false, original: 'report.docx' })).toEqual({ path: 'REPORT.docx', backup: null });
+    expect(calls[0].written).toEqual(BYTES);
+  });
+
+  it('a write that fails after the picker says the chosen file may now be empty', async () => {
+    const picker = vi.fn(async () => ({
+      name: 'report.checked.docx',
+      createWritable: async () => ({
+        write: async () => {
+          throw new DOMException('The disk is full.', 'QuotaExceededError');
+        },
+        close: async () => {},
+      }),
+    }));
+    Object.defineProperty(window, 'showSaveFilePicker', { value: picker, configurable: true });
+    const saving = files.save('report.checked.docx', BYTES, { overwrite: false, original: 'report.docx' });
+    await expect(saving).rejects.toBeInstanceOf(ChosenFileMayBeEmptyError);
+    await expect(saving).rejects.toMatchObject({ path: 'report.checked.docx', message: 'The disk is full.' });
   });
 
   it('pasted text has no original: any name is fine', async () => {
@@ -164,14 +180,14 @@ describe('Save when the browser refuses its picker (the Save click is too long a
     stop();
   });
 
-  it('the name picked after the prompt is still checked: the open document is refused', async () => {
+  it('the open document picked after the prompt is written too (its "Replace?" already emptied it)', async () => {
     const { calls } = installRefusingPicker('SecurityError', 'report.docx');
     const { requests, stop } = await promptsShown();
     const saving = files.save('report.checked.docx', BYTES, { overwrite: false, original: 'report.docx' });
     await vi.waitFor(() => expect(requests).toHaveLength(1));
     requests[0].save();
-    await expect(saving).rejects.toBeInstanceOf(SaveOverOriginalError);
-    expect(calls[0].written).toBeNull();
+    expect(await saving).toEqual({ path: 'report.docx', backup: null });
+    expect(calls[0].written).toEqual(BYTES);
     stop();
   });
 
@@ -296,6 +312,48 @@ describe('dropping on the page', () => {
     document.body.addEventListener('drop', (e) => e.preventDefault(), { once: true });
     document.body.dispatchEvent(drop);
     expect(texts).toEqual([]);
+    stop();
+  });
+
+  // Final review item 8: text dropped into a field goes into that field, and text dragged from Kashiro's own panels
+  // (a card's suggestion, the change log) never replaces the document.
+  it.each([
+    ['a text box', '<input type="text">'],
+    ['a text area', '<textarea></textarea>'],
+    ['an editable area outside the document editor', '<div contenteditable="true"><span>note</span></div>'],
+  ])('text dropped into %s is left to it', async (_name, html) => {
+    const texts: string[] = [];
+    const stop = await onTextDrop((text) => texts.push(text));
+    document.body.innerHTML = html;
+    const drop = dropEvent({ text: 'ARN' });
+    (document.body.querySelector('span') ?? document.body.firstElementChild!).dispatchEvent(drop);
+    expect(texts).toEqual([]);
+    expect(drop.defaultPrevented).toBe(false);
+    stop();
+    document.body.innerHTML = '';
+  });
+
+  it('text dropped on the document editor the editor left alone still opens', async () => {
+    const texts: string[] = [];
+    const stop = await onTextDrop((text) => texts.push(text));
+    document.body.innerHTML = '<div class="cm-editor"><div class="cm-content" contenteditable="false"><p>old</p></div></div>';
+    document.body.querySelector('p')!.dispatchEvent(dropEvent({ text: 'new text' }));
+    expect(texts).toEqual(['new text']);
+    stop();
+    document.body.innerHTML = '';
+  });
+
+  it('text dragged from the page itself is ignored until that drag ends', async () => {
+    const texts: string[] = [];
+    const stop = await onTextDrop((text) => texts.push(text));
+    document.body.dispatchEvent(new Event('dragstart', { bubbles: true }));
+    const drop = dropEvent({ text: 'Accept “received”' });
+    document.body.dispatchEvent(drop);
+    expect(texts).toEqual([]);
+    expect(drop.defaultPrevented).toBe(false);
+    document.body.dispatchEvent(new Event('dragend', { bubbles: true }));
+    document.body.dispatchEvent(dropEvent({ text: 'from another app' }));
+    expect(texts).toEqual(['from another app']);
     stop();
   });
 

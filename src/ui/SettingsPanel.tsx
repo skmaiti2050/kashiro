@@ -17,6 +17,7 @@ import { LANGUAGE_NAMES, systemLanguage, UI_LANGUAGES, type UiLanguageSetting } 
 import { useT } from './i18n/useT';
 import { kindLabel } from './state/kindLabels';
 import { readChoice, writeLocal } from './state/localMemory';
+import { overwriteOffered } from './state/saveFlow';
 import type { ControllerState, SessionController } from './state/sessionController';
 import { AUTO_APPLY_KINDS, type Settings } from './state/settings';
 
@@ -118,10 +119,13 @@ function SavingSettings({ controller, settings }: SectionProps) {
           <input type="checkbox" checked={settings.saveMode === 'tracked'} onChange={(e) => controller.changeSettings({ saveMode: e.target.checked ? 'tracked' : 'clean' })} />
           {t.t('settings.trackedLabel')}
         </label>
-        <label>
-          <input type="checkbox" checked={settings.overwrite} onChange={(e) => controller.changeSettings({ overwrite: e.target.checked })} />
-          {t.t('settings.overwriteLabel')}
-        </label>
+        {/* A download can't replace anything (final review R2); a browser keeps no .bak (item 2). */}
+        {overwriteOffered() && (
+          <label>
+            <input type="checkbox" checked={settings.overwrite} onChange={(e) => controller.changeSettings({ overwrite: e.target.checked })} />
+            {capabilities.web ? t.t('settings.overwriteLabelWeb') : t.t('settings.overwriteLabel')}
+          </label>
+        )}
       </fieldset>
       <SavedReviewsSettings controller={controller} settings={settings} />
       {capabilities.web && <WebStorageSettings controller={controller} settings={settings} />}

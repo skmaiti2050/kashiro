@@ -2,7 +2,8 @@ import { msg, type Message } from '../i18n/message';
 import { sameParagraphs } from './documentText';
 import { explain } from './errors';
 import type { LoadedFile } from './openDocument';
-import { SaveOverOriginalError, saveDocument, saveReport, type Files } from './saveFlow';
+import { capabilities } from '../platform/capabilities';
+import { ChosenFileMayBeEmptyError, SaveOverOriginalError, saveDocument, saveReport, type Files } from './saveFlow';
 import type { ControllerState } from './sessionController';
 
 /** What saving and exporting need from the controller. */
@@ -60,7 +61,8 @@ export async function save(host: SaveHost): Promise<boolean> {
     // Unplaceable edits may have been marked on the session, so this always re-renders.
     host.set({ notice, error: null });
     if (notice === null) return false;
-    host.markSaved(changes);
+    // A download may never reach a folder the user keeps: the work stays unsaved, so leaving still asks (final review R2).
+    if (capabilities.saveInPlace !== 'download') host.markSaved(changes);
     return true;
   } catch (e) {
     host.set({ error: saveError(e, msg('error.save', { name: document.name }), document.name) });
@@ -68,9 +70,14 @@ export async function save(host: SaveHost): Promise<boolean> {
   }
 }
 
-/** What to say when a save failed: a copy refused over the open document has its own message. */
+/**
+ * What to say when a save failed: a copy refused over the open document has its own message, and a web write
+ * that failed after its picker says the chosen file may now be empty (final review R1).
+ */
 function saveError(e: unknown, what: Message, name: string): Message {
-  return e instanceof SaveOverOriginalError ? msg('error.saveOverOriginal', { name }) : explain(what, e, SAVE_AGAIN);
+  if (e instanceof SaveOverOriginalError) return msg('error.saveOverOriginal', { name });
+  if (e instanceof ChosenFileMayBeEmptyError) return explain(msg('error.save', { name: e.path }), e, msg('error.webSaveFailedEmpty', { name: e.path }));
+  return explain(what, e, SAVE_AGAIN);
 }
 
 /** Saves the change report (Markdown) beside the document. The document itself still counts as unsaved. */

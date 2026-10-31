@@ -5,7 +5,9 @@ import type { MessageKey } from './i18n/catalogues';
 import type { Translator } from './i18n/translator';
 import { useT } from './i18n/useT';
 import { MoreMenu, type MoreMenuItem } from './MoreMenu';
+import { capabilities } from './platform/capabilities';
 import { siblingPath } from './state/documentText';
+import { overwriteOffered } from './state/saveFlow';
 import { usePopup } from './usePopup';
 import { middleTruncate } from './state/windowTitle';
 import type { ControllerState, SessionController } from './state/sessionController';
@@ -80,6 +82,8 @@ function moveAlongToolbar(e: KeyboardEvent<HTMLElement>, dir: 'ltr' | 'rtl'): vo
 export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onDictionary, onReportBug, onCheckUpdates, onHelp, onShortcuts, onAbout, onTour, onClose, onLookUp, onImprove }: Props) {
   const t = useT();
   const { session, settings, variantOverride, document } = state;
+  // What Save will do: Overwrite left on in the settings means nothing where Save downloads.
+  const overwrite = settings.overwrite && overwriteOffered();
   const moreItems: MoreMenuItem[] = [
     ...(document && onLookUp ? [{ label: t.t('toolbar.lookUp'), keys: 'Ctrl+D', onChoose: onLookUp }] : []),
     ...(document ? [{ label: t.t('toolbar.close'), keys: 'Ctrl+W', onChoose: onClose }] : []),
@@ -166,7 +170,7 @@ export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onDict
         <button
           className="primary"
           disabled={!document || !session}
-          title={t.t('save.title', { mode: settings.saveMode, overwrite: settings.overwrite ? 'yes' : 'no' })}
+          title={t.t('save.title', { mode: settings.saveMode, overwrite: !overwrite ? 'no' : capabilities.web ? 'web' : 'yes' })}
           onClick={() => void controller.save()}
         >
           {t.t('save.button')}
@@ -202,17 +206,20 @@ export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onDict
             <fieldset>
               <legend>{t.t('save.whereLegend')}</legend>
               <SaveChoice
-                checked={!settings.overwrite}
+                checked={!overwrite}
                 onChoose={() => controller.changeSettings({ overwrite: false })}
                 title={t.t('save.newCopy')}
                 detail={t.t('save.newCopyDetail', { name: checkedName(document?.name) })}
               />
-              <SaveChoice
-                checked={settings.overwrite}
-                onChoose={() => controller.changeSettings({ overwrite: true })}
-                title={t.t('save.overwrite')}
-                detail={t.t('save.overwriteDetail')}
-              />
+              {/* A download can't replace anything (final review R2); a browser keeps no .bak (item 2). */}
+              {overwriteOffered() && (
+                <SaveChoice
+                  checked={overwrite}
+                  onChoose={() => controller.changeSettings({ overwrite: true })}
+                  title={capabilities.web ? t.t('save.overwriteWeb') : t.t('save.overwrite')}
+                  detail={capabilities.web ? t.t('save.webNoBackup') : t.t('save.overwriteDetail')}
+                />
+              )}
             </fieldset>
           </div>
         </details>

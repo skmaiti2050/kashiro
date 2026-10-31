@@ -1,5 +1,5 @@
 import type * as desktop from '../platform/files';
-import { SaveOverOriginalError, type Files, type OpenedFile } from '../state/saveFlow';
+import { ChosenFileMayBeEmptyError, type Files, type OpenedFile } from '../state/saveFlow';
 
 export type DroppedFile = desktop.DroppedFile;
 export type SaveClickRequest = desktop.SaveClickRequest;
@@ -117,8 +117,10 @@ export const files = {
    * `path` is the name saveFlow suggests: the `.checked` copy, or with Overwrite the original's name (after the
    * "No backup on the web" notice). A browser keeps no backup, and the user confirms its own "Replace?" prompt.
    * A picker refused for lack of a recent click is opened again from the "ready to save" prompt (onSaveNeedsClick).
+   * Without the save picker the file is downloaded under `path`'s name. Overwrite and the original need no
+   * handling here: saveFlow chose `path` from them, and says when the picked file replaced the original.
    */
-  async save(path, bytes, { overwrite, original }) {
+  async save(path, bytes, _options) {
     const suggestedName = fileName(path);
     const ext = extension(suggestedName);
     const type = MEDIA_TYPES[ext] ?? ANY_FILE;
@@ -139,12 +141,15 @@ export const files = {
       handle = await pickAfterClick(askForClick, suggestedName, showPicker);
     }
     if (!handle) return null;
-    // Only a name to compare: the browser doesn't say which folder either file is in (spec: matched by name).
-    if (!overwrite && original && handle.name.toLowerCase() === fileName(original).toLowerCase()) throw new SaveOverOriginalError(handle.name);
-    // The browser writes to a temporary file and moves it into place on close: the whole file or nothing.
-    const writable = await handle.createWritable();
-    await writable.write(bytes);
-    await writable.close();
+    // Always written, even over the open document without Overwrite: Chromium empties the chosen file the moment
+    // the user confirms its "Replace?", so refusing now would leave it empty (final review R1). saveFlow says so.
+    try {
+      const writable = await handle.createWritable();
+      await writable.write(bytes);
+      await writable.close();
+    } catch (e) {
+      throw new ChosenFileMayBeEmptyError(handle.name, e);
+    }
     return { path: handle.name, backup: null };
   },
 } satisfies Files;
@@ -174,18 +179,43 @@ export const onFileDrop: typeof desktop.onFileDrop = async (onDrop) =>
     onDrop(dropped.map((file) => ({ name: file.name, read: () => opened(file) })));
   }, true);
 
+/** Fields that take dropped text themselves: Find, the dictionary's Add box, any editable area. */
+const EDITABLE_FIELD = 'input, textarea, [contenteditable]:not([contenteditable="false"])';
+/** CodeMirror's root: the document editor, whose drops open as before (its own moves it has already taken). */
+const DOCUMENT_EDITOR = '.cm-editor';
+
+/** The drop landed in a field other than the document editor (`target`: the drop event's target). */
+function inEditableField(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false;
+  return target.closest(EDITABLE_FIELD) !== null && target.closest(DOCUMENT_EDITOR) === null;
+}
+
 /**
  * Calls `onDrop` with plain text dropped on the page (dragged from another app or tab). Text the editor took
- * itself, moved inside the document, is left to it. Returns the unsubscribe function.
+ * itself, moved inside the document, is left to it, as is text dropped into a field, and text dragged from
+ * Kashiro's own page (a card, the change log), which must never replace the document. Returns the unsubscribe function.
  */
-export const onTextDrop: typeof desktop.onTextDrop = async (onDrop) =>
-  listenForDrops((event) => {
-    if (event.defaultPrevented || !event.dataTransfer || event.dataTransfer.files.length > 0) return;
+export const onTextDrop: typeof desktop.onTextDrop = async (onDrop) => {
+  // A drag that starts on the page fires dragstart here; one from another app or tab doesn't. dragend follows its drop.
+  let draggingFromPage = false;
+  const startDrag = () => (draggingFromPage = true);
+  const endDrag = () => (draggingFromPage = false);
+  window.addEventListener('dragstart', startDrag);
+  window.addEventListener('dragend', endDrag);
+  const stopDrops = listenForDrops((event) => {
+    if (draggingFromPage || event.defaultPrevented || !event.dataTransfer || event.dataTransfer.files.length > 0) return;
+    if (inEditableField(event.target)) return;
     const text = event.dataTransfer.getData('text/plain');
     if (!text) return;
     event.preventDefault();
     onDrop(text);
   }, false);
+  return () => {
+    stopDrops();
+    window.removeEventListener('dragstart', startDrag);
+    window.removeEventListener('dragend', endDrag);
+  };
+};
 
 /** Shows `ask`'s prompt whenever Save needs one more click to open the save picker. Returns the unsubscribe function. */
 export const onSaveNeedsClick: typeof desktop.onSaveNeedsClick = async (ask) => {

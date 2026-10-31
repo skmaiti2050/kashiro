@@ -1,7 +1,7 @@
 // Web Task 5: "Preview" and the build date in the status bar and About; the update notice ("Updated. Reload when you're
 // ready"), which reloads only on its Reload button; the loading screen's progress line.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import type { Capabilities } from '@/ui/platform/capabilities';
 import { LoadingScreen } from '@/ui/web/LoadingScreen';
 import { makeController } from './harness';
@@ -60,6 +60,22 @@ describe('the update notice', () => {
     expect(screen.getByText(NOTICE).closest('[role="status"]')).not.toBeNull();
     expect(reload).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Reload' }));
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+
+  // Final review item 5: a reload drops unsaved work, so Reload asks "Save, Discard, or Cancel?" first.
+  it('with unsaved work, Reload asks first: Cancel keeps the page, Discard reloads', () => {
+    const reload = vi.fn();
+    platform.update = reload;
+    const { controller } = makeController();
+    vi.spyOn(controller, 'hasUnsavedWork').mockReturnValue(true);
+    renderShell(controller);
+    fireEvent.click(screen.getByRole('button', { name: 'Reload' }));
+    expect(reload).not.toHaveBeenCalled();
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Cancel' }));
+    expect(reload).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Reload' }));
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Discard' }));
     expect(reload).toHaveBeenCalledTimes(1);
   });
 

@@ -28,6 +28,8 @@ export interface Files {
    * Writes `bytes`. With `overwrite`, backs `path` up first (`name.bak.ext`) and replaces it whole;
    * otherwise lets the user confirm or change the suggested `path`, writes the copy whole or not at all, and
    * throws SaveOverOriginalError when the chosen file is `original` (the open document). Null when the user cancelled.
+   * The web differs (final review R1): its picker's "Replace?" has already emptied the chosen file, so it always
+   * writes, and a failed write throws ChosenFileMayBeEmptyError.
    */
   save(path: string, bytes: Uint8Array, opts: { overwrite: boolean; original?: string | null }): Promise<SavedFile | null>;
 }
@@ -36,6 +38,20 @@ export interface Files {
 export class SaveOverOriginalError extends Error {
   constructor(readonly path: string) {
     super(`${path} is the document you opened; a copy never replaces it`);
+  }
+}
+
+/**
+ * The web's write failed after its save picker returned: Chromium empties the chosen file as soon as the user
+ * confirms "Replace?", so `path` may now be empty (final review R1). The message is the browser's reason.
+ */
+export class ChosenFileMayBeEmptyError extends Error {
+  constructor(
+    readonly path: string,
+    cause: unknown,
+  ) {
+    // A DOMException is an Error in browsers but not in every test DOM.
+    super(cause instanceof Error || cause instanceof DOMException ? cause.message : String(cause), { cause });
   }
 }
 
@@ -71,19 +87,39 @@ export async function saveDocument({ session, adapter, handle, name, path, setti
     });
     if (outcome) session.markUnplaceable(outcome.candidate.id, reason);
   }
-  const overwrite = settings.overwrite && path !== null;
+  const overwrite = settings.overwrite && path !== null && overwriteOffered();
   const target = overwrite ? path : siblingPath(path ?? name, '.checked');
   // A browser keeps no .bak: said before its save picker opens, where the user confirms "Replace?" (web spec).
   if (overwrite && capabilities.web) notify(msg('save.webNoBackup'));
   const saved = await files.save(target, bytes, { overwrite, original: path });
   if (!saved) return null;
+  const webNotice = webSavedNotice(saved.path, overwrite, path);
+  if (webNotice) return unplaceable.length ? msg('notice.unplacedAfter', { saved: webNotice, count: unplaceable.length }) : webNotice;
   const notice = saved.backup ? msg('notice.savedBackup', { path: saved.path, backup: saved.backup }) : msg('notice.saved', { path: saved.path });
   return unplaceable.length ? msg('notice.savedUnplaced', { saved: notice, count: unplaceable.length }) : notice;
 }
+
+/** Overwrite needs a file to write over: a download (no save picker) only ever makes a new copy (final review R2). */
+export const overwriteOffered = (): boolean => capabilities.saveInPlace !== 'download';
+
+/**
+ * The web's own save notices (final review R1, R2), or null for "Saved as": a download went to the Downloads
+ * folder, and a copy picked over the open document replaced it (the browser's "Replace?" was the confirmation).
+ * Only names to compare: the browser doesn't say which folder either file is in (spec: matched by name).
+ */
+function webSavedNotice(savedName: string, overwrite: boolean, original: string | null): Message | null {
+  if (capabilities.saveInPlace === 'download') return msg('save.downloaded', { name: savedName });
+  if (!capabilities.web || overwrite || original === null) return null;
+  return isSamePath(savedName, fileName(original)) ? msg('save.webReplacedOriginal', { name: savedName }) : null;
+}
+
+/** The last part of a path ("C:\\Docs\\a.docx" → "a.docx"; on the web a path is only a name). */
+const fileName = (path: string) => path.slice(Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\')) + 1);
 
 /** Saves the Markdown change report beside the document. Returns the notice, or null when cancelled. */
 export async function saveReport(session: CheckSession, name: string, path: string | null, files: Files): Promise<Message | null> {
   const bytes = new TextEncoder().encode(exportReport(session, name));
   const saved = await files.save(siblingPath(path ?? name, '.report', '.md'), bytes, { overwrite: false, original: path });
-  return saved ? msg('notice.report', { path: saved.path }) : null;
+  if (!saved) return null;
+  return capabilities.saveInPlace === 'download' ? msg('save.downloaded', { name: saved.path }) : msg('notice.report', { path: saved.path });
 }

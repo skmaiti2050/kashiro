@@ -43,7 +43,7 @@
   "toolbar.close": "Close document",
 
   "save.button": "Save",
-  "save.title": "Save: {mode, select, tracked {tracked changes} other {clean copy}}, {overwrite, select, yes {overwrite (keeps a backup)} other {new copy}}",
+  "save.title": "Save: {mode, select, tracked {tracked changes} other {clean copy}}, {overwrite, select, yes {overwrite (keeps a backup)} web {overwrite (no backup)} other {new copy}}",
   "save.options": "Save options",
   "save.howLegend": "How changes are saved",
   "save.tracked": "Tracked changes",
@@ -686,5 +686,16 @@
   "find.onLine": "on line",
   "find.replacedOnLine": "Replaced the match on line {line}",
   "find.replacedCount": "Replaced {matches} matches",
-  "speech.noOfflineVoice": "No offline voice is installed. Read aloud uses only voices on this device."
+  "speech.noOfflineVoice": "No offline voice is installed. Read aloud uses only voices on this device.",
+  "save.webReplacedOriginal": "You replaced {name} with the checked version.",
+  "save.downloaded": "Downloaded as {name}. Check your Downloads folder.",
+  "notice.unplacedAfter": "{saved} {count, plural, one {# change couldn’t be placed} other {# changes couldn’t be placed}}: see the change log.",
+  "error.webSaveFailedEmpty": "{name} may now be empty. Save again before you close this page.",
+  "save.overwriteWeb": "Overwrite the original",
+  "settings.overwriteLabelWeb": "Overwrite the original instead of saving a new copy (no backup on the web)",
+  "about.privacyWeb": "Your text never leaves this browser. The app’s own files load from this site, which may check for a newer version.",
+  "about.reloadToOpen": "Reload the page to open About: this page is from an earlier version of Kashiro.",
+  "modules.savedSessionsCostWeb": "A small record per review, kept in this browser. It holds your decisions, not a copy of your file; pasted text is kept only if “Keep pasted text for resuming” is on.",
+  "reviews.deleteTextWeb": "Every saved review is deleted from this browser, so none can be resumed. Your documents are not changed.",
+  "reading.noVoiceWeb": "No voice that works offline is installed, so Read aloud is hidden. Install an offline voice in your system’s speech settings."
 }

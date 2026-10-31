@@ -35,6 +35,9 @@ const MODULES: ModuleInfo[] = [
   },
 ];
 
+/** A module's cost line: on the web saved reviews are kept in the browser, not in a folder on this computer. */
+const costOf = (m: ModuleInfo): MessageKey => (capabilities.web && m.name === 'savedSessions' ? 'modules.savedSessionsCostWeb' : m.cost);
+
 const strong = (chunks: ReactNode[]) => <strong>{chunks}</strong>;
 
 interface Props {
@@ -82,7 +85,7 @@ export function ModulesSettings({ controller, settings, checkingModel, helperBac
             <span>
               {t.rich('modules.switch', { label: t.t(m.label), description: t.t(m.description), b: strong })}
               <br />
-              <span className="hint">{locked ? aiHint : t.t(m.cost, m.costValues)}</span>
+              <span className="hint">{locked ? aiHint : t.t(costOf(m), m.costValues)}</span>
             </span>
           </label>
         );

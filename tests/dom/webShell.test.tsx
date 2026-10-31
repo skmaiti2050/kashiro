@@ -12,7 +12,8 @@ import { makeController, warmLinter } from './harness';
 import { installSpeech, LOCAL_VOICE, openAndWait, renderShell, reviewPanel } from './shell';
 
 const platform = vi.hoisted(() => ({
-  capabilities: { ai: false, windowMemory: false, updates: false, textDrop: true, saveInPlace: 'download', web: true } satisfies Capabilities,
+  // 'picker': the save tests install showSaveFilePicker, and a browser that has it saves in place (final review R2).
+  capabilities: { ai: false, windowMemory: false, updates: false, textDrop: true, saveInPlace: 'picker', web: true } satisfies Capabilities,
 }));
 vi.mock('@/ui/platform/capabilities', () => platform);
 vi.mock('@tauri-apps/api/window', async () => (await import('./platformMocks')).tauriWindow);
