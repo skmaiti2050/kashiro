@@ -30,6 +30,9 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      # The licence-notices test reads the Rust crates offline (cargo metadata --offline); a fresh runner has none yet.
+      - run: cargo fetch --locked
+        working-directory: src-tauri
       - run: npm test
       - run: npx tsx scripts/build-web.ts
       - uses: actions/configure-pages@v6
