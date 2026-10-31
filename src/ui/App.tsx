@@ -130,7 +130,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
   /** The review panel's actions for the command palette (null while the panel is folded). */
   const panelCommands = useRef<PanelCommands | null>(null);
   const { lookup, state: lookupState } = useWordLookup(controller);
-  const readAloud = useReadAloud(state.settings.reading, state.document?.id ?? null);
+  const { readAloud, noOfflineVoice } = useReadAloud(state.settings.reading, state.document?.id ?? null);
   const caretReader = useRef<() => CaretText | null>(() => null);
   const improveAtCaret = useRef<() => void>(() => {});
   const lookUpAtCaret = useRef<() => boolean>(() => false);
@@ -246,7 +246,8 @@ function ShellView({ controller, state }: { controller: SessionController; state
     setPanel('tour');
   }, [state.session, dialogOpen]);
   const lookUpOn = modulesFor(state.settings).wordLookup;
-  const aiOn = controller.ai.available();
+  // capabilities.ai too: settings saved with AI rewrites on must not bring AI back on the web (Task 1 review).
+  const aiOn = capabilities.ai && controller.ai.available();
   const lookUpFromMenu = lookUpOn ? () => lookUpAtCaret.current() || controller.showNotice(msg('lookup.noWord')) : null;
   const improveFromToolbar = aiOn && state.session ? () => improveAtCaret.current() : null;
   const find = () => setFindRequest((n) => n + 1);
@@ -360,6 +361,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
               }}
               onSave={() => void controller.save()}
               readAloud={readAloud}
+              noOfflineVoice={capabilities.web && noOfflineVoice}
               readCaret={() => caretReader.current()}
               onLookUp={lookUpOn ? (words) => void lookup.open(words) : undefined}
               onCollapse={() => split.setCollapsed(true)}

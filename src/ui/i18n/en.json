@@ -679,5 +679,6 @@
   "find.currentMatch": "Current match",
   "find.onLine": "on line",
   "find.replacedOnLine": "Replaced the match on line {line}",
-  "find.replacedCount": "Replaced {matches} matches"
+  "find.replacedCount": "Replaced {matches} matches",
+  "speech.noOfflineVoice": "No offline voice is installed. Read aloud uses only voices on this device."
 }

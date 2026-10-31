@@ -1,5 +1,6 @@
 import { defineConfig, normalizePath, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
+import { readFile } from "node:fs/promises";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
@@ -27,8 +28,24 @@ function webPlatform(): Plugin {
   };
 }
 
+const DICTIONARY = fileURLToPath(new URL("./resources/dictionary/oewn.json.gz", import.meta.url));
+
+/**
+ * Word lookup's dictionary in the web build, at <base>dictionary/oewn.json.gz: the site serves it itself, never a
+ * CDN (src/ui/platform-web/dictionary.ts fetches it). The desktop app reads it as a Tauri resource instead.
+ */
+function webDictionary(): Plugin {
+  return {
+    name: "kashiro-web-dictionary",
+    apply: "build",
+    async generateBundle() {
+      this.emitFile({ type: "asset", fileName: "dictionary/oewn.json.gz", source: await readFile(DICTIONARY) });
+    },
+  };
+}
+
 export default defineConfig(() => ({
-  plugins: web ? [webPlatform(), react()] : [react()],
+  plugins: web ? [webPlatform(), webDictionary(), react()] : [react()],
   // GitHub Pages serves the site under /kashiro/; KASHIRO_WEB_BASE=/ for a custom domain or Cloudflare Pages.
   base: web ? (process.env.KASHIRO_WEB_BASE ?? "/kashiro/") : "/",
   resolve: {

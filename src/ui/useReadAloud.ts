@@ -25,12 +25,15 @@ export interface ReadAloud {
 }
 
 /**
- * Read aloud with the local Windows voices (Web Speech API). Null while there is no local voice, which
- * hides the feature: a network voice would send the text away. Escape stops the reading, and so does
+ * Read aloud with the device's own voices (Web Speech API). `readAloud` is null while there is no local voice,
+ * which hides the feature: a network voice would send the text away. `noOfflineVoice` turns true once the search
+ * for voices ended with none (the web says so in the bar's place). Escape stops the reading, and so does
  * opening or closing a document (`documentId` changes).
  */
-export function useReadAloud(reading: ReadingSettings, documentId: number | null): ReadAloud | null {
+export function useReadAloud(reading: ReadingSettings, documentId: number | null): { readAloud: ReadAloud | null; noOfflineVoice: boolean } {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  /** The first search for voices has ended (Chromium fills its list late). */
+  const [searched, setSearched] = useState(false);
   const [status, setStatus] = useState<ReadAloudStatus>('idle');
   /** The current reading's number: the end of a reading that was replaced must not mark the new one idle. */
   const readings = useRef(0);
@@ -44,7 +47,9 @@ export function useReadAloud(reading: ReadingSettings, documentId: number | null
   useEffect(() => {
     let mounted = true;
     void loadLocalVoices().then((found) => {
-      if (mounted && found.length > 0) setVoices(found);
+      if (!mounted) return;
+      if (found.length > 0) setVoices(found);
+      setSearched(true);
     });
     // No new state while there is still no voice: an empty list for an empty list would only re-render.
     const stopListening = onVoicesChanged((found) => setVoices((current) => (current.length === 0 && found.length === 0 ? current : found)));
@@ -68,8 +73,8 @@ export function useReadAloud(reading: ReadingSettings, documentId: number | null
   // Another document (or none): what was being read belongs to the old one.
   useEffect(() => stop, [documentId]);
 
-  if (voices.length === 0) return null;
-  return {
+  if (voices.length === 0) return { readAloud: null, noOfflineVoice: searched };
+  const readAloud: ReadAloud = {
     voices,
     read(text, language = 'en') {
       const voice = voiceFor(voices, language, reading.voice);
@@ -93,4 +98,5 @@ export function useReadAloud(reading: ReadingSettings, documentId: number | null
     },
     stop,
   };
+  return { readAloud, noOfflineVoice: false };
 }

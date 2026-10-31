@@ -5,11 +5,19 @@ interface UserAgentData {
   getHighEntropyValues(hints: string[]): Promise<{ platformVersion?: string }>;
 }
 
+/** What Report a bug says Kashiro runs on. */
+export interface EnvironmentVersions {
+  windows: string | null;
+  webView2: string | null;
+  /** The web build's browser ("Google Chrome 130", or "unknown"); the desktop app leaves it out. */
+  browser?: string;
+}
+
 /**
  * The Windows and WebView2 versions for Report a bug (F22 item 4), as the webview reports them; null when it
  * doesn't. Windows' "platform version" is 13 or more on Windows 11.
  */
-export async function environmentVersions(): Promise<{ windows: string | null; webView2: string | null }> {
+export async function environmentVersions(): Promise<EnvironmentVersions> {
   const webView2 = EDGE_VERSION.exec(navigator.userAgent)?.[1] ?? null;
   const agentData = (navigator as Navigator & { userAgentData?: UserAgentData }).userAgentData;
   try {

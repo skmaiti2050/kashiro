@@ -20,10 +20,10 @@ export function BugReportDialog({ controller, onClose }: { controller: SessionCo
 
   useEffect(() => {
     let current = true;
-    void environmentVersions().then(({ windows, webView2 }) => {
+    void environmentVersions().then((environment) => {
       if (!current) return;
       const { settings } = controller.getState();
-      setReport(bugReport({ version, aiBuild: controller.helperInstalled, windows, webView2, settings, problems: controller.problems.list() }));
+      setReport(bugReport({ version, aiBuild: controller.helperInstalled, ...environment, settings, problems: controller.problems.list() }));
     });
     return () => {
       current = false;

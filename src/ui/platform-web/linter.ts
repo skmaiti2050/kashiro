@@ -1,7 +1,9 @@
-import type { RulesLinter } from '@/engine/linter';
-import type { Variant } from '@/engine/types';
+import { binary } from 'harper.js/binary';
+import { createLinter } from '@/engine/linter';
+import type * as desktop from '../platform/linter';
 
-// A stub until the web adapters land (web plan, Task 2+): same exports as src/ui/platform/linter.ts.
-export async function createAppLinter(_variant: Variant, _words: string[]): Promise<RulesLinter> {
-  throw new Error('not available on the web yet');
-}
+/**
+ * As on the desktop: harper.js/binary loads Harper's .wasm as a separate asset, which Vite emits under the web
+ * build's base path (/kashiro/assets/…).
+ */
+export const createAppLinter: typeof desktop.createAppLinter = (variant, words) => createLinter(variant, words, { binary });

@@ -8,6 +8,8 @@ export interface BugReportInput {
   /** navigator.userAgentData's platform version (13 and up is Windows 11); null when the webview doesn't say. */
   windows: string | null;
   webView2: string | null;
+  /** The web build's browser; when given, it replaces the Windows and WebView2 lines. */
+  browser?: string;
   settings: Settings;
   problems: RecentProblem[];
 }
@@ -67,8 +69,9 @@ export function bugReport(input: BugReportInput): string {
     '',
     `Version: ${input.version}`,
     `Build: ${input.aiBuild ? 'with the AI helper' : 'without AI'}`,
-    `Windows (platform version): ${input.windows ?? 'unknown'}`,
-    `WebView2: ${input.webView2 ?? 'unknown'}`,
+    ...(input.browser === undefined
+      ? [`Windows (platform version): ${input.windows ?? 'unknown'}`, `WebView2: ${input.webView2 ?? 'unknown'}`]
+      : [`Browser: ${input.browser}`]),
     `Modules on: ${modulesOn.join(', ') || 'none'}`,
     '',
     'Settings:',

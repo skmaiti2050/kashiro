@@ -14,6 +14,7 @@ import { canReadAloud, ReadAloudBar, readAloudTarget } from './ReadAloudBar';
 import { translatorFor } from './i18n/translatorFor';
 import { useT } from './i18n/useT';
 import { CategoryFilters } from './CategoryFilters';
+import { capabilities } from './platform/capabilities';
 import { cardLabel } from './state/announce';
 import { categoryCounts, categoryOfDecision, type Category } from './state/categories';
 import { isWordCard } from './state/labels';
@@ -54,6 +55,11 @@ interface Props {
   onSave(): void;
   /** Null hides read aloud (no local voice). */
   readAloud: ReadAloud | null;
+  /**
+   * The web: the browser has no voice that works offline, and the bar's place says so (on the desktop the bar
+   * just stays hidden, and Settings › Reading explains).
+   */
+  noOfflineVoice?: boolean;
   /** The text at the cursor while the document has focus, else null (read the card's text instead). */
   readCaret(): CaretText | null;
   /** "Look up" on a card; absent while word lookup is off. */
@@ -74,7 +80,7 @@ export interface PanelCommands {
 const reduceMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 
 /** The review queue: a progress header, one card at a time (Enter / Backspace / J / K), the rest under "More (N)". */
-export function ReviewPanel({ controller, state, onLocate, request, keysEnabled, onShowLog, onSave, readAloud, readCaret, onLookUp, onCollapse, commands }: Props) {
+export function ReviewPanel({ controller, state, onLocate, request, keysEnabled, onShowLog, onSave, readAloud, noOfflineVoice = false, readCaret, onLookUp, onCollapse, commands }: Props) {
   const t = useT();
   const [cursor, setCursor] = useState(START);
   /**
@@ -173,7 +179,7 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
 
   const paraText = new Map(session.paragraphs().map((p) => [p.id, p.text]));
   const progress = progressOf(session, state.decided);
-  const aiOn = controller.ai.available();
+  const aiOn = capabilities.ai && controller.ai.available();
   /** Every fix in the text now, automatic or accepted. */
   const fixesApplied = session.outcomes().filter((o) => o.status === 'applied').length;
   /** Nothing left to decide: the panel says so in one line. */
@@ -243,6 +249,11 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
         {current && cardFor(current)}
       </div>
       {readAloud && <ReadAloudBar readAloud={readAloud} textFor={textFor} keysEnabled={keysEnabled} />}
+      {!readAloud && noOfflineVoice && (
+        <div className="read-aloud" role="group" aria-label={t.t('read.group')}>
+          <span className="hint read-aloud-note">{t.t('speech.noOfflineVoice')}</span>
+        </div>
+      )}
       {current ? (
         <p className="key-legend hint">
           <Kbd>Enter</Kbd> {isWordCard(current) ? t.t('panel.keyAdd') : t.t('panel.keyAccept')} ·{' '}

@@ -680,5 +680,6 @@
   "find.currentMatch": "मौजूदा मिलान",
   "find.onLine": "पंक्ति",
   "find.replacedOnLine": "पंक्ति {line} पर मिलान बदला गया",
-  "find.replacedCount": "{matches} मिलान बदले गए"
+  "find.replacedCount": "{matches} मिलान बदले गए",
+  "speech.noOfflineVoice": "कोई ऑफ़लाइन आवाज़ इंस्टॉल नहीं है। ‘पढ़कर सुनाएँ’ केवल इसी डिवाइस की आवाज़ें इस्तेमाल करता है।"
 }

@@ -680,5 +680,6 @@
   "find.currentMatch": "বর্তমান মিল",
   "find.onLine": "লাইন",
   "find.replacedOnLine": "লাইন {line}-এ মিলটি বদলানো হয়েছে",
-  "find.replacedCount": "{matches}টি মিল বদলানো হয়েছে"
+  "find.replacedCount": "{matches}টি মিল বদলানো হয়েছে",
+  "speech.noOfflineVoice": "কোনো অফলাইন ভয়েস ইনস্টল করা নেই। ‘পড়ে শোনান’ শুধু এই ডিভাইসের ভয়েস ব্যবহার করে।"
 }

@@ -42,6 +42,13 @@ describe('bug report contents', () => {
     expect(bugReport({ version: '1.0.0', aiBuild: false, windows: null, webView2: null, settings: SETTINGS, problems: [] })).toContain('Build: without AI');
   });
 
+  it('on the web: names the browser instead of Windows and WebView2 (Web Task 4)', () => {
+    const text = bugReport({ version: '1.0.0', aiBuild: false, windows: null, webView2: null, browser: 'Google Chrome 130', settings: SETTINGS, problems: [] });
+    expect(text).toContain('Browser: Google Chrome 130');
+    expect(text).not.toContain('Windows (platform version)');
+    expect(text).not.toContain('WebView2');
+  });
+
   it('lists the recent errors and notices by message key only', () => {
     const text = report();
     expect(text).toMatch(/error {2}error\.unsupported\n/);

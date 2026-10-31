@@ -2,7 +2,9 @@
 // and About says where AI rewrites are. With the desktop capabilities everything shows, as before.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, screen, within } from '@testing-library/react';
+import { DEFAULT_MODULES } from '@/engine/modules';
 import type { Capabilities } from '@/ui/platform/capabilities';
+import type { Settings } from '@/ui/state/settings';
 import { makeController } from './harness';
 import { chooseFromMore, renderShell, settingsTab } from './shell';
 
@@ -45,6 +47,19 @@ function openModulesSettings(): void {
   settingsTab('Modules');
 }
 
+/** AI rewrites switched on with a timed model file: the desktop offers "Improve this sentence" everywhere. */
+const AI_ON: Partial<Settings> = {
+  modelPath: 'C:/models/helper.gguf',
+  modules: { ...DEFAULT_MODULES, aiRewrites: true },
+  helperSpeed: { modelPath: 'C:/models/helper.gguf', seconds: 2.5, backend: 'cpu', gpuFallback: false },
+};
+const IMPROVE_ROW = 'Improve the sentence at the cursor (AI helper)';
+
+function shortcutsText(): string {
+  chooseFromMore('Keyboard shortcuts');
+  return screen.getByRole('dialog', { name: 'Keyboard shortcuts' }).textContent ?? '';
+}
+
 async function aboutText(): Promise<string> {
   chooseFromMore('About');
   return (await screen.findByRole('dialog', { name: 'About Kashiro' })).textContent ?? '';
@@ -81,6 +96,13 @@ describe('with the web capabilities', () => {
     renderShell(makeController().controller);
     expect(savingSettingsText()).not.toContain(APP_FOLDER_HINT);
   });
+
+  it('even with AI rewrites on in the saved settings, the shortcuts have no AI row', () => {
+    renderShell(makeController(AI_ON).controller);
+    const text = shortcutsText();
+    expect(text).not.toContain(IMPROVE_ROW);
+    expect(text).not.toContain('Ctrl+I');
+  });
 });
 
 describe('with the desktop capabilities', () => {
@@ -112,5 +134,12 @@ describe('with the desktop capabilities', () => {
   it('Settings › Saving has the "app’s own folder" hint', () => {
     renderShell(makeController().controller);
     expect(savingSettingsText()).toContain(APP_FOLDER_HINT);
+  });
+
+  it('with AI rewrites on: the shortcuts list "Improve the sentence (AI helper)" with Ctrl+I', () => {
+    renderShell(makeController(AI_ON).controller);
+    const text = shortcutsText();
+    expect(text).toContain(IMPROVE_ROW);
+    expect(text).toContain('Ctrl+I');
   });
 });

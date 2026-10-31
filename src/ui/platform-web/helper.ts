@@ -1,20 +1,20 @@
-import type { ModelFiles } from '../state/sessionController';
-import type { WritingHelper } from '../state/optionalModules';
+import type * as desktop from '../platform/helper';
 
-// A stub until the web adapters land (web plan, Task 2+): same exports as src/ui/platform/helper.ts.
-const notYet = (): never => {
-  throw new Error('not available on the web yet');
+// The web has no writing helper (capabilities.ai is false, so the app hides AI and never starts one).
+const NO_AI = 'AI is available in the desktop app';
+
+const noHelper = (): never => {
+  throw new Error(NO_AI);
 };
 
-export const modelFiles: ModelFiles = {
-  choose: async () => notYet(),
-  hash: async () => notYet(),
+export const modelFiles: typeof desktop.modelFiles = {
+  choose: async () => noHelper(),
+  hash: async () => noHelper(),
 };
 
-export async function startAppHelper(_modelPath: string): Promise<WritingHelper> {
-  return notYet();
-}
+export const startAppHelper: typeof desktop.startAppHelper = async () => noHelper();
 
-export const helperInstalled = async (): Promise<boolean> => notYet();
+export const helperInstalled: typeof desktop.helperInstalled = async () => false;
 
-export const stopAppHelper = async (): Promise<void> => notYet();
+/** Nothing runs, so there is nothing to stop. */
+export const stopAppHelper: typeof desktop.stopAppHelper = async () => {};

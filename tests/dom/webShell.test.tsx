@@ -9,7 +9,7 @@ import { msg } from '@/ui/i18n/message';
 import type { Capabilities } from '@/ui/platform/capabilities';
 import { files as webFiles } from '@/ui/platform-web/files';
 import { makeController, warmLinter } from './harness';
-import { openAndWait, renderShell, reviewPanel } from './shell';
+import { installSpeech, LOCAL_VOICE, openAndWait, renderShell, reviewPanel } from './shell';
 
 const platform = vi.hoisted(() => ({
   capabilities: { ai: false, windowMemory: false, updates: false, textDrop: true, saveInPlace: 'download', web: true } satisfies Capabilities,
@@ -18,6 +18,7 @@ vi.mock('@/ui/platform/capabilities', () => platform);
 vi.mock('@tauri-apps/api/window', async () => (await import('./platformMocks')).tauriWindow);
 vi.mock('@/ui/platform/files', () => import('@/ui/platform-web/files'));
 vi.mock('@/ui/platform/window', () => import('@/ui/platform-web/window'));
+vi.mock('@/ui/platform/speech', () => import('@/ui/platform-web/speech'));
 vi.mock('@/ui/platform/linter', async () => (await import('./platformMocks')).platformLinter);
 vi.mock('@/ui/platform/settings', async () => (await import('./platformMocks')).platformSettings);
 
@@ -141,6 +142,38 @@ describe('Save after the browser refused its picker (the Save click was too long
     expect(picker.calls()).toBe(1);
     expect(screen.queryByRole('alertdialog')).toBeNull();
     expect(controller.getState().error).toBeNull();
+  });
+});
+
+describe('read aloud on the web (Web Task 4: on-device voices only)', () => {
+  /** Chrome's Google voices are network voices: they would send the text to Google. */
+  const GOOGLE_HINDI = { voiceURI: 'Google हिन्दी', name: 'Google हिन्दी', lang: 'hi-IN', localService: false, default: true };
+  const NO_OFFLINE_VOICE = 'No offline voice is installed';
+
+  it('with only network voices, the read-aloud bar’s place says no offline voice is installed', async () => {
+    const speech = installSpeech([GOOGLE_HINDI, { ...GOOGLE_HINDI, voiceURI: 'Google US English', name: 'Google US English', lang: 'en-US' }]);
+    try {
+      const { controller } = makeController();
+      renderShell(controller);
+      await openAndWait(controller, () => controller.openSample());
+      await waitFor(() => expect(reviewPanel().textContent).toContain(NO_OFFLINE_VOICE), { timeout: 5000 });
+      expect(within(reviewPanel()).queryByRole('button', { name: /Sentence/ })).toBeNull();
+    } finally {
+      speech.remove();
+    }
+  });
+
+  it('with an on-device voice, the bar reads and there is no note', async () => {
+    const speech = installSpeech([GOOGLE_HINDI, LOCAL_VOICE]);
+    try {
+      const { controller } = makeController();
+      renderShell(controller);
+      await openAndWait(controller, () => controller.openSample());
+      await within(reviewPanel()).findByRole('group', { name: 'Read aloud' });
+      expect(reviewPanel().textContent).not.toContain(NO_OFFLINE_VOICE);
+    } finally {
+      speech.remove();
+    }
   });
 });
 

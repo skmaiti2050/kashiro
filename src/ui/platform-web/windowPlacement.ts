@@ -1,7 +1,6 @@
-// A stub: the web build has no window memory (capabilities.windowMemory is false), so the app never calls this.
-// Same exports as src/ui/platform/windowPlacement.ts.
-export const SAVE_AFTER_MS = 500;
+import type * as desktop from '../platform/windowPlacement';
 
-export function rememberWindowPlacement(): { restored: Promise<void>; stop: () => void } {
-  throw new Error('not available on the web yet');
-}
+// The browser places its own window (capabilities.windowMemory is false): nothing to restore or save.
+export const SAVE_AFTER_MS: typeof desktop.SAVE_AFTER_MS = 500;
+
+export const rememberWindowPlacement: typeof desktop.rememberWindowPlacement = () => ({ restored: Promise.resolve(), stop() {} });
