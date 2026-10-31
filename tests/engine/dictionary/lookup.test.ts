@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
+import { gzipSync } from 'node:zlib';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { loadDictionary, type Dictionary } from '@/engine/dictionary/lookup';
+import type { DictionaryData } from '@/engine/dictionary/types';
 
 const DICTIONARY_PATH = new URL('../../../resources/dictionary/oewn.json.gz', import.meta.url);
 const noPersonal = { personal: new Set<string>() };
@@ -96,4 +98,28 @@ describe('dictionary lookup (real file)', () => {
     expect(dictionary.lookup('zorblax', noPersonal).inPersonalDictionary).toBe(false);
   });
   // The load and lookup timing tests live in tests/timing (run on their own, after the rest of the suite).
+});
+
+// Web Task 7 fix: a host that serves oewn.json.gz with Content-Encoding: gzip (Vite preview, Cloudflare) has the
+// browser decompress it, so the bytes Kashiro gets are already JSON.
+describe('loading the dictionary file', () => {
+  const data: DictionaryData = { format: 1, entries: { cat: [['n', 'a small feline', '', ['puss']]] }, exceptions: {} };
+  const json = new TextEncoder().encode(JSON.stringify(data));
+  const lookupCat = async (bytes: Uint8Array) => (await loadDictionary(bytes)).lookup('cats', noPersonal);
+
+  it('reads the gzipped file', async () => {
+    const result = await lookupCat(new Uint8Array(gzipSync(json)));
+    expect(result.lemma).toBe('cat');
+    expect(result.senses).toEqual([{ pos: 'noun', definition: 'a small feline', synonyms: ['puss'], formOf: 'cat' }]);
+  });
+
+  it('reads the same file already decompressed, with the same result', async () => {
+    expect(await lookupCat(json)).toEqual(await lookupCat(new Uint8Array(gzipSync(json))));
+  });
+
+  it('says the file is damaged when it is neither gzip nor JSON', async () => {
+    await expect(loadDictionary(new TextEncoder().encode('<html>Not found</html>'))).rejects.toThrow(
+      /dictionary file is damaged/,
+    );
+  });
 });

@@ -37,9 +37,24 @@ async function gunzip(bytes: Uint8Array): Promise<string> {
   return new Response(stream).text();
 }
 
+/** Every gzip file starts with these two bytes (RFC 1952). */
+const isGzip = (bytes: Uint8Array) => bytes[0] === 0x1f && bytes[1] === 0x8b;
+const OPEN_BRACE = 0x7b;
+const DAMAGED_FILE = 'The dictionary file is damaged (neither gzip nor JSON). Reinstall Kashiro, or reload the page on the web.';
+
+/**
+ * The dictionary's JSON from oewn.json.gz. A web host that sends the file with Content-Encoding: gzip (Vite preview,
+ * Cloudflare) has the browser decompress it already, so the bytes may be plain JSON.
+ */
+async function dictionaryText(bytes: Uint8Array): Promise<string> {
+  if (isGzip(bytes)) return gunzip(bytes);
+  if (bytes[0] === OPEN_BRACE) return new TextDecoder().decode(bytes);
+  throw new Error(DAMAGED_FILE);
+}
+
 /** Reads the build output once; lookups afterwards are plain property reads. */
 export async function loadDictionary(bytes: Uint8Array): Promise<Dictionary> {
-  const data = JSON.parse(await gunzip(bytes)) as DictionaryData;
+  const data = JSON.parse(await dictionaryText(bytes)) as DictionaryData;
   // Own-property checks: a typed word such as "constructor" must not reach Object.prototype.
   const entryFor = (lemma: string): SenseRow[] | undefined =>
     Object.hasOwn(data.entries, lemma) ? data.entries[lemma] : undefined;
