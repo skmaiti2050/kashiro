@@ -15,6 +15,7 @@ import { ShortcutsSheet } from './ShortcutsSheet';
 import { StatusBar } from './StatusBar';
 import { Toolbar } from './Toolbar';
 import { UndoToast } from './UndoToast';
+import { SaveReadyDialog } from './SaveReadyDialog';
 import { UnsavedChangesDialog } from './UnsavedChangesDialog';
 import { rememberTourSeen, tourSeen, WelcomeTour } from './WelcomeTour';
 import { PanelDivider } from './PanelDivider';
@@ -28,7 +29,7 @@ import { translatorFor } from './i18n/translatorFor';
 import { TranslatorProvider, useT } from './i18n/useT';
 import { capabilities } from './platform/capabilities';
 import { loadAppDictionary } from './platform/dictionary';
-import { files, onFileDrop, onTextDrop, setDialogLabels } from './platform/files';
+import { files, onFileDrop, onSaveNeedsClick, onTextDrop, setDialogLabels, type SaveClickRequest } from './platform/files';
 import { helperInstalled, modelFiles, startAppHelper, stopAppHelper } from './platform/helper';
 import { createAppLinter } from './platform/linter';
 import { openProjectPage } from './platform/links';
@@ -143,6 +144,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
   const [cardRequest, setCardRequest] = useState<CardRequest | null>(null);
   /** What to do once the user has answered "Save, Discard, or Cancel?". */
   const [afterUnsaved, setAfterUnsaved] = useState<(() => void) | null>(null);
+  const [saveClick, setSaveClick] = useState<SaveClickRequest | null>(null);
   const split = usePanelSplit();
   const closePanel = () => setPanel('none');
   /** Shows the card of `candidateId`; a new seq makes the same card come back after the user moved on. */
@@ -184,6 +186,9 @@ function ShellView({ controller, state }: { controller: SessionController; state
       }),
     );
   }, [controller, unlessUnsaved]);
+
+  // The web's save picker refused (the Save click was too long ago): one more click opens it.
+  useEffect(() => listenWhileMounted(onSaveNeedsClick((request) => setSaveClick(request))), []);
 
   useEffect(() => {
     return listenWhileMounted(
@@ -233,7 +238,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
     setSettingsTab(tab);
     setPanel('settings');
   };
-  const dialogOpen = panel !== 'none' || afterUnsaved !== null || state.resumeOffer !== null || lookupState !== null;
+  const dialogOpen = panel !== 'none' || afterUnsaved !== null || saveClick !== null || state.resumeOffer !== null || lookupState !== null;
   // The welcome tour, once, when the first document's check is done and nothing else is open (F23 item 7).
   useEffect(() => {
     if (!state.session || dialogOpen || tourSeen()) return;
@@ -422,6 +427,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
           onDismiss={() => controller.reviews.dismiss()}
         />
       )}
+      {saveClick && <SaveReadyDialog request={saveClick} onDone={() => setSaveClick(null)} />}
       {afterUnsaved && (
         <UnsavedChangesDialog
           name={state.document?.name ?? t.t('unsaved.thisDocument')}

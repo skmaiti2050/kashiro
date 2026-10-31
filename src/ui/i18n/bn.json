@@ -58,6 +58,8 @@
   "save.overwrite": "মূল ফাইলটি বদলে দিন (ব্যাকআপ রেখে)",
   "save.overwriteDetail": "আগে মূল ফাইলটি একটি .bak ফাইলে কপি হয়, তারপর তার জায়গায় নতুনটি বসে। পেস্ট করা লেখা সবসময় নতুন কপিতে সেভ হয়।",
   "save.webNoBackup": "ওয়েবে কোনো ব্যাকআপ থাকে না: মূল ফাইলটি বদলে যায়।",
+  "save.readyToSave": "{name} সেভ করার জন্য তৈরি",
+  "save.readyCancel": "বাতিল",
 
   "variant.American": "আমেরিকান",
   "variant.British": "ব্রিটিশ",

@@ -57,6 +57,8 @@
   "save.overwrite": "Overwrite (keeps a backup)",
   "save.overwriteDetail": "Replaces the original after copying it to a .bak file. Pasted text is always saved as a new copy.",
   "save.webNoBackup": "No backup on the web: the original is replaced.",
+  "save.readyToSave": "{name} is ready to save",
+  "save.readyCancel": "Cancel",
 
   "variant.American": "American",
   "variant.British": "British",

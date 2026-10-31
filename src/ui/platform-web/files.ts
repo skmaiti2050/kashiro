@@ -2,6 +2,7 @@ import type * as desktop from '../platform/files';
 import { SaveOverOriginalError, type Files, type OpenedFile } from '../state/saveFlow';
 
 export type DroppedFile = desktop.DroppedFile;
+export type SaveClickRequest = desktop.SaveClickRequest;
 
 const WORD = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 const ANY_FILE = 'application/octet-stream';
@@ -46,6 +47,8 @@ const extension = (name: string) => {
 
 /** The user closed a picker without choosing. */
 const isCancel = (e: unknown) => e instanceof DOMException && e.name === 'AbortError';
+/** The browser refused to show a picker: Chrome's user activation (about 5 s after the click) ran out. */
+const isPickerRefused = (e: unknown) => e instanceof DOMException && (e.name === 'SecurityError' || e.name === 'NotAllowedError');
 
 /** On the web a file has no path the page may know: its name stands in, which keys its saved review (web plan). */
 async function opened(file: File): Promise<OpenedFile> {
@@ -75,6 +78,23 @@ function pickWithInput(): Promise<File | null> {
   });
 }
 
+/** Who shows "<name> is ready to save" when the browser refused its picker (App, through onSaveNeedsClick). */
+let askForClick: ((request: SaveClickRequest) => void) | null = null;
+
+/**
+ * Asks for a fresh click, then opens the picker from inside that click (the browser requires one). Resolves with
+ * the picked file, or null when the user cancels the prompt or the picker. The built bytes wait meanwhile.
+ */
+function pickAfterClick(ask: (request: SaveClickRequest) => void, name: string, showPicker: () => Promise<SaveHandle>): Promise<SaveHandle | null> {
+  return new Promise((resolve, reject) =>
+    ask({
+      name,
+      save: () => void showPicker().then(resolve, (e) => (isCancel(e) ? resolve(null) : reject(e))),
+      cancel: () => resolve(null),
+    }),
+  );
+}
+
 /** Saves `bytes` as a download named `name` (browsers without the save picker). */
 function download(bytes: Uint8Array, name: string, type: string): void {
   const url = URL.createObjectURL(new Blob([bytes as Uint8Array<ArrayBuffer>], { type }));
@@ -96,6 +116,7 @@ export const files = {
   /**
    * `path` is the name saveFlow suggests: the `.checked` copy, or with Overwrite the original's name (after the
    * "No backup on the web" notice). A browser keeps no backup, and the user confirms its own "Replace?" prompt.
+   * A picker refused for lack of a recent click is opened again from the "ready to save" prompt (onSaveNeedsClick).
    */
   async save(path, bytes, { overwrite, original }) {
     const suggestedName = fileName(path);
@@ -106,13 +127,18 @@ export const files = {
       download(bytes, suggestedName, type);
       return { path: suggestedName, backup: null };
     }
-    let handle: SaveHandle;
+    const types = ext ? [{ description: ext.toUpperCase(), accept: { [type]: [`.${ext}`] } }] : [];
+    const showPicker = () => showSaveFilePicker.call(window, { suggestedName, types });
+    let handle: SaveHandle | null;
     try {
-      handle = await showSaveFilePicker.call(window, { suggestedName, types: ext ? [{ description: ext.toUpperCase(), accept: { [type]: [`.${ext}`] } }] : [] });
+      handle = await showPicker();
     } catch (e) {
       if (isCancel(e)) return null;
-      throw e;
+      // Save built the file first and the click is now too long ago; every retry would rebuild and be refused again.
+      if (!isPickerRefused(e) || !askForClick) throw e;
+      handle = await pickAfterClick(askForClick, suggestedName, showPicker);
     }
+    if (!handle) return null;
     // Only a name to compare: the browser doesn't say which folder either file is in (spec: matched by name).
     if (!overwrite && original && handle.name.toLowerCase() === fileName(original).toLowerCase()) throw new SaveOverOriginalError(handle.name);
     // The browser writes to a temporary file and moves it into place on close: the whole file or nothing.
@@ -160,3 +186,11 @@ export const onTextDrop: typeof desktop.onTextDrop = async (onDrop) =>
     event.preventDefault();
     onDrop(text);
   }, false);
+
+/** Shows `ask`'s prompt whenever Save needs one more click to open the save picker. Returns the unsubscribe function. */
+export const onSaveNeedsClick: typeof desktop.onSaveNeedsClick = async (ask) => {
+  askForClick = ask;
+  return () => {
+    if (askForClick === ask) askForClick = null;
+  };
+};

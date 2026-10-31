@@ -3,7 +3,7 @@
 // with the name desktop suggests, a copy over the open document is refused as on desktop, and files or text dropped
 // on the page reach the app. On the web a file's path is its name: that is what saved reviews are keyed by.
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { files, onFileDrop, onTextDrop, type DroppedFile } from '@/ui/platform-web/files';
+import { files, onFileDrop, onSaveNeedsClick, onTextDrop, type DroppedFile, type SaveClickRequest } from '@/ui/platform-web/files';
 import { SaveOverOriginalError } from '@/ui/state/saveFlow';
 
 const BYTES = new Uint8Array([80, 75, 3, 4, 1, 2, 3]);
@@ -100,6 +100,87 @@ describe('Save with the save picker (Chrome, Edge)', () => {
     const calls = installSavePicker(null);
     expect(await files.save('report.checked.docx', BYTES, { overwrite: false, original: 'report.docx' })).toBeNull();
     expect(calls[0].written).toBeNull();
+  });
+});
+
+describe('Save when the browser refuses its picker (the Save click is too long ago)', () => {
+  /**
+   * A save picker that refuses its first call with `refusal`, as Chrome does once the click's activation ran out,
+   * then behaves as installSavePicker(`pickedName`).
+   */
+  function installRefusingPicker(refusal: string, pickedName: string | null) {
+    const calls = installSavePicker(pickedName);
+    const working = (window as unknown as { showSaveFilePicker: (o: object) => Promise<unknown> }).showSaveFilePicker;
+    let refused = false;
+    const picker = vi.fn(async (options: { suggestedName: string; types: unknown[] }) => {
+      if (refused) return working(options);
+      refused = true;
+      throw new DOMException('Must be handling a user gesture to show a file picker.', refusal);
+    });
+    Object.defineProperty(window, 'showSaveFilePicker', { value: picker, configurable: true });
+    return { calls, picker };
+  }
+
+  /** Subscribes like App: `requests` collects each "ready to save" prompt. */
+  async function promptsShown() {
+    const requests: SaveClickRequest[] = [];
+    const stop = await onSaveNeedsClick((request) => requests.push(request));
+    return { requests, stop };
+  }
+
+  it.each(['SecurityError', 'NotAllowedError'])('%s: asks for a click, then the picker writes the same bytes', async (refusal) => {
+    const { calls, picker } = installRefusingPicker(refusal, 'report.checked.docx');
+    const { requests, stop } = await promptsShown();
+    const saving = files.save('report.checked.docx', BYTES, { overwrite: false, original: 'report.docx' });
+    await vi.waitFor(() => expect(requests.map((r) => r.name)).toEqual(['report.checked.docx']));
+    expect(picker).toHaveBeenCalledTimes(1);
+
+    requests[0].save(); // the prompt's Save click
+    expect(picker).toHaveBeenCalledTimes(2); // opened inside that click, not after an await
+    expect(await saving).toEqual({ path: 'report.checked.docx', backup: null });
+    expect(calls.map((c) => c.suggestedName)).toEqual(['report.checked.docx']);
+    expect(calls[0].written).toEqual(BYTES);
+    stop();
+  });
+
+  it('the prompt’s Cancel: null, and nothing is written', async () => {
+    const { calls } = installRefusingPicker('SecurityError', 'report.checked.docx');
+    const { requests, stop } = await promptsShown();
+    const saving = files.save('report.checked.docx', BYTES, { overwrite: false, original: 'report.docx' });
+    await vi.waitFor(() => expect(requests).toHaveLength(1));
+    requests[0].cancel();
+    expect(await saving).toBeNull();
+    expect(calls).toEqual([]);
+    stop();
+  });
+
+  it('the picker cancelled after the prompt’s Save (AbortError): null', async () => {
+    installRefusingPicker('SecurityError', null);
+    const { requests, stop } = await promptsShown();
+    const saving = files.save('report.checked.docx', BYTES, { overwrite: false, original: 'report.docx' });
+    await vi.waitFor(() => expect(requests).toHaveLength(1));
+    requests[0].save();
+    expect(await saving).toBeNull();
+    stop();
+  });
+
+  it('the name picked after the prompt is still checked: the open document is refused', async () => {
+    const { calls } = installRefusingPicker('SecurityError', 'report.docx');
+    const { requests, stop } = await promptsShown();
+    const saving = files.save('report.checked.docx', BYTES, { overwrite: false, original: 'report.docx' });
+    await vi.waitFor(() => expect(requests).toHaveLength(1));
+    requests[0].save();
+    await expect(saving).rejects.toBeInstanceOf(SaveOverOriginalError);
+    expect(calls[0].written).toBeNull();
+    stop();
+  });
+
+  it('a Cancel in the first picker (AbortError) is no refusal: null, no prompt', async () => {
+    installSavePicker(null);
+    const { requests, stop } = await promptsShown();
+    expect(await files.save('report.checked.docx', BYTES, { overwrite: false, original: 'report.docx' })).toBeNull();
+    expect(requests).toEqual([]);
+    stop();
   });
 });
 

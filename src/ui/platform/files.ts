@@ -81,3 +81,18 @@ export async function onFileDrop(onDrop: (files: DroppedFile[]) => void): Promis
 export async function onTextDrop(_onDrop: (text: string) => void): Promise<() => void> {
   return () => {};
 }
+
+/**
+ * The browser refused its save picker because the Save click was too long ago (the web build only). The file is
+ * built: `save` must run inside a new click (it opens the picker), `cancel` drops it.
+ */
+export interface SaveClickRequest {
+  name: string;
+  save(): void;
+  cancel(): void;
+}
+
+/** Never called here: the desktop's own Save dialog needs no fresh click. Returns the unsubscribe function. */
+export async function onSaveNeedsClick(_ask: (request: SaveClickRequest) => void): Promise<() => void> {
+  return () => {};
+}

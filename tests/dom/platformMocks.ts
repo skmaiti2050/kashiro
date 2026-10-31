@@ -9,6 +9,7 @@ export const platformFiles = {
   files: { open: async () => null, save: async () => null },
   onFileDrop: async () => () => {},
   onTextDrop: async () => () => {},
+  onSaveNeedsClick: async () => () => {},
   setDialogLabels: () => {},
 };
 export const platformLinter = { createAppLinter: () => Promise.reject(new Error('not used in tests')) };

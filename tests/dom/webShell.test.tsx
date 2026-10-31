@@ -1,10 +1,13 @@
 // Web Task 3: the app shell over the web's own files and window modules. Text dropped on the page opens as a new
 // document (after the unsaved-work prompt, as Paste); a text or file Kashiro can't take says so and keeps the open
 // document. Leaving the page with unsaved work makes the browser ask "Leave site?" (controller ruling 1); without
-// unsaved work nothing asks, and Kashiro's own Save/Discard dialog never follows the browser's prompt.
-import { describe, it, expect, beforeAll, vi } from 'vitest';
+// unsaved work nothing asks, and Kashiro's own Save/Discard dialog never follows the browser's prompt. A save picker
+// the browser refused (the click's activation ran out) is opened from a new click on "… is ready to save" (fix round 1).
+import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { msg } from '@/ui/i18n/message';
 import type { Capabilities } from '@/ui/platform/capabilities';
+import { files as webFiles } from '@/ui/platform-web/files';
 import { makeController, warmLinter } from './harness';
 import { openAndWait, renderShell, reviewPanel } from './shell';
 
@@ -80,6 +83,64 @@ describe('dropping text on the page', () => {
     await act(async () => {});
     dropOnPage({ files: [new File(['The cat sat on the mat.'], 'notes.md')] });
     await waitFor(() => expect(controller.getState().document).toMatchObject({ name: 'notes.md', path: 'notes.md' }), { timeout: 10000 });
+  });
+});
+
+describe('Save after the browser refused its picker (the Save click was too long ago)', () => {
+  /** A save picker that refuses its first call (lost user activation); `written` records each file written. */
+  function installRefusingPicker() {
+    const written: { name: string; bytes: Uint8Array }[] = [];
+    let calls = 0;
+    const picker = async ({ suggestedName }: { suggestedName: string }) => {
+      if (++calls === 1) throw new DOMException('Must be handling a user gesture to show a file picker.', 'SecurityError');
+      return {
+        name: suggestedName,
+        createWritable: async () => ({
+          write: async (data: Uint8Array) => void written.push({ name: suggestedName, bytes: new Uint8Array(data) }),
+          close: async () => {},
+        }),
+      };
+    };
+    Object.defineProperty(window, 'showSaveFilePicker', { value: picker, configurable: true });
+    return { written, calls: () => calls };
+  }
+
+  afterEach(() => {
+    delete (window as { showSaveFilePicker?: unknown }).showSaveFilePicker;
+  });
+
+  async function savingRefused() {
+    const picker = installRefusingPicker();
+    const { controller } = makeController({}, webFiles);
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText('The cat sat on the mat.'));
+    let saved: Promise<boolean> | null = null;
+    act(() => void (saved = controller.save()));
+    const dialog = await screen.findByRole('alertdialog', { name: 'Untitled.checked.txt is ready to save' });
+    return { picker, controller, dialog, saved: saved! };
+  }
+
+  it('asks "Untitled.checked.txt is ready to save" with focus on Save; Save opens the picker and writes the built file', async () => {
+    const { picker, controller, dialog, saved } = await savingRefused();
+    const save = within(dialog).getByRole('button', { name: 'Save' });
+    expect(document.activeElement).toBe(save);
+    await act(async () => fireEvent.click(save));
+    expect(await saved).toBe(true);
+    expect(picker.calls()).toBe(2);
+    expect(picker.written.map((w) => w.name)).toEqual(['Untitled.checked.txt']);
+    expect(new TextDecoder().decode(picker.written[0].bytes)).toBe('The cat sat on the mat.');
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(controller.getState().notice).toEqual(msg('notice.saved', { path: 'Untitled.checked.txt' }));
+  });
+
+  it('Escape cancels: nothing written, no error, the work still unsaved', async () => {
+    const { picker, controller, dialog, saved } = await savingRefused();
+    await act(async () => fireEvent.keyDown(dialog, { key: 'Escape' }));
+    expect(await saved).toBe(false);
+    expect(picker.written).toEqual([]);
+    expect(picker.calls()).toBe(1);
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(controller.getState().error).toBeNull();
   });
 });
 
