@@ -48,6 +48,7 @@ export async function save(host: SaveHost): Promise<boolean> {
   }
   const { adapter, handle } = loaded;
   try {
+    const editsBefore = JSON.stringify(session.acceptedEdits());
     const notice = await saveDocument({
       session,
       adapter,
@@ -58,8 +59,10 @@ export async function save(host: SaveHost): Promise<boolean> {
       files: host.files,
       notify: (shown) => host.set({ notice: shown, error: null }),
     });
-    // Unplaceable edits may have been marked on the session, so this always re-renders.
-    host.set({ notice, error: null });
+    // Unplaceable edits may have been marked on the session, so this always re-renders. Marking one changes the
+    // accepted edits like any other change to the text, so open previews close by the same textChanges rule (#35).
+    const editsChanged = JSON.stringify(session.acceptedEdits()) !== editsBefore;
+    host.set({ notice, error: null, ...(editsChanged && { textChanges: host.state().textChanges + 1 }) });
     if (notice === null) return false;
     // A download may never reach a folder the user keeps: the work stays unsaved, so leaving still asks (final review R2).
     if (capabilities.saveInPlace !== 'download') host.markSaved(changes);
