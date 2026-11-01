@@ -104,6 +104,15 @@ describe('the web’s wording', () => {
     expect(text).not.toContain('this PC');
   });
 
+  it('the status bar: nothing leaves this browser, not "this PC"', () => {
+    platform.capabilities = PICKER;
+    renderShell(makeController().controller);
+    const offline = document.querySelector<HTMLElement>('.statusbar .offline')!;
+    expect(offline.textContent).toContain('Offline · nothing leaves this browser');
+    expect(offline.title).toBe('Your text is checked in this browser and never sent anywhere.');
+    expect(offline.textContent).not.toContain('this PC');
+  });
+
   it('Modules: saved reviews are kept in this browser', () => {
     platform.capabilities = PICKER;
     renderShell(makeController().controller);
@@ -150,6 +159,14 @@ describe('the desktop keeps its wording', () => {
     platform.capabilities = DESKTOP;
     renderShell(makeController().controller);
     expect(document.querySelector('.empty-state')!.textContent).toContain('Works offline. Your writing never leaves this PC.');
+  });
+
+  it('the status bar: nothing leaves this PC', () => {
+    platform.capabilities = DESKTOP;
+    renderShell(makeController().controller);
+    const offline = document.querySelector<HTMLElement>('.statusbar .offline')!;
+    expect(offline.textContent).toContain('Offline · nothing leaves this PC');
+    expect(offline.title).toBe('Your text is checked on this PC and never sent anywhere.');
   });
 
   it('Modules, Delete all and Reading name this computer and Windows Settings', () => {

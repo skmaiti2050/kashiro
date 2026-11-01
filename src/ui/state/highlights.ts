@@ -72,11 +72,8 @@ export function paragraphAt(doc: OpenDocument, viewText: string, session: CheckS
  * shows text the session has not checked yet.
  */
 export function locateCandidate(doc: OpenDocument, viewText: string, session: CheckSession, candidate: Candidate): { from: number; to: number } | null {
-  if (viewText !== doc.text) return null;
-  const para = session.paragraphs().find((p) => p.id === candidate.paraId);
-  const start = doc.paraStarts.get(candidate.paraId);
-  if (!para || start === undefined || doc.text.slice(start, start + para.text.length) !== para.text) return null;
-  return { from: start + candidate.span.start, to: start + candidate.span.end };
+  const start = paragraphStart(doc, viewText, session, candidate.paraId);
+  return start === null ? null : { from: start + candidate.span.start, to: start + candidate.span.end };
 }
 
 /**

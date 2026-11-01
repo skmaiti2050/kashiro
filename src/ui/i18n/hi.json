@@ -92,7 +92,6 @@
   "doc.textLabel": "दस्तावेज़ का टेक्स्ट",
   "doc.placeholder": "अपना टेक्स्ट यहाँ पेस्ट करें या लिखें।",
   "doc.notChecked": "जाँचा नहीं गया",
-  "doc.notCheckedLabel": "जाँचा नहीं गया: काशिरो केवल अंग्रेज़ी की जाँच करता है",
   "doc.docxNote": "हेडर, फ़ुटर और फ़ुटनोट जैसे हैं वैसे ही रखे जाते हैं, पर इस संस्करण में उनकी जाँच नहीं होती।",
   "doc.flag": "{category}: {explanation}",
   "doc.textMenu": "टेक्स्ट के विकल्प",
@@ -311,6 +310,8 @@
 
   "status.offline": "ऑफ़लाइन · कुछ भी इस PC से बाहर नहीं जाता",
   "status.offlineTitle": "आपके टेक्स्ट की जाँच इसी PC पर होती है, उसे कहीं नहीं भेजा जाता।",
+  "status.offlineWeb": "ऑफ़लाइन · कुछ भी इस ब्राउज़र से बाहर नहीं जाता",
+  "status.offlineTitleWeb": "आपके टेक्स्ट की जाँच इसी ब्राउज़र में होती है, उसे कहीं नहीं भेजा जाता।",
   "status.words": "{count, plural, one {# शब्द} other {# शब्द}}",
   "status.variant": "{variant} अंग्रेज़ी",
   "status.variantDetected": "{variant} अंग्रेज़ी (अपने-आप पहचानी गई)",

@@ -26,8 +26,8 @@ export function StatusBar({ state }: { state: ControllerState }) {
 
   return (
     <footer className="statusbar">
-      <span className="offline" title={t.t('status.offlineTitle')}>
-        <span className="dot" aria-hidden="true" /> {t.t('status.offline')}
+      <span className="offline" title={t.t(capabilities.web ? 'status.offlineTitleWeb' : 'status.offlineTitle')}>
+        <span className="dot" aria-hidden="true" /> {t.t(capabilities.web ? 'status.offlineWeb' : 'status.offline')}
       </span>
       {capabilities.web && <span>{buildDate ? t.t('status.preview', { date: buildDate }) : t.t('about.preview')}</span>}
       {document && (

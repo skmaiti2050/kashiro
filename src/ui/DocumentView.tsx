@@ -46,11 +46,12 @@ class ReplacementWidget extends WidgetType {
 /**
  * "Not checked" above a paragraph that was set aside (not English). A widget, not text: it is no part of the document,
  * so offsets, editing and copying never see it. The words are the UI's, so they carry the UI's language and direction.
+ * Visual only: inside the text box a screen reader would drop or double its name; the review panel's count line and
+ * the completion announcement tell those users.
  */
 class NotCheckedWidget extends WidgetType {
   constructor(
     readonly text: string,
-    readonly label: string,
     readonly language: string,
     readonly dir: string,
   ) {
@@ -58,14 +59,13 @@ class NotCheckedWidget extends WidgetType {
   }
 
   eq(other: NotCheckedWidget): boolean {
-    return other.text === this.text && other.label === this.label && other.language === this.language && other.dir === this.dir;
+    return other.text === this.text && other.language === this.language && other.dir === this.dir;
   }
 
   toDOM(): HTMLElement {
     const el = document.createElement('div');
     el.className = 'cm-not-checked';
-    el.setAttribute('role', 'note');
-    el.setAttribute('aria-label', this.label);
+    el.setAttribute('aria-hidden', 'true');
     el.lang = this.language;
     el.dir = this.dir;
     el.textContent = this.text;
@@ -109,7 +109,7 @@ function documentMarks(t: Translator, doc: OpenDocument, viewText: string, sessi
   if (!highlights) return null;
   const at = toEditorPosition(doc.text, doc.lineSeparator);
   const ranges: Range<Decoration>[] = [];
-  const notChecked = new NotCheckedWidget(t.t('doc.notChecked'), t.t('doc.notCheckedLabel'), t.language, t.dir);
+  const notChecked = new NotCheckedWidget(t.t('doc.notChecked'), t.language, t.dir);
   for (const paraId of session.otherScriptParagraphs()) {
     const start = paragraphStart(doc, viewText, session, paraId);
     if (start !== null) ranges.push(Decoration.widget({ widget: notChecked, block: true, side: -1 }).range(at(start)));

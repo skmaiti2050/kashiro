@@ -7,6 +7,7 @@ import { act, cleanup, fireEvent, screen, within } from '@testing-library/react'
 import { EditorView } from '@codemirror/view';
 import { createTranslator } from '@/ui/i18n/translator';
 import { makeController, warmLinter } from './harness';
+import { english } from '../ui/english';
 import { chooseFromMore, openAndWait, renderShell, reviewPanel, settingsTab } from './shell';
 
 vi.mock('@tauri-apps/api/window', async () => (await import('./platformMocks')).tauriWindow);
@@ -22,17 +23,31 @@ const HINDI = 'यह एक छोटा सा परीक्षण है।
 const BENGALI = 'আমরা কাল বাজারে গিয়েছিলাম।';
 const MIXED_DOCUMENT = `${ENGLISH}\n\n${HINDI}\n\n${BENGALI}`;
 
-const MARKER_LABEL = 'Not checked: Kashiro proofreads English only';
 const ABOUT_LINE = 'Kashiro proofreads English. Text in other scripts is shown but not checked.';
 const markers = () => [...document.querySelectorAll<HTMLElement>('.cm-not-checked')];
 
 describe('the "Not checked" marker beside a paragraph that was set aside', () => {
-  it('each Hindi or Bengali paragraph has a quiet "Not checked" label with an accessible name; the English one has none', async () => {
+  it('each Hindi or Bengali paragraph has a quiet visual-only "Not checked" label; the English one has none', async () => {
     const { controller } = makeController();
     renderShell(controller);
     await openAndWait(controller, () => controller.openText(MIXED_DOCUMENT));
     expect(markers().map((m) => m.textContent)).toEqual(['Not checked', 'Not checked']);
-    expect(screen.getAllByRole('note', { name: MARKER_LABEL })).toHaveLength(2);
+    // Inside the text box the marker's name would be dropped or read twice: screen readers get the panel's count line and the announcement.
+    for (const marker of markers()) {
+      expect(marker.getAttribute('aria-hidden')).toBe('true');
+      expect(marker.hasAttribute('role')).toBe(false);
+      expect(marker.hasAttribute('aria-label')).toBe(false);
+    }
+    expect(screen.queryAllByRole('note')).toEqual([]);
+  });
+
+  it('the completion announcement says text in other scripts was not checked, also when only some paragraphs were', async () => {
+    const { controller } = makeController();
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText(`${ENGLISH} We will meet again next week.\n\n${HINDI}`));
+    expect(english(controller.getState().announcement!.message)).toBe(
+      'Check finished: nothing to decide. Kashiro proofreads English. Text in other scripts was not checked.',
+    );
   });
 
   it('sits before its paragraph and is no part of the text: the document, its offsets and the copied text are unchanged', async () => {
@@ -136,7 +151,7 @@ describe.each(['hi', 'bn'] as const)('in %s', (language) => {
   const english = createTranslator('en', []);
 
   it('every new string has its own translation', () => {
-    for (const key of ['doc.notChecked', 'doc.notCheckedLabel', 'panel.showNextOther', 'toolbar.english', 'about.englishOnly', 'panel.englishOnly', 'language.hint'] as const) {
+    for (const key of ['doc.notChecked','panel.showNextOther', 'toolbar.english', 'about.englishOnly', 'panel.englishOnly', 'language.hint'] as const) {
       expect(own.t(key), key).not.toBe(english.t(key));
     }
     expect(own.t('panel.otherScript', { count: 2 })).not.toBe(english.t('panel.otherScript', { count: 2 }));
@@ -148,7 +163,6 @@ describe.each(['hi', 'bn'] as const)('in %s', (language) => {
     renderShell(controller);
     await openAndWait(controller, () => controller.openText(MIXED_DOCUMENT));
     expect(markers().map((m) => m.textContent)).toEqual([own.t('doc.notChecked'), own.t('doc.notChecked')]);
-    expect(screen.getAllByRole('note', { name: own.t('doc.notCheckedLabel') })).toHaveLength(2);
     const panel = screen.getByRole('complementary', { name: own.t('panel.label') });
     expect(within(panel).getByText(own.t('panel.otherScript', { count: 2 }))).toBeTruthy();
     expect(within(panel).getByRole('button', { name: own.t('panel.showNextOther') })).toBeTruthy();

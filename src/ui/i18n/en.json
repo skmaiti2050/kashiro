@@ -91,7 +91,6 @@
   "doc.textLabel": "Document text",
   "doc.placeholder": "Paste or type your text here.",
   "doc.notChecked": "Not checked",
-  "doc.notCheckedLabel": "Not checked: Kashiro proofreads English only",
   "doc.docxNote": "Headers, footers and footnotes are kept as they are but not checked in this version.",
   "doc.flag": "{category}: {explanation}",
   "doc.textMenu": "Text actions",
@@ -310,6 +309,8 @@
 
   "status.offline": "Offline · nothing leaves this PC",
   "status.offlineTitle": "Your text is checked on this PC and never sent anywhere.",
+  "status.offlineWeb": "Offline · nothing leaves this browser",
+  "status.offlineTitleWeb": "Your text is checked in this browser and never sent anywhere.",
   "status.words": "{count, plural, one {# word} other {# words}}",
   "status.variant": "{variant} English",
   "status.variantDetected": "{variant} English (detected)",

@@ -92,7 +92,6 @@
   "doc.textLabel": "ডকুমেন্টের লেখা",
   "doc.placeholder": "আপনার লেখা এখানে পেস্ট করুন বা টাইপ করুন।",
   "doc.notChecked": "পরীক্ষা করা হয়নি",
-  "doc.notCheckedLabel": "পরীক্ষা করা হয়নি: কাশিরো শুধু ইংরেজি পরীক্ষা করে",
   "doc.docxNote": "হেডার, ফুটার আর ফুটনোট যেমন আছে তেমনই রাখা হয়, কিন্তু এই সংস্করণে সেগুলো পরীক্ষা করা হয় না।",
   "doc.flag": "{category}: {explanation}",
   "doc.textMenu": "লেখার বিকল্প",
@@ -311,6 +310,8 @@
 
   "status.offline": "অফলাইন · কিছুই এই PC-র বাইরে যায় না",
   "status.offlineTitle": "আপনার লেখা এই PC-তেই পরীক্ষা হয়, কোথাও পাঠানো হয় না।",
+  "status.offlineWeb": "অফলাইন · কিছুই এই ব্রাউজারের বাইরে যায় না",
+  "status.offlineTitleWeb": "আপনার লেখা এই ব্রাউজারেই পরীক্ষা হয়, কোথাও পাঠানো হয় না।",
   "status.words": "{count, plural, other {#টি শব্দ}}",
   "status.variant": "{variant} ইংরেজি",
   "status.variantDetected": "{variant} ইংরেজি (নিজে থেকে শনাক্ত)",
