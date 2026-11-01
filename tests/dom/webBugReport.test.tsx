@@ -42,7 +42,7 @@ describe('Report a bug on the web', () => {
     chooseFromMore('Report a bug…');
     const dialog = screen.getByRole('dialog', { name: 'Report a bug' });
     const report = within(dialog).getByRole('textbox', { name: 'Report' }) as HTMLTextAreaElement;
-    await waitFor(() => expect(report.value).toContain('Version: 1.0.2'));
+    await waitFor(() => expect(report.value).toContain('Version: 1.1.0'));
     expect(report.value).toContain('Browser: Microsoft Edge 130');
     expect(report.value).not.toContain('Windows');
     expect(report.value).not.toContain('WebView2');
