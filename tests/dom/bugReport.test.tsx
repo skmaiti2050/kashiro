@@ -36,7 +36,7 @@ describe('Report a bug', () => {
     chooseFromMore('Report a bug…');
     const dialog = screen.getByRole('dialog', { name: 'Report a bug' });
     const report = within(dialog).getByRole('textbox', { name: 'Report' }) as HTMLTextAreaElement;
-    await waitFor(() => expect(report.value).toContain('Version: 1.0.1'));
+    await waitFor(() => expect(report.value).toContain('Version: 1.0.2'));
     expect(report.readOnly).toBe(true);
     expect(report.value).toContain('error.unsupported');
     expect(report.value).toContain('error.plain');

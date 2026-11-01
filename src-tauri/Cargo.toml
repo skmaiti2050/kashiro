@@ -1,6 +1,6 @@
 [package]
 name = "writing-check"
-version = "1.0.1"
+version = "1.0.2"
 description = "Free offline proofreader"
 authors = ["Sujit Kumar Maiti"]
 license = "Apache-2.0"

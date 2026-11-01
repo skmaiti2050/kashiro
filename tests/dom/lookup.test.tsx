@@ -246,7 +246,7 @@ describe('About', () => {
     chooseFromMore('About');
     // About loads its notices (about 1 MB of text) on demand; under the full suite's load that takes over 1 s.
     const dialog = await screen.findByRole('dialog', { name: 'About Kashiro' }, { timeout: 10_000 });
-    expect(within(dialog).getByText('Version 1.0.1')).toBeTruthy();
+    expect(within(dialog).getByText('Version 1.0.2')).toBeTruthy();
     expect(within(dialog).getByText(/Your writing stays on this PC\./)).toBeTruthy();
     const notices = dialog.querySelector('.notices')!;
     expect(notices.getAttribute('lang')).toBe('en');
