@@ -3,6 +3,7 @@ import JSZip from 'jszip';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createLinter, type RulesLinter } from '@/engine/linter';
+import { CheckSession } from '@/engine/session';
 import { adapterFor } from '@/formats/registry';
 import type { FormatAdapter } from '@/formats/types';
 import { SessionController, type ControllerDeps, type Files, type OpenedFile } from '@/ui/state/sessionController';
@@ -862,6 +863,34 @@ describe('SessionController: typing re-checks', () => {
     const pending = [...s.decisions().top, ...s.decisions().more].flatMap((d) => d.candidateIds);
     expect(pending.some((id) => id.startsWith('3:'))).toBe(false);
     expect(pending.some((id) => id.startsWith('2:'))).toBe(true);
+  });
+
+  // #39: the engine reports an applied AI rewrite it could not carry (tests/engine/llm/rewriteLifecycle.test.ts); the
+  // controller turns that into a lasting notice, once per re-check that dropped one.
+  describe('a dropped AI rewrite says so (#39)', () => {
+    const DROPPED = 'An AI rewrite you applied was taken back: a settings change moved an edit across its sentence. Ask for a new rewrite if you still want one.';
+
+    it('shows the notice for the re-check that dropped one, and not for the next', async () => {
+      const { controller } = makeController();
+      await controller.openText("I can't go.");
+      const drop = vi.spyOn(CheckSession.prototype, 'droppedAppliedRewrites').mockReturnValueOnce(['llm:0:0-11']);
+      controller.setPreset('blog');
+      await controller.settled();
+      expect(english(controller.getState().notice)).toBe(DROPPED);
+      controller.dismissNotice();
+      controller.setPreset('academic');
+      await controller.settled();
+      expect(controller.getState().notice).toBeNull();
+      drop.mockRestore();
+    });
+
+    it('a re-check that dropped nothing shows no notice', async () => {
+      const { controller } = makeController();
+      await controller.openText("I can't go.");
+      controller.setPreset('blog');
+      await controller.settled();
+      expect(controller.getState().notice).toBeNull();
+    });
   });
 
   // #34: an Apply pressed in the typing pause lands on the old text; the re-check must say so when the paragraph changed.

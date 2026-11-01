@@ -578,6 +578,7 @@
   "settings.exportDictionary": "डिक्शनरी एक्सपोर्ट करें",
   "settings.importDictionary": "डिक्शनरी इम्पोर्ट करें",
   "notice.applyLostToTyping": "वह सुधार लागू नहीं हुआ: टाइप करते समय अनुच्छेद बदल गया। अपडेट किया गया सुझाव देखें।",
+  "notice.rewriteDropped": "आपका लागू किया हुआ एआई पुनर्लेखन वापस ले लिया गया: सेटिंग बदलने से एक बदलाव उसके वाक्य की सीमा पार कर गया। अगर आप अब भी चाहते हैं तो नया पुनर्लेखन माँगें।",
   "notice.noStorage": "यह ब्राउज़र Kashiro की सेटिंग्स नहीं रख रहा; ये टैब बंद करने तक ही रहेंगी।",
   "notice.dictionaryImported": "{count, plural, one {# शब्द इम्पोर्ट किया} other {# शब्द इम्पोर्ट किए}}",
   "error.dictionaryImport": "यह फ़ाइल Kashiro की डिक्शनरी नहीं है। \"डिक्शनरी एक्सपोर्ट करें\" से बनी kashiro-dictionary.json फ़ाइल चुनें।",

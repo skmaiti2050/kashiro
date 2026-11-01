@@ -425,6 +425,7 @@ export class SessionController {
       // The depth may have moved while the check ran.
       session.setDepth(currentDepth(this.state.settings));
       let applyLost = false;
+      let rewriteDropped = false;
       if (before) {
         const { unchanged, copies } = matchParagraphs(before.paragraphs(), loaded.paras);
         const decisions = userDecisions(before);
@@ -433,6 +434,8 @@ export class SessionController {
         // AI answers after the rule decisions: a rewrite was made for its sentence with the accepted fixes in it.
         const carried = carryDecisions(decisions, session, unchanged, copies);
         this.tally.remap(new Map([...carried, ...this.ai.sessionReplaced(before, session, unchanged)]));
+        // An applied AI rewrite that could not be placed again went back to the original sentence (#39).
+        rewriteDropped = session.droppedAppliedRewrites().length > 0;
       }
       // Typing queued behind this check: a fix applied in a paragraph it left alone may be lost by the next one.
       if (!this.queue.waiting) this.appliedWhileChecking.clear();
@@ -452,7 +455,8 @@ export class SessionController {
         checking: this.queue.waiting,
         ...announcement,
         ...(outdated ? { error: null } : {}),
-        ...(applyLost ? { notice: msg('notice.applyLostToTyping') } : {}),
+        // One notice slot: a lost Apply names a paragraph the user typed in, so it wins over a dropped rewrite.
+        ...(applyLost ? { notice: msg('notice.applyLostToTyping') } : rewriteDropped ? { notice: msg('notice.rewriteDropped') } : {}),
       });
       if (before) this.reviews.changed();
       // After every check, so a goal switch (whose own modules may differ) releases too.

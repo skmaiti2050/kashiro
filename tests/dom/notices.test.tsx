@@ -84,6 +84,22 @@ describe('banners', () => {
   });
 });
 
+// #39: an applied AI rewrite taken back by a re-check is told, and the notice is not missed.
+describe('banners: a dropped AI rewrite', () => {
+  it('"An AI rewrite you applied was taken back" stays until its × is pressed', async () => {
+    const { controller } = makeController({}, noFiles);
+    renderShell(controller);
+    vi.useFakeTimers();
+    act(() => controller.showNotice(msg('notice.rewriteDropped')));
+    await act(async () => {
+      vi.advanceTimersByTime(30_000);
+    });
+    expect(screen.getByText(/An AI rewrite you applied was taken back/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss this message' }));
+    expect(screen.queryByText(/An AI rewrite you applied was taken back/)).toBeNull();
+  });
+});
+
 describe('Close document', () => {
   it('Ctrl+W closes the document and the start screen comes back', async () => {
     const { controller } = makeController({}, noFiles);

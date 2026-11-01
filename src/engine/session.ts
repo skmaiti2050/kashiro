@@ -592,6 +592,11 @@ export class CheckSession {
     return this.rewrites.carryFrom(before.rewrites, unchanged);
   }
 
+  /** Applied AI rewrites the re-check could not carry (old ids), so the caller can say so (#39). */
+  droppedAppliedRewrites(): readonly string[] {
+    return this.rewrites.droppedAppliedRewrites();
+  }
+
   /** The adapter could not write this edit into the document: it leaves the output. */
   markUnplaceable(candidateId: string, reason: string): void {
     if (!this.cands.has(candidateId)) throw new Error(`unknown candidate ${candidateId}`);

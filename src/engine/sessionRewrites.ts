@@ -68,7 +68,15 @@ export class HelperRewrites {
   /** Rewrites withdrawStale took out of the review (their sentence may be asked about again). */
   private readonly withdrawn = new Set<string>();
 
+  /** Applied rewrites of the previous check that carryFrom could not place again (old ids): the user is told. */
+  private readonly droppedApplied: string[] = [];
+
   constructor(private readonly host: RewriteHost) {}
+
+  /** The applied AI rewrites the last carryFrom dropped (#39). */
+  droppedAppliedRewrites(): readonly string[] {
+    return this.droppedApplied;
+  }
 
   sentToHelper(paraId: number, span: Span): boolean {
     return this.sent.has(sentenceKey(paraId, span));
@@ -147,15 +155,17 @@ export class HelperRewrites {
       const paraId = unchanged.get(oldPara);
       if (paraId === undefined) continue;
       const oldId = `llm:${key}`;
+      const wasApplied = before.guarded.has(oldId) && before.host.status(oldId) === 'applied';
       if (this.host.sentenceNow(paraId, span) !== sent) {
-        if (before.guarded.has(oldId) && before.host.status(oldId) === 'applied' && this.keepApplied(paraId, span, before.host.candidate(oldId)!)) {
-          carried.set(oldId, rewriteId(paraId, span));
-        }
+        if (!wasApplied) continue;
+        if (this.keepApplied(paraId, span, before.host.candidate(oldId)!)) carried.set(oldId, rewriteId(paraId, span));
+        else this.droppedApplied.push(oldId);
         continue;
       }
       const rewritten = before.guarded.has(oldId) ? before.host.candidate(oldId)!.replacements[0] : null;
       const verdict = this.add(paraId, span, rewritten, sent);
       if (verdict !== null && verdict !== 'stale' && verdict.ok) carried.set(oldId, rewriteId(paraId, span));
+      else if (wasApplied) this.droppedApplied.push(oldId);
     }
     for (const [oldId, newId] of carried) {
       if (this.host.status(newId) !== 'pending') continue;

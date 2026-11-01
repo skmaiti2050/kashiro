@@ -210,5 +210,42 @@ describe('carryRewritesFrom (a re-check keeps the AI results of unchanged paragr
     after.carryRewritesFrom(old, new Map([[0, 0]]));
     expect(llmIds(after)).toEqual([]);
     expect(after.sentToHelper(0, FIRST)).toBe(false);
+    expect(after.droppedAppliedRewrites()).toEqual([]); // it was never applied: nothing to tell
+  });
+
+  // #39: an applied rewrite that cannot be placed again must be reported, never dropped silently.
+  describe('an applied rewrite dropped by the re-check is reported (#39)', () => {
+    const crossing: Candidate = { id: 'test:cross', paraId: 0, span: { start: 55, end: 65 }, original: TEXT.slice(55, 65), replacements: ['x'], kind: 'WordChoice', message: 'm', source: 'rules' };
+
+    async function applied() {
+      const old = await start([{ id: 0, text: TEXT }]);
+      old.addRewrite(0, FIRST, FIRST_REWRITE, FIRST_TEXT);
+      old.accept(llmIds(old)[0]);
+      expect(old.outputText(0)).toBe(`${FIRST_REWRITE} ${SECOND_TEXT}`);
+      return old;
+    }
+
+    it('an accepted edit crossing the sentence edge: the rewrite goes back to the original and is named', async () => {
+      const old = await applied();
+      const after = await start([{ id: 0, text: TEXT }]);
+      after.addCandidates([crossing]);
+      after.accept(crossing.id);
+      const carried = after.carryRewritesFrom(old, new Map([[0, 0]]));
+      expect([...carried.keys()]).toEqual([]);
+      expect(llmIds(after)).toEqual([]);
+      expect(after.droppedAppliedRewrites()).toEqual(['llm:0:0-59']);
+    });
+
+    it('an applied rewrite that is carried, a rejected one and a pending one are not reported', async () => {
+      const old = await start([{ id: 0, text: TEXT }]);
+      old.addRewrite(0, FIRST, FIRST_REWRITE, FIRST_TEXT);
+      old.addRewrite(0, SECOND, SECOND_REWRITE, SECOND_TEXT);
+      old.accept(llmIds(old)[0]);
+      old.reject(llmIds(old)[1]);
+      const after = await start([{ id: 0, text: TEXT }]);
+      after.carryRewritesFrom(old, new Map([[0, 0]]));
+      expect(after.outputText(0)).toBe(`${FIRST_REWRITE} ${SECOND_TEXT}`);
+      expect(after.droppedAppliedRewrites()).toEqual([]);
+    });
   });
 });

@@ -10,7 +10,7 @@ const NOTICE_MS = 6000;
  * Notices that stay until dismissed, like errors: changes left out of the saved file, settings the browser won't
  * keep, or an Apply that typing lost, must not go unseen.
  */
-const LASTING_NOTICES: ReadonlySet<MessageKey> = new Set(['notice.savedUnplaced', 'notice.noStorage', 'notice.applyLostToTyping']);
+const LASTING_NOTICES: ReadonlySet<MessageKey> = new Set(['notice.savedUnplaced', 'notice.noStorage', 'notice.applyLostToTyping', 'notice.rewriteDropped']);
 
 /**
  * The error and notice banners. A notice ("Saved as …") clears on its own; an error, or a notice that something
