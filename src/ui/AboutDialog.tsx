@@ -26,7 +26,8 @@ export function AboutDialog({ onCheckUpdates, onClose }: { onCheckUpdates: (() =
           <button onClick={onCheckUpdates}>{t.t('about.checkUpdates')}</button> <span className="hint">{t.t('about.checkUpdatesHint')}</span>
         </p>
       )}
-      {!capabilities.ai && <p>{t.t('about.webAi')}</p>}
+      <p>{t.t('about.englishOnly')}</p>
+      {!capabilities.ai &&<p>{t.t('about.webAi')}</p>}
       <p>{capabilities.web ? t.t('about.privacyWeb') : t.t('about.privacy')}</p>
       <p>{t.t('about.licence')}</p>
       <h3>{t.t('about.notices')}</h3>

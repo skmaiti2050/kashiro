@@ -10,7 +10,7 @@ import { QuickFixPopover, type WordBox } from './QuickFixPopover';
 import { decisionWith } from './state/reviewCursor';
 import type { CaretText } from './ReviewPanel';
 import { CATEGORIES } from './state/categories';
-import { highlightRanges, locateCandidate, paragraphAt, toEditorPosition } from './state/highlights';
+import { highlightRanges, locateCandidate, paragraphAt, paragraphStart, toEditorPosition } from './state/highlights';
 import type { Translator } from './i18n/translator';
 import { useT } from './i18n/useT';
 import { explanation } from './state/plainMessages';
@@ -38,6 +38,36 @@ class ReplacementWidget extends WidgetType {
   toDOM(): HTMLElement {
     const el = document.createElement('span');
     el.className = this.auto ? 'cm-new cm-new-auto' : 'cm-new';
+    el.textContent = this.text;
+    return el;
+  }
+}
+
+/**
+ * "Not checked" above a paragraph that was set aside (not English). A widget, not text: it is no part of the document,
+ * so offsets, editing and copying never see it. The words are the UI's, so they carry the UI's language and direction.
+ */
+class NotCheckedWidget extends WidgetType {
+  constructor(
+    readonly text: string,
+    readonly label: string,
+    readonly language: string,
+    readonly dir: string,
+  ) {
+    super();
+  }
+
+  eq(other: NotCheckedWidget): boolean {
+    return other.text === this.text && other.label === this.label && other.language === this.language && other.dir === this.dir;
+  }
+
+  toDOM(): HTMLElement {
+    const el = document.createElement('div');
+    el.className = 'cm-not-checked';
+    el.setAttribute('role', 'note');
+    el.setAttribute('aria-label', this.label);
+    el.lang = this.language;
+    el.dir = this.dir;
     el.textContent = this.text;
     return el;
   }
@@ -79,6 +109,11 @@ function documentMarks(t: Translator, doc: OpenDocument, viewText: string, sessi
   if (!highlights) return null;
   const at = toEditorPosition(doc.text, doc.lineSeparator);
   const ranges: Range<Decoration>[] = [];
+  const notChecked = new NotCheckedWidget(t.t('doc.notChecked'), t.t('doc.notCheckedLabel'), t.language, t.dir);
+  for (const paraId of session.otherScriptParagraphs()) {
+    const start = paragraphStart(doc, viewText, session, paraId);
+    if (start !== null) ranges.push(Decoration.widget({ widget: notChecked, block: true, side: -1 }).range(at(start)));
+  }
   for (const h of highlights) {
     const from = at(h.from);
     const to = at(h.to);
@@ -101,6 +136,12 @@ function documentMarks(t: Translator, doc: OpenDocument, viewText: string, sessi
 /** A review item to show; `seq` changes on every click, so clicking the same item again scrolls again. */
 export interface DocumentFocus {
   candidate: Candidate;
+  seq: number;
+}
+
+/** A paragraph to show; `seq` changes on every request, so asking for the same one again scrolls again. */
+export interface ParagraphRequest {
+  paraId: number;
   seq: number;
 }
 
@@ -164,6 +205,8 @@ interface Props {
   controller: SessionController;
   state: ControllerState;
   focus: DocumentFocus | null;
+  /** A paragraph to scroll to, such as the next one that was not checked. */
+  paragraphRequest: ParagraphRequest | null;
   /**
    * Clicking an underline brings up its card. `focusCard` (CardRequest.focus): true for Ctrl+. on it, false when its
    * quick fix opened, undefined for the default.
@@ -193,6 +236,7 @@ export function DocumentView({
   controller,
   state,
   focus,
+  paragraphRequest,
   onUnderlineClick,
   onOpen,
   onPaste,
@@ -328,6 +372,16 @@ export function DocumentView({
     editor.dispatch({ effects: editor.hasFocus ? [ring] : [ring, scroll] });
     // Only a new card or click moves the view; re-renders from checks don't.
   }, [focus?.seq]);
+
+  // The same place as a card's text: the upper third of the pane. Focus stays on the button that asked.
+  useEffect(() => {
+    const editor = view.current;
+    if (!editor || !doc || !state.session || !paragraphRequest) return;
+    const start = paragraphStart(doc, editor.state.sliceDoc(), state.session, paragraphRequest.paraId);
+    if (start === null) return;
+    const from = toEditorPosition(doc.text, doc.lineSeparator)(start);
+    editor.dispatch({ effects: EditorView.scrollIntoView(from, { y: 'start', yMargin: editor.scrollDOM.clientHeight / 3 }) });
+  }, [paragraphRequest?.seq]);
 
   /** Looks up the selected word or the word at the cursor; false when there is none (Ctrl+D then does nothing). */
   const lookUpAtCursor = () => {

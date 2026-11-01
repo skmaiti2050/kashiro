@@ -51,6 +51,7 @@ export function Panel({ controller, request = null, onLocate = () => {} }: Panel
       controller={controller}
       state={state}
       onLocate={onLocate}
+      onShowParagraph={() => {}}
       request={request}
       keysEnabled
       onShowLog={() => {}}

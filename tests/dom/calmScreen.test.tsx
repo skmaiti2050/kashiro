@@ -108,7 +108,7 @@ describe('done state', () => {
     expect(within(reviewPanel()).queryByRole('slider')).toBeNull();
   });
 
-  const UNCHECKED = "This document has text in a language Kashiro can't check yet. Only English text was checked.";
+  const UNCHECKED = 'Kashiro proofreads English. Text in other scripts is shown but not checked.';
 
   it.each([
     ['Hindi and Bengali', 'यह एक छोटा सा परीक्षण है। हम कल बाज़ार गए थे।\n\nআমরা কাল বাজারে গিয়েছিলাম।'],
@@ -122,7 +122,7 @@ describe('done state', () => {
     expect(controller.getState().session!.rankedDecisionCount()).toBe(0);
     expect(within(reviewPanel()).getByRole('heading', { name: UNCHECKED })).toBeTruthy();
     expect(within(reviewPanel()).queryByText(/All clear/)).toBeNull();
-    expect(english(controller.getState().announcement!.message)).toBe(`Check finished: nothing to decide. ${UNCHECKED}`);
+    expect(english(controller.getState().announcement!.message)).toBe('Check finished: nothing to decide. Kashiro proofreads English. Text in other scripts was not checked.');
   });
 
   it('a paragraph the checker threw on is named in a notice, and the rest is checked (Task F21d, review I-4)', async () => {
@@ -161,7 +161,7 @@ describe('done state', () => {
     renderShell(controller);
     await openAndWait(controller, () => controller.openText('I think the  cat sat on the mat. We will meet again next week.\n\nयह एक परीक्षण है।'));
     expect(within(reviewPanel()).getByText('All clear: 1 fix applied, nothing left to decide.')).toBeTruthy();
-    expect(within(reviewPanel()).getByText(UNCHECKED)).toBeTruthy();
+    expect(within(reviewPanel()).getByText("1 paragraph isn't in English and was not checked.")).toBeTruthy();
   });
 });
 

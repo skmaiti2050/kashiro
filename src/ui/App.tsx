@@ -6,7 +6,7 @@ import { ChangeLog } from './ChangeLog';
 import { CommandPalette } from './CommandPalette';
 import { paletteCommands } from './paletteCommands';
 import { DictionaryPanel } from './DictionaryPanel';
-import { DocumentView, type DocumentFocus } from './DocumentView';
+import { DocumentView, type DocumentFocus, type ParagraphRequest } from './DocumentView';
 import { GoogleDocsHelp } from './GoogleDocsHelp';
 import { LookupPanel } from './LookupPanel';
 import { ResumeDialog } from './ResumeDialog';
@@ -156,6 +156,8 @@ function ShellView({ controller, state }: { controller: SessionController; state
   const [logReveals, setLogReveals] = useState(0);
   const [focus, setFocus] = useState<DocumentFocus | null>(null);
   const [cardRequest, setCardRequest] = useState<CardRequest | null>(null);
+  /** "Show next" for a paragraph set aside as not English: the document scrolls to it (it has no card to locate). */
+  const [paragraphRequest, setParagraphRequest] = useState<ParagraphRequest | null>(null);
   /** What to do once the user has answered "Save, Discard, or Cancel?". */
   const [afterUnsaved, setAfterUnsaved] = useState<(() => void) | null>(null);
   const [saveClick, setSaveClick] = useState<SaveClickRequest | null>(null);
@@ -343,6 +345,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
           controller={controller}
           state={state}
           focus={focus}
+          paragraphRequest={paragraphRequest}
           onUnderlineClick={requestCard}
           onOpen={onOpen}
           onPaste={onPaste}
@@ -369,6 +372,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
               controller={controller}
               state={state}
               onLocate={(candidate) => setFocus((f) => ({ candidate, seq: (f?.seq ?? 0) + 1 }))}
+              onShowParagraph={(paraId) => setParagraphRequest((r) => ({ paraId, seq: (r?.seq ?? 0) + 1 }))}
               request={cardRequest}
               keysEnabled={!dialogOpen}
               onShowLog={() => {

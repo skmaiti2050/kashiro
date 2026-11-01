@@ -813,6 +813,13 @@ legend {
   flex-grow: 1;
 }
 
+/* "Not checked" above a paragraph that was set aside: quiet, small, and never selected or copied. */
+.cm-not-checked {
+  color: var(--muted);
+  font-size: 0.8em;
+  user-select: none;
+}
+
 .cm-old {
   color: var(--old);
   text-decoration: line-through;

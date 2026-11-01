@@ -80,6 +80,18 @@ export function locateCandidate(doc: OpenDocument, viewText: string, session: Ch
 }
 
 /**
+ * Where a paragraph starts in the view text, for scrolling to it or marking it. Null while the view or the session
+ * lags behind the text, as for the other lookups here.
+ */
+export function paragraphStart(doc: OpenDocument, viewText: string, session: CheckSession, paraId: number): number | null {
+  if (viewText !== doc.text) return null;
+  const para = session.paragraphs().find((p) => p.id === paraId);
+  const start = doc.paraStarts.get(paraId);
+  if (!para || start === undefined || doc.text.slice(start, start + para.text.length) !== para.text) return null;
+  return start;
+}
+
+/**
  * Highlights for the session's state. Null when the session was checked against other text than the
  * view shows (`viewText`: the user typed and a re-check is on its way), so stale offsets never land.
  */

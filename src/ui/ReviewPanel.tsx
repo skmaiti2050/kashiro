@@ -48,6 +48,8 @@ interface Props {
   state: ControllerState;
   /** Shows a candidate in the document view (outlined and scrolled into view). */
   onLocate(candidate: Candidate): void;
+  /** Scrolls the document to a paragraph (one without a card, such as a paragraph set aside as not English). */
+  onShowParagraph(paraId: number): void;
   request: CardRequest | null;
   /** False while a dialog is open: the review keys must not act behind it. */
   keysEnabled: boolean;
@@ -80,7 +82,7 @@ export interface PanelCommands {
 const reduceMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 
 /** The review queue: a progress header, one card at a time (Enter / Backspace / J / K), the rest under "More (N)". */
-export function ReviewPanel({ controller, state, onLocate, request, keysEnabled, onShowLog, onSave, readAloud, noOfflineVoice = false, readCaret, onLookUp, onCollapse, commands }: Props) {
+export function ReviewPanel({ controller, state, onLocate, onShowParagraph, request, keysEnabled, onShowLog, onSave, readAloud, noOfflineVoice = false, readCaret, onLookUp, onCollapse, commands }: Props) {
   const t = useT();
   const [cursor, setCursor] = useState(START);
   /**
@@ -90,6 +92,8 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
   const [reveal, setReveal] = useState<{ seq: number; focus: boolean }>({ seq: 0, focus: false });
   const cardSlot = useRef<HTMLDivElement>(null);
   const [filter, setFilter] = useState<Category | null>(null);
+  /** Which set-aside paragraph "Show next" shows next (an index; wrapped when used). */
+  const [nextOther, setNextOther] = useState(0);
   const session = state.session;
   const all = session ? session.decisions() : { top: [], more: [] };
   const candidates = new Map((session?.candidates() ?? []).map((c) => [c.id, c]));
@@ -186,11 +190,17 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
   const allClear = !current && progress.left === 0;
   /** Text in another script the English-only check skipped: never an all-clear for a document that is mostly that. */
   const unchecked = uncheckedText(session.paragraphs());
-  const englishOnly = unchecked.paragraphs > 0 ? t.t('panel.englishOnly') : null;
-  const doneLine = unchecked.mostly ? englishOnly : t.t('panel.allClear', { count: fixesApplied });
+  const doneLine = unchecked.mostly ? t.t('panel.englishOnly') : t.t('panel.allClear', { count: fixesApplied });
+  const otherScript = session.otherScriptParagraphs();
   /** Paragraphs the linter threw on (Task F21d, review I-4): left as written, and said so. */
   const failed = session.uncheckedParagraphs().length;
   const notChecked = failed > 0 ? t.t('panel.notChecked', { count: failed }) : null;
+  /** "Show next": the next set-aside paragraph in document order, back to the first after the last. */
+  const showNextOtherScript = (paragraphs: readonly number[]) => {
+    const at = nextOther % paragraphs.length;
+    onShowParagraph(paragraphs[at]);
+    setNextOther(at + 1);
+  };
   const pick = (d: Decision) => {
     setCursor((c) => cursorAt(top, d.id, c));
     setReveal((r) => ({ seq: r.seq + 1, focus: true }));
@@ -241,7 +251,14 @@ export function ReviewPanel({ controller, state, onLocate, request, keysEnabled,
             <DepthSlider value={session.depth} onChange={(d) => controller.setDepth(d)} />
           </>
         )}
-        {englishOnly && doneLine !== englishOnly && <p className="hint english-only">{englishOnly}</p>}
+        {otherScript.length > 0 && (
+          <p className="hint english-only">
+            {t.t('panel.otherScript', { count: otherScript.length })}{' '}
+            <button className="quiet" onClick={() => showNextOtherScript(otherScript)}>
+              {t.t('panel.showNextOther')}
+            </button>
+          </p>
+        )}
         {notChecked && <p className="hint english-only">{notChecked}</p>}
       </header>
 
