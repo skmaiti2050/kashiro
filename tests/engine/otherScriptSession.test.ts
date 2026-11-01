@@ -44,6 +44,16 @@ describe('a session sets aside paragraphs in another script', () => {
     expect(s.candidates().some((c) => c.original === 'teh')).toBe(true);
   });
 
+  it('keeps paragraph ids and offsets right around a skipped paragraph', async () => {
+    const texts = [ENGLISH, HINDI_WITH_JUNK, ENGLISH];
+    const s = await start(texts);
+    expect(s.paragraphs().map((p) => p.text)).toEqual(texts);
+    expect(s.candidates().filter((c) => c.paraId === 1)).toEqual([]);
+    const teh = s.candidates().find((c) => c.paraId === 2 && c.original === 'teh')!;
+    expect(teh).toBeDefined();
+    expect(s.paragraphs()[2]!.text.slice(teh.span.start, teh.span.end)).toBe('teh');
+  });
+
   it('does not mix up the paragraphs the linter threw on', async () => {
     const s = await start([HINDI, ENGLISH]);
     expect(s.uncheckedParagraphs()).toEqual([]);

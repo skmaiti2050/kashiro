@@ -66,7 +66,8 @@ export async function prepareCheck(
 }> {
   // Everything below sees only the paragraphs we can read, so a set-aside one gets no candidate of any kind (never damage).
   const otherScriptParagraphs = otherScriptParagraphIds(allParas);
-  const paras = allParas.filter((p) => !otherScriptParagraphs.includes(p.id));
+  const setAside = new Set(otherScriptParagraphs);
+  const paras = allParas.filter((p) => !setAside.has(p.id));
   const linter = deps.linter ?? (await createLinter(opts.variant ?? opts.fallbackVariant, opts.dictionary));
   if (deps.linter && opts.dictionary.length) await syncDictionary(linter, opts.dictionary);
 
