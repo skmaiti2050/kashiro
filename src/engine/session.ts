@@ -77,6 +77,8 @@ export class CheckSession {
   private readonly alignedParas: Set<number>;
   /** Paragraphs the linter threw on, so their rules weren't checked (Task F21d, review I-4). */
   private unchecked: readonly number[] = [];
+  /** Paragraphs mostly in another script, set aside whole (#2a). */
+  private otherScript: readonly number[] = [];
 
   private constructor(
     paras: Paragraph[],
@@ -122,11 +124,12 @@ export class CheckSession {
   static async start(paras: Paragraph[], opts: CheckOptions, deps: SessionDeps = {}): Promise<CheckSession> {
     const termMinRepeats = opts.termMinRepeats ?? DEFAULT_TERM_MIN_REPEATS;
     checkTermMinRepeats(termMinRepeats);
-    const { linter, variant, mixedVariant, variantFromFallback, ctx, found, uncheckedParagraphs } = await prepareCheck(paras, opts, deps);
+    const { otherScriptParagraphs, linter, variant, mixedVariant, variantFromFallback, ctx, found, uncheckedParagraphs } = await prepareCheck(paras, opts, deps);
     const now = deps.now ?? (() => new Date());
     const depth = opts.depth ?? DEFAULT_DEPTH;
     const session = new CheckSession(paras, variant, mixedVariant, variantFromFallback, ctx, now, linter, depth, termMinRepeats);
     session.unchecked = uncheckedParagraphs;
+    session.otherScript = otherScriptParagraphs;
     session.addCandidates(found);
     session.autoApply();
     session.holdBackChangedTokens();
@@ -147,6 +150,11 @@ export class CheckSession {
   /** The ids of the paragraphs the rules couldn't check (the linter threw on them), in document order. */
   uncheckedParagraphs(): number[] {
     return [...this.unchecked];
+  }
+
+  /** The ids of the paragraphs set aside because they are mostly another script, in document order. */
+  otherScriptParagraphs(): readonly number[] {
+    return this.otherScript;
   }
 
   /** True once addRewrite recorded this sentence, whatever the helper answered. */

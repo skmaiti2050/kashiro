@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { uncheckedText } from '@/engine/uncheckedScripts';
+import { uncheckedText, otherScriptParagraphIds } from '@/engine/uncheckedScripts';
 
 const paras = (...texts: string[]) => texts.map((text, id) => ({ id, text }));
 
@@ -34,5 +34,21 @@ describe('uncheckedText (review #4: no false all-clear on Hindi or Bengali)', ()
 
   it('a Hindi word quoted in an English paragraph is not an unchecked paragraph', () => {
     expect(uncheckedText(paras('She said "धन्यवाद" and left the room quietly.'))).toEqual({ paragraphs: 0, mostly: false });
+  });
+});
+
+describe('otherScriptParagraphIds (#2a: the paragraphs the check sets aside)', () => {
+  it('lists the Hindi and Bengali paragraphs by id, in document order', () => {
+    const doc = paras('We met on Monday.', 'यह एक परीक्षण है।', 'The bus leaves at nine.', 'আমরা কাল বাজারে গিয়েছিলাম।');
+    expect(otherScriptParagraphIds(doc)).toEqual([1, 3]);
+  });
+
+  it('is empty for English, and for an English paragraph with a quoted Hindi word', () => {
+    expect(otherScriptParagraphIds(paras('We met on Monday.', 'She said "धन्यवाद" and left the room quietly.'))).toEqual([]);
+  });
+
+  it('agrees with uncheckedText on the count', () => {
+    const doc = paras('The bus leaves at nine.', 'यह एक परीक्षण है।', 'ہم کل بازار گئے تھے۔');
+    expect(otherScriptParagraphIds(doc).length).toBe(uncheckedText(doc).paragraphs);
   });
 });

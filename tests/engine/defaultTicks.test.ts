@@ -125,12 +125,19 @@ describe('the simple-fixes card ticks only a closed set of fixes (Task F6, owner
     expect(paras.map((p) => session.outputText(p.id))).toEqual(['- A apple fell.\n- Bring a pen an paper to the the exam.']);
   });
 
+  it('a paragraph that is mostly Hindi around the alphabet is set aside whole: nothing offered, text unchanged (#2a)', async () => {
+    const { paras } = await plaintextAdapter.read(new TextEncoder().encode('अंग्रेज़ी वर्णमाला: A a, B b, C c.\n'));
+    const { session, ticked, unticked } = await applyAllWithDefaultTicks(paras, { language: 'plaintext' });
+    expect([...ticked, ...unticked]).toEqual([]);
+    expect(paras.map((p) => session.outputText(p.id))).toEqual(paras.map((p) => p.text));
+  });
+
   it.each([
     ['plain text', 'A a B b C c D d', 'plaintext'],
     ['after a colon', 'Letters: A a, B b, C c.', 'plaintext'],
     ['after a full stop', 'Copy the letters. A a, B b, C c.', 'plaintext'],
     ['a real slip at a sentence start too', 'We left. A a man came in.', 'plaintext'],
-    ['after a Hindi lead-in', 'अंग्रेज़ी वर्णमाला: A a, B b, C c.', 'plaintext'],
+    ['after a short Hindi lead-in', 'वर्णमाला: A a, B b, C c, D d, E e, F f, G g.', 'plaintext'],
     ['on a Markdown list line', '- A a\n- B b\n- C c', 'markdown'],
     ['in a Markdown table cell', '| A a | B b |\n|---|---|\n| C c | D d |', 'markdown'],
   ] as const)('never starts the alphabet pair "A a" ticked, but lists it: %s (F8 re-review 7, M-1)', async (_where, text, language) => {

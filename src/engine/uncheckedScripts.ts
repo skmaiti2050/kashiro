@@ -18,6 +18,11 @@ export interface UncheckedText {
 
 const count = (text: string, letters: RegExp) => text.match(letters)?.length ?? 0;
 
+/** The ids of the paragraphs whose letters are mostly not Latin: the check sets them aside (#2a), in document order. */
+export function otherScriptParagraphIds(paras: readonly Paragraph[]): number[] {
+  return paras.filter((p) => count(p.text, OTHER_SCRIPT_LETTER) > count(p.text, LATIN_LETTER)).map((p) => p.id);
+}
+
 /** The text in `paras` in a language the checker can't check yet (any script but Latin), which it skipped. */
 export function uncheckedText(paras: readonly Paragraph[]): UncheckedText {
   let latin = 0;

@@ -14,6 +14,7 @@ import { resolveModules } from './modules';
 import { findForeignSentences, findRomanisedSentences, loadModelIfNeeded } from './otherLanguage';
 import { byPosition, type CheckOptions, type SessionDeps } from './sessionTypes';
 import { findConfusables, replacesLinterFlag } from './confusables';
+import { otherScriptParagraphIds } from './uncheckedScripts';
 import type { TierContext } from './tiers';
 import type { Candidate, Paragraph, Span, Variant } from './types';
 
@@ -48,10 +49,12 @@ function withoutFixOverKept(c: Candidate, kept: readonly number[]): Candidate {
 
 /** Everything a session needs before it takes over: the linter, variant, tier context and the sorted candidates. */
 export async function prepareCheck(
-  paras: Paragraph[],
+  allParas: Paragraph[],
   opts: CheckOptions,
   deps: SessionDeps,
 ): Promise<{
+  /** Paragraph ids set aside because they are mostly another script: no linting, no hygiene, no variant vote. */
+  otherScriptParagraphs: number[];
   linter: RulesLinter;
   variant: Variant;
   mixedVariant: boolean;
@@ -61,6 +64,9 @@ export async function prepareCheck(
   /** Paragraph ids the linter threw on (lintInChunks). */
   uncheckedParagraphs: number[];
 }> {
+  // Everything below sees only the paragraphs we can read, so a set-aside one gets no candidate of any kind (never damage).
+  const otherScriptParagraphs = otherScriptParagraphIds(allParas);
+  const paras = allParas.filter((p) => !otherScriptParagraphs.includes(p.id));
   const linter = deps.linter ?? (await createLinter(opts.variant ?? opts.fallbackVariant, opts.dictionary));
   if (deps.linter && opts.dictionary.length) await syncDictionary(linter, opts.dictionary);
 
@@ -130,5 +136,5 @@ export async function prepareCheck(
     romanisedSentences,
     listParagraphs: new Set(paras.filter((p) => p.listItem).map((p) => p.id)),
   };
-  return { linter, variant, mixedVariant: mixed, variantFromFallback: fromFallback, ctx, found, uncheckedParagraphs };
+  return { otherScriptParagraphs, linter, variant, mixedVariant: mixed, variantFromFallback: fromFallback, ctx, found, uncheckedParagraphs };
 }
