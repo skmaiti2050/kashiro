@@ -33,7 +33,6 @@ const ENGLISH_VARIANTS = ['American', 'British', 'Australian', 'Canadian', 'Indi
 const ENGLISH_CAPABILITIES: EngineCapabilities = {
   id: 'en',
   proofreads: true,
-  nameKey: 'toolbar.english',
   variants: ENGLISH_VARIANTS,
   hasCase: true,
 };

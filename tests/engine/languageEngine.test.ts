@@ -30,14 +30,13 @@ describe('engine capabilities', () => {
     expect(createEnglishEngine(linter).capabilities).toEqual({
       id: 'en',
       proofreads: true,
-      nameKey: 'toolbar.english',
       variants: ['American', 'British', 'Australian', 'Canadian', 'Indian'],
       hasCase: true,
     });
   });
 
-  it('not-checked proofreads nothing and has no name, variants or case', () => {
-    expect(notCheckedEngine.capabilities).toEqual({ id: 'none', proofreads: false, nameKey: null, variants: [], hasCase: false });
+  it('not-checked proofreads nothing and has no variants or case', () => {
+    expect(notCheckedEngine.capabilities).toEqual({ id: 'none', proofreads: false, variants: [], hasCase: false });
   });
 });
 
@@ -58,7 +57,7 @@ describe('routing paragraphs to engines', () => {
   it('an engine passed in deps checks the other-script paragraphs, and only those', async () => {
     const seen: number[][] = [];
     const fake: LanguageEngine = {
-      capabilities: { id: 'fake', proofreads: true, nameKey: null, variants: ['Standard'], hasCase: false },
+      capabilities: { id: 'fake', proofreads: true, variants: ['Standard'], hasCase: false },
       check: async (paras) => {
         seen.push(paras.map((p) => p.id));
         return { found: [], uncheckedParagraphs: [3] };

@@ -1,16 +1,12 @@
-// A type-only import: erased at build time, so the engine stays free of UI code (it names a label, the UI shows it).
-import type { MessageKey } from '../ui/i18n/catalogues';
 import type { CheckOptions } from './sessionTypes';
 import type { Candidate, Paragraph } from './types';
 
 /** What an engine can do, for the UI to word its labels and pickers (#2b). */
 export interface EngineCapabilities {
-  /** 'en' for English, 'none' for the not-checked engine. */
+  /** 'en' for English, 'none' for the not-checked engine; the UI maps it to a label (the engine names no UI key). */
   id: string;
   /** False when the engine checks nothing: its paragraphs are marked "Not checked" (#2a). */
   proofreads: boolean;
-  /** The label naming the language ("English proofreading"); null for the not-checked engine. */
-  nameKey: MessageKey | null;
   /** The written forms the engine offers, defined by the engine (English: American, British, …). */
   variants: readonly string[];
   /** Whether the script has upper and lower case. */
