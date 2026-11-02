@@ -144,6 +144,23 @@ export function dominantScript(text: string, scripts: Iterable<string>): string 
   return bestCount > letters - listed ? best : undefined;
 }
 
+/**
+ * Which of `scripts` (Unicode script names) a document of `texts` is mostly written in: the one with more letters
+ * than Latin and than each other script in `scripts`. Undefined on any tie: the document is then English's.
+ * Letters of unlisted scripts do not count.
+ */
+export function majorityScript(texts: readonly string[], scripts: Iterable<string>): string | undefined {
+  const text = texts.join('\n');
+  let best: string | undefined;
+  let bestCount = count(text, LATIN_LETTER);
+  for (const script of scripts) {
+    const n = count(text, scriptLetter(script));
+    if (n > bestCount) [best, bestCount] = [script, n];
+    else if (n === bestCount) best = undefined;
+  }
+  return best;
+}
+
 /** The text in `paras` in a language the checker can't check yet (any script but Latin), which it skipped. */
 export function uncheckedText(paras: readonly Paragraph[]): UncheckedText {
   let latin = 0;

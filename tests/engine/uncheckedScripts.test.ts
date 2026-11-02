@@ -6,9 +6,26 @@ import {
   hasLatinLetter,
   uncheckedPassages,
   dominantScript,
+  majorityScript,
 } from '@/engine/uncheckedScripts';
 
 const paras = (...texts: string[]) => texts.map((text, id) => ({ id, text }));
+
+describe('majorityScript (#2b: which registered script a whole document is mostly written in)', () => {
+  it('names a listed script with more letters than Latin and than each other listed one, across paragraphs', () => {
+    expect(majorityScript(['यह एक परीक्षण है।', 'We met.', 'यह'], ['Devanagari', 'Bengali'])).toBe('Devanagari');
+  });
+
+  it('is undefined (English) when Latin has as many letters or more, or two listed scripts tie', () => {
+    expect(majorityScript(['ab', 'कख'], ['Devanagari'])).toBeUndefined();
+    expect(majorityScript(['We met on Monday.', 'कख'], ['Devanagari'])).toBeUndefined();
+    expect(majorityScript(['कख', 'গঘ'], ['Devanagari', 'Bengali'])).toBeUndefined();
+  });
+
+  it('letters of unlisted scripts do not count', () => {
+    expect(majorityScript(['a', 'कख', 'আমরা কাল বাজারে'], ['Devanagari'])).toBe('Devanagari');
+  });
+});
 
 describe('dominantScript (#2b: which registered script a set-aside paragraph is written in)', () => {
   const both = ['Devanagari', 'Bengali'];

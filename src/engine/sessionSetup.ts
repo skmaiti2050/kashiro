@@ -2,28 +2,28 @@ import { createEnglishEngine, type EnglishResult } from './englishEngine';
 import { notCheckedEngine } from './notCheckedEngine';
 import type { EngineResult, LanguageEngine } from './languageEngine';
 import { byPosition, type CheckOptions, type SessionDeps } from './sessionTypes';
-import { dominantScript, otherScriptParagraphIds } from './uncheckedScripts';
+import { dominantScript, majorityScript, otherScriptParagraphIds } from './uncheckedScripts';
 import type { Paragraph } from './types';
 
-/** The engine registered for the script `text` is mostly written in, else the not-checked engine. */
-function engineForScript(text: string, scriptEngines: ReadonlyMap<string, LanguageEngine>): LanguageEngine {
-  if (scriptEngines.size === 0) return notCheckedEngine;
-  const script = dominantScript(text, scriptEngines.keys());
-  return (script && scriptEngines.get(script)) || notCheckedEngine;
-}
-
 /**
- * The engine for each paragraph: English for one mostly in Latin letters; for one mostly in another script (#2a),
- * the engine registered for its script, else the not-checked engine.
+ * One proofreading engine per document (owner, 2026-11-02): the engine registered for the script most of the
+ * document is written in (majorityScript), else English. It checks the paragraphs in its language; every other
+ * paragraph goes to the not-checked engine, English ones included when another engine proofreads the document.
  */
 function routeParagraphs(
   paras: Paragraph[],
   english: LanguageEngine,
   scriptEngines: ReadonlyMap<string, LanguageEngine>,
-): Map<number, LanguageEngine> {
+): { proofreader: LanguageEngine; paragraphEngines: Map<number, LanguageEngine> } {
   // A paragraph no engine proofreads gets no candidate of any kind (never damage).
   const setAside = new Set(otherScriptParagraphIds(paras));
-  return new Map(paras.map((p) => [p.id, setAside.has(p.id) ? engineForScript(p.text, scriptEngines) : english]));
+  const script = scriptEngines.size > 0 ? majorityScript(paras.map((p) => p.text), scriptEngines.keys()) : undefined;
+  const scriptEngine = script === undefined ? undefined : scriptEngines.get(script);
+  if (!scriptEngine) {
+    return { proofreader: english, paragraphEngines: new Map(paras.map((p) => [p.id, setAside.has(p.id) ? notCheckedEngine : english])) };
+  }
+  const inScript = (p: Paragraph) => setAside.has(p.id) && dominantScript(p.text, scriptEngines.keys()) === script;
+  return { proofreader: scriptEngine, paragraphEngines: new Map(paras.map((p) => [p.id, inScript(p) ? scriptEngine : notCheckedEngine])) };
 }
 
 /**
@@ -40,10 +40,12 @@ export async function prepareCheck(
     paragraphEngines: Map<number, LanguageEngine>;
     /** Every engine that ran, English first (it runs even with no paragraph of its own). */
     engines: LanguageEngine[];
+    /** The document's one proofreading engine. */
+    proofreader: LanguageEngine;
   }
 > {
   const english = createEnglishEngine(deps.linter);
-  const paragraphEngines = routeParagraphs(allParas, english, deps.scriptEngines ?? new Map());
+  const { proofreader, paragraphEngines } = routeParagraphs(allParas, english, deps.scriptEngines ?? new Map());
   const parasOf = (engine: LanguageEngine) => allParas.filter((p) => paragraphEngines.get(p.id) === engine);
   // English always runs, even with no paragraph of its own: the session's variant and tier context come from it.
   const fromEnglish = await english.check(parasOf(english), opts, deps.pause);
@@ -56,5 +58,5 @@ export async function prepareCheck(
   // Every engine's unchecked paragraphs, in document order.
   const unchecked = new Set([fromEnglish, ...fromOthers].flatMap((r) => r.uncheckedParagraphs));
   const uncheckedParagraphs = allParas.filter((p) => unchecked.has(p.id)).map((p) => p.id);
-  return { ...fromEnglish, paragraphEngines, engines: [english, ...others], found, uncheckedParagraphs };
+  return { ...fromEnglish, paragraphEngines, engines: [english, ...others], proofreader, found, uncheckedParagraphs };
 }

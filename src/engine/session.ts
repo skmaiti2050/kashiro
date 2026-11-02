@@ -84,6 +84,8 @@ export class CheckSession {
   private paragraphEngines = new Map<number, LanguageEngine>();
   /** Every engine that ran (English always): each learns a word added to the dictionary. */
   private engines: readonly LanguageEngine[] = [];
+  /** The document's one proofreading engine (owner, 2026-11-02: never several at once). */
+  private proofreader: LanguageEngine | null = null;
   /** Text inside checked paragraphs that was not really checked (#29), and whether any Latin text was checked. */
   private passages: readonly UncheckedPassage[] = [];
   private latinText = false;
@@ -139,6 +141,7 @@ export class CheckSession {
     session.unchecked = setup.uncheckedParagraphs;
     session.paragraphEngines = paragraphEngines;
     session.engines = setup.engines;
+    session.proofreader = setup.proofreader;
     const engineOf = (p: Paragraph) => paragraphEngines.get(p.id)!.capabilities;
     // "Not checked" (#2a) is what no engine proofreads; English's #29 passages below skip every non-English paragraph.
     // The two sets differ once another engine proofreads a script.
@@ -169,7 +172,10 @@ export class CheckSession {
     return [...this.unchecked];
   }
 
-  /** The ids of the paragraphs set aside because they are mostly another script, in document order. */
+  /**
+   * The ids of the paragraphs set aside, in document order: no engine proofreads them (another script, or English in
+   * a document another engine proofreads).
+   */
   otherScriptParagraphs(): readonly number[] {
     return this.otherScript;
   }
@@ -179,9 +185,12 @@ export class CheckSession {
     return this.paragraphEngines.get(paraId)?.capabilities;
   }
 
-  /** What the engines that proofread in this check can do, one per engine, English first (#2b): the UI words its labels from it. */
+  /**
+   * What the document's proofreading engine can do (#2b), as a list of that one engine: one per document, so the
+   * list never holds more. The UI words its labels from it.
+   */
   proofreadingEngines(): EngineCapabilities[] {
-    return this.engines.map((e) => e.capabilities).filter((c) => c.proofreads);
+    return this.proofreader ? [this.proofreader.capabilities] : [];
   }
 
   /** Words in another script and sentences in another language inside checked paragraphs: reported, not checked (#29). */

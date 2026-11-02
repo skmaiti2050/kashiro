@@ -68,14 +68,48 @@ describe('routing paragraphs to engines', () => {
     return { engine, seen };
   }
 
-  it('an engine registered for Devanagari checks the Hindi paragraph; Bengali stays not-checked', async () => {
-    const { engine, seen } = fakeDevanagari([1]);
-    const s = await CheckSession.start(paragraphs(MIXED), opts, { linter, scriptEngines: new Map([['Devanagari', engine]]) });
-    expect(seen).toEqual([[1]]);
-    expect([0, 1, 2, 3].map((id) => s.engineOf(id)?.id)).toEqual(['en', 'fake-hi', 'en', 'none']);
-    // A proofreading engine's paragraphs are not "not checked"; what it could not check is reported as such.
-    expect(s.otherScriptParagraphs()).toEqual([3]);
-    expect(s.uncheckedParagraphs()).toEqual([1]);
+  const withDevanagari = (engine: LanguageEngine) => ({ linter, scriptEngines: new Map([['Devanagari', engine]]) });
+  const engineIds = (s: CheckSession) => s.paragraphs().map((p) => s.engineOf(p.id)?.id);
+
+  it('a mostly English document with a Devanagari engine registered: English checks, Hindi is not checked', async () => {
+    const { engine, seen } = fakeDevanagari();
+    const s = await CheckSession.start(paragraphs(MIXED), opts, withDevanagari(engine));
+    expect(seen).toEqual([]);
+    expect(engineIds(s)).toEqual(['en', 'none', 'en', 'none']);
+    expect(s.otherScriptParagraphs()).toEqual([1, 3]);
+    expect(s.proofreadingEngines().map((c) => c.id)).toEqual(['en']);
+    expect(new Set(s.candidates().map((c) => c.paraId))).toEqual(new Set([0, 2]));
+  });
+
+  const MOSTLY_HINDI = [HINDI, ENGLISH, HINDI, HINDI];
+
+  it('a mostly Hindi document with a Devanagari engine registered: it checks the Hindi paragraphs, English is not checked', async () => {
+    const { engine, seen } = fakeDevanagari([2]);
+    const s = await CheckSession.start(paragraphs(MOSTLY_HINDI), opts, withDevanagari(engine));
+    expect(seen).toEqual([[0, 2, 3]]);
+    expect(engineIds(s)).toEqual(['fake-hi', 'none', 'fake-hi', 'fake-hi']);
+    // One proofreading engine per document: the English paragraph gets no candidate of any kind.
+    expect(s.candidates()).toEqual([]);
+    expect(s.otherScriptParagraphs()).toEqual([1]);
+    expect(s.proofreadingEngines().map((c) => c.id)).toEqual(['fake-hi']);
+    // What the engine could not check is reported as such.
+    expect(s.uncheckedParagraphs()).toEqual([2]);
+  });
+
+  it('the same document with nothing registered: English checks its paragraph, Hindi is not checked (as before)', async () => {
+    const s = await CheckSession.start(paragraphs(MOSTLY_HINDI), opts, { linter });
+    expect(engineIds(s)).toEqual(['none', 'en', 'none', 'none']);
+    expect(s.otherScriptParagraphs()).toEqual([0, 2, 3]);
+    expect(s.proofreadingEngines().map((c) => c.id)).toEqual(['en']);
+    expect(new Set(s.candidates().map((c) => c.paraId))).toEqual(new Set([1]));
+  });
+
+  it('as many Latin letters as Devanagari ones: English is the document engine', async () => {
+    const { engine, seen } = fakeDevanagari();
+    const s = await CheckSession.start(paragraphs(['ab', 'कख']), opts, withDevanagari(engine));
+    expect(seen).toEqual([]);
+    expect(engineIds(s)).toEqual(['en', 'none']);
+    expect(s.proofreadingEngines().map((c) => c.id)).toEqual(['en']);
   });
 
   it('a paragraph mixing Devanagari and Bengali goes by the script with the most letters', async () => {
