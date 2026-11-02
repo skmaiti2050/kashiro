@@ -1,7 +1,48 @@
 import { describe, it, expect } from 'vitest';
-import { uncheckedText, otherScriptParagraphIds } from '@/engine/uncheckedScripts';
+import { uncheckedText, otherScriptParagraphIds, otherScriptPassages, hasLatinLetter } from '@/engine/uncheckedScripts';
 
 const paras = (...texts: string[]) => texts.map((text, id) => ({ id, text }));
+
+describe('otherScriptPassages (#29: words inside a checked paragraph that are not English)', () => {
+  const words = (text: string) => otherScriptPassages(text).map((s) => text.slice(s.start, s.end));
+
+  it('one Hindi word in an English sentence is one passage', () => {
+    expect(words('She said नमस्ते and left.')).toEqual(['नमस्ते']);
+  });
+
+  it('a Hindi phrase is one passage, not one per word', () => {
+    expect(words('We read रामायण और महाभारत yesterday.')).toEqual(['रामायण और महाभारत']);
+  });
+
+  it('keeps the span end-exclusive and leaves trailing punctuation out', () => {
+    const text = 'Say नमस्ते, please.';
+    expect(otherScriptPassages(text)).toEqual([{ start: 4, end: 10 }]);
+  });
+
+  it('Latin letters with accents (names) are not passages', () => {
+    expect(words('José met Müller.')).toEqual([]);
+  });
+
+  it('emoji, digits and punctuation are not passages', () => {
+    expect(words('🎉🎉 2024!')).toEqual([]);
+  });
+
+  it('Bengali and Tamil words are passages', () => {
+    expect(words('He said কাল and then நேற்று twice.')).toEqual(['কাল', 'நேற்று']);
+  });
+
+  it('a Latin word between two other-script words splits them', () => {
+    expect(words('क and then ख')).toEqual(['क', 'ख']);
+  });
+});
+
+describe('hasLatinLetter', () => {
+  it('is false for emoji, digits and punctuation, true for a Latin word', () => {
+    expect(hasLatinLetter('🎉 2024 !?')).toBe(false);
+    expect(hasLatinLetter('🎉 ok')).toBe(true);
+    expect(hasLatinLetter('José')).toBe(true);
+  });
+});
 
 describe('uncheckedText (review #4: no false all-clear on Hindi or Bengali)', () => {
   it('an English document has nothing unchecked', () => {

@@ -1,4 +1,4 @@
-import type { Paragraph } from './types';
+import type { Paragraph, Span } from './types';
 
 /** A letter of the script the checker reads (English): "a", "é". */
 const LATIN_LETTER = /\p{Script=Latin}/gu;
@@ -7,6 +7,54 @@ const LATIN_LETTER = /\p{Script=Latin}/gu;
  * Urdu "ب", Russian "д". Accents (Inherited), digits, punctuation and emoji (Common) are no language.
  */
 const OTHER_SCRIPT_LETTER = /(?![\p{Script=Latin}\p{Script=Inherited}\p{Script=Common}])[\p{L}\p{M}]/gu;
+
+/**
+ * A run of other-script words (#29): "नमस्ते", or "रामायण और महाभारत" as one. A word is a letter that is not Latin, then
+ * letters, marks and joiners; words are joined only by spaces/punctuation (never Latin letters or digits), so
+ * "She said नमस्ते, ok" ends at "ते". Each separator needs 1+ characters, so the pattern cannot backtrack badly.
+ */
+const NON_LATIN_LETTER = String.raw`(?![\p{Script=Latin}\p{Script=Inherited}\p{Script=Common}])[\p{L}\p{M}]`;
+// A joiner (ZWJ/ZWNJ) only inside a word, never alone: a stray one in English text is not a passage.
+const OTHER_SCRIPT_WORD = `${NON_LATIN_LETTER}(?:${NON_LATIN_LETTER}|[\\u200c\\u200d])*`;
+const OTHER_SCRIPT_RUN = new RegExp(`${OTHER_SCRIPT_WORD}(?:[\\s\\p{P}]+${OTHER_SCRIPT_WORD})*`, 'gu');
+
+/** A passage of a checked paragraph that Kashiro did not really check (#29). */
+export interface UncheckedPassage {
+  paraId: number;
+  span: Span;
+  /** A run of words in another script, or a sentence the classifier found to be another Latin-script language. */
+  kind: 'otherScript' | 'otherLanguage';
+}
+
+/**
+ * The runs of other-script words in `text`, in order, end-exclusive. Latin letters with accents (José, Müller),
+ * digits, punctuation and emoji are never passages.
+ */
+export function otherScriptPassages(text: string): Span[] {
+  return [...text.matchAll(OTHER_SCRIPT_RUN)].map((m) => ({ start: m.index, end: m.index + m[0].length }));
+}
+
+/** True when `text` has any Latin letter: some English (or at least Latin-script) text was there to check. */
+export function hasLatinLetter(text: string): boolean {
+  return count(text, LATIN_LETTER) > 0;
+}
+
+/**
+ * The passages the check did not read inside the paragraphs it did check: other-script runs plus the foreign
+ * sentences setup already found, in document order. Set-aside paragraphs (#2a) are skipped, a block marker covers them.
+ */
+export function uncheckedPassages(
+  paras: readonly Paragraph[],
+  setAside: ReadonlySet<number>,
+  foreignSentences: ReadonlyMap<number, Span[]>,
+): UncheckedPassage[] {
+  return paras
+    .filter((p) => !setAside.has(p.id))
+    .flatMap((p) => [
+      ...otherScriptPassages(p.text).map((span) => ({ paraId: p.id, span, kind: 'otherScript' as const })),
+      ...(foreignSentences.get(p.id) ?? []).map((span) => ({ paraId: p.id, span, kind: 'otherLanguage' as const })),
+    ].sort((a, b) => a.span.start - b.span.start));
+}
 
 /** How much of a document the English-only check could not read (review #4: no false all-clear). */
 export interface UncheckedText {

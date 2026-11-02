@@ -54,6 +54,30 @@ describe('a session sets aside paragraphs in another script', () => {
     expect(s.paragraphs()[2]!.text.slice(teh.span.start, teh.span.end)).toBe('teh');
   });
 
+  it('lists the passages it did not check inside English paragraphs, in document order (#29)', async () => {
+    const english = "She said नमस्ते and left teh room. C'est la vie, mon ami.";
+    const s = await start([HINDI, english]);
+    const passages = s.uncheckedPassages();
+    expect(passages.map((p) => [p.paraId, p.kind, english.slice(p.span.start, p.span.end)])).toEqual([
+      [1, 'otherScript', 'नमस्ते'],
+      [1, 'otherLanguage', "C'est la vie, mon ami."],
+    ]);
+    // Report only: English checking is unchanged.
+    expect(s.candidates().some((c) => c.paraId === 1 && c.original === 'teh')).toBe(true);
+  });
+
+  it('a set-aside paragraph contributes no passages, and an English one has none', async () => {
+    const s = await start([HINDI, 'We met on Monday.']);
+    expect(s.uncheckedPassages()).toEqual([]);
+  });
+
+  it('hasEnglishText is false for emoji-only and digits-only documents, true with a Latin word', async () => {
+    expect((await start(['🎉🎉', ' '])).hasEnglishText()).toBe(false);
+    expect((await start(['2024 — 10:30!'])).hasEnglishText()).toBe(false);
+    expect((await start(['🎉 ok'])).hasEnglishText()).toBe(true);
+    expect((await start([HINDI])).hasEnglishText()).toBe(false);
+  });
+
   it('does not mix up the paragraphs the linter threw on', async () => {
     const s = await start([HINDI, ENGLISH]);
     expect(s.uncheckedParagraphs()).toEqual([]);

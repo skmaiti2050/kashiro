@@ -15,6 +15,7 @@ import { checkTermMinRepeats, DEFAULT_TERM_MIN_REPEATS } from './terms';
 import { tierOf, type TierContext } from './tiers';
 import { EditLedger } from './editLedger';
 import { prepareCheck } from './sessionSetup';
+import { hasLatinLetter, uncheckedPassages, type UncheckedPassage } from './uncheckedScripts';
 import { DEFAULT_DEPTH, upFrontCount, type ReviewDepth } from './depth';
 import { countWords } from './words';
 import { DEFAULT_MODULES, type ModuleSwitches } from './modules';
@@ -79,6 +80,9 @@ export class CheckSession {
   private unchecked: readonly number[] = [];
   /** Paragraphs mostly in another script, set aside whole (#2a). */
   private otherScript: readonly number[] = [];
+  /** Text inside checked paragraphs that was not really checked (#29), and whether any Latin text was checked. */
+  private passages: readonly UncheckedPassage[] = [];
+  private latinText = false;
 
   private constructor(
     paras: Paragraph[],
@@ -130,6 +134,9 @@ export class CheckSession {
     const session = new CheckSession(paras, variant, mixedVariant, variantFromFallback, ctx, now, linter, depth, termMinRepeats);
     session.unchecked = uncheckedParagraphs;
     session.otherScript = otherScriptParagraphs;
+    // The foreign sentences were found in setup; passages only report them (checking is unchanged).
+    session.passages = uncheckedPassages(paras, new Set(otherScriptParagraphs), ctx.foreignSentences ?? new Map());
+    session.latinText = paras.some((p) => !session.otherScript.includes(p.id) && hasLatinLetter(p.text));
     session.addCandidates(found);
     session.autoApply();
     session.holdBackChangedTokens();
@@ -155,6 +162,16 @@ export class CheckSession {
   /** The ids of the paragraphs set aside because they are mostly another script, in document order. */
   otherScriptParagraphs(): readonly number[] {
     return this.otherScript;
+  }
+
+  /** Words in another script and sentences in another language inside checked paragraphs: reported, not checked (#29). */
+  uncheckedPassages(): UncheckedPassage[] {
+    return [...this.passages];
+  }
+
+  /** False when no checked paragraph has a Latin letter (emoji, digits, other scripts only): nothing was checked. */
+  hasEnglishText(): boolean {
+    return this.latinText;
   }
 
   /** True once addRewrite recorded this sentence, whatever the helper answered. */
