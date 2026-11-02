@@ -1,4 +1,4 @@
-import type { EngineCapabilities } from '@/engine/languageEngine';
+import type { EngineId } from '@/engine/languageEngine';
 import type { CheckSession } from '@/engine/session';
 import type { MessageKey } from './i18n/catalogues';
 
@@ -26,7 +26,7 @@ export interface ProofreadingLabels {
  * Each proofreading engine's labels, by its capabilities id. The engine names no UI key (src/engine never imports
  * src/ui), so this table is the one place that maps an engine to wording. A new engine adds its row here.
  */
-export const PROOFREADING_LABELS: Readonly<Record<string, ProofreadingLabels>> = {
+export const PROOFREADING_LABELS: Readonly<Record<Exclude<EngineId, 'none'>, ProofreadingLabels>> = {
   en: {
     chip: 'toolbar.english',
     only: 'panel.englishOnly',
@@ -42,15 +42,12 @@ export const PROOFREADING_LABELS: Readonly<Record<string, ProofreadingLabels>> =
 };
 
 /** The proofreading engine the app always has: English. */
-const DEFAULT_ENGINE: Pick<EngineCapabilities, 'id'> = { id: 'en' };
-
 /**
  * The labels for this check's proofreading engine (the first one); English before a check has run.
- * An id with no row throws: the table must cover every engine the app constructs (a test holds it to that).
+ * Never throws (it runs while rendering): a new engine id without a row is a compile error above, and at
+ * runtime an id the table lacks falls back to English.
  */
 export function proofreadingLabels(session: CheckSession | null): ProofreadingLabels {
-  const engine = session?.proofreadingEngines()[0] ?? DEFAULT_ENGINE;
-  const labels = PROOFREADING_LABELS[engine.id];
-  if (!labels) throw new Error(`No interface labels for the "${engine.id}" engine: add a row to PROOFREADING_LABELS.`);
-  return labels;
+  const id = session?.proofreadingEngines()[0]?.id;
+  return (id && PROOFREADING_LABELS[id as keyof typeof PROOFREADING_LABELS]) || PROOFREADING_LABELS.en;
 }

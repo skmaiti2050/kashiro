@@ -1,10 +1,13 @@
 import type { CheckOptions } from './sessionTypes';
 import type { Candidate, Paragraph } from './types';
 
+/** Every engine the app has; a new engine adds its id here, and the UI's label table then needs a row. */
+export type EngineId = 'en' | 'none';
+
 /** What an engine can do, for the UI to word its labels and pickers (#2b). */
 export interface EngineCapabilities {
   /** 'en' for English, 'none' for the not-checked engine; the UI maps it to a label (the engine names no UI key). */
-  id: string;
+  id: EngineId;
   /** False when the engine checks nothing: its paragraphs are marked "Not checked" (#2a). */
   proofreads: boolean;
   /** The written forms the engine offers, defined by the engine (English: American, British, …). */

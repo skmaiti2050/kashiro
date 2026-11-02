@@ -7,7 +7,7 @@ import { CheckSession } from '@/engine/session';
 import { createLinter, type RulesLinter } from '@/engine/linter';
 import { createEnglishEngine } from '@/engine/englishEngine';
 import { notCheckedEngine } from '@/engine/notCheckedEngine';
-import type { LanguageEngine } from '@/engine/languageEngine';
+import type { EngineId, LanguageEngine } from '@/engine/languageEngine';
 import type { CheckOptions } from '@/engine/sessionTypes';
 import type { Paragraph } from '@/engine/types';
 
@@ -58,7 +58,7 @@ describe('routing paragraphs to engines', () => {
   function fakeDevanagari(unchecked: number[] = []) {
     const seen: number[][] = [];
     const engine: LanguageEngine = {
-      capabilities: { id: 'fake-hi', proofreads: true, variants: ['Standard'], hasCase: false },
+      capabilities: { id: 'fake-hi' as EngineId, proofreads: true, variants: ['Standard'], hasCase: false },
       check: async (paras) => {
         seen.push(paras.map((p) => p.id));
         return { found: [], uncheckedParagraphs: unchecked };
