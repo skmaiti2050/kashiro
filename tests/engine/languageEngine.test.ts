@@ -54,22 +54,39 @@ describe('routing paragraphs to engines', () => {
     expect(new Set(s.candidates().map((c) => c.paraId))).toEqual(new Set([0, 2]));
   });
 
-  it('an engine passed in deps checks the other-script paragraphs, and only those', async () => {
+  /** A fake Devanagari engine that records the paragraphs it is given and reports `unchecked` as not checked. */
+  function fakeDevanagari(unchecked: number[] = []) {
     const seen: number[][] = [];
-    const fake: LanguageEngine = {
-      capabilities: { id: 'fake', proofreads: true, variants: ['Standard'], hasCase: false },
+    const engine: LanguageEngine = {
+      capabilities: { id: 'fake-hi', proofreads: true, variants: ['Standard'], hasCase: false },
       check: async (paras) => {
         seen.push(paras.map((p) => p.id));
-        return { found: [], uncheckedParagraphs: [3] };
+        return { found: [], uncheckedParagraphs: unchecked };
       },
       addWords: async () => {},
     };
-    const s = await CheckSession.start(paragraphs(MIXED), opts, { linter, otherScriptEngine: fake });
-    expect(seen).toEqual([[1, 3]]);
-    expect(s.engineOf(1)?.id).toBe('fake');
-    expect(s.engineOf(0)?.id).toBe('en');
+    return { engine, seen };
+  }
+
+  it('an engine registered for Devanagari checks the Hindi paragraph; Bengali stays not-checked', async () => {
+    const { engine, seen } = fakeDevanagari([1]);
+    const s = await CheckSession.start(paragraphs(MIXED), opts, { linter, scriptEngines: new Map([['Devanagari', engine]]) });
+    expect(seen).toEqual([[1]]);
+    expect([0, 1, 2, 3].map((id) => s.engineOf(id)?.id)).toEqual(['en', 'fake-hi', 'en', 'none']);
     // A proofreading engine's paragraphs are not "not checked"; what it could not check is reported as such.
-    expect(s.otherScriptParagraphs()).toEqual([]);
-    expect(s.uncheckedParagraphs()).toEqual([3]);
+    expect(s.otherScriptParagraphs()).toEqual([3]);
+    expect(s.uncheckedParagraphs()).toEqual([1]);
+  });
+
+  it('a paragraph mixing Devanagari and Bengali goes by the script with the most letters', async () => {
+    const { engine, seen } = fakeDevanagari();
+    const mostlyHindi = `${HINDI} আমরা`;
+    const mostlyBengali = `${BENGALI} यह`;
+    const s = await CheckSession.start(paragraphs([mostlyHindi, mostlyBengali]), opts, {
+      linter,
+      scriptEngines: new Map([['Devanagari', engine]]),
+    });
+    expect(seen).toEqual([[0]]);
+    expect([0, 1].map((id) => s.engineOf(id)?.id)).toEqual(['fake-hi', 'none']);
   });
 });

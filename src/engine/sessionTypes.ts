@@ -27,8 +27,11 @@ export interface CheckOptions {
 export interface SessionDeps {
   /** Reused instead of creating a linter (the UI passes one built with the browser binary). */
   linter?: RulesLinter;
-  /** Checks the paragraphs mostly in another script instead of the not-checked engine (the seam a Hindi engine plugs into, #1). */
-  otherScriptEngine?: LanguageEngine;
+  /**
+   * Engines by Unicode script name ('Devanagari', 'Bengali'): each checks the paragraphs mostly in another script
+   * whose letters are mostly its script (dominantScript), instead of the not-checked engine (the seam for #1).
+   */
+  scriptEngines?: ReadonlyMap<string, LanguageEngine>;
   /** Clock for LogEntry.at. */
   now?: () => Date;
   /**

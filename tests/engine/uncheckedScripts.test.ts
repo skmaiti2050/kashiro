@@ -1,7 +1,36 @@
 import { describe, it, expect } from 'vitest';
-import { uncheckedText, otherScriptParagraphIds, otherScriptPassages, hasLatinLetter, uncheckedPassages } from '@/engine/uncheckedScripts';
+import {
+  uncheckedText,
+  otherScriptParagraphIds,
+  otherScriptPassages,
+  hasLatinLetter,
+  uncheckedPassages,
+  dominantScript,
+} from '@/engine/uncheckedScripts';
 
 const paras = (...texts: string[]) => texts.map((text, id) => ({ id, text }));
+
+describe('dominantScript (#2b: which registered script a set-aside paragraph is written in)', () => {
+  const both = ['Devanagari', 'Bengali'];
+
+  it('names the script with the most letters', () => {
+    expect(dominantScript('यह एक परीक्षण है। আমরা', both)).toBe('Devanagari');
+    expect(dominantScript('আমরা কাল বাজারে গিয়েছিলাম। यह', both)).toBe('Bengali');
+  });
+
+  it('is undefined when an unregistered script has more letters, or on a tie', () => {
+    expect(dominantScript('আমরা কাল বাজারে গিয়েছিলাম। यह', ['Devanagari'])).toBeUndefined();
+    expect(dominantScript('कख গঘ', both)).toBeUndefined();
+  });
+
+  it('counts only letters of other scripts: Latin, digits and punctuation never decide', () => {
+    expect(dominantScript('abc defgh 123 !!! कख', ['Devanagari'])).toBe('Devanagari');
+  });
+
+  it('an unknown script name is an error that says so', () => {
+    expect(() => dominantScript('कख', ['Hindi'])).toThrow(/Hindi/);
+  });
+});
 
 describe('otherScriptPassages (#29: words inside a checked paragraph that are not English)', () => {
   const words = (text: string) => otherScriptPassages(text).map((s) => text.slice(s.start, s.end));

@@ -116,6 +116,34 @@ export function otherScriptParagraphIds(paras: readonly Paragraph[]): number[] {
   return paras.filter((p) => count(p.text, OTHER_SCRIPT_LETTER) > count(p.text, LATIN_LETTER)).map((p) => p.id);
 }
 
+/** A letter or sign of the Unicode script `script` ('Devanagari': "क", "ि"); a name Unicode doesn't know is an error. */
+function scriptLetter(script: string): RegExp {
+  try {
+    return new RegExp(`(?=[\\p{L}\\p{M}])\\p{Script=${script}}`, 'gu');
+  } catch {
+    throw new Error(`"${script}" is not a Unicode script name: use one such as "Devanagari" or "Bengali".`);
+  }
+}
+
+/**
+ * Which of `scripts` (Unicode script names) `text` is written in: the one with the most other-script letters, more
+ * than every other script in `scripts` and more than all letters of unlisted scripts together. Undefined on a tie or
+ * when unlisted scripts outweigh it, so a mixed paragraph never goes to an engine for a script it is mostly not in.
+ */
+export function dominantScript(text: string, scripts: Iterable<string>): string | undefined {
+  const letters = count(text, OTHER_SCRIPT_LETTER);
+  let best: string | undefined;
+  let bestCount = 0;
+  let listed = 0;
+  for (const script of scripts) {
+    const n = count(text, scriptLetter(script));
+    listed += n;
+    if (n > bestCount) [best, bestCount] = [script, n];
+    else if (n === bestCount) best = undefined;
+  }
+  return bestCount > letters - listed ? best : undefined;
+}
+
 /** The text in `paras` in a language the checker can't check yet (any script but Latin), which it skipped. */
 export function uncheckedText(paras: readonly Paragraph[]): UncheckedText {
   let latin = 0;

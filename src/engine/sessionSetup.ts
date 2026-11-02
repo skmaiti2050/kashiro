@@ -2,16 +2,28 @@ import { createEnglishEngine, type EnglishResult } from './englishEngine';
 import { notCheckedEngine } from './notCheckedEngine';
 import type { EngineResult, LanguageEngine } from './languageEngine';
 import { byPosition, type CheckOptions, type SessionDeps } from './sessionTypes';
-import { otherScriptParagraphIds } from './uncheckedScripts';
+import { dominantScript, otherScriptParagraphIds } from './uncheckedScripts';
 import type { Paragraph } from './types';
 
+/** The engine registered for the script `text` is mostly written in, else the not-checked engine. */
+function engineForScript(text: string, scriptEngines: ReadonlyMap<string, LanguageEngine>): LanguageEngine {
+  if (scriptEngines.size === 0) return notCheckedEngine;
+  const script = dominantScript(text, scriptEngines.keys());
+  return (script && scriptEngines.get(script)) || notCheckedEngine;
+}
+
 /**
- * The engine for each paragraph: one mostly in another script goes to `otherScript` (the not-checked engine, #2a),
- * every other one to English.
+ * The engine for each paragraph: English for one mostly in Latin letters; for one mostly in another script (#2a),
+ * the engine registered for its script, else the not-checked engine.
  */
-function routeParagraphs(paras: Paragraph[], english: LanguageEngine, otherScript: LanguageEngine): Map<number, LanguageEngine> {
+function routeParagraphs(
+  paras: Paragraph[],
+  english: LanguageEngine,
+  scriptEngines: ReadonlyMap<string, LanguageEngine>,
+): Map<number, LanguageEngine> {
+  // A paragraph no engine proofreads gets no candidate of any kind (never damage).
   const setAside = new Set(otherScriptParagraphIds(paras));
-  return new Map(paras.map((p) => [p.id, setAside.has(p.id) ? otherScript : english]));
+  return new Map(paras.map((p) => [p.id, setAside.has(p.id) ? engineForScript(p.text, scriptEngines) : english]));
 }
 
 /**
@@ -31,7 +43,7 @@ export async function prepareCheck(
   }
 > {
   const english = createEnglishEngine(deps.linter);
-  const paragraphEngines = routeParagraphs(allParas, english, deps.otherScriptEngine ?? notCheckedEngine);
+  const paragraphEngines = routeParagraphs(allParas, english, deps.scriptEngines ?? new Map());
   const parasOf = (engine: LanguageEngine) => allParas.filter((p) => paragraphEngines.get(p.id) === engine);
   // English always runs, even with no paragraph of its own: the session's variant and tier context come from it.
   const fromEnglish = await english.check(parasOf(english), opts, deps.pause);
