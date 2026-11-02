@@ -23,6 +23,19 @@ beforeAll(warmLinter);
 
 const toolbar = () => screen.getByRole('toolbar');
 
+describe('a document with no English words (#29)', () => {
+  it.each([['only emoji', '🎉🎉\n\n🎉'], ['only digits and punctuation', '2024!\n\n(1) 3.5 - 7']])('%s: "Nothing to check", never "All clear"', async (_name, text) => {
+    const { controller } = makeController();
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText(text));
+    const panel = within(reviewPanel());
+    expect(panel.getByRole('heading', { name: 'Nothing to check: no English words' })).toBeTruthy();
+    expect(panel.queryByText(/All clear/)).toBeNull();
+    expect(panel.queryByText(/not checked/)).toBeNull();
+    expect(panel.queryByRole('button', { name: 'Show next' })).toBeNull();
+  });
+});
+
 describe('toolbar', () => {
   it('shows Open, Paste, Goal, the English variant and Save; the rest is behind ⋯', async () => {
     const { controller } = makeController();
@@ -156,11 +169,11 @@ describe('done state', () => {
     );
   });
 
-  it('a mostly English document with a Hindi paragraph is all clear, with the same notice under it', async () => {
+  it('a mostly English document with a Hindi paragraph is all clear in the English text, with the same notice under it', async () => {
     const { controller } = makeController();
     renderShell(controller);
     await openAndWait(controller, () => controller.openText('I think the  cat sat on the mat. We will meet again next week.\n\nयह एक परीक्षण है।'));
-    expect(within(reviewPanel()).getByText('All clear: 1 fix applied, nothing left to decide.')).toBeTruthy();
+    expect(within(reviewPanel()).getByRole('heading', { name: 'All clear in the English text' })).toBeTruthy();
     expect(within(reviewPanel()).getByText("1 paragraph isn't in English and was not checked.")).toBeTruthy();
   });
 });

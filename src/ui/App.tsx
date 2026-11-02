@@ -372,7 +372,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
               controller={controller}
               state={state}
               onLocate={(candidate) => setFocus((f) => ({ candidate, seq: (f?.seq ?? 0) + 1 }))}
-              onShowParagraph={(paraId) => setParagraphRequest((r) => ({ paraId, seq: (r?.seq ?? 0) + 1 }))}
+              onShowParagraph={(paraId, offset) => setParagraphRequest((r) => ({ paraId, offset, seq: (r?.seq ?? 0) + 1 }))}
               request={cardRequest}
               keysEnabled={!dialogOpen}
               onShowLog={() => {

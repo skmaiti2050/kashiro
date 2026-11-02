@@ -119,6 +119,119 @@ describe('the review panel counts the paragraphs that were not checked', () => {
   });
 });
 
+const PASSAGE_WORD = 'नमस्ते';
+const WITH_PASSAGE = `She said ${PASSAGE_WORD} and left the room.`;
+const WITH_FRENCH = "We met. C'est la vie, mon ami.";
+/** Enough English that the Hindi paragraph beside it does not make the whole document "mostly another script". */
+const PASSAGE_AND_HINDI = `${WITH_PASSAGE} We will meet again next week, and then we will go home.\n\n${HINDI}`;
+const passageMarks = () => [...document.querySelectorAll<HTMLElement>('.cm-not-checked-passage')];
+
+describe('a dotted underline under a passage that was not checked (#29)', () => {
+  it('marks the other-script word with a quiet underline and a title, unlike the wavy flags', async () => {
+    const { controller } = makeController();
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText(WITH_PASSAGE));
+    const [mark, ...rest] = passageMarks();
+    expect(rest).toEqual([]);
+    expect(mark.textContent).toBe(PASSAGE_WORD);
+    expect(mark.getAttribute('title')).toBe('Not checked: Kashiro proofreads English only');
+    expect(mark.classList.contains('cm-pending')).toBe(false);
+  });
+
+  it('marks a sentence in another language too', async () => {
+    const { controller } = makeController();
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText(WITH_FRENCH));
+    // Other marks (a flag inside the sentence) may split the underline into pieces.
+    expect(passageMarks().map((m) => m.textContent).join('')).toBe("C'est la vie, mon ami.");
+  });
+
+  it('is no part of the text: the document and the editor text are unchanged', async () => {
+    const { controller } = makeController();
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText(WITH_PASSAGE));
+    const view = EditorView.findFromDOM(document.querySelector<HTMLElement>('.cm-editor')!)!;
+    expect(view.state.doc.toString()).toBe(WITH_PASSAGE);
+    expect(controller.getState().document!.text).toBe(WITH_PASSAGE);
+  });
+
+  it('keeps the English flags around it, and follows an edit that removes the word', async () => {
+    const { controller } = makeController();
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText('She said नमस्ते and left teh room.'));
+    expect(document.querySelectorAll('.cm-pending').length).toBeGreaterThan(0);
+    expect(passageMarks()).toHaveLength(1);
+    await openAndWait(controller, () => controller.openText('She said hello and left the room.'));
+    expect(passageMarks()).toEqual([]);
+  });
+});
+
+describe('the panel counts passages that were not checked (#29)', () => {
+  it('passages only: says so, and the heading says the English text is clear', async () => {
+    const { controller } = makeController();
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText(WITH_PASSAGE));
+    const panel = within(reviewPanel());
+    expect(panel.getByRole('heading', { name: 'All clear in the English text' })).toBeTruthy();
+    expect(panel.getByText("1 passage isn't in English and was not checked.")).toBeTruthy();
+  });
+
+  it('says it in the plural', async () => {
+    const { controller } = makeController();
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText(`${WITH_PASSAGE} ${WITH_FRENCH}`));
+    expect(within(reviewPanel()).getByText("2 passages aren't in English and were not checked.")).toBeTruthy();
+  });
+
+  it('paragraphs and passages together make one line', async () => {
+    const { controller } = makeController();
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText(PASSAGE_AND_HINDI));
+    expect(within(reviewPanel()).getByText("1 paragraph and 1 passage aren't in English and were not checked.")).toBeTruthy();
+  });
+
+  it('set-aside paragraphs only: the heading is the all-clear in the English text, with the existing line', async () => {
+    const { controller } = makeController();
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText(`${ENGLISH} We will meet again next week.\n\n${HINDI}`));
+    const panel = within(reviewPanel());
+    expect(panel.getByRole('heading', { name: 'All clear in the English text' })).toBeTruthy();
+    expect(panel.getByText("1 paragraph isn't in English and was not checked.")).toBeTruthy();
+  });
+
+  it('"Show next" steps through paragraphs and passages in document order, to the passage itself, and wraps', async () => {
+    const scrolled = vi.spyOn(EditorView, 'scrollIntoView');
+    const { controller } = makeController();
+    renderShell(controller);
+    const text = PASSAGE_AND_HINDI;
+    await openAndWait(controller, () => controller.openText(text));
+    scrolled.mockClear();
+    const next = within(reviewPanel()).getByRole('button', { name: 'Show next' });
+    for (let i = 0; i < 3; i++) act(() => fireEvent.click(next));
+    const passageStart = text.indexOf(PASSAGE_WORD);
+    const hindiStart = text.indexOf(HINDI);
+    expect(scrolled.mock.calls.map(([position]) => position)).toEqual([passageStart, hindiStart, passageStart]);
+  });
+
+  it('a document that is mostly another script keeps the "English only" heading', async () => {
+    const { controller } = makeController();
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText(`${HINDI}\n\n${BENGALI}`));
+    const panel = within(reviewPanel());
+    expect(panel.getByRole('heading', { name: ABOUT_LINE })).toBeTruthy();
+    expect(panel.queryByText(/Nothing to check/)).toBeNull();
+  });
+
+  it('a document of one script-free line has no count and no "Show next"', async () => {
+    const { controller } = makeController();
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText(ENGLISH));
+    const panel = within(reviewPanel());
+    expect(panel.getByRole('heading', { name: /^All clear/ }).textContent).not.toMatch(/English text/);
+    expect(panel.queryByText(/not checked/)).toBeNull();
+  });
+});
+
 describe('the interface says English proofreading', () => {
   it('the toolbar chip reads "English proofreading" and keeps the variant menu', async () => {
     const { controller } = makeController();
@@ -155,6 +268,21 @@ describe.each(['hi', 'bn'] as const)('in %s', (language) => {
       expect(own.t(key), key).not.toBe(english.t(key));
     }
     expect(own.t('panel.otherScript', { count: 2 })).not.toBe(english.t('panel.otherScript', { count: 2 }));
+    for (const key of ['doc.passageNotChecked', 'panel.allClearEnglish', 'panel.nothingToCheck'] as const) expect(own.t(key), key).not.toBe(english.t(key));
+    expect(own.t('panel.passages', { count: 2 })).not.toBe(english.t('panel.passages', { count: 2 }));
+    const both = { paragraphs: 2, passages: 3 };
+    expect(own.t('panel.paragraphsAndPassages', both)).not.toBe(english.t('panel.paragraphsAndPassages', both));
+  });
+
+  it('the passage underline, its title, the headings and the lines render in the UI language', async () => {
+    cleanup();
+    const { controller } = makeController({ uiLanguage: language });
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText(PASSAGE_AND_HINDI));
+    expect(passageMarks()[0].getAttribute('title')).toBe(own.t('doc.passageNotChecked'));
+    const panel = within(screen.getByRole('complementary', { name: own.t('panel.label') }));
+    expect(panel.getByRole('heading', { name: own.t('panel.allClearEnglish') })).toBeTruthy();
+    expect(panel.getByText(own.t('panel.paragraphsAndPassages', { paragraphs: 1, passages: 1 }))).toBeTruthy();
   });
 
   it('the marker, the panel line and its button render in the UI language', async () => {

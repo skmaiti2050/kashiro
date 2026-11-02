@@ -18,6 +18,7 @@ import { capabilities } from './platform/capabilities';
 import { cardLabel } from './state/announce';
 import { categoryCounts, categoryOfDecision, type Category } from './state/categories';
 import { isWordCard } from './state/labels';
+import { uncheckedPlaces } from './state/unchecked';
 import { progressLabel, progressOf } from './state/progress';
 import { paragraphAt, sentenceAt, suggestionSpeech, type ReadTarget } from './state/readAloud';
 import { cursorAt, currentDecision, decisionWith, moveCursor, START } from './state/reviewCursor';
@@ -48,8 +49,8 @@ interface Props {
   state: ControllerState;
   /** Shows a candidate in the document view (outlined and scrolled into view). */
   onLocate(candidate: Candidate): void;
-  /** Scrolls the document to a paragraph (one without a card, such as a paragraph set aside as not English). */
-  onShowParagraph(paraId: number): void;
+  /** Scrolls the document to a place in a paragraph (one without a card: a set-aside paragraph, a passage not checked). */
+  onShowParagraph(paraId: number, offset: number): void;
   request: CardRequest | null;
   /** False while a dialog is open: the review keys must not act behind it. */
   keysEnabled: boolean;
@@ -190,15 +191,30 @@ export function ReviewPanel({ controller, state, onLocate, onShowParagraph, requ
   const allClear = !current && progress.left === 0;
   /** Text in another script the English-only check skipped: never an all-clear for a document that is mostly that. */
   const unchecked = uncheckedText(session.paragraphs());
-  const doneLine = unchecked.mostly ? t.t('panel.englishOnly') : t.t('panel.allClear', { count: fixesApplied });
   const otherScript = session.otherScriptParagraphs();
+  const passages = session.uncheckedPassages().length;
+  const places = uncheckedPlaces(session);
+  // hasEnglishText() is also false when everything was set aside, which the "mostly" case words first.
+  const doneLine = unchecked.mostly
+    ? t.t('panel.englishOnly')
+    : !session.hasEnglishText() && otherScript.length === 0
+      ? t.t('panel.nothingToCheck')
+      : places.length > 0
+        ? t.t('panel.allClearEnglish')
+        : t.t('panel.allClear', { count: fixesApplied });
+  const skippedLine =
+    otherScript.length > 0 && passages > 0
+      ? t.t('panel.paragraphsAndPassages', { paragraphs: otherScript.length, passages })
+      : passages > 0
+        ? t.t('panel.passages', { count: passages })
+        : t.t('panel.otherScript', { count: otherScript.length });
   /** Paragraphs the linter threw on (Task F21d, review I-4): left as written, and said so. */
   const failed = session.uncheckedParagraphs().length;
   const notChecked = failed > 0 ? t.t('panel.notChecked', { count: failed }) : null;
-  /** "Show next": the next set-aside paragraph in document order, back to the first after the last. */
-  const showNextOtherScript = (paragraphs: readonly number[]) => {
-    const at = nextOther % paragraphs.length;
-    onShowParagraph(paragraphs[at]);
+  /** "Show next": the next set-aside paragraph or passage in document order, back to the first after the last. */
+  const showNextUnchecked = () => {
+    const at = nextOther % places.length;
+    onShowParagraph(places[at].paraId, places[at].offset);
     setNextOther(at + 1);
   };
   const pick = (d: Decision) => {
@@ -251,10 +267,10 @@ export function ReviewPanel({ controller, state, onLocate, onShowParagraph, requ
             <DepthSlider value={session.depth} onChange={(d) => controller.setDepth(d)} />
           </>
         )}
-        {otherScript.length > 0 && (
+        {places.length > 0 && (
           <p className="hint english-only">
-            {t.t('panel.otherScript', { count: otherScript.length })}{' '}
-            <button className="quiet" onClick={() => showNextOtherScript(otherScript)}>
+            {skippedLine}{' '}
+            <button className="quiet" onClick={showNextUnchecked}>
               {t.t('panel.showNextOther')}
             </button>
           </p>

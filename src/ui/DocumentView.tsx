@@ -114,6 +114,12 @@ function documentMarks(t: Translator, doc: OpenDocument, viewText: string, sessi
     const start = paragraphStart(doc, viewText, session, paraId);
     if (start !== null) ranges.push(Decoration.widget({ widget: notChecked, block: true, side: -1 }).range(at(start)));
   }
+  // Same positions as the flags: the spans are in the paragraph's text, which the view shows as is.
+  const passageMark = Decoration.mark({ class: 'cm-not-checked-passage', attributes: { title: t.t('doc.passageNotChecked') } });
+  for (const { paraId, span } of session.uncheckedPassages()) {
+    const start = paragraphStart(doc, viewText, session, paraId);
+    if (start !== null) ranges.push(passageMark.range(at(start + span.start), at(start + span.end)));
+  }
   for (const h of highlights) {
     const from = at(h.from);
     const to = at(h.to);
@@ -139,9 +145,11 @@ export interface DocumentFocus {
   seq: number;
 }
 
-/** A paragraph to show; `seq` changes on every request, so asking for the same one again scrolls again. */
+/** A place in a paragraph to show; `seq` changes on every request, so asking for the same one again scrolls again. */
 export interface ParagraphRequest {
   paraId: number;
+  /** Characters into the paragraph. */
+  offset: number;
   seq: number;
 }
 
@@ -379,7 +387,7 @@ export function DocumentView({
     if (!editor || !doc || !state.session || !paragraphRequest) return;
     const start = paragraphStart(doc, editor.state.sliceDoc(), state.session, paragraphRequest.paraId);
     if (start === null) return;
-    const from = toEditorPosition(doc.text, doc.lineSeparator)(start);
+    const from = toEditorPosition(doc.text, doc.lineSeparator)(start + paragraphRequest.offset);
     editor.dispatch({ effects: EditorView.scrollIntoView(from, { y: 'start', yMargin: editor.scrollDOM.clientHeight / 3 }) });
   }, [paragraphRequest?.seq]);
 

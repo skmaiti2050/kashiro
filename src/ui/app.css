@@ -820,6 +820,15 @@ legend {
   user-select: none;
 }
 
+/* A passage that was not checked: a quiet dotted line, unlike the wavy flags. */
+.cm-not-checked-passage {
+  text-decoration-line: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: var(--muted);
+  text-decoration-skip-ink: none;
+  text-underline-offset: 3px;
+}
+
 .cm-old {
   color: var(--old);
   text-decoration: line-through;
