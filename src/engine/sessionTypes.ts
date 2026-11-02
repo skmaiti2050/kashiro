@@ -1,4 +1,5 @@
 import type { ReviewDepth } from './depth';
+import type { LanguageEngine } from './languageEngine';
 import type { RulesLinter } from './linter';
 import type { ModuleSwitches } from './modules';
 import type { PresetId } from './presets';
@@ -26,6 +27,8 @@ export interface CheckOptions {
 export interface SessionDeps {
   /** Reused instead of creating a linter (the UI passes one built with the browser binary). */
   linter?: RulesLinter;
+  /** Checks the paragraphs mostly in another script instead of the not-checked engine (the seam a Hindi engine plugs into, #1). */
+  otherScriptEngine?: LanguageEngine;
   /** Clock for LogEntry.at. */
   now?: () => Date;
   /**

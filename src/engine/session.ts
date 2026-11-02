@@ -36,7 +36,7 @@ import {
   type SessionDeps,
   type Status,
 } from './sessionTypes';
-import type { RulesLinter } from './linter';
+import type { EngineCapabilities, LanguageEngine } from './languageEngine';
 import type { Candidate, Paragraph, Span, Tier, Variant } from './types';
 
 // Public paths stay `engine/session`; the types live in sessionTypes.ts.
@@ -78,8 +78,12 @@ export class CheckSession {
   private readonly alignedParas: Set<number>;
   /** Paragraphs the linter threw on, so their rules weren't checked (Task F21d, review I-4). */
   private unchecked: readonly number[] = [];
-  /** Paragraphs mostly in another script, set aside whole (#2a). */
+  /** Paragraphs mostly in another script, set aside whole (#2a): those whose engine does not proofread. */
   private otherScript: readonly number[] = [];
+  /** The engine that checked each paragraph, by paragraph id (#2b). */
+  private paragraphEngines = new Map<number, LanguageEngine>();
+  /** Every engine that ran (English always): each learns a word added to the dictionary. */
+  private engines: readonly LanguageEngine[] = [];
   /** Text inside checked paragraphs that was not really checked (#29), and whether any Latin text was checked. */
   private passages: readonly UncheckedPassage[] = [];
   private latinText = false;
@@ -92,7 +96,6 @@ export class CheckSession {
     readonly variantFromFallback: boolean,
     private readonly ctx: TierContext,
     now: () => Date,
-    private readonly linter: RulesLinter,
     private reviewDepth: ReviewDepth,
     private readonly termMinRepeats: number,
   ) {
@@ -128,14 +131,19 @@ export class CheckSession {
   static async start(paras: Paragraph[], opts: CheckOptions, deps: SessionDeps = {}): Promise<CheckSession> {
     const termMinRepeats = opts.termMinRepeats ?? DEFAULT_TERM_MIN_REPEATS;
     checkTermMinRepeats(termMinRepeats);
-    const { otherScriptParagraphs, linter, variant, mixedVariant, variantFromFallback, ctx, found, uncheckedParagraphs } = await prepareCheck(paras, opts, deps);
+    const setup = await prepareCheck(paras, opts, deps);
+    const { paragraphEngines, variant, mixedVariant, variantFromFallback, ctx, found } = setup;
     const now = deps.now ?? (() => new Date());
     const depth = opts.depth ?? DEFAULT_DEPTH;
-    const session = new CheckSession(paras, variant, mixedVariant, variantFromFallback, ctx, now, linter, depth, termMinRepeats);
-    session.unchecked = uncheckedParagraphs;
-    session.otherScript = otherScriptParagraphs;
+    const session = new CheckSession(paras, variant, mixedVariant, variantFromFallback, ctx, now, depth, termMinRepeats);
+    session.unchecked = setup.uncheckedParagraphs;
+    session.paragraphEngines = paragraphEngines;
+    session.engines = setup.engines;
+    const engineOf = (p: Paragraph) => paragraphEngines.get(p.id)!.capabilities;
+    session.otherScript = paras.filter((p) => !engineOf(p).proofreads).map((p) => p.id);
     // The foreign sentences were found in setup; passages only report them (checking is unchanged).
-    const setAside = new Set(otherScriptParagraphs);
+    // Both are English's: a paragraph another engine checked is outside them.
+    const setAside = new Set(paras.filter((p) => engineOf(p).id !== 'en').map((p) => p.id));
     session.passages = uncheckedPassages(paras, setAside, ctx.foreignSentences ?? new Map());
     session.latinText = paras.some((p) => !setAside.has(p.id) && hasLatinLetter(p.text));
     session.addCandidates(found);
@@ -163,6 +171,11 @@ export class CheckSession {
   /** The ids of the paragraphs set aside because they are mostly another script, in document order. */
   otherScriptParagraphs(): readonly number[] {
     return this.otherScript;
+  }
+
+  /** What the engine that checked this paragraph can do (#2b); undefined for an id not in the document. */
+  engineOf(paraId: number): EngineCapabilities | undefined {
+    return this.paragraphEngines.get(paraId)?.capabilities;
   }
 
   /** Words in another script and sentences in another language inside checked paragraphs: reported, not checked (#29). */
@@ -519,7 +532,7 @@ export class CheckSession {
    */
   private async addWord(written: string): Promise<void> {
     const word = storedForm(written); // "Cutover" is stored as "cutover" (Task F29)
-    await this.linter.addWords([word]);
+    for (const engine of this.engines) await engine.addWords([word]);
     this.added.push(word);
     const reason = `"${word}" added to dictionary`;
     for (const c of this.cands.values()) {
