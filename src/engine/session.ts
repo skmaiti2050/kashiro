@@ -135,8 +135,9 @@ export class CheckSession {
     session.unchecked = uncheckedParagraphs;
     session.otherScript = otherScriptParagraphs;
     // The foreign sentences were found in setup; passages only report them (checking is unchanged).
-    session.passages = uncheckedPassages(paras, new Set(otherScriptParagraphs), ctx.foreignSentences ?? new Map());
-    session.latinText = paras.some((p) => !session.otherScript.includes(p.id) && hasLatinLetter(p.text));
+    const setAside = new Set(otherScriptParagraphs);
+    session.passages = uncheckedPassages(paras, setAside, ctx.foreignSentences ?? new Map());
+    session.latinText = paras.some((p) => !setAside.has(p.id) && hasLatinLetter(p.text));
     session.addCandidates(found);
     session.autoApply();
     session.holdBackChangedTokens();
@@ -169,7 +170,10 @@ export class CheckSession {
     return [...this.passages];
   }
 
-  /** False when no checked paragraph has a Latin letter (emoji, digits, other scripts only): nothing was checked. */
+  /**
+   * False when no checked paragraph has a Latin letter (emoji, digits, other scripts only): nothing was checked.
+   * Also false when every paragraph was set aside, so callers check otherScriptParagraphs() first to word that case.
+   */
   hasEnglishText(): boolean {
     return this.latinText;
   }

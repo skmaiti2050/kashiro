@@ -2,6 +2,8 @@ import type { Paragraph, Span } from './types';
 
 /** A letter of the script the checker reads (English): "a", "é". */
 const LATIN_LETTER = /\p{Script=Latin}/gu;
+/** The same, without `g`, so `.test` short-circuits and keeps no state. */
+const ANY_LATIN_LETTER = /\p{Script=Latin}/u;
 /**
  * A letter or sign of any other script, which the checker can't check yet: Hindi "क", Bengali "ো", Tamil "த",
  * Urdu "ب", Russian "д". Accents (Inherited), digits, punctuation and emoji (Common) are no language.
@@ -13,9 +15,8 @@ const OTHER_SCRIPT_LETTER = /(?![\p{Script=Latin}\p{Script=Inherited}\p{Script=C
  * letters, marks and joiners; words are joined only by spaces/punctuation (never Latin letters or digits), so
  * "She said नमस्ते, ok" ends at "ते". Each separator needs 1+ characters, so the pattern cannot backtrack badly.
  */
-const NON_LATIN_LETTER = String.raw`(?![\p{Script=Latin}\p{Script=Inherited}\p{Script=Common}])[\p{L}\p{M}]`;
 // A joiner (ZWJ/ZWNJ) only inside a word, never alone: a stray one in English text is not a passage.
-const OTHER_SCRIPT_WORD = `${NON_LATIN_LETTER}(?:${NON_LATIN_LETTER}|[\\u200c\\u200d])*`;
+const OTHER_SCRIPT_WORD = `${OTHER_SCRIPT_LETTER.source}(?:${OTHER_SCRIPT_LETTER.source}|[\\u200c\\u200d])*`;
 const OTHER_SCRIPT_RUN = new RegExp(`${OTHER_SCRIPT_WORD}(?:[\\s\\p{P}]+${OTHER_SCRIPT_WORD})*`, 'gu');
 
 /** A passage of a checked paragraph that Kashiro did not really check (#29). */
@@ -36,7 +37,22 @@ export function otherScriptPassages(text: string): Span[] {
 
 /** True when `text` has any Latin letter: some English (or at least Latin-script) text was there to check. */
 export function hasLatinLetter(text: string): boolean {
-  return count(text, LATIN_LETTER) > 0;
+  return ANY_LATIN_LETTER.test(text);
+}
+
+/** The other-script runs left in `run` once `sentences` (sorted, apart) are cut out, trimmed of separators. */
+function outsideSentences(text: string, run: Span, sentences: readonly Span[]): Span[] {
+  const pieces: Span[] = [];
+  let from = run.start;
+  for (const s of sentences) {
+    if (s.end <= from || s.start >= run.end) continue;
+    if (s.start > from) pieces.push({ start: from, end: s.start });
+    from = Math.max(from, s.end);
+  }
+  if (from < run.end) pieces.push({ start: from, end: run.end });
+  return pieces.flatMap((piece) =>
+    otherScriptPassages(text.slice(piece.start, piece.end)).map((r) => ({ start: piece.start + r.start, end: piece.start + r.end })),
+  );
 }
 
 /**
@@ -52,8 +68,8 @@ export function uncheckedPassages(
     .filter((p) => !setAside.has(p.id))
     .flatMap((p) => {
       const sentences = foreignSentences.get(p.id) ?? [];
-      // A run touching a foreign sentence is already covered by it: keep the sentence only, so passages never overlap.
-      const runs = otherScriptPassages(p.text).filter((r) => !sentences.some((s) => r.start < s.end && s.start < r.end));
+      // A foreign sentence covers the runs inside it; what a run has outside it is still reported, so passages never overlap.
+      const runs = otherScriptPassages(p.text).flatMap((r) => outsideSentences(p.text, r, sentences));
       return [
         ...runs.map((span) => ({ paraId: p.id, span, kind: 'otherScript' as const })),
         ...sentences.map((span) => ({ paraId: p.id, span, kind: 'otherLanguage' as const })),

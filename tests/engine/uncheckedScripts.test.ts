@@ -49,10 +49,23 @@ describe('uncheckedPassages never overlap (#29)', () => {
     ]);
   });
 
-  it('a run that only partly overlaps a foreign sentence is dropped too', () => {
-    const partly = uncheckedPassages([{ id: 0, text }], new Set(), new Map([[0, [{ start: foreignStart, end: text.indexOf('नमस्ते') + 2 }]]]));
-    expect(partly.map((p) => p.kind)).toEqual(['otherLanguage', 'otherScript']);
-    expect(text.slice(partly[1]!.span.start, partly[1]!.span.end)).toBe('नमस्ते');
+  it('a run that runs on past a foreign sentence is clipped: the part outside is still reported', () => {
+    const merged = "We met. C'est la vie नमस्ते. अगला वाक्य ok.";
+    const end = merged.indexOf('नमस्ते') + 'नमस्ते.'.length;
+    const list = uncheckedPassages([{ id: 0, text: merged }], new Set(), new Map([[0, [{ start: merged.indexOf("C'est"), end }]]]));
+    expect(list.map((p) => [p.kind, merged.slice(p.span.start, p.span.end)])).toEqual([
+      ['otherLanguage', "C'est la vie नमस्ते."],
+      ['otherScript', 'अगला वाक्य'],
+    ]);
+  });
+
+  it('a run cut by a foreign sentence keeps its piece before the sentence', () => {
+    const cut = 'नमस्ते hello';
+    const list = uncheckedPassages([{ id: 0, text: cut }], new Set(), new Map([[0, [{ start: 3, end: 12 }]]]));
+    expect(list.map((p) => [p.kind, p.span.start, p.span.end])).toEqual([
+      ['otherScript', 0, 3],
+      ['otherLanguage', 3, 12],
+    ]);
   });
 });
 
