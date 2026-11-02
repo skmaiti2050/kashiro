@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ComponentType, type CSSProperties } from 'react';
+import type { CheckSession } from '@/engine/session';
 import { AboutUnavailable } from './AboutUnavailable';
 import { Banners } from './Banners';
 import { BugReportDialog } from './BugReportDialog';
@@ -52,6 +53,7 @@ import './app.css';
 import './a11y.css';
 
 interface AboutProps {
+  session?: CheckSession | null;
   onCheckUpdates: (() => void) | null;
   onClose(): void;
 }
@@ -442,7 +444,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
       {panel === 'shortcuts' && <ShortcutsSheet readAloud={readAloud !== null} lookUp={lookUpOn} improve={aiOn} onClose={closePanel} />}
       {panel === 'about' && (
         <Suspense fallback={null}>
-          <AboutDialog onCheckUpdates={checkForUpdates} onClose={closePanel} />
+          <AboutDialog session={state.session} onCheckUpdates={checkForUpdates} onClose={closePanel} />
         </Suspense>
       )}
       {lookupState && <LookupPanel lookup={lookupState} onClose={() => lookup.close()} />}

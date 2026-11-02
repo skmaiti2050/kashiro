@@ -9,6 +9,7 @@ import { Kbd } from './Kbd';
 import { MoreList } from './MoreList';
 import { NamesCard } from './NamesCard';
 import { OtherLanguageCard } from './OtherLanguageCard';
+import { proofreadingLabels } from './proofreadingLabels';
 import { TermsCard } from './TermsCard';
 import { canReadAloud, ReadAloudBar, readAloudTarget } from './ReadAloudBar';
 import { translatorFor } from './i18n/translatorFor';
@@ -195,19 +196,20 @@ export function ReviewPanel({ controller, state, onLocate, onShowParagraph, requ
   const passages = session.uncheckedPassages().length;
   const places = uncheckedPlaces(session);
   // hasEnglishText() is also false when everything was set aside, which the "mostly" case words first.
+  const labels = proofreadingLabels(session);
   const doneLine = unchecked.mostly
-    ? t.t('panel.englishOnly')
+    ? t.t(labels.only)
     : !session.hasEnglishText() && otherScript.length === 0
       ? t.t('panel.nothingToCheck')
       : places.length > 0
-        ? t.t('panel.allClearEnglish')
+        ? t.t(labels.allClear)
         : t.t('panel.allClear', { count: fixesApplied });
   const skippedLine =
     otherScript.length > 0 && passages > 0
-      ? t.t('panel.paragraphsAndPassages', { paragraphs: otherScript.length, passages })
+      ? t.t(labels.otherBoth, { paragraphs: otherScript.length, passages })
       : passages > 0
-        ? t.t('panel.passages', { count: passages })
-        : t.t('panel.otherScript', { count: otherScript.length });
+        ? t.t(labels.otherPassages, { count: passages })
+        : t.t(labels.otherParagraphs, { count: otherScript.length });
   /** Paragraphs the linter threw on (Task F21d, review I-4): left as written, and said so. */
   const failed = session.uncheckedParagraphs().length;
   const notChecked = failed > 0 ? t.t('panel.notChecked', { count: failed }) : null;

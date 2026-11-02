@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import type { CheckSession } from '@/engine/session';
 import { Dialog } from './Dialog';
+import { proofreadingLabels } from './proofreadingLabels';
 import { useT } from './i18n/useT';
 import { focusButtonAt } from './focus';
 import { capabilities } from './platform/capabilities';
@@ -11,7 +13,7 @@ import { markdownBlocks, type Inline } from './state/noticeBlocks';
  * data, fonts and libraries), one per notice file, word for word. The notices are English, marked lang="en".
  * App.tsx loads this module on demand, so the notice texts are not in the main bundle.
  */
-export function AboutDialog({ onCheckUpdates, onClose }: { onCheckUpdates: (() => void) | null; onClose(): void }) {
+export function AboutDialog({ session, onCheckUpdates, onClose }: { session?: CheckSession | null; onCheckUpdates: (() => void) | null; onClose(): void }) {
   const t = useT();
   return (
     <Dialog title={t.t('about.title')} className="about" onClose={onClose}>
@@ -26,7 +28,7 @@ export function AboutDialog({ onCheckUpdates, onClose }: { onCheckUpdates: (() =
           <button onClick={onCheckUpdates}>{t.t('about.checkUpdates')}</button> <span className="hint">{t.t('about.checkUpdatesHint')}</span>
         </p>
       )}
-      <p>{t.t('about.englishOnly')}</p>
+      <p>{t.t(proofreadingLabels(session ?? null).about)}</p>
       {!capabilities.ai && <p>{t.t('about.webAi')}</p>}
       <p>{capabilities.web ? t.t('about.privacyWeb') : t.t('about.privacy')}</p>
       <p>{t.t('about.licence')}</p>

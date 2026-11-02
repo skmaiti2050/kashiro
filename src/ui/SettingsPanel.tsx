@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { DEFAULT_DEPTH } from '@/engine/depth';
 import { PRESETS } from '@/engine/presets';
+import type { CheckSession } from '@/engine/session';
+import { proofreadingLabels } from './proofreadingLabels';
 import type { Variant } from '@/engine/types';
 import { DepthSlider } from './DepthSlider';
 import { Dialog } from './Dialog';
@@ -76,7 +78,7 @@ export function SettingsPanel({ controller, state, readAloud, onOpenDictionary, 
         {tab === 'modules' && (
           <ModulesSettings controller={controller} settings={settings} checkingModel={state.checkingModel} helperBackend={state.helperBackend} />
         )}
-        {tab === 'language' && <LanguageSettings controller={controller} settings={settings} />}
+        {tab === 'language' && <LanguageSettings controller={controller} settings={settings} session={state.session} />}
       </Tabs>
     </Dialog>
   );
@@ -87,7 +89,7 @@ interface SectionProps {
   settings: Settings;
 }
 
-function LanguageSettings({ controller, settings }: SectionProps) {
+function LanguageSettings({ controller, settings, session }: SectionProps & { session: CheckSession | null }) {
   const t = useT();
   const windowsLanguage = LANGUAGE_NAMES[systemLanguage(typeof navigator === 'undefined' ? [] : navigator.languages)];
   return (
@@ -104,7 +106,7 @@ function LanguageSettings({ controller, settings }: SectionProps) {
           ))}
         </select>
       </label>
-      <p className="hint">{t.t('language.hint')}</p>
+      <p className="hint">{t.t(proofreadingLabels(session).hint)}</p>
     </>
   );
 }

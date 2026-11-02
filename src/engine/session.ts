@@ -179,6 +179,11 @@ export class CheckSession {
     return this.paragraphEngines.get(paraId)?.capabilities;
   }
 
+  /** What the engines that proofread in this check can do, one per engine, English first (#2b): the UI words its labels from it. */
+  proofreadingEngines(): EngineCapabilities[] {
+    return this.engines.map((e) => e.capabilities).filter((c) => c.proofreads);
+  }
+
   /** Words in another script and sentences in another language inside checked paragraphs: reported, not checked (#29). */
   uncheckedPassages(): UncheckedPassage[] {
     return [...this.passages];

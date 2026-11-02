@@ -19,6 +19,7 @@ import { checkOptions, currentDepth } from './checkOptions';
 import { DecisionTally } from './decisionTally';
 import { matchParagraphs, sameParagraphs } from './documentText';
 import { readDocument, readTypedText, type LoadedFile, type OpenDocument } from './openDocument';
+import { proofreadingLabels } from '../proofreadingLabels';
 import { progressOf } from './progress';
 import { RecentProblems } from './recentProblems';
 import { RecheckQueue } from './recheckQueue';
@@ -443,11 +444,12 @@ export class SessionController {
       const setAside = session.otherScriptParagraphs().length;
       const passages = session.uncheckedPassages().length;
       // Whole paragraphs of another script only: the older wording fits; a passage can be any language.
+      const labels = proofreadingLabels(session);
       const checked =
         passages > 0
-          ? 'announce.checkedPassages'
+          ? labels.announcePassages
           : setAside > 0
-            ? 'announce.checkedEnglishOnly'
+            ? labels.announceOnly
             : !session.hasEnglishText()
               ? 'announce.nothingToCheck'
               : 'announce.checked';
