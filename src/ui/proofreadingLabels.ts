@@ -41,9 +41,8 @@ export const PROOFREADING_LABELS: Readonly<Record<Exclude<EngineId, 'none'>, Pro
   },
 };
 
-/** The proofreading engine the app always has: English. */
 /**
- * The labels for this check's proofreading engine (the first one); English before a check has run.
+ * The labels for this check's proofreading engine (one per document); English before a check has run.
  * Never throws (it runs while rendering): a new engine id without a row is a compile error above, and at
  * runtime an id the table lacks falls back to English.
  */

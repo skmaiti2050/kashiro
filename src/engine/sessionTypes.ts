@@ -28,8 +28,9 @@ export interface SessionDeps {
   /** Reused instead of creating a linter (the UI passes one built with the browser binary). */
   linter?: RulesLinter;
   /**
-   * Engines by Unicode script name ('Devanagari', 'Bengali'): each checks the paragraphs mostly in another script
-   * whose letters are mostly its script (dominantScript), instead of the not-checked engine (the seam for #1).
+   * Engines by Unicode script name ('Devanagari', 'Bengali'), the seam for #1. One engine proofreads a document: the
+   * one for its majority script (majorityScript), else English; it checks the paragraphs in its script
+   * (dominantScript) and every other paragraph goes to the not-checked engine (owner decision, 2026-11-02).
    */
   scriptEngines?: ReadonlyMap<string, LanguageEngine>;
   /** Clock for LogEntry.at. */
