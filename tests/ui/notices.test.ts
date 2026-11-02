@@ -89,11 +89,11 @@ describe('app version and bundled dictionary', () => {
     expect(APP_VERSION).toBe(tauriConf().version);
   });
 
-  it('the release is 1.1.0 in package.json, tauri.conf.json, Cargo.toml and both lockfiles', () => {
+  it('the release is 1.2.0 in package.json, tauri.conf.json, Cargo.toml and both lockfiles', () => {
     const lock = JSON.parse(readFileSync('package-lock.json', 'utf8')) as { version: string; packages: Record<string, { version: string }> };
     const cargoToml = readFileSync('src-tauri/Cargo.toml', 'utf8').match(/^version = "([^"]+)"/m)![1];
     const cargoLock = readFileSync('src-tauri/Cargo.lock', 'utf8').match(/name = "writing-check"\r?\nversion = "([^"]+)"/)![1];
-    expect([APP_VERSION, tauriConf().version, lock.version, lock.packages[''].version, cargoToml, cargoLock]).toEqual(Array(6).fill('1.1.0'));
+    expect([APP_VERSION, tauriConf().version, lock.version, lock.packages[''].version, cargoToml, cargoLock]).toEqual(Array(6).fill('1.2.0'));
   });
 
   it('bundles the dictionary, both llama-server builds, and every notice beside the app (Task 14)', () => {

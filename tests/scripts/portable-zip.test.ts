@@ -27,7 +27,7 @@ describe('the per-user installer (tauri.conf.json)', () => {
 
   it('makes one zip per release config: the full app, and the one without AI (tauri.noai.conf.json)', () => {
     const configs = readTauriConfigs(path.join(ROOT, 'src-tauri'));
-    expect(PORTABLE_ZIPS.map((z) => z.file)).toEqual(['dist-portable/Kashiro-1.1.0-win-x64.zip', 'dist-portable/Kashiro-1.1.0-win-x64-noai.zip']);
+    expect(PORTABLE_ZIPS.map((z) => z.file)).toEqual(['dist-portable/Kashiro-1.2.0-win-x64.zip', 'dist-portable/Kashiro-1.2.0-win-x64-noai.zip']);
     expect(PORTABLE_ZIPS.map((z) => z.conf)).toEqual([configs.full, configs.noai]);
   });
 });
