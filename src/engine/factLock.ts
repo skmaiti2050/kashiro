@@ -7,12 +7,16 @@ const AUTHOR_YEAR = String.raw`\p{Lu}[\p{L}'’.-]*(?:\s+(?:et al\.|and|&|\p{Lu}
 
 const URL_START = /^(?:https?:\/\/|www\.)/;
 
-const PATTERNS: RegExp[] = [
-  // code, math, LaTeX
+/** The locks that are code, math or LaTeX (not quotes): `code`, $$x$$, $x$, \frac{1}{2}. Shared so #29 can tell them from quote locks. */
+export const CODE_AND_MATH_PATTERNS: readonly RegExp[] = [
   /`[^`\n]+`/g,
   /\$\$[\s\S]+?\$\$/g,
   /\$[^\s$](?:[^$\n]*[^\s$])?\$(?!\d)/g,
   /\\[A-Za-z]+\*?(?:\[[^\]\n]*\])*(?:\{[^{}\n]*\})*/g,
+];
+
+const PATTERNS: RegExp[] = [
+  ...CODE_AND_MATH_PATTERNS,
   // URLs and emails (trailing punctuation trimmed below). An email starts where its run of name characters does, so a
   // long token without "@" is read once, not once per character (Task F21d).
   /(?:https?:\/\/|www\.)[^\s<>"”]+/g,

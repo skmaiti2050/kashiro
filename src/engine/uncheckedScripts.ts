@@ -1,3 +1,4 @@
+import { CODE_AND_MATH_PATTERNS } from './factLock';
 import type { Paragraph, Span } from './types';
 
 /** A letter of the script the checker reads (English): "a", "é". */
@@ -27,12 +28,33 @@ export interface UncheckedPassage {
   kind: 'otherScript' | 'otherLanguage';
 }
 
+/** A run that is one Greek or Cyrillic letter (with marks): "α", "Δ", "Ж" are notation in maths, not language. */
+const SINGLE_NOTATION_LETTER = /^[\p{Script=Greek}\p{Script=Cyrillic}]\p{M}*$/u;
+
 /**
  * The runs of other-script words in `text`, in order, end-exclusive. Latin letters with accents (José, Müller),
- * digits, punctuation and emoji are never passages.
+ * digits, punctuation, emoji and a lone Greek or Cyrillic letter are never passages.
  */
 export function otherScriptPassages(text: string): Span[] {
-  return [...text.matchAll(OTHER_SCRIPT_RUN)].map((m) => ({ start: m.index, end: m.index + m[0].length }));
+  return [...text.matchAll(OTHER_SCRIPT_RUN)]
+    .filter((m) => !SINGLE_NOTATION_LETTER.test(m[0]))
+    .map((m) => ({ start: m.index, end: m.index + m[0].length }));
+}
+
+/** A ``` or ~~~ code block to its closing fence (or the end of the text): "```\nx = 1\n```". */
+const FENCED_CODE = /^ {0,3}(`{3,}|~{3,})[^\n]*\n[\s\S]*?(?:\n {0,3}\1[`~]*[ \t]*(?=\n|$)|(?![\s\S]))/gm;
+/** LaTeX's own brackets, which factLock does not lock: "\(x\)", "\[x\]". */
+const LATEX_BRACKETS = /\\\([\s\S]+?\\\)|\\\[[\s\S]+?\\\]/g;
+
+/**
+ * Code and math in `text` (factLock's code/math locks plus fenced blocks and \(..\) \[..\]), which are not language.
+ * Quoted text is locked too but is deliberately not here: a Hindi quote in English is what #29 marks.
+ * factLock locks no HTML or MathML tags, so there is nothing of those to add.
+ */
+function codeAndMathSpans(text: string): Span[] {
+  return [...CODE_AND_MATH_PATTERNS, FENCED_CODE, LATEX_BRACKETS].flatMap((re) =>
+    [...text.matchAll(re)].map((m) => ({ start: m.index, end: m.index + m[0].length })),
+  );
 }
 
 /** True when `text` has any Latin letter: some English (or at least Latin-script) text was there to check. */
@@ -40,11 +62,11 @@ export function hasLatinLetter(text: string): boolean {
   return ANY_LATIN_LETTER.test(text);
 }
 
-/** The other-script runs left in `run` once `sentences` (sorted, apart) are cut out, trimmed of separators. */
-function outsideSentences(text: string, run: Span, sentences: readonly Span[]): Span[] {
+/** The other-script runs left in `run` once `cuts` (sorted by start, may overlap) are cut out, trimmed of separators. */
+function outsideCuts(text: string, run: Span, cuts: readonly Span[]): Span[] {
   const pieces: Span[] = [];
   let from = run.start;
-  for (const s of sentences) {
+  for (const s of cuts) {
     if (s.end <= from || s.start >= run.end) continue;
     if (s.start > from) pieces.push({ start: from, end: s.start });
     from = Math.max(from, s.end);
@@ -69,7 +91,9 @@ export function uncheckedPassages(
     .flatMap((p) => {
       const sentences = foreignSentences.get(p.id) ?? [];
       // A foreign sentence covers the runs inside it; what a run has outside it is still reported, so passages never overlap.
-      const runs = otherScriptPassages(p.text).flatMap((r) => outsideSentences(p.text, r, sentences));
+      // Code and math are cut out too: they are not language.
+      const cuts = [...sentences, ...codeAndMathSpans(p.text)].sort((a, b) => a.start - b.start);
+      const runs = otherScriptPassages(p.text).flatMap((r) => outsideCuts(p.text, r, cuts));
       return [
         ...runs.map((span) => ({ paraId: p.id, span, kind: 'otherScript' as const })),
         ...sentences.map((span) => ({ paraId: p.id, span, kind: 'otherLanguage' as const })),

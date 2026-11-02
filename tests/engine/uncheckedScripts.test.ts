@@ -69,6 +69,42 @@ describe('uncheckedPassages never overlap (#29)', () => {
   });
 });
 
+describe('notation and code/math are not passages (#29 owner ruling)', () => {
+  const words = (text: string) => otherScriptPassages(text).map((s) => text.slice(s.start, s.end));
+  const inDoc = (text: string) => uncheckedPassages([{ id: 0, text }], new Set(), new Map()).map((p) => text.slice(p.span.start, p.span.end));
+
+  it.each(['α = 0.05', 'π r²', 'Δt', '5 μm', 'Ω', 'Ж'])('a single Greek or Cyrillic letter is notation: %s', (text) => {
+    expect(words(text)).toEqual([]);
+  });
+
+  it('whole Greek and Cyrillic words are still passages', () => {
+    expect(words('He said ευχαριστώ and спасибо.')).toEqual(['ευχαριστώ', 'спасибо']);
+  });
+
+  it('any other script counts even as one letter', () => {
+    expect(words('letter क here')).toEqual(['क']);
+  });
+
+  it.each([
+    ['backticks', 'Run `नमस्ते` now.'],
+    ['inline math', 'Let $नमस्ते + 1$ be it.'],
+    ['display math', 'See $$नमस्ते$$ here.'],
+    ['LaTeX parentheses', String.raw`Let \(नमस्ते\) be it.`],
+    ['LaTeX brackets', String.raw`Let \[नमस्ते\] be it.`],
+    ['a fenced code block', 'Code:\n```\nनमस्ते\n```\nDone.'],
+  ])('a Hindi word inside %s is not a passage', (_name, text) => {
+    expect(inDoc(text)).toEqual([]);
+  });
+
+  it('the same word inside quotes is a passage', () => {
+    expect(inDoc('She said "नमस्ते" twice.')).toEqual(['नमस्ते']);
+  });
+
+  it('a run is cut at code, and its other part is still reported', () => {
+    expect(inDoc('नमस्ते `x` और')).toEqual(['नमस्ते', 'और']);
+  });
+});
+
 describe('hasLatinLetter', () => {
   it('is false for emoji, digits and punctuation, true for a Latin word', () => {
     expect(hasLatinLetter('🎉 2024 !?')).toBe(false);
