@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { uncheckedText, otherScriptParagraphIds, otherScriptPassages, hasLatinLetter } from '@/engine/uncheckedScripts';
+import { uncheckedText, otherScriptParagraphIds, otherScriptPassages, hasLatinLetter, uncheckedPassages } from '@/engine/uncheckedScripts';
 
 const paras = (...texts: string[]) => texts.map((text, id) => ({ id, text }));
 
@@ -33,6 +33,26 @@ describe('otherScriptPassages (#29: words inside a checked paragraph that are no
 
   it('a Latin word between two other-script words splits them', () => {
     expect(words('क and then ख')).toEqual(['क', 'ख']);
+  });
+});
+
+describe('uncheckedPassages never overlap (#29)', () => {
+  const text = "We met. C'est la vie, mon ami नमस्ते. Then नमस्ते again.";
+  const foreignStart = text.indexOf("C'est");
+  const foreignEnd = text.indexOf('. Then') + 1;
+  const list = () => uncheckedPassages([{ id: 0, text }], new Set(), new Map([[0, [{ start: foreignStart, end: foreignEnd }]]]));
+
+  it('an other-script word inside a foreign sentence is covered by the sentence alone', () => {
+    expect(list().map((p) => [p.kind, text.slice(p.span.start, p.span.end)])).toEqual([
+      ['otherLanguage', "C'est la vie, mon ami नमस्ते."],
+      ['otherScript', 'नमस्ते'],
+    ]);
+  });
+
+  it('a run that only partly overlaps a foreign sentence is dropped too', () => {
+    const partly = uncheckedPassages([{ id: 0, text }], new Set(), new Map([[0, [{ start: foreignStart, end: text.indexOf('नमस्ते') + 2 }]]]));
+    expect(partly.map((p) => p.kind)).toEqual(['otherLanguage', 'otherScript']);
+    expect(text.slice(partly[1]!.span.start, partly[1]!.span.end)).toBe('नमस्ते');
   });
 });
 

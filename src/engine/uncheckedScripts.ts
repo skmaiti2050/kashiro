@@ -50,10 +50,15 @@ export function uncheckedPassages(
 ): UncheckedPassage[] {
   return paras
     .filter((p) => !setAside.has(p.id))
-    .flatMap((p) => [
-      ...otherScriptPassages(p.text).map((span) => ({ paraId: p.id, span, kind: 'otherScript' as const })),
-      ...(foreignSentences.get(p.id) ?? []).map((span) => ({ paraId: p.id, span, kind: 'otherLanguage' as const })),
-    ].sort((a, b) => a.span.start - b.span.start));
+    .flatMap((p) => {
+      const sentences = foreignSentences.get(p.id) ?? [];
+      // A run touching a foreign sentence is already covered by it: keep the sentence only, so passages never overlap.
+      const runs = otherScriptPassages(p.text).filter((r) => !sentences.some((s) => r.start < s.end && s.start < r.end));
+      return [
+        ...runs.map((span) => ({ paraId: p.id, span, kind: 'otherScript' as const })),
+        ...sentences.map((span) => ({ paraId: p.id, span, kind: 'otherLanguage' as const })),
+      ].sort((a, b) => a.span.start - b.span.start);
+    });
 }
 
 /** How much of a document the English-only check could not read (review #4: no false all-clear). */
