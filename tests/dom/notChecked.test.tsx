@@ -232,6 +232,43 @@ describe('the panel counts passages that were not checked (#29)', () => {
   });
 });
 
+describe('what the completion announcement says was not checked (#29)', () => {
+  it('a passage in an English paragraph: "Some text isn\'t in English and was not checked."', async () => {
+    const { controller } = makeController();
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText(WITH_PASSAGE));
+    expect(english(controller.getState().announcement!.message)).toBe(
+      "Check finished: nothing to decide. Some text isn't in English and was not checked.",
+    );
+  });
+
+  it('an emoji-only document: "nothing to check, no English words"', async () => {
+    const { controller } = makeController();
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText('🎉🎉'));
+    expect(english(controller.getState().announcement!.message)).toBe('Check finished: nothing to check, no English words.');
+  });
+
+  it('an empty document says "Nothing to check: no English words" in the panel', async () => {
+    const { controller } = makeController();
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText(''));
+    expect(within(reviewPanel()).getByRole('heading', { name: 'Nothing to check: no English words' })).toBeTruthy();
+  });
+});
+
+describe('the passage underline after an accepted edit earlier in the paragraph (#29)', () => {
+  it('still sits on the passage text', async () => {
+    const { controller } = makeController();
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText(`We recieved ${PASSAGE_WORD} and left.`));
+    const typo = controller.getState().session!.candidates().find((c) => c.original === 'recieved')!;
+    act(() => controller.accept(typo.id));
+    expect(document.querySelector('.cm-new')?.textContent).toBe('received');
+    expect(passageMarks().map((m) => m.textContent).join('')).toBe(PASSAGE_WORD);
+  });
+});
+
 describe('the interface says English proofreading', () => {
   it('the toolbar chip reads "English proofreading" and keeps the variant menu', async () => {
     const { controller } = makeController();

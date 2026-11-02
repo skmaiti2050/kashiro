@@ -246,6 +246,8 @@
   "announce.afterAll": "{verb}. All reviewed.",
   "announce.checking": "Checking document…",
   "announce.checked": "Check finished: {count, plural, =0 {nothing to decide} one {# suggestion to decide} other {# suggestions to decide}}.",
+  "announce.checkedPassages": "Check finished: {count, plural, =0 {nothing to decide} one {# suggestion to decide} other {# suggestions to decide}}. Some text isn't in English and was not checked.",
+  "announce.nothingToCheck": "Check finished: nothing to check, no English words.",
   "announce.checkedEnglishOnly": "Check finished: {count, plural, =0 {nothing to decide} one {# suggestion to decide} other {# suggestions to decide}}. Kashiro proofreads English. Text in other scripts was not checked.",
   "announce.withNote": "{announcement} {note}",
   "toast.applied": "{count, plural, one {Applied # fix} other {Applied # fixes}}",

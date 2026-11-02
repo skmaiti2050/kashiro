@@ -8,7 +8,6 @@ import type { Rewriter } from '@/engine/llm/suggest';
 import type { ModuleSwitches } from '@/engine/modules';
 import type { PresetId } from '@/engine/presets';
 import type { Variant } from '@/engine/types';
-import { uncheckedText } from '@/engine/uncheckedScripts';
 import { adapterFor as registryAdapterFor } from '@/formats/registry';
 import type { FormatAdapter } from '@/formats/types';
 import { afterAction, withNotChecked } from './announce';
@@ -440,8 +439,18 @@ export class SessionController {
       // Typing queued behind this check: a fix applied in a paragraph it left alone may be lost by the next one.
       if (!this.queue.waiting) this.appliedWhileChecking.clear();
       // A new document's result is announced; a re-check while typing stays quiet.
-      // Hindi or Bengali text was skipped: never let "nothing to decide" read as an all-clear for it.
-      const checked = uncheckedText(loaded.paras).paragraphs > 0 ? 'announce.checkedEnglishOnly' : 'announce.checked';
+      // Never let "nothing to decide" read as an all-clear for text that was not checked, as the panel says it.
+      const setAside = session.otherScriptParagraphs().length;
+      const passages = session.uncheckedPassages().length;
+      // Whole paragraphs of another script only: the older wording fits; a passage can be any language.
+      const checked =
+        passages > 0
+          ? 'announce.checkedPassages'
+          : setAside > 0
+            ? 'announce.checkedEnglishOnly'
+            : !session.hasEnglishText()
+              ? 'announce.nothingToCheck'
+              : 'announce.checked';
       const finished = withNotChecked(msg(checked, { count: session.rankedDecisionCount() }), session.uncheckedParagraphs().length);
       const announcement = before ? {} : { announcement: { message: finished, seq: ++this.announcements } };
       // "Nothing can be saved until the text is checked" (or a save refused for it) is no longer true.
