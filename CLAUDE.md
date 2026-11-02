@@ -32,7 +32,11 @@ Read before writing or reviewing code here. The design is `docs/superpowers/spec
 - Test behaviour through the module's interface, with the exact values from the spec or plan.
 - Every bug fix gets a test that failed before the fix.
 - Test output must be clean: no warnings, no stray logs.
-- `npm test` must pass before every commit; `npm run trust` before every milestone.
+- Three tiers:
+  - Before every commit: `npm run test:changed` (type check, the tests that import what you changed, and the i18n/layering/smoke core set).
+  - Before a task's review, when it touches an area broadly: the area script (`test:engine`, `test:formats`, `test:ui`, `test:dom`, `test:web`, `test:deps`).
+  - Before every release or the end of a plan: `npm run test:release` (the full suite with fewer workers, so slow DOM tests don't time out under load), `npm run trust` and `npm run upgrade:check`.
+- Changes under `src/engine` also run `npm run trust` before review.
 
 ## Workflow
 

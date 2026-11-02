@@ -184,7 +184,9 @@ async function main(): Promise<void> {
     '## Type check, tests and trust suite',
     '',
     ...step('Type check', 'npx tsc --noEmit', ROOT),
-    ...step('Unit and DOM tests', `npx vitest run --project unit --project dom --reporter=default --reporter=json --outputFile.json="${UNIT_JSON}"`, ROOT),
+    // Fewer workers than the default (cores - 1): each DOM worker loads jsdom and Harper, and a full set ran the
+    // machine short of memory, timing out random slow tests.
+    ...step('Unit and DOM tests', `npx vitest run --project unit --project dom --maxWorkers=5 --reporter=default --reporter=json --outputFile.json="${UNIT_JSON}"`, ROOT),
     // Before the trust suite, which empties trust/out.
     ...decisionsLines(),
     ...step('Timing tests (alone)', 'npx vitest run --project timing', ROOT),
