@@ -106,12 +106,34 @@ describe('uncheckedPassages never overlap (#29)', () => {
   });
 
   it('a run cut by a foreign sentence keeps its piece before the sentence', () => {
-    const cut = 'नमस्ते hello';
-    const list = uncheckedPassages([{ id: 0, text: cut }], new Set(), new Map([[0, [{ start: 3, end: 12 }]]]));
+    const cut = 'नमस्ते hello there friend';
+    const list = uncheckedPassages([{ id: 0, text: cut }], new Set(), new Map([[0, [{ start: 3, end: 25 }]]]));
     expect(list.map((p) => [p.kind, p.span.start, p.span.end])).toEqual([
       ['otherScript', 0, 3],
-      ['otherLanguage', 3, 12],
+      ['otherLanguage', 3, 25],
     ]);
+  });
+});
+
+describe('short foreign sentences are not reported (a heading or a name is too little to call a language)', () => {
+  it('a one- or two-word "foreign sentence" (a heading, a name) is not reported', () => {
+    const list = paras('Reportees', 'Priyanshu Dubey');
+    const foreign = new Map([
+      [0, [{ start: 0, end: 9 }]],
+      [1, [{ start: 0, end: 15 }]],
+    ]);
+    expect(uncheckedPassages(list, new Set(), foreign)).toEqual([]);
+  });
+
+  it('a foreign sentence of three or more words is still reported', () => {
+    const list = uncheckedPassages(paras('ami kal te jabo.'), new Set(), new Map([[0, [{ start: 0, end: 16 }]]]));
+    expect(list).toEqual([{ paraId: 0, span: { start: 0, end: 16 }, kind: 'otherLanguage' }]);
+  });
+
+  it('a single other-script word is still reported', () => {
+    const text = 'The word स्कूल means school.';
+    const list = uncheckedPassages(paras(text), new Set(), new Map());
+    expect(list.map((p) => [p.kind, text.slice(p.span.start, p.span.end)])).toEqual([['otherScript', 'स्कूल']]);
   });
 });
 

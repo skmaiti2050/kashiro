@@ -1,4 +1,5 @@
 import { CODE_AND_MATH_PATTERNS } from './factLock';
+import { countWords } from './otherLanguage';
 import type { Paragraph, Span } from './types';
 
 /** A letter of the script the checker reads (English): "a", "é". */
@@ -78,6 +79,12 @@ function outsideCuts(text: string, run: Span, cuts: readonly Span[]): Span[] {
 }
 
 /**
+ * A foreign sentence shorter than this is not reported: a heading ("Reportees") or a name ("Priyanshu Dubey") alone is
+ * too little text to call a language. Only the report changes; such words stay protected from zero-click fixes.
+ */
+export const MIN_REPORTED_FOREIGN_WORDS = 3;
+
+/**
  * The passages the check did not read inside the paragraphs it did check: other-script runs plus the foreign
  * sentences setup already found, in document order. Set-aside paragraphs (#2a) are skipped, a block marker covers them.
  */
@@ -89,7 +96,9 @@ export function uncheckedPassages(
   return paras
     .filter((p) => !setAside.has(p.id))
     .flatMap((p) => {
-      const sentences = foreignSentences.get(p.id) ?? [];
+      const sentences = (foreignSentences.get(p.id) ?? []).filter(
+        (s) => countWords(p.text.slice(s.start, s.end)) >= MIN_REPORTED_FOREIGN_WORDS,
+      );
       // A foreign sentence covers the runs inside it; what a run has outside it is still reported, so passages never overlap.
       // Code and math are cut out too: they are not language.
       const cuts = [...sentences, ...codeAndMathSpans(p.text)].sort((a, b) => a.start - b.start);

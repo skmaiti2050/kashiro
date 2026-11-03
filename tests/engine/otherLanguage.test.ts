@@ -301,6 +301,12 @@ describe('romanised words are never auto-fixed (Harper)', () => {
     ]);
   });
 
+  it('a one-word paragraph of an unknown word is not listed as unchecked, and is still never fixed without a click', async () => {
+    const s = await CheckSession.start([{ id: 0, text: 'Reportees\n\nThe managers review their reports.' }], opts, { linter });
+    expect(s.uncheckedPassages()).toEqual([]);
+    expect(s.outcomes().filter((o) => o.auto && o.candidate.paraId === 0)).toEqual([]);
+  });
+
   it('at the boundary: "teh end." (half flagged) is fixed, a lone lowercase "teh." goes to review', async () => {
     expect(await autoFixed('teh end.')).toEqual(['teh → the']);
     const s = await CheckSession.start([{ id: 0, text: 'teh.' }], opts, { linter });

@@ -16,6 +16,11 @@ const EVERYDAY_WORD_ZIPF = 4;
 /** A word of a sentence, for counting: "school", "don't", "स्कूल" (its vowel signs, virama and joiners inside it). */
 const WORD = /\p{L}[\p{L}\p{M}‌‍]*(?:['’]\p{L}[\p{L}\p{M}‌‍]*)*/gu;
 
+/** How many words `text` has, counted the same way for the foreign-sentence rule and for reporting it. */
+export function countWords(text: string): number {
+  return (text.match(WORD) ?? []).length;
+}
+
 /** A Spelling/Typo flag of a lowercase a-z word: the only flags the classifier judges. */
 function isLowercaseWordFlag(c: Candidate): boolean {
   return WORD_REWRITE_KINDS.has(c.kind) && LOWERCASE_WORD.test(c.original);
@@ -35,7 +40,7 @@ export async function loadModelIfNeeded(candidates: Candidate[]): Promise<void> 
  * "te" is Bengali "at", not "the".
  */
 export function findForeignSentences(candidates: Candidate[], paraText: ReadonlyMap<number, string>): Map<number, Span[]> {
-  return sentencesWhere(candidates, paraText, (flags, sentence) => flags.length * 2 > (sentence.match(WORD) ?? []).length);
+  return sentencesWhere(candidates, paraText, (flags, sentence) => flags.length * 2 > countWords(sentence));
 }
 
 /**
