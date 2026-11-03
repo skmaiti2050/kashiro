@@ -9,10 +9,10 @@ const ROOT = path.resolve(__dirname, '../..');
 describe('npm run release', () => {
   it('builds both installers and both zips', () => {
     expect(RELEASE_FILES).toEqual([
-      'src-tauri/target/release/bundle/nsis/Kashiro-noai_1.2.0_x64-setup.exe',
-      'src-tauri/target/release/bundle/nsis/Kashiro_1.2.0_x64-setup.exe',
-      'dist-portable/Kashiro-1.2.0-win-x64.zip',
-      'dist-portable/Kashiro-1.2.0-win-x64-noai.zip',
+      'src-tauri/target/release/bundle/nsis/Kashiro-noai_1.2.1_x64-setup.exe',
+      'src-tauri/target/release/bundle/nsis/Kashiro_1.2.1_x64-setup.exe',
+      'dist-portable/Kashiro-1.2.1-win-x64.zip',
+      'dist-portable/Kashiro-1.2.1-win-x64-noai.zip',
     ]);
   });
 
