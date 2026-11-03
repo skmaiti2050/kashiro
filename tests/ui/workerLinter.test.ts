@@ -11,24 +11,27 @@ import { serveLinter } from '@/ui/linterWorker/serveLinter';
 import { createWorkerLinter, type WorkerLike } from '@/ui/linterWorker/workerLinter';
 
 type CreateLinter = (variant: Variant, words: string[]) => Promise<RulesLinter>;
-type FakeWorker = WorkerLike & { requests: LinterRequest[] };
+type FakeWorker = WorkerLike & { requests: LinterRequest[]; terminated: boolean };
 
-/** A Worker in this process: each one serves its own linter, made by `create` on `start`, and answers asynchronously. */
+/**
+ * A Worker in this process: each one serves its own linter, made by `create` on `start`, and answers asynchronously.
+ * Requests and replies go through structuredClone, as postMessage does, so the tests cross a real message boundary.
+ */
 function fakeWorker(create: CreateLinter): FakeWorker {
   const serve = serveLinter(create);
-  let terminated = false;
   const worker: FakeWorker = {
     requests: [],
+    terminated: false,
     onmessage: null,
     onerror: null,
     postMessage(request) {
       worker.requests.push(request);
-      void serve(request).then((reply) => {
-        if (!terminated) worker.onmessage?.({ data: reply });
+      void serve(structuredClone(request)).then((reply) => {
+        if (!worker.terminated) worker.onmessage?.({ data: structuredClone(reply) });
       });
     },
     terminate() {
-      terminated = true;
+      worker.terminated = true;
     },
   };
   return worker;
@@ -170,5 +173,65 @@ describe('worker linter', () => {
       throw new Error('Harper could not load');
     });
     await expect(createWorkerLinter('American', [], makeWorker)).rejects.toThrow('Harper could not load');
+  });
+
+  it('a worker that dies on its first start says the proofreader could not start, with the browser’s reason', async () => {
+    const { workers, makeWorker } = workerMaker(() => new Promise(() => {})); // the start never answers
+    const created = createWorkerLinter('American', [], makeWorker);
+    await vi.waitFor(() => expect(workers[0].requests).toHaveLength(1));
+
+    workers[0].onerror?.({ message: 'SyntaxError: Unexpected token' }); // an ErrorEvent's message
+
+    const error = await created.then(
+      () => null,
+      (e: Error) => e,
+    );
+    expect(error?.message).toBe('The proofreader could not start (SyntaxError: Unexpected token)');
+    expect(workers).toHaveLength(1);
+  });
+
+  it('a worker that dies on its first start without a reason still says it could not start', async () => {
+    const { workers, makeWorker } = workerMaker(() => new Promise(() => {}));
+    const created = createWorkerLinter('American', [], makeWorker);
+    await vi.waitFor(() => expect(workers[0].requests).toHaveLength(1));
+
+    workers[0].onerror?.({});
+
+    await expect(created).rejects.toThrow(/^The proofreader could not start$/);
+  });
+
+  it('events from a replaced worker are ignored', async () => {
+    const { workers, makeWorker } = workerMaker(fakeHarper);
+    const linter = await createWorkerLinter('American', [], makeWorker);
+    await expect(linter.lintParagraphs([{ id: 0, text: 'PANIC' }], 'plaintext')).rejects.toThrow('unreachable');
+    let hangSettled = false;
+    const settle = () => (hangSettled = true);
+    void linter.lintParagraphs([{ id: 1, text: 'HANG' }], 'plaintext').then(settle, settle);
+    await vi.waitFor(() => expect(workers[1].requests.map((r) => r.op)).toEqual(['start', 'lintParagraphs']));
+    const hangId = workers[1].requests[1].id;
+
+    workers[0].onmessage?.({ data: { id: hangId, ok: false, message: 'stale reply' } });
+    workers[0].onerror?.(new Error('stale error'));
+
+    const next = await linter.lintParagraphs([{ id: 2, text: 'fine' }], 'plaintext');
+    expect(next.map((c) => c.paraId)).toEqual([2]);
+    expect(hangSettled).toBe(false);
+    expect(workers).toHaveLength(2);
+    expect(workers[1].terminated).toBe(false);
+  });
+
+  it('dispose terminates the worker, rejects pending calls and never starts another', async () => {
+    const { workers, makeWorker } = workerMaker(fakeHarper);
+    const linter = await createWorkerLinter('American', [], makeWorker);
+    const pending = linter.lintParagraphs([{ id: 0, text: 'HANG' }], 'plaintext');
+    await vi.waitFor(() => expect(workers[0].requests).toHaveLength(2));
+
+    linter.dispose!();
+
+    await expect(pending).rejects.toThrow('The proofreader was closed');
+    expect(workers[0].terminated).toBe(true);
+    workers[0].onerror?.(new Error('late error'));
+    await expect(linter.lintParagraphs([{ id: 1, text: 'fine' }], 'plaintext')).rejects.toThrow('The proofreader was closed');
+    expect(makeWorker).toHaveBeenCalledTimes(1);
   });
 });

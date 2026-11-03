@@ -183,7 +183,14 @@ export class SessionController {
     },
     markUnsaved: () => this.changes++,
     announce: (verb) => this.set({ announcement: this.announcement(verb) }),
-    dropLinter: () => (this.linter = null),
+    dropLinter: () => {
+      // A worker linter holds a Worker until disposed; a check still on it rejects, and is superseded by the recheck.
+      void this.linter?.then(
+        (linter) => linter.dispose?.(),
+        () => {},
+      );
+      this.linter = null;
+    },
     recheck: () => this.recheck(),
     modulesChanged: async () => {
       this.ai.modulesChanged(); // AI rewrites off: the run stops now, not after the re-check

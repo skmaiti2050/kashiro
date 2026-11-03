@@ -12,6 +12,16 @@ export interface WorkerLike {
 
 /** Why a call failed when another call crashed the Worker, or the Worker itself died. */
 const INTERRUPTED = 'The proofreader restarted; this check was interrupted';
+/** Why calls fail after `dispose`. */
+const CLOSED = 'The proofreader was closed';
+/** The first Worker died before it answered `start`: nothing ever ran, so nothing "restarted". */
+const START_FAILED = 'The proofreader could not start';
+
+/** START_FAILED with the browser's reason, when the error event carries one (an ErrorEvent's `message`). */
+function startFailure(event: unknown): string {
+  const reason = (event as { message?: unknown } | null)?.message;
+  return typeof reason === 'string' && reason !== '' ? `${START_FAILED} (${reason})` : START_FAILED;
+}
 
 interface PendingCall {
   resolve: (candidates: Candidate[] | undefined) => void;
@@ -36,9 +46,14 @@ export async function createWorkerLinter(variant: Variant, words: string[], make
   let ready: Promise<void>;
   /** A restart's `start` failed: the next call tries one fresh Worker, so a Worker that can't start never loops. */
   let restartOnNextCall = false;
+  /** False until the first Worker has answered its `start`. */
+  let started = false;
+  /** Set by `dispose`: no call is posted and no Worker is started again. */
+  let disposed = false;
 
   const post = (operation: LinterOperation) =>
     new Promise<Candidate[] | undefined>((resolve, reject) => {
+      if (disposed) return reject(new Error(CLOSED));
       const id = nextId++;
       pending.set(id, { resolve, reject });
       worker.postMessage({ id, ...operation });
@@ -54,7 +69,8 @@ export async function createWorkerLinter(variant: Variant, words: string[], make
 
   /** The restart rule: reject every pending call, terminate the Worker, start a fresh one (unless this was its start). */
   const fail = (failedId: number | undefined, message: string) => {
-    for (const [id, call] of pending) call.reject(new Error(id === failedId ? message : INTERRUPTED));
+    // A failed call gets its own message; when the Worker itself died (no failed call), every call gets `message`.
+    for (const [id, call] of pending) call.reject(new Error(failedId === undefined || id === failedId ? message : INTERRUPTED));
     pending.clear();
     worker.terminate();
     if (starting) restartOnNextCall = true;
@@ -67,19 +83,21 @@ export async function createWorkerLinter(variant: Variant, words: string[], make
     starting = true;
     // A terminated Worker may still deliver a message; only the current one is listened to.
     w.onmessage = (event) => {
-      if (worker === w) answer(event.data);
+      if (worker === w && !disposed) answer(event.data);
     };
-    w.onerror = () => {
-      if (worker === w) fail(undefined, INTERRUPTED);
+    w.onerror = (event) => {
+      if (worker === w && !disposed) fail(undefined, started ? INTERRUPTED : startFailure(event));
     };
     ready = post({ op: 'start', variant: current, words: [...known] }).then(() => {
       starting = false;
+      started = true;
     });
     // Calls that wait on `ready` get its error; with no call waiting, the failure is left for the next call.
     ready.catch(() => {});
   };
 
   const call = async (operation: LinterOperation) => {
+    if (disposed) throw new Error(CLOSED);
     if (restartOnNextCall) {
       restartOnNextCall = false;
       launch();
@@ -112,6 +130,14 @@ export async function createWorkerLinter(variant: Variant, words: string[], make
     async setVariant(v) {
       await call({ op: 'setVariant', variant: v });
       current = v;
+    },
+    // A Worker is never garbage-collected: without this, every rebuilt linter would leave a loaded Harper behind.
+    dispose() {
+      if (disposed) return;
+      disposed = true;
+      for (const waiting of pending.values()) waiting.reject(new Error(CLOSED));
+      pending.clear();
+      worker.terminate();
     },
   };
 }

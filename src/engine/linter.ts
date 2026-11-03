@@ -16,6 +16,8 @@ export interface RulesLinter {
   addWords(words: string[]): Promise<void>;
   setVariant(v: Variant): Promise<void>;
   readonly variant: Variant;
+  /** Frees what outlives garbage collection (a linter in a Worker); later calls reject. */
+  dispose?(): void;
 }
 
 /** One of Harper's lints, copied out of WASM: a candidate without its paragraph. */

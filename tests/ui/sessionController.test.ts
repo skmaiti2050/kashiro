@@ -323,6 +323,23 @@ describe('SessionController: review', () => {
     const card = controller.getState().session!.decisions().top.find((d) => d.kind === 'names')!;
     expect(card.label).toBe('1 name or place');
   });
+
+  it('a linter rebuilt after a dictionary change disposes the old one, so its worker does not linger', async () => {
+    const disposed: number[] = [];
+    let built = 0;
+    const { controller } = makeController({
+      settings: { dictionary: ['anjali', 'nashik'] },
+      createLinter: async (v, words) => {
+        const n = ++built;
+        return Object.assign(await createLinter(v, words), { dispose: () => disposed.push(n) });
+      },
+    });
+    await controller.openText('We met Anjali in Nashik today.');
+    await controller.removeWord('nashik');
+    await vi.waitFor(() => expect(disposed).toEqual([1]));
+    await controller.removeWord('anjali');
+    await vi.waitFor(() => expect(disposed).toEqual([1, 2]));
+  });
 });
 
 describe('SessionController: the Dictionary panel (F22 item 1)', () => {
