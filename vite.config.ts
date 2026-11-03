@@ -62,6 +62,8 @@ export default defineConfig(() => ({
   // The app passes harper.js/binary (a separate .wasm) to createLinter, so the engine's fallback import
   // of the 25 MB inlined binary never runs there: keep it out of the bundle.
   build: { outDir: web ? "dist-web" : "dist", rolldownOptions: { external: ["harper.js/binaryInlined"] } },
+  // The Harper Worker is bundled separately, so it needs the same exclusion; "es" lets it use import.meta and wasm URLs.
+  worker: { format: "es" as const, rolldownOptions: { external: ["harper.js/binaryInlined"] } },
   server: {
     port: 1420,
     strictPort: true,
