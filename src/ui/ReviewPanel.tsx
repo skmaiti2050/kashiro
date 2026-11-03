@@ -28,6 +28,9 @@ import type { ControllerState, SessionController } from './state/sessionControll
 import { useReviewKeys } from './useKeys';
 import type { ReadAloud } from './useReadAloud';
 
+/** How much of a place's text the "Show next" line quotes before cutting it with "…". */
+const SHOWN_TEXT_LIMIT = 40;
+
 /** A request to bring up the card of a clicked underline; `seq` changes on every click. */
 export interface CardRequest {
   candidateId: string;
@@ -51,7 +54,7 @@ interface Props {
   /** Shows a candidate in the document view (outlined and scrolled into view). */
   onLocate(candidate: Candidate): void;
   /** Scrolls the document to a place in a paragraph (one without a card: a set-aside paragraph, a passage not checked). */
-  onShowParagraph(paraId: number, offset: number): void;
+  onShowParagraph(paraId: number, offset: number, length: number): void;
   request: CardRequest | null;
   /** False while a dialog is open: the review keys must not act behind it. */
   keysEnabled: boolean;
@@ -96,6 +99,7 @@ export function ReviewPanel({ controller, state, onLocate, onShowParagraph, requ
   const [filter, setFilter] = useState<Category | null>(null);
   /** Which set-aside paragraph "Show next" shows next (an index; wrapped when used). */
   const [nextOther, setNextOther] = useState(0);
+  const [shown, setShown] = useState<{ at: number; count: number } | null>(null);
   const session = state.session;
   const all = session ? session.decisions() : { top: [], more: [] };
   const candidates = new Map((session?.candidates() ?? []).map((c) => [c.id, c]));
@@ -216,9 +220,13 @@ export function ReviewPanel({ controller, state, onLocate, onShowParagraph, requ
   /** "Show next": the next set-aside paragraph or passage in document order, back to the first after the last. */
   const showNextUnchecked = () => {
     const at = nextOther % places.length;
-    onShowParagraph(places[at].paraId, places[at].offset);
+    onShowParagraph(places[at].paraId, places[at].offset, places[at].length);
     setNextOther(at + 1);
+    setShown({ at, count: places.length });
   };
+  // The line names the place last shown; a new check that finds a different number of places drops it.
+  const shownPlace = shown && shown.count === places.length ? places[shown.at] : null;
+  const shownText = shownPlace && paraText.get(shownPlace.paraId)?.slice(shownPlace.offset, shownPlace.offset + shownPlace.length);
   const pick = (d: Decision) => {
     setCursor((c) => cursorAt(top, d.id, c));
     setReveal((r) => ({ seq: r.seq + 1, focus: true }));
@@ -275,6 +283,15 @@ export function ReviewPanel({ controller, state, onLocate, onShowParagraph, requ
             <button className="quiet" onClick={showNextUnchecked}>
               {t.t('panel.showNextOther')}
             </button>
+          </p>
+        )}
+        {shownPlace && shownText && (
+          <p className="hint" aria-live="polite">
+            {t.t('panel.shownOther', {
+              at: (shown?.at ?? 0) + 1,
+              total: places.length,
+              text: shownText.length > SHOWN_TEXT_LIMIT ? `${shownText.slice(0, SHOWN_TEXT_LIMIT)}…` : shownText,
+            })}
           </p>
         )}
         {notChecked && <p className="hint english-only">{notChecked}</p>}

@@ -150,6 +150,8 @@ export interface ParagraphRequest {
   paraId: number;
   /** Characters into the paragraph. */
   offset: number;
+  /** Characters to outline from `offset`. */
+  length: number;
   seq: number;
 }
 
@@ -381,14 +383,17 @@ export function DocumentView({
     // Only a new card or click moves the view; re-renders from checks don't.
   }, [focus?.seq]);
 
-  // The same place as a card's text: the upper third of the pane. Focus stays on the button that asked.
+  // The same ring and place as a card's text: outlined, in the upper third of the pane. Focus stays on the button that asked.
   useEffect(() => {
     const editor = view.current;
     if (!editor || !doc || !state.session || !paragraphRequest) return;
     const start = paragraphStart(doc, editor.state.sliceDoc(), state.session, paragraphRequest.paraId);
     if (start === null) return;
-    const from = toEditorPosition(doc.text, doc.lineSeparator)(start + paragraphRequest.offset);
-    editor.dispatch({ effects: EditorView.scrollIntoView(from, { y: 'start', yMargin: editor.scrollDOM.clientHeight / 3 }) });
+    const position = toEditorPosition(doc.text, doc.lineSeparator);
+    const from = position(start + paragraphRequest.offset);
+    const to = position(start + paragraphRequest.offset + paragraphRequest.length);
+    const ring = setFocusMark.of(to > from ? Decoration.set([FOCUS_MARK.range(from, to)]) : Decoration.none);
+    editor.dispatch({ effects: [ring, EditorView.scrollIntoView(from, { y: 'start', yMargin: editor.scrollDOM.clientHeight / 3 })] });
   }, [paragraphRequest?.seq]);
 
   /** Looks up the selected word or the word at the cursor; false when there is none (Ctrl+D then does nothing). */

@@ -3,7 +3,7 @@
  * "Not checked", and counts them in the review panel.
  */
 import { describe, it, expect, beforeAll, vi, afterEach } from 'vitest';
-import { act, cleanup, fireEvent, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { EditorView } from '@codemirror/view';
 import { createTranslator } from '@/ui/i18n/translator';
 import { makeController, warmLinter } from './harness';
@@ -76,6 +76,58 @@ describe('the "Not checked" marker beside a paragraph that was set aside', () =>
     expect(markers()).toHaveLength(1);
     await openAndWait(controller, () => controller.openText(`${ENGLISH}\n\nWe will meet again next week.`));
     expect(markers()).toEqual([]);
+  });
+});
+
+const ringText = () => [...document.querySelectorAll<HTMLElement>('.cm-focus')].map((el) => el.textContent).join('');
+const shownLine = () => document.querySelector<HTMLElement>('aside.review p[aria-live="polite"]')?.textContent ?? null;
+
+describe('"Show next" outlines and names the place it moves to', () => {
+  it('Show next outlines the place it moves to, like a card', async () => {
+    const { controller } = makeController();
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText(MIXED_DOCUMENT));
+    const next = within(reviewPanel()).getByRole('button', { name: 'Show next' });
+    act(() => fireEvent.click(next));
+    expect(ringText()).toBe(HINDI);
+    act(() => fireEvent.click(next));
+    expect(ringText()).toBe(BENGALI);
+  });
+
+  it('Show next names the place: "1 of 2" and its text, and wraps to 1 after the last', async () => {
+    const { controller } = makeController();
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText(MIXED_DOCUMENT));
+    expect(shownLine()).toBeNull();
+    const next = within(reviewPanel()).getByRole('button', { name: 'Show next' });
+    act(() => fireEvent.click(next));
+    expect(shownLine()).toBe(`1 of 2: “${HINDI}”`);
+    act(() => fireEvent.click(next));
+    expect(shownLine()).toBe(`2 of 2: “${BENGALI}”`);
+    act(() => fireEvent.click(next));
+    expect(shownLine()).toBe(`1 of 2: “${HINDI}”`);
+  });
+
+  it('a long passage is shortened in the panel line', async () => {
+    const long = 'यह एक छोटा सा परीक्षण है जो बहुत लंबा लिखा गया है ताकि कट जाए।';
+    expect(long.length).toBeGreaterThan(40);
+    const { controller } = makeController();
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText(`${ENGLISH}\n\n${long}`));
+    act(() => fireEvent.click(within(reviewPanel()).getByRole('button', { name: 'Show next' })));
+    expect(shownLine()).toBe(`1 of 1: “${long.slice(0, 40)}…”`);
+  });
+
+  it('after an edit above it, the outline still covers the passage', async () => {
+    const { controller } = makeController();
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText(MIXED_DOCUMENT));
+    const view = EditorView.findFromDOM(document.querySelector<HTMLElement>('.cm-editor')!)!;
+    act(() => view.dispatch({ changes: { from: 0, insert: 'Big ' }, userEvent: 'input.type' }));
+    await waitFor(() => expect(controller.getState().phase).toBe('ready'), { timeout: 10000 });
+    await waitFor(() => expect(controller.getState().document!.text.startsWith('Big ')).toBe(true));
+    act(() => fireEvent.click(within(reviewPanel()).getByRole('button', { name: 'Show next' })));
+    expect(ringText()).toBe(HINDI);
   });
 });
 

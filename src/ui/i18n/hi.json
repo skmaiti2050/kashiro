@@ -118,6 +118,7 @@
   "panel.passages": "{count, plural, one {# अंश अंग्रेज़ी में नहीं है और जाँचा नहीं गया।} other {# अंश अंग्रेज़ी में नहीं हैं और जाँचे नहीं गए।}}",
   "panel.paragraphsAndPassages": "{paragraphs, plural, one {# अनुच्छेद} other {# अनुच्छेद}} और {passages, plural, one {# अंश} other {# अंश}} अंग्रेज़ी में नहीं हैं और जाँचे नहीं गए।",
   "panel.showNextOther": "अगला दिखाएँ",
+  "panel.shownOther": "{total} में से {at}: “{text}”",
   "panel.notChecked": "{count, plural, one {एक अनुच्छेद की जाँच नहीं हो सकी, उसे जैसा लिखा था वैसा ही छोड़ा गया।} other {# अनुच्छेदों की जाँच नहीं हो सकी, उन्हें जैसा लिखा था वैसा ही छोड़ा गया।}}",
   "panel.seeLog": "बदलाव सूची देखें",
 

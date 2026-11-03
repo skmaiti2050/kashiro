@@ -117,6 +117,7 @@
   "panel.passages": "{count, plural, one {# passage isn't in English and was not checked.} other {# passages aren't in English and were not checked.}}",
   "panel.paragraphsAndPassages": "{paragraphs, plural, one {# paragraph} other {# paragraphs}} and {passages, plural, one {# passage} other {# passages}} aren't in English and were not checked.",
   "panel.showNextOther": "Show next",
+  "panel.shownOther": "{at} of {total}: “{text}”",
   "panel.notChecked": "{count, plural, one {One paragraph couldn’t be checked and was left as written.} other {# paragraphs couldn’t be checked and were left as written.}}",
   "panel.seeLog": "See the change log",
 
