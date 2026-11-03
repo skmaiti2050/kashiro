@@ -87,14 +87,28 @@ describe('performance', () => {
   // Task U3 fix 1: as one paragraph this table took 30-43 s (the linter's time grows with the square of the flags
   // in a paragraph). Each cell is now its own paragraph and a repeated cell is linted once: ~10 s alone on the dev
   // PC. It still runs on the window's thread; moving the check to a Worker is deferred.
-  it('a 2,000-row, flag-heavy Markdown table is checked in under 20 s', async () => {
+  // The budget is relative (time per row against a 200-row table), so a slower or busy machine still passes (#32);
+  // growth with the square of the rows would reach 2.5x at 500 rows and 10x at 2,000.
+  const tableOf = async (rows: number) => {
     const row = (i: number) => `| ${i} | Kumarsamy Venkataraghavan | INV-${i}x | teh recieved ammount |`;
-    const table = ['| No | Name | Invoice | Note |', '|---|---|---|---|', ...Array.from({ length: 2000 }, (_, i) => row(i))].join('\n');
-    const { paras } = await markdownAdapter.read(new TextEncoder().encode(table));
-    const t0 = performance.now();
-    const session = await CheckSession.start(paras, { ...OPTIONS, language: 'markdown' }, { linter });
-    const ms = performance.now() - t0;
-    expect(session.candidates().length).toBeGreaterThan(10_000);
-    expect(ms).toBeLessThan(20_000);
+    const table = ['| No | Name | Invoice | Note |', '|---|---|---|---|', ...Array.from({ length: rows }, (_, i) => row(i))].join('\n');
+    return (await markdownAdapter.read(new TextEncoder().encode(table))).paras;
+  };
+  it("a flag-heavy Markdown table's time per row stays flat from 200 to 2,000 rows (no square-of-rows growth)", async () => {
+    const options = { ...OPTIONS, language: 'markdown' } as const;
+    await CheckSession.start(await tableOf(200), options, { linter }); // warm-up, discarded
+
+    const perRow: Record<number, number> = {};
+    let last: CheckSession | undefined;
+    for (const rows of [200, 500, 1000, 2000]) {
+      const paras = await tableOf(rows);
+      const t0 = performance.now();
+      last = await CheckSession.start(paras, options, { linter });
+      perRow[rows] = (performance.now() - t0) / rows;
+    }
+    expect(last?.candidates().length).toBeGreaterThan(10_000);
+
+    const ratio = (rows: number) => perRow[rows] / perRow[200];
+    expect({ 500: ratio(500) < 2.5, 1000: ratio(1000) < 2.5, 2000: ratio(2000) < 2.5 }).toEqual({ 500: true, 1000: true, 2000: true });
   }, 120_000);
 });

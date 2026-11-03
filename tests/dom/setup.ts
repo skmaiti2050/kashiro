@@ -1,5 +1,8 @@
 import { afterEach, beforeEach } from 'vitest';
-import { cleanup } from '@testing-library/react';
+import { cleanup, configure } from '@testing-library/react';
+
+// Lazily imported dialogs (About) can take over findBy*'s default 1,000 ms when the full suite loads the machine (#32).
+configure({ asyncUtilTimeout: 5000 });
 
 // React's act() warnings are only silenced when it knows it runs under a test environment.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
