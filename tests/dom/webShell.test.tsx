@@ -125,7 +125,8 @@ describe('Save after the browser refused its picker (the Save click was too long
   it('asks "Untitled.checked.txt is ready to save" with focus on Save; Save opens the picker and writes the built file', async () => {
     const { picker, controller, dialog, saved } = await savingRefused();
     const save = within(dialog).getByRole('button', { name: 'Save' });
-    expect(document.activeElement).toBe(save);
+    // Dialog moves focus in a passive effect: under load it can run after findByRole resolves (#32).
+    await waitFor(() => expect(document.activeElement).toBe(save));
     await act(async () => fireEvent.click(save));
     expect(await saved).toBe(true);
     expect(picker.calls()).toBe(2);
