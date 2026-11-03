@@ -289,13 +289,16 @@ export function ReviewPanel({ controller, state, onLocate, onShowParagraph, requ
             </button>
           </p>
         )}
-        {shownPlace && shownText && (
+        {/* Mounted whenever the count line is, and only its text changes: a live region inserted already holding text is often not announced. */}
+        {places.length > 0 && (
           <p className="hint" aria-live="polite">
-            {t.t('panel.shownOther', {
-              at: shownIndex + 1,
-              total: places.length,
-              text: shownText.length > SHOWN_TEXT_LIMIT ? `${shownText.slice(0, SHOWN_TEXT_LIMIT)}…` : shownText,
-            })}
+            {shownPlace && shownText
+              ? t.t('panel.shownOther', {
+                  at: shownIndex + 1,
+                  total: places.length,
+                  text: shownText.length > SHOWN_TEXT_LIMIT ? `${shownText.slice(0, SHOWN_TEXT_LIMIT)}…` : shownText,
+                })
+              : ''}
           </p>
         )}
         {notChecked && <p className="hint english-only">{notChecked}</p>}

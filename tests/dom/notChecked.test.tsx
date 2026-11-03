@@ -98,7 +98,8 @@ describe('"Show next" outlines and names the place it moves to', () => {
     const { controller } = makeController();
     renderShell(controller);
     await openAndWait(controller, () => controller.openText(MIXED_DOCUMENT));
-    expect(shownLine()).toBeNull();
+    // Mounted and empty before the first press: a live region inserted already holding text is often not announced.
+    expect(shownLine()).toBe('');
     const next = within(reviewPanel()).getByRole('button', { name: 'Show next' });
     act(() => fireEvent.click(next));
     expect(shownLine()).toBe(`1 of 2: “${HINDI}”`);
@@ -106,6 +107,18 @@ describe('"Show next" outlines and names the place it moves to', () => {
     expect(shownLine()).toBe(`2 of 2: “${BENGALI}”`);
     act(() => fireEvent.click(next));
     expect(shownLine()).toBe(`1 of 2: “${HINDI}”`);
+  });
+
+  it('the live line is already in the page before the first press, and the same element then holds "1 of 2…"', async () => {
+    const { controller } = makeController();
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText(MIXED_DOCUMENT));
+    const live = document.querySelector<HTMLElement>('aside.review p[aria-live="polite"]');
+    expect(live).not.toBeNull();
+    expect(live!.textContent).toBe('');
+    act(() => fireEvent.click(within(reviewPanel()).getByRole('button', { name: 'Show next' })));
+    expect(document.querySelector('aside.review p[aria-live="polite"]')).toBe(live);
+    expect(live!.textContent).toBe(`1 of 2: “${HINDI}”`);
   });
 
   it('a long passage is shortened in the panel line', async () => {
@@ -145,7 +158,7 @@ describe('"Show next" outlines and names the place it moves to', () => {
     // The card really changed: a different card label, and its ring replaced the place's.
     await waitFor(() => expect(slot()).not.toBe(firstCard));
     expect(ringText()).not.toBe(HINDI);
-    expect(shownLine()).toBeNull();
+    expect(shownLine()).toBe('');
   });
 
   it('after a re-check that keeps the count but replaces the place, the line is gone, not pointing at the new one', async () => {
@@ -173,7 +186,7 @@ describe('"Show next" outlines and names the place it moves to', () => {
     await waitFor(() => expect(controller.getState().revision).toBeGreaterThan(before), { timeout: 10000 });
     await waitFor(() => expect(controller.getState().phase).toBe('ready'), { timeout: 10000 });
     expect(within(reviewPanel()).getByRole('button', { name: 'Show next' })).toBeTruthy();
-    expect(shownLine()).toBeNull();
+    expect(shownLine()).toBe('');
   });
 });
 
