@@ -133,15 +133,47 @@ describe('"Show next" outlines and names the place it moves to', () => {
     expect(ringText()).toBe(HINDI);
   });
 
-  it('the line goes when the user moves to a card, whose ring replaces the place’s', async () => {
+  it('the line goes when the user moves to another card, whose ring replaces the place’s', async () => {
     const { controller } = makeController();
     renderShell(controller);
     await openAndWait(controller, () => controller.openText(`I recieve the mail. We will meet teh next week.\n\n${HINDI}`));
-    const next = within(reviewPanel()).getByRole('button', { name: 'Show next' });
-    act(() => fireEvent.click(next));
+    const slot = () => reviewPanel().querySelector<HTMLElement>('.card-slot')!.getAttribute('aria-label');
+    const firstCard = slot();
+    act(() => fireEvent.click(within(reviewPanel()).getByRole('button', { name: 'Show next' })));
     expect(shownLine()).toBe(`1 of 1: “${HINDI}”`);
-    act(() => fireEvent.keyDown(next, { key: 'j' }));
-    await waitFor(() => expect(shownLine()).toBeNull());
+    act(() => fireEvent.keyDown(reviewPanel(), { key: 'j' }));
+    // The card really changed: a different card label, and its ring replaced the place's.
+    await waitFor(() => expect(slot()).not.toBe(firstCard));
+    expect(ringText()).not.toBe(HINDI);
+    expect(shownLine()).toBeNull();
+  });
+
+  it('after a re-check that keeps the count but replaces the place, the line is gone, not pointing at the new one', async () => {
+    const SECOND = 'फिर मिलेंगे, यह बात पक्की है।';
+    const { controller } = makeController();
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText(`${ENGLISH} We will meet again next week.\n\n${HINDI}\n\nWe will meet again soon.`));
+    act(() => fireEvent.click(within(reviewPanel()).getByRole('button', { name: 'Show next' })));
+    expect(shownLine()).toBe(`1 of 1: “${HINDI}”`);
+    const view = EditorView.findFromDOM(document.querySelector<HTMLElement>('.cm-editor')!)!;
+    const text = view.state.doc.toString();
+    const before = controller.getState().revision;
+    // The Hindi paragraph becomes English and another one appears: still one place, but a different one.
+    act(() =>
+      view.dispatch({
+        changes: [
+          { from: text.indexOf(HINDI), to: text.indexOf(HINDI) + HINDI.length, insert: 'We will go home now.' },
+          { from: text.length, insert: `\n\n${SECOND}` },
+        ],
+        userEvent: 'input.type',
+      }),
+    );
+    // The re-check's result: the session now holds the new paragraph.
+    await waitFor(() => expect(controller.getState().session!.paragraphs().some((p) => p.text === SECOND)).toBe(true), { timeout: 10000 });
+    await waitFor(() => expect(controller.getState().revision).toBeGreaterThan(before), { timeout: 10000 });
+    await waitFor(() => expect(controller.getState().phase).toBe('ready'), { timeout: 10000 });
+    expect(within(reviewPanel()).getByRole('button', { name: 'Show next' })).toBeTruthy();
+    expect(shownLine()).toBeNull();
   });
 });
 
