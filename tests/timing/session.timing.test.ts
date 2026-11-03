@@ -98,17 +98,29 @@ describe('performance', () => {
     const options = { ...OPTIONS, language: 'markdown' } as const;
     await CheckSession.start(await tableOf(200), options, { linter }); // warm-up, discarded
 
+    // The small tables run fast, so one slow moment skews them: take the fastest of 3 runs. The big ones run once.
+    const runsOf = (rows: number) => (rows <= 500 ? 3 : 1);
     const perRow: Record<number, number> = {};
     let last: CheckSession | undefined;
     for (const rows of [200, 500, 1000, 2000]) {
       const paras = await tableOf(rows);
-      const t0 = performance.now();
-      last = await CheckSession.start(paras, options, { linter });
-      perRow[rows] = (performance.now() - t0) / rows;
+      const times: number[] = [];
+      for (let run = 0; run < runsOf(rows); run++) {
+        const t0 = performance.now();
+        last = await CheckSession.start(paras, options, { linter });
+        times.push((performance.now() - t0) / rows);
+      }
+      perRow[rows] = Math.min(...times);
     }
     expect(last?.candidates().length).toBeGreaterThan(10_000);
 
-    const ratio = (rows: number) => perRow[rows] / perRow[200];
-    expect({ 500: ratio(500) < 2.5, 1000: ratio(1000) < 2.5, 2000: ratio(2000) < 2.5 }).toEqual({ 500: true, 1000: true, 2000: true });
-  }, 120_000);
+    // Each size maps to its ratio and verdict, so a failure prints the measured numbers.
+    const result = (rows: number) => {
+      const ratio = perRow[rows] / perRow[200];
+      return { ratio: Math.round(ratio * 100) / 100, ok: ratio < 2.5 };
+    };
+    const sizes = [500, 1000, 2000];
+    expect(Object.fromEntries(sizes.map((rows) => [rows, result(rows)]))).toEqual(
+      Object.fromEntries(sizes.map((rows) => [rows, { ratio: result(rows).ratio, ok: true }])),
+    );  }, 120_000);
 });
