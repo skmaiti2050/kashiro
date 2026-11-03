@@ -72,6 +72,33 @@ describe('keepsTokens (the backstop on changes made without a click, Task F4)', 
     // An edit may not put an invisible character back, even one it removed.
     expect(keepsTokens(text, [{ paraId: 0, span: { start: 9, end: 11 }, replacement: 'a\u{200D}' }], new Set([10]))).toBe(false);
   });
+
+  it('rejects an invisible character moved across visible ones, though the tokens match (#10)', () => {
+    const text = 'ab\u{200D}c';
+    const moved = [
+      { paraId: 0, span: { start: 1, end: 2 }, replacement: '' }, // delete "b"
+      { paraId: 0, span: { start: 3, end: 4 }, replacement: 'bc' }, // "c" -> "bc"
+    ];
+    expect(keepsTokens(text, moved, NONE)).toBe(false);
+    expect(keepsTokens(text, moved, allInvisible(text))).toBe(false);
+    expect(editsChangingTokens(text, moved, NONE)).toEqual([0, 1]);
+  });
+
+  it('rejects a word moved across a joiner between two words', () => {
+    const text = 'one \u{200B}two three';
+    // "one ​two three" -> "one two ​three": the ZWSP now sits after "two"
+    const edits = [
+      { paraId: 0, span: { start: 4, end: 8 }, replacement: 'two' },
+      { paraId: 0, span: { start: 8, end: 9 }, replacement: ' \u{200B}' },
+    ];
+    expect(keepsTokens(text, edits, NONE)).toBe(false);
+  });
+
+  it('still allows deleting a removable invisible character while whitespace changes elsewhere', () => {
+    const text = 'We\u{200B} went  home.';
+    const edits = [...deleting(text, 2), edit(text, '  ', ' ')];
+    expect(keepsTokens(text, edits, new Set([2]))).toBe(true);
+  });
 });
 
 describe('editsChangingTokens', () => {

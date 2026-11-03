@@ -3,7 +3,8 @@ import type { Edit } from './sessionTypes';
 /**
  * The backstop on every change made without a click (owner decision, Task F4). It knows nothing of rules or
  * tiers on purpose: whatever a future rule gets wrong, a paragraph may only lose the invisible characters hygiene
- * may remove and have the whitespace between its tokens changed. A token is a maximal run of characters that are
+ * may remove and have the whitespace between its tokens changed, and keeps every other invisible character
+ * between the same visible characters. A token is a maximal run of characters that are
  * neither whitespace nor invisible, so case, punctuation, hyphens, apostrophes and slashes all count. No Unicode
  * normalisation and no case folding: "Café" written two ways, or "कि" losing its vowel sign, is a change.
  */
@@ -39,8 +40,47 @@ function keepsInvisibles(text: string, edit: Edit, removable: ReadonlySet<number
  */
 export function keepsTokens(text: string, edits: readonly Edit[], removable: ReadonlySet<number>): boolean {
   const a = tokens(text);
-  const b = tokens(withEdits(text, edits));
-  return a.length === b.length && a.every((token, i) => token === b[i]) && edits.every((e) => keepsInvisibles(text, e, removable));
+  const edited = withEdits(text, edits);
+  const b = tokens(edited);
+  return (
+    a.length === b.length &&
+    a.every((token, i) => token === b[i]) &&
+    edits.every((e) => keepsInvisibles(text, e, removable)) &&
+    sameList(invisibleAnchors(text, deletedInvisibles(edits, removable)), invisibleAnchors(edited, NO_OFFSETS))
+  );
+}
+
+const NO_OFFSETS: ReadonlySet<number> = new Set();
+/** One whitespace or invisible character: " ", "\n", a ZWJ. Neither counts towards an anchor. */
+const SPACE_OR_INVISIBLE = /^[\s\p{Cf}\p{Default_Ignorable_Code_Point}]$/u;
+
+function sameList(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((item, i) => item === b[i]);
+}
+
+/** The offsets in `removable` that lie inside an edit's span (start <= offset < end): the ones the edits delete. */
+function deletedInvisibles(edits: readonly Edit[], removable: ReadonlySet<number>): Set<number> {
+  return new Set([...removable].filter((offset) => edits.some((e) => e.span.start <= offset && offset < e.span.end)));
+}
+
+/**
+ * "<character>@<anchor>" for each invisible character of `text` not in `skip`, in order. The anchor is the count
+ * of UTF-16 units before it that are neither whitespace nor invisible, so whitespace changes leave it alone and
+ * moving text across the character changes it (#10).
+ */
+function invisibleAnchors(text: string, skip: ReadonlySet<number>): string[] {
+  const anchors: string[] = [];
+  let visible = 0;
+  for (let i = 0; i < text.length; ) {
+    const ch = String.fromCodePoint(text.codePointAt(i)!);
+    if (INVISIBLE.test(ch)) {
+      if (!skip.has(i)) anchors.push(`${ch}@${visible}`);
+    } else if (!SPACE_OR_INVISIBLE.test(ch)) {
+      visible += ch.length;
+    }
+    i += ch.length;
+  }
+  return anchors;
 }
 
 /** `text` with `edits` (spans of `text`, not overlapping) applied. */
