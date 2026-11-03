@@ -13,6 +13,9 @@ import type { Edit } from './sessionTypes';
 const INVISIBLE = /[\p{Cf}\p{Default_Ignorable_Code_Point}]/u;
 const INVISIBLES = new RegExp(INVISIBLE.source, 'gu');
 const WHITESPACE = /\s+/u;
+/** One whitespace character: " ", "\n". Invisible characters are tested apart, so they never reach it. */
+const SINGLE_WHITESPACE = /^\s$/u;
+const NO_OFFSETS: ReadonlySet<number> = new Set();
 
 function tokens(text: string): string[] {
   return text.replace(INVISIBLES, '').split(WHITESPACE).filter((token) => token !== '');
@@ -35,8 +38,9 @@ function keepsInvisibles(text: string, edit: Edit, removable: ReadonlySet<number
 
 /**
  * True when `text` with `edits` applied has exactly its tokens, in order, and the edits touch its invisible
- * characters only by deleting those at offsets in `removable` (what hygiene may delete): "went  home" → "went
- * home", not "Govt. of" → "Govt. Of".
+ * characters only by deleting those at offsets in `removable` (what hygiene may delete), and keeps every other
+ * invisible character between the same visible characters (#10): "went  home" → "went home", not "Govt. of" →
+ * "Govt. Of".
  */
 export function keepsTokens(text: string, edits: readonly Edit[], removable: ReadonlySet<number>): boolean {
   const a = tokens(text);
@@ -49,10 +53,6 @@ export function keepsTokens(text: string, edits: readonly Edit[], removable: Rea
     sameList(invisibleAnchors(text, deletedInvisibles(edits, removable)), invisibleAnchors(edited, NO_OFFSETS))
   );
 }
-
-const NO_OFFSETS: ReadonlySet<number> = new Set();
-/** One whitespace or invisible character: " ", "\n", a ZWJ. Neither counts towards an anchor. */
-const SPACE_OR_INVISIBLE = /^[\s\p{Cf}\p{Default_Ignorable_Code_Point}]$/u;
 
 function sameList(a: readonly string[], b: readonly string[]): boolean {
   return a.length === b.length && a.every((item, i) => item === b[i]);
@@ -75,7 +75,7 @@ function invisibleAnchors(text: string, skip: ReadonlySet<number>): string[] {
     const ch = String.fromCodePoint(text.codePointAt(i)!);
     if (INVISIBLE.test(ch)) {
       if (!skip.has(i)) anchors.push(`${ch}@${visible}`);
-    } else if (!SPACE_OR_INVISIBLE.test(ch)) {
+    } else if (!SINGLE_WHITESPACE.test(ch)) {
       visible += ch.length;
     }
     i += ch.length;
