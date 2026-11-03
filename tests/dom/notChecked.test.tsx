@@ -123,11 +123,25 @@ describe('"Show next" outlines and names the place it moves to', () => {
     renderShell(controller);
     await openAndWait(controller, () => controller.openText(MIXED_DOCUMENT));
     const view = EditorView.findFromDOM(document.querySelector<HTMLElement>('.cm-editor')!)!;
+    const before = controller.getState().revision;
     act(() => view.dispatch({ changes: { from: 0, insert: 'Big ' }, userEvent: 'input.type' }));
+    // The re-check's result, not just the new text: the session's revision moves on once it finishes.
+    await waitFor(() => expect(controller.getState().document!.text.startsWith('Big ')).toBe(true), { timeout: 10000 });
+    await waitFor(() => expect(controller.getState().revision).toBeGreaterThan(before), { timeout: 10000 });
     await waitFor(() => expect(controller.getState().phase).toBe('ready'), { timeout: 10000 });
-    await waitFor(() => expect(controller.getState().document!.text.startsWith('Big ')).toBe(true));
     act(() => fireEvent.click(within(reviewPanel()).getByRole('button', { name: 'Show next' })));
     expect(ringText()).toBe(HINDI);
+  });
+
+  it('the line goes when the user moves to a card, whose ring replaces the place’s', async () => {
+    const { controller } = makeController();
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText(`I recieve the mail. We will meet teh next week.\n\n${HINDI}`));
+    const next = within(reviewPanel()).getByRole('button', { name: 'Show next' });
+    act(() => fireEvent.click(next));
+    expect(shownLine()).toBe(`1 of 1: “${HINDI}”`);
+    act(() => fireEvent.keyDown(next, { key: 'j' }));
+    await waitFor(() => expect(shownLine()).toBeNull());
   });
 });
 

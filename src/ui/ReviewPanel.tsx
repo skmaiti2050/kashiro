@@ -99,7 +99,8 @@ export function ReviewPanel({ controller, state, onLocate, onShowParagraph, requ
   const [filter, setFilter] = useState<Category | null>(null);
   /** Which set-aside paragraph "Show next" shows next (an index; wrapped when used). */
   const [nextOther, setNextOther] = useState(0);
-  const [shown, setShown] = useState<{ at: number; count: number } | null>(null);
+  /** The place "Show next" last outlined, by identity: a re-check that moves or replaces it drops the line. */
+  const [shown, setShown] = useState<{ paraId: number; offset: number } | null>(null);
   const session = state.session;
   const all = session ? session.decisions() : { top: [], more: [] };
   const candidates = new Map((session?.candidates() ?? []).map((c) => [c.id, c]));
@@ -120,6 +121,9 @@ export function ReviewPanel({ controller, state, onLocate, onShowParagraph, requ
     const active = document.activeElement;
     if (!keepFocus.current && (!active || active === document.body)) cardSlot.current?.focus({ preventScroll: true });
   }, [current?.id]);
+
+  // A card's ring replaces the place's ring, so the line naming that place goes too.
+  useEffect(() => setShown(null), [current?.id, request?.seq]);
 
   useEffect(() => {
     if (!request) return;
@@ -222,10 +226,10 @@ export function ReviewPanel({ controller, state, onLocate, onShowParagraph, requ
     const at = nextOther % places.length;
     onShowParagraph(places[at].paraId, places[at].offset, places[at].length);
     setNextOther(at + 1);
-    setShown({ at, count: places.length });
+    setShown({ paraId: places[at].paraId, offset: places[at].offset });
   };
-  // The line names the place last shown; a new check that finds a different number of places drops it.
-  const shownPlace = shown && shown.count === places.length ? places[shown.at] : null;
+  const shownIndex = shown ? places.findIndex((p) => p.paraId === shown.paraId && p.offset === shown.offset) : -1;
+  const shownPlace = shownIndex >= 0 ? places[shownIndex] : null;
   const shownText = shownPlace && paraText.get(shownPlace.paraId)?.slice(shownPlace.offset, shownPlace.offset + shownPlace.length);
   const pick = (d: Decision) => {
     setCursor((c) => cursorAt(top, d.id, c));
@@ -288,7 +292,7 @@ export function ReviewPanel({ controller, state, onLocate, onShowParagraph, requ
         {shownPlace && shownText && (
           <p className="hint" aria-live="polite">
             {t.t('panel.shownOther', {
-              at: (shown?.at ?? 0) + 1,
+              at: shownIndex + 1,
               total: places.length,
               text: shownText.length > SHOWN_TEXT_LIMIT ? `${shownText.slice(0, SHOWN_TEXT_LIMIT)}…` : shownText,
             })}
