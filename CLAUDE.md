@@ -40,6 +40,7 @@ Read before writing or reviewing code here. The design is `docs/superpowers/spec
 
 ## Workflow
 
+- Review agents are wanted here (this overrides the owner's global "no review agents unless asked"): plan execution runs the per-task reviews and the final whole-branch review.
 - Run `/simplify` on the changes at the end of each milestone.
 - Commit messages: `type(scope): summary` (feat, fix, test, docs, chore, build).
 - No machine-specific paths (drive letters, user folders) in committed files.
