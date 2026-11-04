@@ -281,8 +281,7 @@ export function tierOf(c: Candidate, ctx: TierContext): Tier {
   const override = ctx.userTierOverrides?.[c.kind];
   const tier = override ?? baseTier(c, ctx);
   if (tier !== 'safe') return tier;
-  // #1 gate 1: no zero-click outside English until a Hindi tier policy (gate 9)
-  // A cap, not a tier: 'hidden' (preset or override) stays hidden, and a 'safe' override is capped too.
+  // #1 gate 1: a cap, not a tier, so 'hidden' stays hidden: no zero-click outside English until a Hindi tier policy (gate 9).
   if (ctx.englishParagraphs && !ctx.englishParagraphs.has(c.paraId)) return 'review';
   // Whatever the overrides say: a grammatical doubling, a flag that removes or joins a doubled word ("to to's" →
   // "toto's"), or a flag an invisible character skews, is asked first.

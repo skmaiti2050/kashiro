@@ -63,8 +63,7 @@ export async function prepareCheck(
   // Every engine's unchecked paragraphs, in document order.
   const unchecked = new Set([fromEnglish, ...fromOthers].flatMap((r) => r.uncheckedParagraphs));
   const uncheckedParagraphs = allParas.filter((p) => unchecked.has(p.id)).map((p) => p.id);
-  const notEnglish = allParas.filter((p) => paragraphEngines.get(p.id) !== english);
-  const ctx = withOtherEnginesLocked(fromEnglish.ctx, parasOf(english), notEnglish, opts);
+  const ctx = withOtherEnginesLocked(fromEnglish.ctx, allParas, paragraphEngines, english, opts);
   return { ...fromEnglish, ctx, paragraphEngines, engines: [english, ...others], proofreader, proofreaderScript, found, uncheckedParagraphs };
 }
 
@@ -73,13 +72,22 @@ export async function prepareCheck(
  * commands, adapter locks), and tierOf caps their candidates at 'review' (englishParagraphs). Command text is protected
  * the same way: tierOf hides every non-spelling flag on a surely-command and keeps maybe-commands from zero-click.
  */
-function withOtherEnginesLocked(ctx: TierContext, englishParas: Paragraph[], otherParas: Paragraph[], opts: CheckOptions): TierContext {
-  const locked = new Map(ctx.locked);
-  const { locked: otherLocked, commands } = findLockedText(otherParas, opts.language);
-  for (const [id, spans] of otherLocked) locked.set(id, spans);
-  const commandSpans = new Map(ctx.commandSpans);
-  for (const [id, spans] of commands.surely) commandSpans.set(id, spans);
-  const maybeCommandSpans = new Map(ctx.maybeCommandSpans);
-  for (const [id, spans] of commands.maybe) maybeCommandSpans.set(id, spans);
-  return { ...ctx, locked, commandSpans, maybeCommandSpans, englishParagraphs: new Set(englishParas.map((p) => p.id)) };
+function withOtherEnginesLocked(
+  ctx: TierContext,
+  allParas: Paragraph[],
+  paragraphEngines: ReadonlyMap<number, LanguageEngine>,
+  english: LanguageEngine,
+  opts: CheckOptions,
+): TierContext {
+  const otherParas = allParas.filter((p) => paragraphEngines.get(p.id) !== english);
+  if (otherParas.length === 0) return ctx;
+  const { locked, commands } = findLockedText(otherParas, opts.language);
+  const englishParagraphs = new Set(allParas.filter((p) => paragraphEngines.get(p.id) === english).map((p) => p.id));
+  return {
+    ...ctx,
+    locked: new Map([...ctx.locked, ...locked]),
+    commandSpans: new Map([...(ctx.commandSpans ?? []), ...commands.surely]),
+    maybeCommandSpans: new Map([...(ctx.maybeCommandSpans ?? []), ...commands.maybe]),
+    englishParagraphs,
+  };
 }

@@ -120,17 +120,17 @@ export class CheckSession {
     session.unchecked = setup.uncheckedParagraphs;
     session.paragraphEngines = paragraphEngines;
     session.s.engines = setup.engines;
-    session.proofreader = setup.proofreader;
+    const { proofreader, proofreaderScript } = setup;
+    session.proofreader = proofreader;
     const engineOf = (p: Paragraph) => paragraphEngines.get(p.id)!.capabilities;
     // "Not checked" (#2a) is what no engine proofreads; English's #29 passages below skip every non-English paragraph.
     // The two sets differ once another engine proofreads a script.
     session.otherScript = paras.filter((p) => !engineOf(p).proofreads).map((p) => p.id);
     // Passages and checked text follow the proofreader's script. Its set-aside paragraphs are those another engine
     // checks (the not-checked one, or English in a document another engine proofreads).
-    const { proofreaderScript } = setup;
-    const setAside = new Set(paras.filter((p) => engineOf(p).id !== session.proofreader!.capabilities.id).map((p) => p.id));
+    const setAside = new Set(paras.filter((p) => engineOf(p).id !== proofreader.capabilities.id).map((p) => p.id));
     // Foreign sentences were found in setup, by English only: for any other script there are none to report.
-    const foreign = session.proofreader!.capabilities.id === 'en' ? (ctx.foreignSentences ?? new Map()) : new Map();
+    const foreign = proofreader.capabilities.id === 'en' ? (ctx.foreignSentences ?? new Map()) : new Map();
     session.passages = uncheckedPassages(paras, setAside, foreign, proofreaderScript);
     session.checkedText = paras.some((p) => !setAside.has(p.id) && hasLetterOf(p.text, proofreaderScript));
     session.mostlyUnchecked = mostlyNotChecked(paras, setAside);
