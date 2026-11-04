@@ -238,16 +238,26 @@ export function ReviewPanel({ controller, state, onLocate, onShowParagraph, requ
   const slotLabel = current ? cardLabel(t, current, candidates, queue.indexOf(current) + 1, queue.length) : t.t('panel.currentCard');
   // Read aloud: the text at the cursor while the user is in the document, else the current card's.
   // The card is read in the UI language when this PC has a local voice for it, else in English.
-  const textFor = (target: ReadTarget): { text: string; language: string } => {
+  const cardSpeaker = () => (readAloud?.speaks(t.language) ? t : translatorFor('en'));
+  /** The document text the sentence or paragraph button reads: at the cursor, else at the current card. */
+  const documentTextFor = (target: 'sentence' | 'paragraph'): string => {
     const first = current ? firstOf(current) : null;
+    const at = readCaret() ?? (first ? { text: paraText.get(first.paraId) ?? '', offset: first.span.start } : null);
+    if (!at) return '';
+    return target === 'sentence' ? sentenceAt(at.text, at.offset) : paragraphAt(at.text, at.offset);
+  };
+  /** Only the language, so the bar need not build a card's whole spoken text to learn it. */
+  const languageFor = (target: ReadTarget): string => {
+    if (target === 'suggestion') return cardSpeaker().language;
+    return textLanguage(documentTextFor(target));
+  };
+  const textFor = (target: ReadTarget): { text: string; language: string } => {
     if (target === 'suggestion') {
-      const speaker = readAloud?.speaks(t.language) ? t : translatorFor('en');
+      const speaker = cardSpeaker();
       return { text: current ? suggestionSpeech(speaker, current, candidates) : '', language: speaker.language };
     }
     // The document's text is read in its own script's language (card text keeps the rule above).
-    const at = readCaret() ?? (first ? { text: paraText.get(first.paraId) ?? '', offset: first.span.start } : null);
-    if (!at) return { text: '', language: 'en' };
-    const text = target === 'sentence' ? sentenceAt(at.text, at.offset) : paragraphAt(at.text, at.offset);
+    const text = documentTextFor(target);
     return { text, language: textLanguage(text) };
   };
   readText.current = textFor;
@@ -306,7 +316,7 @@ export function ReviewPanel({ controller, state, onLocate, onShowParagraph, requ
       <div ref={cardSlot} className="card-slot" role="group" tabIndex={-1} aria-label={slotLabel}>
         {current && cardFor(current)}
       </div>
-      {readAloud && <ReadAloudBar readAloud={readAloud} textFor={textFor} keysEnabled={keysEnabled} />}
+      {readAloud && <ReadAloudBar readAloud={readAloud} textFor={textFor} languageFor={languageFor} keysEnabled={keysEnabled} />}
       {!readAloud && noOfflineVoice && (
         <div className="read-aloud" role="group" aria-label={t.t('read.group')}>
           <span className="hint read-aloud-note">{t.t('speech.noOfflineVoice')}</span>

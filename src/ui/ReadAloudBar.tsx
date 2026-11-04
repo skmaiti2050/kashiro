@@ -10,6 +10,8 @@ interface Props {
   readAloud: ReadAloud;
   /** The text to read for each button (the card's sentence or suggestion, or the text at the cursor), and its language. */
   textFor(target: ReadTarget): { text: string; language: string };
+  /** The language `textFor(target)` would give, without building the text. */
+  languageFor(target: ReadTarget): string;
   /** False while a dialog is open. */
   keysEnabled: boolean;
 }
@@ -38,12 +40,12 @@ export function readAloudTarget(readAloud: ReadAloud, uiLanguage: string, textFo
 }
 
 /** "Read: Sentence · Suggestion · Paragraph", with Alt+S / Alt+R / Alt+P from anywhere. */
-export function ReadAloudBar({ readAloud, textFor, keysEnabled }: Props) {
+export function ReadAloudBar({ readAloud, textFor, languageFor, keysEnabled }: Props) {
   const t = useT();
-  const sentenceLanguage = textFor('sentence').language;
+  // Each target's language once per render, for the buttons and the note.
+  const canRead = new Map(BUTTONS.map((b) => [b.target, canReadAloud(readAloud, t.language, b.target, languageFor(b.target))]));
   // The note asks for an English voice, so it shows only for English text.
-  const needsEnglishVoice = sentenceLanguage === 'en' && !readAloud.speaks('en');
-  const canRead = (target: ReadTarget) => canReadAloud(readAloud, t.language, target, textFor(target).language);
+  const needsEnglishVoice = languageFor('sentence') === 'en' && !readAloud.speaks('en');
   const read = (target: ReadTarget) => readAloudTarget(readAloud, t.language, textFor, target);
   const latest = useRef(read);
   useEffect(() => {
@@ -78,7 +80,7 @@ export function ReadAloudBar({ readAloud, textFor, keysEnabled }: Props) {
       {/* Its own wrapping row, so a wrapped button lines up under the first one, not under the label (F21b item 2). */}
       <span className="read-aloud-buttons">
         {BUTTONS.map((b) => (
-          <button key={b.target} className="quiet" aria-keyshortcuts={b.keys} disabled={!canRead(b.target)} onClick={() => read(b.target)}>
+          <button key={b.target} className="quiet" aria-keyshortcuts={b.keys} disabled={!canRead.get(b.target)} onClick={() => read(b.target)}>
             {t.t(b.label)} <Kbd>{b.keys}</Kbd>
           </button>
         ))}
