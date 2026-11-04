@@ -1,27 +1,26 @@
 import { overlapsLocked } from './factLock';
-import { SIMPLE_FIXES_ID, type Decision } from './decisions';
-import { findAlignedParagraphs, isZeroClickChange } from './zeroClick';
-import { editsChangingTokens } from './tokenGuard';
+import type { Decision } from './decisions';
+import { findAlignedParagraphs } from './zeroClick';
 import { checkTermMinRepeats, DEFAULT_TERM_MIN_REPEATS } from './terms';
-import { tierOf, type TierContext } from './tiers';
+import type { TierContext } from './tiers';
 import { EditLedger } from './editLedger';
 import { prepareCheck } from './sessionSetup';
 import { hasLatinLetter, uncheckedPassages, type UncheckedPassage } from './uncheckedScripts';
 import { DEFAULT_DEPTH, type ReviewDepth } from './depth';
 import { countWords } from './words';
 import { DEFAULT_MODULES, type ModuleSwitches } from './modules';
-import { doubledWord, WORD_REWRITE_KINDS } from './wordFlags';
+import { WORD_REWRITE_KINDS } from './wordFlags';
 import { dictionaryAccepts, dictionaryForm, storedForm } from './dictionaryWords';
 import { sentenceWithEdits } from './sentences';
 import type { GuardVerdict } from './llm/guard';
 import { HelperRewrites } from './sessionRewrites';
-import { CARD_ACCEPT_METHODS, countRankedDecisions, decisionMembers, isOnWordCard, rankDecisions, resolveDecision } from './sessionDecisions';
+import { countRankedDecisions, decisionMembers, isOnWordCard, rankDecisions, resolveDecision } from './sessionDecisions';
+import { applyBatch, applyMembers, holdBackUndone, markUnplaceable, newBatchId, rejectDecision, undo, undoBatch } from './sessionEdits';
+import { addCandidates, autoApply, holdBackChangedTokens } from './sessionIntake';
 import type { SessionState } from './sessionState';
 import {
   byPosition,
-  overlaps,
   TRACKED_CHANGE_REASON,
-  UNDONE_BEFORE_REASON,
   type CheckOptions,
   type Edit,
   type LogEntry,
@@ -36,10 +35,6 @@ import type { Candidate, Paragraph, Span, Tier, Variant } from './types';
 export { TRACKED_CHANGE_REASON, type CheckOptions, type Edit, type LogEntry, type Outcome, type SessionDeps, type Status };
 
 export { REWRITE_OUT_OF_DATE } from './sessionRewrites';
-
-/** Why a change made without a click was taken back by the token check (holdBackChangedTokens). */
-const HELD_BACK_REASON = 'held back: it would change a word';
-const RESTORED_INVISIBLE_REASON = 'it would delete an invisible character you restored';
 
 export class CheckSession {
   private readonly s: SessionState;
@@ -105,8 +100,8 @@ export class CheckSession {
         this.s.ledger.record(c.id, 'pending', false);
       },
       withdraw: (id, reason) => this.s.ledger.record(id, 'superseded', false, reason),
-      applyOne: (id) => this.applyMembers(id, [this.s.cands.get(id)!], 0),
-      newBatch: () => `batch-${++this.s.batchCount}`,
+      applyOne: (id) => applyMembers(this.s, id, [this.s.cands.get(id)!], 0),
+      newBatch: () => newBatchId(this.s),
       joinBatch: (id, batchId) => this.s.batchOf.set(id, batchId),
       accept: (id) => this.accept(id),
       reject: (id) => this.reject(id),
@@ -134,9 +129,9 @@ export class CheckSession {
     const setAside = new Set(paras.filter((p) => engineOf(p).id !== 'en').map((p) => p.id));
     session.passages = uncheckedPassages(paras, setAside, ctx.foreignSentences ?? new Map());
     session.latinText = paras.some((p) => !setAside.has(p.id) && hasLatinLetter(p.text));
-    session.addCandidates(found);
-    session.autoApply();
-    session.holdBackChangedTokens();
+    addCandidates(session.s, found);
+    autoApply(session.s);
+    holdBackChangedTokens(session.s);
     return session;
   }
 
@@ -298,7 +293,7 @@ export class CheckSession {
    */
   accept(decisionId: string, replacementIndex = 0): void {
     const { ownerId, members } = this.resolve(decisionId);
-    this.applyMembers(ownerId, members, replacementIndex);
+    applyMembers(this.s, ownerId, members, replacementIndex);
   }
 
   /**
@@ -307,93 +302,16 @@ export class CheckSession {
    * Unchosen members stay pending. Returns the batch id (also on each member's Outcome.batch).
    */
   applyBatch(decisionId: string, candidateIds?: string[], replacementIndex = 0): string {
-    const { ownerId, members } = this.resolve(decisionId);
-    const chosen = (candidateIds ?? members.map((c) => c.id)).map((id) => {
-      const member = members.find((c) => c.id === id);
-      if (!member) throw new Error(`${id} is not part of ${decisionId}`);
-      return member;
-    });
-    if (chosen.length === 0) throw new Error(`choose at least one place of ${decisionId} to apply`);
-    this.applyMembers(ownerId, chosen, replacementIndex);
-    const batchId = `batch-${++this.s.batchCount}`;
-    for (const c of chosen) if (this.s.ledger.status.get(c.id) === 'applied') this.s.batchOf.set(c.id, batchId);
-    return batchId;
+    return applyBatch(this.s, decisionId, candidateIds, replacementIndex);
   }
 
   /** Undoes every edit of an applyBatch that is still applied (applied → rejected, as undo does). */
   undoBatch(batchId: string): void {
-    const ids = [...this.s.batchOf].filter(([, b]) => b === batchId).map(([id]) => id);
-    if (ids.length === 0) throw new Error(`unknown batch ${batchId}`);
-    for (const id of ids) {
-      this.s.batchOf.delete(id);
-      if (this.s.ledger.status.get(id) === 'applied') this.undo(id);
-    }
-  }
-
-  /**
-   * The one place accept and applyBatch apply edits, so both keep the card guard and the same-text check.
-   * `decisionId` is the decision that owns the members (resolve), never one member's own id.
-   */
-  private applyMembers(decisionId: string, members: Candidate[], replacementIndex: number): void {
-    // Replacing names or terms with dictionary words by index would damage them (spec §5).
-    const card = CARD_ACCEPT_METHODS.get(decisionId);
-    if (card) throw new Error(`the ${card.name} is answered with ${card.method}(keepAsTypos), not accept`);
-    for (const c of members) {
-      if (c.replacements[replacementIndex] === undefined) {
-        throw new Error(`candidate ${c.id} has no replacement at index ${replacementIndex}`);
-      }
-    }
-    const texts = new Set(members.map((c) => c.replacements[replacementIndex].toLowerCase()));
-    // Doubled words share one fix, keeping the first copy, whatever the word ("had had", "the the"); the
-    // simple-fixes card lists each place with its own one fix.
-    const allDoubled = members.every((c) => doubledWord(c) !== null);
-    if (texts.size > 1 && !allDoubled && decisionId !== SIMPLE_FIXES_ID) {
-      throw new Error(
-        `${decisionId}: members have different replacements at index ${replacementIndex} (${[...texts].join(' / ')}); accept them one by one`,
-      );
-    }
-    for (const c of members) {
-      if (this.s.ledger.inTrackedChange.has(c.id)) {
-        this.s.ledger.record(c.id, 'pending', false, TRACKED_CHANGE_REASON);
-        continue;
-      }
-      // Never over an edit the user applied, one made a moment ago in this batch included: withdrawCovered takes it out.
-      if (c.source !== 'llm' && this.s.ledger.userEditOver(c)) continue;
-      if (this.coversRestoredInvisible(c)) {
-        this.markUnplaceable(c.id, RESTORED_INVISIBLE_REASON);
-        continue;
-      }
-      this.s.ledger.apply(c, c.replacements[replacementIndex], false);
-    }
-    this.withdrawOutdated();
-  }
-
-  /**
-   * After the text changed: a rule fix inside an edit the user applied leaves the review (and one no longer covered
-   * comes back), and so does a pending AI rewrite of a sentence that now reads differently.
-   */
-  private withdrawOutdated(): void {
-    this.s.ledger.withdrawCovered();
-    this.s.rewrites.withdrawStale();
-  }
-
-  /**
-   * A fix's replacement was made on text without invisible characters, so over one the user kept (undid or
-   * declined its removal) it would delete that character again (#9). Known only after setup, so checked on accept.
-   */
-  private coversRestoredInvisible(c: Candidate): boolean {
-    if (c.kind === 'Invisible') return false;
-    return [...this.s.userRejected].some((id) => {
-      const o = this.s.cands.get(id);
-      return o?.kind === 'Invisible' && o.paraId === c.paraId && c.span.start <= o.span.start && o.span.end <= c.span.end;
-    });
+    undoBatch(this.s, batchId);
   }
 
   reject(decisionId: string): void {
-    for (const c of this.members(decisionId)) {
-      this.s.userRejected.add(c.id);
-      this.s.ledger.record(c.id, 'rejected', false);
-    }
+    rejectDecision(this.s, decisionId);
   }
 
   /** "Ignore all": rejects every member of the decision. */
@@ -496,21 +414,7 @@ export class CheckSession {
 
   /** applied → rejected; rejected (by the user) → pending. */
   undo(candidateId: string): void {
-    const s = this.s.ledger.status.get(candidateId);
-    if (s === 'applied') {
-      this.s.batchOf.delete(candidateId);
-      this.s.ledger.autoApplied.delete(candidateId);
-      this.s.userRejected.add(candidateId);
-      this.s.ledger.record(candidateId, 'rejected', false, 'undone');
-      this.s.ledger.restoreSuperseded(candidateId);
-    } else if (s === 'rejected' && this.s.userRejected.has(candidateId)) {
-      this.s.userRejected.delete(candidateId);
-      this.s.ledger.record(candidateId, 'pending', false);
-    } else {
-      throw new Error(`cannot undo ${candidateId} (${s ?? 'unknown'})`);
-    }
-    // Either way the text, or a rewrite back in review, may no longer match what a pending fix was made for.
-    this.withdrawOutdated();
+    undo(this.s, candidateId);
   }
 
   /**
@@ -519,43 +423,12 @@ export class CheckSession {
    * Anything but an auto-fix still applied is left as it is.
    */
   holdBackUndone(candidateId: string): void {
-    if (this.s.ledger.status.get(candidateId) !== 'applied' || !this.s.ledger.autoApplied.has(candidateId)) return;
-    this.holdBack(candidateId, UNDONE_BEFORE_REASON);
-    this.withdrawOutdated();
+    holdBackUndone(this.s, candidateId);
   }
 
   /** Adds candidates as pending (never auto-applied). Ids already present are ignored. */
   addCandidates(cs: Candidate[]): void {
-    for (const c of cs) {
-      if (this.s.cands.has(c.id)) continue;
-      this.s.cands.set(c.id, c);
-      this.s.tiers.set(c.id, this.sessionTier(c));
-      this.s.ledger.status.set(c.id, 'pending');
-      const adapterLocked = this.s.paras.get(c.paraId)?.locked;
-      if (adapterLocked?.some((s) => overlaps(c.span, s))) {
-        this.s.ledger.inTrackedChange.add(c.id);
-        this.s.ledger.reasons.set(c.id, TRACKED_CHANGE_REASON);
-        if (this.s.tiers.get(c.id) !== 'hidden') this.s.tiers.set(c.id, 'review');
-      }
-    }
-    this.s.ledger.withdrawCovered(); // one added inside an edit the user applied is never offered
-  }
-
-  /**
-   * tierOf, with its 'safe' split in two (owner decision, Task F4): only a zero-click change (isZeroClickChange:
-   * an invisible character, or spaces between words) stays 'safe' and is applied without a click; any other safe
-   * fix is 'batch', for the simple-fixes card. No setting changes this split.
-   */
-  private sessionTier(c: Candidate): Tier {
-    const tier = tierOf(c, this.s.ctx);
-    if (tier !== 'safe') return tier;
-    const p = this.s.paras.get(c.paraId)!;
-    // Maybe-command text is never changed without a click either (Task F21c, review M-24).
-    const untouched = [...(this.s.ctx.locked.get(c.paraId) ?? []), ...(this.s.ctx.maybeCommandSpans?.get(c.paraId) ?? [])];
-    if (isZeroClickChange(c, p, untouched, this.s.alignedParas.has(c.paraId))) return 'safe';
-    // Safe only because the user added its kind in Settings: on the card, but never ticked (owner, 2026-10-25).
-    if (this.s.ctx.userTierOverrides && tierOf(c, { ...this.s.ctx, userTierOverrides: undefined }) !== 'safe') this.s.optedIn.add(c.id);
-    return 'batch';
+    addCandidates(this.s, cs);
   }
 
   /** The helper's answer for a sentence, through the meaning-drift guard; 'stale' when the sentence changed (see HelperRewrites.add). */
@@ -580,51 +453,10 @@ export class CheckSession {
 
   /** The adapter could not write this edit into the document: it leaves the output. */
   markUnplaceable(candidateId: string, reason: string): void {
-    if (!this.s.cands.has(candidateId)) throw new Error(`unknown candidate ${candidateId}`);
-    this.s.unplaceable.set(candidateId, reason);
-    this.s.ledger.record(candidateId, 'rejected', this.s.ledger.autoApplied.has(candidateId), `unplaceable: ${reason}`);
-    this.s.ledger.restoreSuperseded(candidateId);
-    this.withdrawOutdated();
+    markUnplaceable(this.s, candidateId, reason);
   }
 
   // ---- internals -----------------------------------------------------------
-
-  private autoApply(): void {
-    const safe = [...this.s.cands.values()].filter((c) => this.s.tiers.get(c.id) === 'safe').sort(byPosition);
-    for (const c of safe) {
-      if (this.s.ledger.clashing(c).length) {
-        this.s.tiers.set(c.id, 'review');
-        continue;
-      }
-      this.s.ledger.apply(c, c.replacements[0], true);
-    }
-  }
-
-  /**
-   * The backstop after autoApply (Task F4), independent of the tiers: in each paragraph, a change made without a
-   * click that alters a token (keepsTokens) is taken back and offered for review instead.
-   */
-  private holdBackChangedTokens(): void {
-    for (const [paraId, p] of this.s.paras) {
-      const auto = [...this.s.ledger.autoApplied].map((id) => this.s.cands.get(id)!).filter((c) => c.paraId === paraId);
-      if (auto.length === 0) continue;
-      const edits = auto.map((c) => ({ paraId, span: c.span, replacement: this.s.ledger.replacement.get(c.id)! }));
-      for (const i of editsChangingTokens(p.text, edits, this.hygieneRemovable(paraId))) this.holdBack(auto[i].id, HELD_BACK_REASON);
-    }
-  }
-
-  /** A change made without a click goes back to pending, offered for review. */
-  private holdBack(candidateId: string, reason: string): void {
-    this.s.ledger.autoApplied.delete(candidateId);
-    this.s.ledger.record(candidateId, 'pending', false, reason);
-    this.s.tiers.set(candidateId, 'review');
-  }
-
-  /** Offsets in the paragraph of the invisible characters hygiene flagged with a deletion: all the backstop lets go. */
-  private hygieneRemovable(paraId: number): Set<number> {
-    const flagged = [...this.s.cands.values()].filter((c) => c.paraId === paraId && c.source === 'hygiene' && c.replacements[0] === '');
-    return new Set(flagged.map((c) => c.span.start));
-  }
 
   private members(decisionId: string): Candidate[] {
     return decisionMembers(this.s, decisionId);
