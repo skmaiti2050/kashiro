@@ -1,22 +1,13 @@
 import { overlapsLocked } from './factLock';
-import {
-  buildDecisions,
-  foldsUnderMore,
-  NAMES_CARD_ID,
-  OTHER_LANGUAGE_CARD_ID,
-  SIMPLE_FIXES_ID,
-  TERMS_CARD_ID,
-  type Decision,
-} from './decisions';
+import { SIMPLE_FIXES_ID, type Decision } from './decisions';
 import { findAlignedParagraphs, isZeroClickChange } from './zeroClick';
 import { editsChangingTokens } from './tokenGuard';
-import { untickedByDefault } from './defaultTicks';
 import { checkTermMinRepeats, DEFAULT_TERM_MIN_REPEATS } from './terms';
 import { tierOf, type TierContext } from './tiers';
 import { EditLedger } from './editLedger';
 import { prepareCheck } from './sessionSetup';
 import { hasLatinLetter, uncheckedPassages, type UncheckedPassage } from './uncheckedScripts';
-import { DEFAULT_DEPTH, upFrontCount, type ReviewDepth } from './depth';
+import { DEFAULT_DEPTH, type ReviewDepth } from './depth';
 import { countWords } from './words';
 import { DEFAULT_MODULES, type ModuleSwitches } from './modules';
 import { doubledWord, WORD_REWRITE_KINDS } from './wordFlags';
@@ -24,6 +15,8 @@ import { dictionaryAccepts, dictionaryForm, storedForm } from './dictionaryWords
 import { sentenceWithEdits } from './sentences';
 import type { GuardVerdict } from './llm/guard';
 import { HelperRewrites } from './sessionRewrites';
+import { CARD_ACCEPT_METHODS, countRankedDecisions, decisionMembers, isOnWordCard, rankDecisions, resolveDecision } from './sessionDecisions';
+import type { SessionState } from './sessionState';
 import {
   byPosition,
   overlaps,
@@ -48,42 +41,15 @@ export { REWRITE_OUT_OF_DATE } from './sessionRewrites';
 const HELD_BACK_REASON = 'held back: it would change a word';
 const RESTORED_INVISIBLE_REASON = 'it would delete an invisible character you restored';
 
-/** The cards answered by their own method, never by accept: card id → its name and method. */
-const CARD_ACCEPT_METHODS = new Map([
-  [NAMES_CARD_ID, { name: 'names and places card', method: 'acceptNames' }],
-  [TERMS_CARD_ID, { name: 'terms card', method: 'acceptTerms' }],
-  [OTHER_LANGUAGE_CARD_ID, { name: 'words in Indian languages card', method: 'acceptOtherLanguage' }],
-]);
-
 export class CheckSession {
-  private readonly paras = new Map<number, Paragraph>();
+  private readonly s: SessionState;
   private readonly paraNumber = new Map<number, number>();
-  private readonly cands = new Map<string, Candidate>();
-  private readonly tiers = new Map<string, Tier>();
-  private readonly ledger: EditLedger;
-  private readonly userRejected = new Set<string>();
-  private readonly unplaceable = new Map<string, string>();
-  private readonly added: string[] = [];
-  /** Lowercased words the user unticked on a card (names, terms, other languages): real typos, ranked as words. */
-  private readonly typoWords = new Set<string>();
-  /** The LLM helper's sentences and rewrites. */
-  private readonly rewrites: HelperRewrites;
-  /** Candidate id → the applyBatch it was applied by, while it stays applied. */
-  private readonly batchOf = new Map<string, string>();
-  private batchCount = 0;
-  private readonly words: number;
-  /** Simple-fixes card members that are there only because the user added their kind in Settings: never ticked. */
-  private readonly optedIn = new Set<string>();
-  /** One-line paragraphs lined up with their neighbours (findAlignedParagraphs): their spaces are layout. */
-  private readonly alignedParas: Set<number>;
   /** Paragraphs the linter threw on, so their rules weren't checked (Task F21d, review I-4). */
   private unchecked: readonly number[] = [];
   /** Paragraphs mostly in another script, set aside whole (#2a): those whose engine does not proofread. */
   private otherScript: readonly number[] = [];
   /** The engine that checked each paragraph, by paragraph id (#2b). */
   private paragraphEngines = new Map<number, LanguageEngine>();
-  /** Every engine that ran (English always): each learns a word added to the dictionary. */
-  private engines: readonly LanguageEngine[] = [];
   /** The document's one proofreading engine (owner, 2026-11-02: never several at once). */
   private proofreader: LanguageEngine | null = null;
   /** Text inside checked paragraphs that was not really checked (#29), and whether any Latin text was checked. */
@@ -96,38 +62,56 @@ export class CheckSession {
     readonly mixedVariant: boolean,
     /** True when the text's spelling did not choose the variant: it is the fallback ("default", not "detected"). */
     readonly variantFromFallback: boolean,
-    private readonly ctx: TierContext,
+    ctx: TierContext,
     now: () => Date,
-    private reviewDepth: ReviewDepth,
-    private readonly termMinRepeats: number,
+    reviewDepth: ReviewDepth,
+    termMinRepeats: number,
   ) {
-    this.words = paras.reduce((n, p) => n + countWords(p.text), 0);
-    this.alignedParas = findAlignedParagraphs(paras);
-    this.ledger = new EditLedger(this.cands, now);
+    const cands = new Map<string, Candidate>();
+    const state: Omit<SessionState, 'rewrites'> = {
+      paras: new Map<number, Paragraph>(),
+      cands,
+      tiers: new Map<string, Tier>(),
+      ledger: new EditLedger(cands, now),
+      ctx,
+      userRejected: new Set<string>(),
+      unplaceable: new Map<string, string>(),
+      typoWords: new Set<string>(),
+      optedIn: new Set<string>(),
+      alignedParas: findAlignedParagraphs(paras),
+      batchOf: new Map<string, string>(),
+      added: [],
+      words: paras.reduce((n, p) => n + countWords(p.text), 0),
+      termMinRepeats,
+      batchCount: 0,
+      reviewDepth,
+      engines: [],
+    };
     paras.forEach((p, i) => {
-      this.paras.set(p.id, p);
+      state.paras.set(p.id, p);
       this.paraNumber.set(p.id, i + 1);
     });
-    this.rewrites = new HelperRewrites({
-      paragraph: (paraId) => this.paras.get(paraId),
-      sentenceNow: (paraId, span) => sentenceWithEdits(this.paras.get(paraId)!.text, span, this.acceptedEdits().filter((e) => e.paraId === paraId)),
-      candidate: (id) => this.cands.get(id),
-      status: (id) => this.ledger.status.get(id),
-      rejectedByUser: (id) => this.userRejected.has(id),
+    const rewrites = new HelperRewrites({
+      paragraph: (paraId) => this.s.paras.get(paraId),
+      sentenceNow: (paraId, span) => sentenceWithEdits(this.s.paras.get(paraId)!.text, span, this.acceptedEdits().filter((e) => e.paraId === paraId)),
+      candidate: (id) => this.s.cands.get(id),
+      status: (id) => this.s.ledger.status.get(id),
+      rejectedByUser: (id) => this.s.userRejected.has(id),
       addCandidate: (c) => this.addCandidates([c]),
       replaceWithdrawn: (c) => {
-        this.cands.set(c.id, c);
+        this.s.cands.set(c.id, c);
         // The id's earlier life may have been applied: its old text must not show in the outcome or the log.
-        this.ledger.replacement.delete(c.id);
-        this.ledger.record(c.id, 'pending', false);
+        this.s.ledger.replacement.delete(c.id);
+        this.s.ledger.record(c.id, 'pending', false);
       },
-      withdraw: (id, reason) => this.ledger.record(id, 'superseded', false, reason),
-      applyOne: (id) => this.applyMembers(id, [this.cands.get(id)!], 0),
-      newBatch: () => `batch-${++this.batchCount}`,
-      joinBatch: (id, batchId) => this.batchOf.set(id, batchId),
+      withdraw: (id, reason) => this.s.ledger.record(id, 'superseded', false, reason),
+      applyOne: (id) => this.applyMembers(id, [this.s.cands.get(id)!], 0),
+      newBatch: () => `batch-${++this.s.batchCount}`,
+      joinBatch: (id, batchId) => this.s.batchOf.set(id, batchId),
       accept: (id) => this.accept(id),
       reject: (id) => this.reject(id),
     });
+    this.s = { ...state, rewrites };
   }
 
   static async start(paras: Paragraph[], opts: CheckOptions, deps: SessionDeps = {}): Promise<CheckSession> {
@@ -140,7 +124,7 @@ export class CheckSession {
     const session = new CheckSession(paras, variant, mixedVariant, variantFromFallback, ctx, now, depth, termMinRepeats);
     session.unchecked = setup.uncheckedParagraphs;
     session.paragraphEngines = paragraphEngines;
-    session.engines = setup.engines;
+    session.s.engines = setup.engines;
     session.proofreader = setup.proofreader;
     const engineOf = (p: Paragraph) => paragraphEngines.get(p.id)!.capabilities;
     // "Not checked" (#2a) is what no engine proofreads; English's #29 passages below skip every non-English paragraph.
@@ -159,12 +143,12 @@ export class CheckSession {
   // ---- queries -------------------------------------------------------------
 
   candidates(): Candidate[] {
-    return [...this.cands.values()];
+    return [...this.s.cands.values()];
   }
 
   /** The paragraphs as given to start(), in document order. */
   paragraphs(): Paragraph[] {
-    return [...this.paras.values()].map((p) => ({ ...p }));
+    return [...this.s.paras.values()].map((p) => ({ ...p }));
   }
 
   /** The ids of the paragraphs the rules couldn't check (the linter threw on them), in document order. */
@@ -208,106 +192,48 @@ export class CheckSession {
 
   /** True once addRewrite recorded this sentence, whatever the helper answered. */
   sentToHelper(paraId: number, span: Span): boolean {
-    return this.rewrites.sentToHelper(paraId, span);
+    return this.s.rewrites.sentToHelper(paraId, span);
   }
 
   tier(id: string): Tier {
-    const t = this.tiers.get(id);
+    const t = this.s.tiers.get(id);
     if (!t) throw new Error(`unknown candidate ${id}`);
     return t;
   }
 
   decisions(): { top: Decision[]; more: Decision[] } {
-    const pending: Candidate[] = [];
-    const tiers = new Map<string, Tier>();
-    for (const c of this.cands.values()) {
-      if (this.ledger.status.get(c.id) !== 'pending' || this.unplaceable.has(c.id)) continue;
-      const t = this.tiers.get(c.id)!;
-      if (t === 'hidden') continue;
-      pending.push(c);
-      // A safe candidate is only pending after an undo/restore: offer it for review.
-      tiers.set(c.id, t === 'safe' ? 'review' : t);
-    }
-    const { decisions, blocked } = buildDecisions(pending, tiers, {
-      // Candidates on fact-locked spans (names, numbers, quotes…) are demoted: ranked last, never dropped.
-      // Except guarded rewrites: they cover the whole sentence and the guard kept its locked text intact.
-      fold: (c) =>
-        !this.rewrites.isGuarded(c.id) && foldsUnderMore(c, this.ctx.locked.get(c.paraId), this.paras.get(c.paraId)?.text),
-      typoWords: this.typoWords,
-      paraText: this.ctx.paraText,
-      // Inside an existing tracked change: can't be applied, so never in `top`.
-      blocked: (c) => this.ledger.inTrackedChange.has(c.id),
-      termMinRepeats: this.termMinRepeats,
-      foreignSentences: this.ctx.foreignSentences,
-      modules: this.modules,
-      onCommand: (c) => overlapsLocked(c, this.ctx.commandSpans?.get(c.paraId)),
-      untickedOnCard: (fixes) => {
-        const unknownWords = this.spellingFlagSpans();
-        const commandText = new Map<number, Span[]>();
-        return untickedByDefault(fixes, {
-          paraText: this.ctx.paraText ?? new Map(),
-          optedIn: (c) => this.optedIn.has(c.id),
-          commandText: (paraId) => {
-            let spans = commandText.get(paraId);
-            if (spans === undefined) {
-              spans = [...(this.ctx.commandSpans?.get(paraId) ?? []), ...(this.ctx.maybeCommandSpans?.get(paraId) ?? [])];
-              commandText.set(paraId, spans);
-            }
-            return spans;
-          },
-          unknownWords: (paraId) => unknownWords.get(paraId) ?? [],
-        });
-      },
-    });
-    const topSize = upFrontCount(this.reviewDepth, this.words);
-    return { top: decisions.slice(0, topSize), more: [...decisions.slice(topSize), ...blocked] };
-  }
-
-  /**
-   * paraId → the spans of every spelling flag, whatever its status (a word the user rejected or fixed is still no
-   * known word): a line starting with one is never joined to the prose above it (Task F24, clearProse.ts).
-   */
-  private spellingFlagSpans(): Map<number, Span[]> {
-    const out = new Map<number, Span[]>();
-    for (const c of this.cands.values()) {
-      if (c.kind !== 'Spelling') continue;
-      const spans = out.get(c.paraId);
-      if (spans) spans.push(c.span);
-      else out.set(c.paraId, [c.span]);
-    }
-    return out;
+    return rankDecisions(this.s);
   }
 
   get depth(): ReviewDepth {
-    return this.reviewDepth;
+    return this.s.reviewDepth;
   }
 
   /** The optional modules this check ran with. */
   get modules(): ModuleSwitches {
-    return { ...(this.ctx.modules ?? DEFAULT_MODULES) };
+    return { ...(this.s.ctx.modules ?? DEFAULT_MODULES) };
   }
 
   /** Changes how many decisions show up front. Statuses and tiers are untouched. */
   setDepth(depth: ReviewDepth): void {
-    this.reviewDepth = depth;
+    this.s.reviewDepth = depth;
   }
 
   /** True when the candidate overlaps a fact-locked span or an adapter-locked (tracked change) span. */
   touchesLocked(candidateId: string): boolean {
-    const c = this.cands.get(candidateId);
+    const c = this.s.cands.get(candidateId);
     if (!c) throw new Error(`unknown candidate ${candidateId}`);
-    return this.ledger.inTrackedChange.has(c.id) || overlapsLocked(c, this.ctx.locked.get(c.paraId));
+    return this.s.ledger.inTrackedChange.has(c.id) || overlapsLocked(c, this.s.ctx.locked.get(c.paraId));
   }
 
   /** True when the candidate is pending on the names, terms or Indian-language card: answered with that card's method, never accept. */
   onWordCard(candidateId: string): boolean {
-    const { top, more } = this.decisions();
-    return [...top, ...more].some((d) => CARD_ACCEPT_METHODS.has(d.id) && d.candidateIds.includes(candidateId));
+    return isOnWordCard(this.s, candidateId);
   }
 
   /** For an edit the user applied and a later edit (an AI rewrite) superseded: that edit's id, while it stays applied. */
   appliedOver(candidateId: string): string | undefined {
-    return this.ledger.appliedOver(candidateId);
+    return this.s.ledger.appliedOver(candidateId);
   }
 
   /** Decisions in the default view (spec §10): the top of the ranking, sized by the review depth. */
@@ -321,26 +247,24 @@ export class CheckSession {
    * so a long tail under "more" cannot pass by being capped out of view.
    */
   rankedDecisionCount(): number {
-    const { top, more } = this.decisions();
-    // The names card may hold tracked-change names too; it is blocked only when all of it is.
-    return top.length + more.filter((d) => !d.candidateIds.every((id) => this.ledger.inTrackedChange.has(id))).length;
+    return countRankedDecisions(this.s);
   }
 
   log(): LogEntry[] {
-    return this.ledger.log();
+    return this.s.ledger.log();
   }
 
   acceptedEdits(): Edit[] {
     const out: Edit[] = [];
-    for (const c of this.cands.values()) {
-      if (this.ledger.status.get(c.id) !== 'applied') continue;
-      out.push({ paraId: c.paraId, span: { ...c.span }, replacement: this.ledger.replacement.get(c.id)! });
+    for (const c of this.s.cands.values()) {
+      if (this.s.ledger.status.get(c.id) !== 'applied') continue;
+      out.push({ paraId: c.paraId, span: { ...c.span }, replacement: this.s.ledger.replacement.get(c.id)! });
     }
     return out.sort(byPosition);
   }
 
   outputText(paraId: number): string {
-    const p = this.paras.get(paraId);
+    const p = this.s.paras.get(paraId);
     if (!p) throw new Error(`unknown paragraph ${paraId}`);
     let text = p.text;
     const edits = this.acceptedEdits().filter((e) => e.paraId === paraId);
@@ -353,15 +277,15 @@ export class CheckSession {
 
   /** Final state of every candidate, in document order. */
   outcomes(): Outcome[] {
-    return [...this.cands.values()].sort(byPosition).map((c) => ({
+    return [...this.s.cands.values()].sort(byPosition).map((c) => ({
       candidate: c,
       paragraphNumber: this.paraNumber.get(c.paraId) ?? c.paraId + 1,
-      status: this.ledger.status.get(c.id)!,
-      auto: this.ledger.autoApplied.has(c.id),
-      replacement: this.ledger.replacement.get(c.id) ?? c.replacements[0],
-      reason: this.ledger.reasons.get(c.id),
-      unplaceable: this.unplaceable.get(c.id),
-      batch: this.ledger.status.get(c.id) === 'applied' ? this.batchOf.get(c.id) : undefined,
+      status: this.s.ledger.status.get(c.id)!,
+      auto: this.s.ledger.autoApplied.has(c.id),
+      replacement: this.s.ledger.replacement.get(c.id) ?? c.replacements[0],
+      reason: this.s.ledger.reasons.get(c.id),
+      unplaceable: this.s.unplaceable.get(c.id),
+      batch: this.s.ledger.status.get(c.id) === 'applied' ? this.s.batchOf.get(c.id) : undefined,
     }));
   }
 
@@ -391,18 +315,18 @@ export class CheckSession {
     });
     if (chosen.length === 0) throw new Error(`choose at least one place of ${decisionId} to apply`);
     this.applyMembers(ownerId, chosen, replacementIndex);
-    const batchId = `batch-${++this.batchCount}`;
-    for (const c of chosen) if (this.ledger.status.get(c.id) === 'applied') this.batchOf.set(c.id, batchId);
+    const batchId = `batch-${++this.s.batchCount}`;
+    for (const c of chosen) if (this.s.ledger.status.get(c.id) === 'applied') this.s.batchOf.set(c.id, batchId);
     return batchId;
   }
 
   /** Undoes every edit of an applyBatch that is still applied (applied → rejected, as undo does). */
   undoBatch(batchId: string): void {
-    const ids = [...this.batchOf].filter(([, b]) => b === batchId).map(([id]) => id);
+    const ids = [...this.s.batchOf].filter(([, b]) => b === batchId).map(([id]) => id);
     if (ids.length === 0) throw new Error(`unknown batch ${batchId}`);
     for (const id of ids) {
-      this.batchOf.delete(id);
-      if (this.ledger.status.get(id) === 'applied') this.undo(id);
+      this.s.batchOf.delete(id);
+      if (this.s.ledger.status.get(id) === 'applied') this.undo(id);
     }
   }
 
@@ -429,17 +353,17 @@ export class CheckSession {
       );
     }
     for (const c of members) {
-      if (this.ledger.inTrackedChange.has(c.id)) {
-        this.ledger.record(c.id, 'pending', false, TRACKED_CHANGE_REASON);
+      if (this.s.ledger.inTrackedChange.has(c.id)) {
+        this.s.ledger.record(c.id, 'pending', false, TRACKED_CHANGE_REASON);
         continue;
       }
       // Never over an edit the user applied, one made a moment ago in this batch included: withdrawCovered takes it out.
-      if (c.source !== 'llm' && this.ledger.userEditOver(c)) continue;
+      if (c.source !== 'llm' && this.s.ledger.userEditOver(c)) continue;
       if (this.coversRestoredInvisible(c)) {
         this.markUnplaceable(c.id, RESTORED_INVISIBLE_REASON);
         continue;
       }
-      this.ledger.apply(c, c.replacements[replacementIndex], false);
+      this.s.ledger.apply(c, c.replacements[replacementIndex], false);
     }
     this.withdrawOutdated();
   }
@@ -449,8 +373,8 @@ export class CheckSession {
    * comes back), and so does a pending AI rewrite of a sentence that now reads differently.
    */
   private withdrawOutdated(): void {
-    this.ledger.withdrawCovered();
-    this.rewrites.withdrawStale();
+    this.s.ledger.withdrawCovered();
+    this.s.rewrites.withdrawStale();
   }
 
   /**
@@ -459,16 +383,16 @@ export class CheckSession {
    */
   private coversRestoredInvisible(c: Candidate): boolean {
     if (c.kind === 'Invisible') return false;
-    return [...this.userRejected].some((id) => {
-      const o = this.cands.get(id);
+    return [...this.s.userRejected].some((id) => {
+      const o = this.s.cands.get(id);
       return o?.kind === 'Invisible' && o.paraId === c.paraId && c.span.start <= o.span.start && o.span.end <= c.span.end;
     });
   }
 
   reject(decisionId: string): void {
     for (const c of this.members(decisionId)) {
-      this.userRejected.add(c.id);
-      this.ledger.record(c.id, 'rejected', false);
+      this.s.userRejected.add(c.id);
+      this.s.ledger.record(c.id, 'rejected', false);
     }
   }
 
@@ -529,11 +453,11 @@ export class CheckSession {
     const typos = new Set([...keepAsTypos, ...alsoTypos(card)].map((w) => w.toLowerCase()));
     const spellings = new Map<string, string[]>(); // lowercased → every spelling on the card, in order
     for (const id of card.candidateIds) {
-      const original = this.cands.get(id)!.original;
+      const original = this.s.cands.get(id)!.original;
       spellings.set(original.toLowerCase(), [...(spellings.get(original.toLowerCase()) ?? []), original]);
     }
     for (const [lower, written] of spellings) {
-      if (typos.has(lower)) this.typoWords.add(lower);
+      if (typos.has(lower)) this.s.typoWords.add(lower);
       else await this.addWord(dictionaryForm(written));
     }
   }
@@ -547,16 +471,16 @@ export class CheckSession {
    */
   private async addWord(written: string): Promise<void> {
     const word = storedForm(written); // "Cutover" is stored as "cutover" (Task F29)
-    for (const engine of this.engines) await engine.addWords([word]);
-    this.added.push(word);
+    for (const engine of this.s.engines) await engine.addWords([word]);
+    this.s.added.push(word);
     const reason = `"${word}" added to dictionary`;
-    for (const c of this.cands.values()) {
+    for (const c of this.s.cands.values()) {
       if (!WORD_REWRITE_KINDS.has(c.kind) || !dictionaryAccepts(word, c.original)) continue;
-      const status = this.ledger.status.get(c.id);
-      if (status === 'applied' && !this.ledger.autoApplied.has(c.id)) this.undo(c.id);
-      else if (status !== 'pending' && !this.ledger.isCovered(c.id) && this.ledger.appliedOver(c.id) === undefined) continue;
-      this.userRejected.add(c.id);
-      this.ledger.record(c.id, 'rejected', false, reason);
+      const status = this.s.ledger.status.get(c.id);
+      if (status === 'applied' && !this.s.ledger.autoApplied.has(c.id)) this.undo(c.id);
+      else if (status !== 'pending' && !this.s.ledger.isCovered(c.id) && this.s.ledger.appliedOver(c.id) === undefined) continue;
+      this.s.userRejected.add(c.id);
+      this.s.ledger.record(c.id, 'rejected', false, reason);
     }
   }
 
@@ -567,21 +491,21 @@ export class CheckSession {
 
   /** Words added with addToDictionary, addTypedWord or by accepting a card, in order. */
   addedWords(): string[] {
-    return [...this.added];
+    return [...this.s.added];
   }
 
   /** applied → rejected; rejected (by the user) → pending. */
   undo(candidateId: string): void {
-    const s = this.ledger.status.get(candidateId);
+    const s = this.s.ledger.status.get(candidateId);
     if (s === 'applied') {
-      this.batchOf.delete(candidateId);
-      this.ledger.autoApplied.delete(candidateId);
-      this.userRejected.add(candidateId);
-      this.ledger.record(candidateId, 'rejected', false, 'undone');
-      this.ledger.restoreSuperseded(candidateId);
-    } else if (s === 'rejected' && this.userRejected.has(candidateId)) {
-      this.userRejected.delete(candidateId);
-      this.ledger.record(candidateId, 'pending', false);
+      this.s.batchOf.delete(candidateId);
+      this.s.ledger.autoApplied.delete(candidateId);
+      this.s.userRejected.add(candidateId);
+      this.s.ledger.record(candidateId, 'rejected', false, 'undone');
+      this.s.ledger.restoreSuperseded(candidateId);
+    } else if (s === 'rejected' && this.s.userRejected.has(candidateId)) {
+      this.s.userRejected.delete(candidateId);
+      this.s.ledger.record(candidateId, 'pending', false);
     } else {
       throw new Error(`cannot undo ${candidateId} (${s ?? 'unknown'})`);
     }
@@ -595,7 +519,7 @@ export class CheckSession {
    * Anything but an auto-fix still applied is left as it is.
    */
   holdBackUndone(candidateId: string): void {
-    if (this.ledger.status.get(candidateId) !== 'applied' || !this.ledger.autoApplied.has(candidateId)) return;
+    if (this.s.ledger.status.get(candidateId) !== 'applied' || !this.s.ledger.autoApplied.has(candidateId)) return;
     this.holdBack(candidateId, UNDONE_BEFORE_REASON);
     this.withdrawOutdated();
   }
@@ -603,18 +527,18 @@ export class CheckSession {
   /** Adds candidates as pending (never auto-applied). Ids already present are ignored. */
   addCandidates(cs: Candidate[]): void {
     for (const c of cs) {
-      if (this.cands.has(c.id)) continue;
-      this.cands.set(c.id, c);
-      this.tiers.set(c.id, this.sessionTier(c));
-      this.ledger.status.set(c.id, 'pending');
-      const adapterLocked = this.paras.get(c.paraId)?.locked;
+      if (this.s.cands.has(c.id)) continue;
+      this.s.cands.set(c.id, c);
+      this.s.tiers.set(c.id, this.sessionTier(c));
+      this.s.ledger.status.set(c.id, 'pending');
+      const adapterLocked = this.s.paras.get(c.paraId)?.locked;
       if (adapterLocked?.some((s) => overlaps(c.span, s))) {
-        this.ledger.inTrackedChange.add(c.id);
-        this.ledger.reasons.set(c.id, TRACKED_CHANGE_REASON);
-        if (this.tiers.get(c.id) !== 'hidden') this.tiers.set(c.id, 'review');
+        this.s.ledger.inTrackedChange.add(c.id);
+        this.s.ledger.reasons.set(c.id, TRACKED_CHANGE_REASON);
+        if (this.s.tiers.get(c.id) !== 'hidden') this.s.tiers.set(c.id, 'review');
       }
     }
-    this.ledger.withdrawCovered(); // one added inside an edit the user applied is never offered
+    this.s.ledger.withdrawCovered(); // one added inside an edit the user applied is never offered
   }
 
   /**
@@ -623,56 +547,56 @@ export class CheckSession {
    * fix is 'batch', for the simple-fixes card. No setting changes this split.
    */
   private sessionTier(c: Candidate): Tier {
-    const tier = tierOf(c, this.ctx);
+    const tier = tierOf(c, this.s.ctx);
     if (tier !== 'safe') return tier;
-    const p = this.paras.get(c.paraId)!;
+    const p = this.s.paras.get(c.paraId)!;
     // Maybe-command text is never changed without a click either (Task F21c, review M-24).
-    const untouched = [...(this.ctx.locked.get(c.paraId) ?? []), ...(this.ctx.maybeCommandSpans?.get(c.paraId) ?? [])];
-    if (isZeroClickChange(c, p, untouched, this.alignedParas.has(c.paraId))) return 'safe';
+    const untouched = [...(this.s.ctx.locked.get(c.paraId) ?? []), ...(this.s.ctx.maybeCommandSpans?.get(c.paraId) ?? [])];
+    if (isZeroClickChange(c, p, untouched, this.s.alignedParas.has(c.paraId))) return 'safe';
     // Safe only because the user added its kind in Settings: on the card, but never ticked (owner, 2026-10-25).
-    if (this.ctx.userTierOverrides && tierOf(c, { ...this.ctx, userTierOverrides: undefined }) !== 'safe') this.optedIn.add(c.id);
+    if (this.s.ctx.userTierOverrides && tierOf(c, { ...this.s.ctx, userTierOverrides: undefined }) !== 'safe') this.s.optedIn.add(c.id);
     return 'batch';
   }
 
   /** The helper's answer for a sentence, through the meaning-drift guard; 'stale' when the sentence changed (see HelperRewrites.add). */
   addRewrite(paraId: number, span: Span, rewrite: string | null, sentText?: string): GuardVerdict | 'stale' | null {
-    return this.rewrites.add(paraId, span, rewrite, sentText);
+    return this.s.rewrites.add(paraId, span, rewrite, sentText);
   }
 
   /** "Accept all helper suggestions", one undo step (see HelperRewrites.applyAll). Returns the batch id. */
   applyRewrites(candidateIds: string[]): string {
-    return this.rewrites.applyAll(candidateIds);
+    return this.s.rewrites.applyAll(candidateIds);
   }
 
   /** After a re-check: the AI answers on unchanged paragraphs come back (see HelperRewrites.carryFrom). Old id → new id. */
   carryRewritesFrom(before: CheckSession, unchanged: Map<number, number>): Map<string, string> {
-    return this.rewrites.carryFrom(before.rewrites, unchanged);
+    return this.s.rewrites.carryFrom(before.s.rewrites, unchanged);
   }
 
   /** Applied AI rewrites the re-check could not carry (old ids), so the caller can say so (#39). */
   droppedAppliedRewrites(): readonly string[] {
-    return this.rewrites.droppedAppliedRewrites();
+    return this.s.rewrites.droppedAppliedRewrites();
   }
 
   /** The adapter could not write this edit into the document: it leaves the output. */
   markUnplaceable(candidateId: string, reason: string): void {
-    if (!this.cands.has(candidateId)) throw new Error(`unknown candidate ${candidateId}`);
-    this.unplaceable.set(candidateId, reason);
-    this.ledger.record(candidateId, 'rejected', this.ledger.autoApplied.has(candidateId), `unplaceable: ${reason}`);
-    this.ledger.restoreSuperseded(candidateId);
+    if (!this.s.cands.has(candidateId)) throw new Error(`unknown candidate ${candidateId}`);
+    this.s.unplaceable.set(candidateId, reason);
+    this.s.ledger.record(candidateId, 'rejected', this.s.ledger.autoApplied.has(candidateId), `unplaceable: ${reason}`);
+    this.s.ledger.restoreSuperseded(candidateId);
     this.withdrawOutdated();
   }
 
   // ---- internals -----------------------------------------------------------
 
   private autoApply(): void {
-    const safe = [...this.cands.values()].filter((c) => this.tiers.get(c.id) === 'safe').sort(byPosition);
+    const safe = [...this.s.cands.values()].filter((c) => this.s.tiers.get(c.id) === 'safe').sort(byPosition);
     for (const c of safe) {
-      if (this.ledger.clashing(c).length) {
-        this.tiers.set(c.id, 'review');
+      if (this.s.ledger.clashing(c).length) {
+        this.s.tiers.set(c.id, 'review');
         continue;
       }
-      this.ledger.apply(c, c.replacements[0], true);
+      this.s.ledger.apply(c, c.replacements[0], true);
     }
   }
 
@@ -681,29 +605,29 @@ export class CheckSession {
    * click that alters a token (keepsTokens) is taken back and offered for review instead.
    */
   private holdBackChangedTokens(): void {
-    for (const [paraId, p] of this.paras) {
-      const auto = [...this.ledger.autoApplied].map((id) => this.cands.get(id)!).filter((c) => c.paraId === paraId);
+    for (const [paraId, p] of this.s.paras) {
+      const auto = [...this.s.ledger.autoApplied].map((id) => this.s.cands.get(id)!).filter((c) => c.paraId === paraId);
       if (auto.length === 0) continue;
-      const edits = auto.map((c) => ({ paraId, span: c.span, replacement: this.ledger.replacement.get(c.id)! }));
+      const edits = auto.map((c) => ({ paraId, span: c.span, replacement: this.s.ledger.replacement.get(c.id)! }));
       for (const i of editsChangingTokens(p.text, edits, this.hygieneRemovable(paraId))) this.holdBack(auto[i].id, HELD_BACK_REASON);
     }
   }
 
   /** A change made without a click goes back to pending, offered for review. */
   private holdBack(candidateId: string, reason: string): void {
-    this.ledger.autoApplied.delete(candidateId);
-    this.ledger.record(candidateId, 'pending', false, reason);
-    this.tiers.set(candidateId, 'review');
+    this.s.ledger.autoApplied.delete(candidateId);
+    this.s.ledger.record(candidateId, 'pending', false, reason);
+    this.s.tiers.set(candidateId, 'review');
   }
 
   /** Offsets in the paragraph of the invisible characters hygiene flagged with a deletion: all the backstop lets go. */
   private hygieneRemovable(paraId: number): Set<number> {
-    const flagged = [...this.cands.values()].filter((c) => c.paraId === paraId && c.source === 'hygiene' && c.replacements[0] === '');
+    const flagged = [...this.s.cands.values()].filter((c) => c.paraId === paraId && c.source === 'hygiene' && c.replacements[0] === '');
     return new Set(flagged.map((c) => c.span.start));
   }
 
   private members(decisionId: string): Candidate[] {
-    return this.resolve(decisionId).members;
+    return decisionMembers(this.s, decisionId);
   }
 
   /**
@@ -711,14 +635,6 @@ export class CheckSession {
    * holds it as `ownerId`, so accepting one member of a card still meets the card's guard (review #4, C2).
    */
   private resolve(id: string): { ownerId: string; members: Candidate[] } {
-    const { top, more } = this.decisions();
-    const all = [...top, ...more];
-    const d = all.find((x) => x.id === id);
-    if (d) return { ownerId: d.id, members: d.candidateIds.map((m) => this.cands.get(m)!) };
-    const c = this.cands.get(id);
-    if (c && this.ledger.status.get(c.id) === 'pending') {
-      return { ownerId: all.find((x) => x.candidateIds.includes(id))?.id ?? id, members: [c] };
-    }
-    throw new Error(`unknown or already decided: ${id}`);
+    return resolveDecision(this.s, id);
   }
 }
