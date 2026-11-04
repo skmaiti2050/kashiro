@@ -110,6 +110,17 @@ describe('routing paragraphs to engines', () => {
     expect(s.uncheckedPassages()).toEqual([{ paraId: 0, span: { start, end: start + 'Kashiro'.length }, kind: 'otherScript' }]);
   });
 
+  it('URLs, email addresses and HTML tags in a checked Hindi paragraph are not passages; a Latin word still is', async () => {
+    const { engine } = fakeDevanagari();
+    // Enough Hindi that the paragraph stays mostly Devanagari, so the fake engine checks it.
+    const text =
+      'कृपया पूरा विवरण https://example.com पर देखें या अपने सभी प्रश्न mail@example.com पर लिखें।<br>यह <b>Kashiro</b> का छोटा सा परीक्षण है';
+    const s = await CheckSession.start(paragraphs([text, HINDI, HINDI]), opts, withDevanagari(engine));
+    expect(s.engineOf(0)?.id).toBe('fake-hi');
+    const start = text.indexOf('Kashiro');
+    expect(s.uncheckedPassages()).toEqual([{ paraId: 0, span: { start, end: start + 'Kashiro'.length }, kind: 'otherScript' }]);
+  });
+
   it('a Hindi document with one English paragraph is not mostly unchecked', async () => {
     const { engine } = fakeDevanagari();
     const s = await CheckSession.start(paragraphs(MOSTLY_HINDI), opts, withDevanagari(engine));

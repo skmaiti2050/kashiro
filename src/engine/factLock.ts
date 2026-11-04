@@ -15,12 +15,16 @@ export const CODE_AND_MATH_PATTERNS: readonly RegExp[] = [
   /\\[A-Za-z]+\*?(?:\[[^\]\n]*\])*(?:\{[^{}\n]*\})*/g,
 ];
 
+/**
+ * URLs and emails: "https://example.com", "www.example.com", "mail@example.com". A URL's trailing punctuation is
+ * trimmed where it is locked. An email starts where its run of name characters does, so a long token without "@" is
+ * read once, not once per character (Task F21d). Shared so #29 can cut them from not-checked passages.
+ */
+export const URL_AND_EMAIL_PATTERNS: readonly RegExp[] = [/(?:https?:\/\/|www\.)[^\s<>"”]+/g, /(?<![\w.+-])[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g];
+
 const PATTERNS: RegExp[] = [
   ...CODE_AND_MATH_PATTERNS,
-  // URLs and emails (trailing punctuation trimmed below). An email starts where its run of name characters does, so a
-  // long token without "@" is read once, not once per character (Task F21d).
-  /(?:https?:\/\/|www\.)[^\s<>"”]+/g,
-  /(?<![\w.+-])[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g,
+  ...URL_AND_EMAIL_PATTERNS,
   // quotes
   /"[^"\n]+"/g,
   /“[^”\n]+”/g,

@@ -1,4 +1,4 @@
-import { CODE_AND_MATH_PATTERNS } from './factLock';
+import { CODE_AND_MATH_PATTERNS, URL_AND_EMAIL_PATTERNS } from './factLock';
 import { countWords } from './otherLanguage';
 import type { Paragraph, Span } from './types';
 
@@ -91,13 +91,17 @@ const FENCED_CODE = /^ {0,3}(`{3,}|~{3,})[^\n]*\n[\s\S]*?(?:\n {0,3}\1[`~]*[ \t]
 /** LaTeX's own brackets, which factLock does not lock: "\(x\)", "\[x\]". */
 const LATEX_BRACKETS = /\\\([\s\S]+?\\\)|\\\[[\s\S]+?\\\]/g;
 
+/** An HTML or XML tag, opening, closing or empty: "<br>", "</b>", "<a href=\"x\">", "<br/>". */
+const HTML_TAG = /<\/?[A-Za-z][\w:-]*(?:\s[^<>\n]*)?\/?>/g;
+
 /**
- * Code and math in `text` (factLock's code/math locks plus fenced blocks and \(..\) \[..\]), which are not language.
- * Quoted text is locked too but is deliberately not here: a Hindi quote in English is what #29 marks.
- * factLock locks no HTML or MathML tags, so there is nothing of those to add.
+ * What in `text` is not language: code and math (factLock's code/math locks plus fenced blocks and \(..\) \[..\]),
+ * URLs, email addresses and HTML tags. In English those are Latin text and never passages anyway; with another
+ * proofread script they would be. Quoted text is locked too but is deliberately not here: a Hindi quote in English
+ * is what #29 marks.
  */
-function codeAndMathSpans(text: string): Span[] {
-  return [...CODE_AND_MATH_PATTERNS, FENCED_CODE, LATEX_BRACKETS].flatMap((re) =>
+function notLanguageSpans(text: string): Span[] {
+  return [...CODE_AND_MATH_PATTERNS, FENCED_CODE, LATEX_BRACKETS, ...URL_AND_EMAIL_PATTERNS, HTML_TAG].flatMap((re) =>
     [...text.matchAll(re)].map((m) => ({ start: m.index, end: m.index + m[0].length })),
   );
 }
@@ -152,8 +156,8 @@ export function uncheckedPassages(
         (s) => countWords(p.text.slice(s.start, s.end)) >= MIN_REPORTED_FOREIGN_WORDS,
       );
       // A foreign sentence covers the runs inside it; what a run has outside it is still reported, so passages never overlap.
-      // Code and math are cut out too: they are not language.
-      const cuts = [...sentences, ...codeAndMathSpans(p.text)].sort((a, b) => a.start - b.start);
+      // Code, math, URLs, emails and tags are cut out too: they are not language.
+      const cuts = [...sentences, ...notLanguageSpans(p.text)].sort((a, b) => a.start - b.start);
       const runs = otherScriptPassages(p.text, ownScript).flatMap((r) => outsideCuts(p.text, r, cuts, ownScript));
       return [
         ...runs.map((span) => ({ paraId: p.id, span, kind: 'otherScript' as const })),
