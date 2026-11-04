@@ -5,8 +5,8 @@ import type { Paragraph, Span } from './types';
 /** A letter of the script the checker reads (English): "a", "é". */
 const LATIN_LETTER = /\p{Script=Latin}/gu;
 
-/** The script English is written in, and so the default one checked. */
-const DEFAULT_SCRIPT = 'Latin';
+/** The Unicode script English is written in: the proofread script of every document no other engine proofreads. */
+export const ENGLISH_SCRIPT = 'Latin';
 
 /** A letter or sign of the Unicode script `script` ('Devanagari': "क", "ि"); a name Unicode doesn't know is an error. */
 function buildScriptLetter(script: string, flags: string): RegExp {
@@ -80,7 +80,7 @@ const SINGLE_NOTATION_LETTER = /^[\p{Script=Greek}\p{Script=Cyrillic}]\p{M}*$/u;
  * The runs of words in `text` outside `ownScript` (the proofread script), in order, end-exclusive. Letters with accents
  * (José, Müller), digits, punctuation, emoji and a lone Greek or Cyrillic letter are never passages.
  */
-export function otherScriptPassages(text: string, ownScript = DEFAULT_SCRIPT): Span[] {
+export function otherScriptPassages(text: string, ownScript = ENGLISH_SCRIPT): Span[] {
   return [...text.matchAll(otherScriptOf(ownScript).run)]
     .filter((m) => !SINGLE_NOTATION_LETTER.test(m[0]))
     .map((m) => ({ start: m.index, end: m.index + m[0].length }));
@@ -109,11 +109,6 @@ function notLanguageSpans(text: string): Span[] {
 /** True when `text` has a letter of the Unicode script `script` ("Latin", "Devanagari"). */
 export function hasLetterOf(text: string, script: string): boolean {
   return anyScriptLetter(script).test(text);
-}
-
-/** True when `text` has any Latin letter: some English (or at least Latin-script) text was there to check. */
-export function hasLatinLetter(text: string): boolean {
-  return hasLetterOf(text, DEFAULT_SCRIPT);
 }
 
 /** The other-script runs left in `run` once `cuts` (sorted by start, may overlap) are cut out, trimmed of separators. */
@@ -147,7 +142,7 @@ export function uncheckedPassages(
   paras: readonly Paragraph[],
   setAside: ReadonlySet<number>,
   foreignSentences: ReadonlyMap<number, Span[]>,
-  ownScript = DEFAULT_SCRIPT,
+  ownScript = ENGLISH_SCRIPT,
 ): UncheckedPassage[] {
   return paras
     .filter((p) => !setAside.has(p.id))
@@ -170,7 +165,7 @@ const count = (text: string, letters: RegExp) => text.match(letters)?.length ?? 
 
 /** The ids of the paragraphs whose letters are mostly not Latin: the check sets them aside (#2a), in document order. */
 export function otherScriptParagraphIds(paras: readonly Paragraph[]): number[] {
-  return paras.filter((p) => count(p.text, otherScriptOf(DEFAULT_SCRIPT).letter) > count(p.text, LATIN_LETTER)).map((p) => p.id);
+  return paras.filter((p) => count(p.text, otherScriptOf(ENGLISH_SCRIPT).letter) > count(p.text, LATIN_LETTER)).map((p) => p.id);
 }
 
 /**
@@ -179,7 +174,7 @@ export function otherScriptParagraphIds(paras: readonly Paragraph[]): number[] {
  * when unlisted scripts outweigh it, so a mixed paragraph never goes to an engine for a script it is mostly not in.
  */
 export function dominantScript(text: string, scripts: Iterable<string>): string | undefined {
-  const letters = count(text, otherScriptOf(DEFAULT_SCRIPT).letter);
+  const letters = count(text, otherScriptOf(ENGLISH_SCRIPT).letter);
   let best: string | undefined;
   let bestCount = 0;
   let listed = 0;

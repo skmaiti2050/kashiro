@@ -3,12 +3,9 @@ import { findLockedText } from './lockedText';
 import { notCheckedEngine } from './notCheckedEngine';
 import type { EngineResult, LanguageEngine } from './languageEngine';
 import { byPosition, type CheckOptions, type SessionDeps } from './sessionTypes';
-import { dominantScript, majorityScript, otherScriptParagraphIds } from './uncheckedScripts';
+import { ENGLISH_SCRIPT, dominantScript, majorityScript, otherScriptParagraphIds } from './uncheckedScripts';
 import type { TierContext } from './tiers';
 import type { Paragraph } from './types';
-
-/** The Unicode script English is written in: the proofread script of every document no other engine proofreads. */
-const ENGLISH_SCRIPT = 'Latin';
 
 /**
  * One proofreading engine per document (owner, 2026-11-02): the engine registered for the script most of the

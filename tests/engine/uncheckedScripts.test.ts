@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   otherScriptParagraphIds,
   otherScriptPassages,
-  hasLatinLetter,
+  hasLetterOf,
+  ENGLISH_SCRIPT,
   uncheckedPassages,
   dominantScript,
   majorityScript,
@@ -172,11 +173,11 @@ describe('notation and code/math are not passages (#29 owner ruling)', () => {
   });
 });
 
-describe('hasLatinLetter', () => {
+describe('hasLetterOf with the English script', () => {
   it('is false for emoji, digits and punctuation, true for a Latin word', () => {
-    expect(hasLatinLetter('🎉 2024 !?')).toBe(false);
-    expect(hasLatinLetter('🎉 ok')).toBe(true);
-    expect(hasLatinLetter('José')).toBe(true);
+    expect(hasLetterOf('🎉 2024 !?', ENGLISH_SCRIPT)).toBe(false);
+    expect(hasLetterOf('🎉 ok', ENGLISH_SCRIPT)).toBe(true);
+    expect(hasLetterOf('José', ENGLISH_SCRIPT)).toBe(true);
   });
 });
 

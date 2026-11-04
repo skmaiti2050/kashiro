@@ -130,7 +130,7 @@ export class CheckSession {
     const { proofreaderScript } = setup;
     const setAside = new Set(paras.filter((p) => engineOf(p).id !== session.proofreader!.capabilities.id).map((p) => p.id));
     // Foreign sentences were found in setup, by English only: for any other script there are none to report.
-    const foreign = proofreaderScript === 'Latin' ? (ctx.foreignSentences ?? new Map()) : new Map();
+    const foreign = session.proofreader!.capabilities.id === 'en' ? (ctx.foreignSentences ?? new Map()) : new Map();
     session.passages = uncheckedPassages(paras, setAside, foreign, proofreaderScript);
     session.checkedText = paras.some((p) => !setAside.has(p.id) && hasLetterOf(p.text, proofreaderScript));
     session.mostlyUnchecked = mostlyNotChecked(paras, setAside);
