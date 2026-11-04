@@ -1,8 +1,8 @@
 import { createLinter, type RulesLinter } from './linter';
 import { detectVariant } from './variant';
 import { findInvisible, visibleText, type VisibleText } from './hygiene';
-import { definedLinkLabels, findLockedSpans } from './factLock';
-import { findCommandText, withoutCaseOnlyFixOnCommand } from './commands';
+import { findLockedText } from './lockedText';
+import { withoutCaseOnlyFixOnCommand } from './commands';
 import { withTechnicalWordRules } from './technicalWords';
 import { lintInChunks } from './chunks';
 import { dictionaryMatcher } from './dictionaryWords';
@@ -16,7 +16,7 @@ import { byPosition, type CheckOptions } from './sessionTypes';
 import { findConfusables, replacesLinterFlag } from './confusables';
 import type { EngineCapabilities, EngineResult, LanguageEngine } from './languageEngine';
 import type { TierContext } from './tiers';
-import type { Candidate, Paragraph, Span, Variant } from './types';
+import type { Candidate, Paragraph, Variant } from './types';
 
 /** What the English engine reports beyond every engine's result: the variant and the tier context of the check. */
 export interface EnglishResult extends EngineResult {
@@ -93,13 +93,8 @@ async function checkEnglish(
   linter: RulesLinter,
   pause: (() => Promise<void>) | undefined,
 ): Promise<EnglishResult> {
-  // Commands are fact-locked too (never auto-applied, spelling asked on its own card); tierOf also hides every
-  // other rule's flag on them (Task F20 item 1).
-  const { surely: commandSpans, maybe: maybeCommandSpans } = findCommandText(paras);
-  const locked = new Map<number, Span[]>();
-  // Link labels are Markdown only: in .txt and .docx "[the the]" is ordinary text.
-  const linkLabels = opts.language === 'markdown' ? definedLinkLabels(paras.map((p) => p.text)) : undefined;
-  for (const p of paras) locked.set(p.id, [...findLockedSpans(p.text, linkLabels), ...commandSpans.get(p.id)!, ...(p.locked ?? [])]);
+  const { locked, commands } = findLockedText(paras, opts.language);
+  const { surely: commandSpans, maybe: maybeCommandSpans } = commands;
   // The linter reads each paragraph without its invisible junk; its spans are mapped back below.
   const invisible = new Map(paras.map((p) => [p.id, findInvisible(p, locked.get(p.id))]));
   const visible = new Map(paras.map((p) => [p.id, visibleText(p, invisible.get(p.id)!)]));

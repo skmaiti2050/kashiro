@@ -1,8 +1,10 @@
 import { createEnglishEngine, type EnglishResult } from './englishEngine';
+import { findLockedText } from './lockedText';
 import { notCheckedEngine } from './notCheckedEngine';
 import type { EngineResult, LanguageEngine } from './languageEngine';
 import { byPosition, type CheckOptions, type SessionDeps } from './sessionTypes';
 import { dominantScript, majorityScript, otherScriptParagraphIds } from './uncheckedScripts';
+import type { TierContext } from './tiers';
 import type { Paragraph } from './types';
 
 /**
@@ -58,5 +60,17 @@ export async function prepareCheck(
   // Every engine's unchecked paragraphs, in document order.
   const unchecked = new Set([fromEnglish, ...fromOthers].flatMap((r) => r.uncheckedParagraphs));
   const uncheckedParagraphs = allParas.filter((p) => unchecked.has(p.id)).map((p) => p.id);
-  return { ...fromEnglish, paragraphEngines, engines: [english, ...others], proofreader, found, uncheckedParagraphs };
+  const notEnglish = allParas.filter((p) => paragraphEngines.get(p.id) !== english);
+  const ctx = withOtherEnginesLocked(fromEnglish.ctx, parasOf(english), notEnglish, opts);
+  return { ...fromEnglish, ctx, paragraphEngines, engines: [english, ...others], proofreader, found, uncheckedParagraphs };
+}
+
+/**
+ * #1 gate 1: the paragraphs another engine checks get the same locked text as English ones (URLs, numbers, quotes,
+ * commands, adapter locks), and tierOf caps their candidates at 'review' (englishParagraphs).
+ */
+function withOtherEnginesLocked(ctx: TierContext, englishParas: Paragraph[], otherParas: Paragraph[], opts: CheckOptions): TierContext {
+  const locked = new Map(ctx.locked);
+  for (const [id, spans] of findLockedText(otherParas, opts.language).locked) locked.set(id, spans);
+  return { ...ctx, locked, englishParagraphs: new Set(englishParas.map((p) => p.id)) };
 }
