@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type MutableRefObject } from 'react';
 import type { Decision } from '@/engine/decisions';
 import type { Candidate } from '@/engine/types';
-import { uncheckedText } from '@/engine/uncheckedScripts';
 import { AiGroup } from './AiGroup';
 import { DecisionCard } from './DecisionCard';
 import { DepthSlider } from './DepthSlider';
@@ -198,14 +197,13 @@ export function ReviewPanel({ controller, state, onLocate, onShowParagraph, requ
   const fixesApplied = session.outcomes().filter((o) => o.status === 'applied').length;
   /** Nothing left to decide: the panel says so in one line. */
   const allClear = !current && progress.left === 0;
-  /** Text in another script the English-only check skipped: never an all-clear for a document that is mostly that. */
-  const unchecked = uncheckedText(session.paragraphs());
   const otherScript = session.otherScriptParagraphs();
   const passages = session.uncheckedPassages().length;
   const places = uncheckedPlaces(session);
   // hasCheckedText() is also false when everything was set aside, which the "mostly" case words first.
   const labels = proofreadingLabels(session);
-  const doneLine = unchecked.mostly
+  // Never an all-clear for a document that is mostly text the engine set aside.
+  const doneLine = session.mostlyNotChecked()
     ? t.t(labels.only)
     : !session.hasCheckedText() && otherScript.length === 0
       ? t.t('panel.nothingToCheck')

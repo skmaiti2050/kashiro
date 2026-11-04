@@ -162,14 +162,6 @@ export function uncheckedPassages(
     });
 }
 
-/** How much of a document the English-only check could not read (review #4: no false all-clear). */
-export interface UncheckedText {
-  /** Paragraphs mostly in a script other than Latin. */
-  paragraphs: number;
-  /** True when other scripts hold most of the document's letters: little or no English was checked. */
-  mostly: boolean;
-}
-
 const count = (text: string, letters: RegExp) => text.match(letters)?.length ?? 0;
 
 /** The ids of the paragraphs whose letters are mostly not Latin: the check sets them aside (#2a), in document order. */
@@ -211,21 +203,6 @@ export function majorityScript(texts: readonly string[], scripts: Iterable<strin
     else if (n === bestCount) best = undefined;
   }
   return best;
-}
-
-/** The text in `paras` in a language the checker can't check yet (any script but Latin), which it skipped. */
-export function uncheckedText(paras: readonly Paragraph[]): UncheckedText {
-  let latin = 0;
-  let other = 0;
-  let paragraphs = 0;
-  for (const p of paras) {
-    const l = count(p.text, LATIN_LETTER);
-    const o = count(p.text, otherScriptOf(DEFAULT_SCRIPT).letter);
-    latin += l;
-    other += o;
-    if (o > l) paragraphs++;
-  }
-  return { paragraphs, mostly: other > latin };
 }
 
 /** Any letter of any script: "a", "क". */

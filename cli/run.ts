@@ -3,6 +3,7 @@ import path from 'node:path';
 import { CheckSession, type CheckOptions } from '../src/engine/session';
 import { exportReport } from '../src/engine/report';
 import { DEFAULT_MODULES } from '../src/engine/modules';
+import { createScriptEngines } from '../src/engine/scriptEngines';
 import { PRESETS, type PresetId } from '../src/engine/presets';
 import type { Variant } from '../src/engine/types';
 import { variantForLocale } from '../src/engine/localeVariant';
@@ -116,7 +117,7 @@ export async function run(argv: string[]): Promise<number> {
       // The CLI (and so the trust suite) always checks with the default modules.
       modules: DEFAULT_MODULES,
     };
-    const session = await CheckSession.start(paras, opts);
+    const session = await CheckSession.start(paras, opts, { scriptEngines: createScriptEngines() });
     const safe = session.outcomes().filter((o) => o.status === 'applied' && o.auto).length;
     const decisions = session.decisionCount();
     if (args.acceptAll) acceptAllRules(session);

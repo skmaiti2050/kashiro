@@ -1,6 +1,8 @@
 import { CheckSession } from '@/engine/session';
 import { carryDecisions, userDecisions } from '@/engine/carryDecisions';
 import type { ReviewDepth } from '@/engine/depth';
+import type { LanguageEngine } from '@/engine/languageEngine';
+import { createScriptEngines } from '@/engine/scriptEngines';
 import type { Dictionary } from '@/engine/dictionary/lookup';
 import { withTitleCaseLowered } from '@/engine/dictionaryWords';
 import type { RulesLinter } from '@/engine/linter';
@@ -50,6 +52,8 @@ export interface ControllerDeps {
   /** Defaults to the format registry; tests pass adapters that refuse edits. */
   adapterFor?: (fileName: string) => FormatAdapter | null;
   now?: () => Date;
+  /** The proofreading engines by Unicode script name; defaults to the registry (createScriptEngines). */
+  scriptEngines?: ReadonlyMap<string, LanguageEngine>;
   /** Loaders of the optional data and helper modules (see OptionalModules). */
   loadDictionary?: ModuleLoaders['loadDictionary'];
   startHelper?: ModuleLoaders['startHelper'];
@@ -208,7 +212,10 @@ export class SessionController {
   /** The writing helper's files are installed (see ControllerDeps.helperInstalled). */
   readonly helperInstalled: boolean;
 
+  private readonly scriptEngines: ReadonlyMap<string, LanguageEngine>;
+
   constructor(private readonly deps: ControllerDeps) {
+    this.scriptEngines = deps.scriptEngines ?? createScriptEngines();
     this.helperInstalled = deps.helperInstalled ?? true;
     this.saveHost = {
       state: () => this.state,
@@ -427,7 +434,7 @@ export class SessionController {
       const linter = await this.getLinter();
       const { settings, variantOverride, documentIgnoredRules } = this.state;
       const options = checkOptions(settings, variantOverride, documentIgnoredRules, loaded.adapter.language);
-      const session = await CheckSession.start(loaded.paras, options, { linter, now: this.deps.now, pause });
+      const session = await CheckSession.start(loaded.paras, options, { linter, now: this.deps.now, pause, scriptEngines: this.scriptEngines });
       if (run !== this.checks) return;
       // The depth may have moved while the check ran.
       session.setDepth(currentDepth(this.state.settings));

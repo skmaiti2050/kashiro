@@ -39,6 +39,18 @@ export const PROOFREADING_LABELS: Readonly<Record<Exclude<EngineId, 'none'>, Pro
     announceOnly: 'announce.checkedEnglishOnly',
     announcePassages: 'announce.checkedPassages',
   },
+  hi: {
+    chip: 'toolbar.hindi',
+    only: 'panel.hindiOnly',
+    about: 'about.hindiOnly',
+    hint: 'language.hintHindi',
+    allClear: 'panel.allClearHindi',
+    otherParagraphs: 'panel.otherScriptHindi',
+    otherPassages: 'panel.passagesHindi',
+    otherBoth: 'panel.paragraphsAndPassagesHindi',
+    announceOnly: 'announce.checkedHindiOnly',
+    announcePassages: 'announce.checkedPassagesHindi',
+  },
 };
 
 /**
