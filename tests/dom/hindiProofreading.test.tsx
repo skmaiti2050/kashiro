@@ -1,7 +1,8 @@
 /** A document the Hindi engine proofreads is worded as Hindi proofreading (#1 gates 2, 3, 7, 8). */
-import { describe, it, expect, beforeAll, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest';
 import { fireEvent, screen, within } from '@testing-library/react';
 import type { EngineId, LanguageEngine } from '@/engine/languageEngine';
+import { CheckSession } from '@/engine/session';
 import { makeController, warmLinter } from './harness';
 import { installSpeech, LOCAL_VOICE, openAndWait, renderShell, reviewPanel } from './shell';
 import { english } from '../ui/english';
@@ -73,6 +74,32 @@ describe('English-only controls', () => {
     await openHindi();
     expect(variantPicker()).toBeNull();
     expect(screen.queryByText(/English \(/)).toBeNull();
+  });
+
+  /** Every session started from now on reports a mixed-spelling document (the flag is set once, at construction). */
+  const forceMixedVariant = () => {
+    const start = CheckSession.start.bind(CheckSession);
+    vi.spyOn(CheckSession, 'start').mockImplementation(async (...args) => {
+      const session = await start(...args);
+      Object.defineProperty(session, 'mixedVariant', { value: true });
+      return session;
+    });
+  };
+  afterEach(() => vi.restoreAllMocks());
+
+  it('the mixed-spelling chip is English spelling, so a Hindi-proofread document never shows it', async () => {
+    forceMixedVariant();
+    await openHindi();
+    expect(screen.queryByText('Mixed spelling')).toBeNull();
+    expect(screen.getByText('Hindi proofreading')).toBeTruthy();
+  });
+
+  it('an English document still shows the mixed-spelling chip', async () => {
+    forceMixedVariant();
+    const { controller } = makeController();
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText('The cat sat on the mat.'));
+    expect(screen.getByText('Mixed spelling')).toBeTruthy();
   });
 
   it('an English document still shows them', async () => {

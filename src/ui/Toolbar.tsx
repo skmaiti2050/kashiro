@@ -83,6 +83,8 @@ function moveAlongToolbar(e: KeyboardEvent<HTMLElement>, dir: 'ltr' | 'rtl'): vo
 export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onDictionary, onReportBug, onCheckUpdates, onHelp, onShortcuts, onAbout, onTour, onClose, onLookUp, onImprove }: Props) {
   const t = useT();
   const { session, settings, variantOverride, document } = state;
+  // Mixed American/British spelling is an English-spelling notion: a document another engine proofreads never shows it.
+  const mixedSpelling = !!session && proofreadsEnglish(session) && session.mixedVariant;
   // What Save will do: Overwrite left on in the settings means nothing where Save downloads.
   const overwrite = settings.overwrite && overwriteOffered();
   const moreItems: MoreMenuItem[] = [
@@ -134,8 +136,8 @@ export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onDict
         </label>
 
         {session && (
-          <label className={session.mixedVariant ? 'chip warn' : 'chip'} title={session.mixedVariant ? t.t('toolbar.mixedTitle') : undefined}>
-            <span>{session.mixedVariant ? t.t('toolbar.mixedSpelling') : t.t(proofreadingLabels(session).chip)}</span>
+          <label className={mixedSpelling ? 'chip warn' : 'chip'} title={mixedSpelling ? t.t('toolbar.mixedTitle') : undefined}>
+            <span>{mixedSpelling ? t.t('toolbar.mixedSpelling') : t.t(proofreadingLabels(session).chip)}</span>
             {proofreadsEnglish(session) && (
               <select
                 value={variantOverride ?? ''}
