@@ -1,4 +1,5 @@
 import type { ReviewDepth } from '@/engine/depth';
+import type { LanguageEngine } from '@/engine/languageEngine';
 import type { RulesLinter } from '@/engine/linter';
 import type { PresetId } from '@/engine/presets';
 import type { CheckSession } from '@/engine/session';
@@ -25,6 +26,8 @@ export interface PersistenceHost {
   loaded(): LoadedFile | null;
   tally: DecisionTally;
   linter(): Promise<RulesLinter>;
+  /** The proofreading engines by Unicode script name: the ones the check uses, so a resume routes paragraphs alike. */
+  scriptEngines: ReadonlyMap<string, LanguageEngine>;
   /** The clock (default: the system's). */
   now?: () => Date;
   /** Shows the new settings and saves them. */
@@ -207,7 +210,11 @@ export class SessionPersistence {
     this.resuming = documentId;
     try {
       const options = checkOptions(settings, snap.variantOverride, snap.documentIgnoredRules, loaded.adapter.language);
-      const { session, restored, rechecked } = await restore(loaded.paras, snap, options, { linter: await host.linter(), now: host.now });
+      const { session, restored, rechecked } = await restore(loaded.paras, snap, options, {
+        linter: await host.linter(),
+        now: host.now,
+        scriptEngines: host.scriptEngines,
+      });
       if (this.documentId !== documentId) return;
       if (host.loaded() !== loaded) return this.offerAgain(found);
       if (settings !== host.state().settings) host.storeSettings(settings);

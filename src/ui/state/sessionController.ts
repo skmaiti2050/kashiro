@@ -279,6 +279,7 @@ export class SessionController {
       ...this.saveHost,
       tally: this.tally,
       linter: () => this.getLinter(),
+      scriptEngines: this.scriptEngines,
       now: this.deps.now,
       showSession: (session) => {
         ++this.checks; // a check still running would replace the resumed session

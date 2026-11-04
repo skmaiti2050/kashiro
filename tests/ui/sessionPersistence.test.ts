@@ -8,6 +8,7 @@ import { defaultSettings, type Settings } from '@/ui/state/settings';
 import { buildDocx } from '../fixtures/make_docx';
 import { memorySessionFiles } from '../fixtures/memorySessionFiles';
 import { english } from './english';
+import type { EngineId, LanguageEngine } from '@/engine/languageEngine';
 
 let linter: RulesLinter;
 beforeAll(async () => {
@@ -529,5 +530,42 @@ describe('saved reviews: typing while Resume runs (final review I2)', () => {
     expect(controller.getState().resumeOffer).toMatchObject({ made: 2, changed: true, interrupted: true });
     expect(await controller.save()).toBe(true);
     expect(new TextDecoder().decode(saves[0].bytes)).toBe(TYPED_SAVED);
+  });
+});
+
+describe('saved reviews: a document another engine proofreads (#1 gates, final review)', () => {
+  const HINDI_TEXT = 'यह एक छोटा सा परीक्षण है ।\n\nहम कल बाज़ार गए थे।\n\nवह घर पर नहीं था।';
+  const HINDI_FILE: OpenedFile = { name: 'hindi.txt', path: '/docs/hindi.txt', bytes: encode(HINDI_TEXT) };
+
+  /** A Hindi engine that flags the space before "।" in every paragraph it checks. */
+  const fakeHindi: LanguageEngine = {
+    capabilities: { id: 'hi' as EngineId, proofreads: true, variants: ['Standard'], hasCase: false },
+    check: async (paras) => ({
+      found: paras.flatMap((p) => {
+        const at = p.text.indexOf(' ।');
+        if (at < 0) return [];
+        const span = { start: at, end: at + 2 };
+        return [{ id: `${p.id}:${at}:${at + 2}:Punctuation`, paraId: p.id, span, original: ' ।', replacements: ['।'], kind: 'Punctuation', message: 'fake', source: 'rules' as const }];
+      }),
+      uncheckedParagraphs: [],
+    }),
+    addWords: async () => {},
+  };
+  const scriptEngines = new Map([['Devanagari', fakeHindi]]);
+
+  it('Resume checks with the registered engine and restores the accepted fix in a Hindi paragraph', async () => {
+    const first = run(memorySessionFiles(), { scriptEngines });
+    await first.controller.openFile(HINDI_FILE);
+    expect(first.controller.getState().session!.proofreadingEngines().map((e) => e.id)).toEqual(['hi']);
+    first.controller.accept(decisionOn(first.controller, ' ।'));
+    await first.controller.reviews.flush();
+
+    const { controller } = run(first.disk, { scriptEngines });
+    await controller.openFile(HINDI_FILE);
+    await controller.reviews.resume();
+    const session = controller.getState().session!;
+    expect(session.proofreadingEngines().map((e) => e.id)).toEqual(['hi']);
+    expect(statusOf(controller, ' ।')).toBe('applied');
+    expect(session.outputText(0)).toBe('यह एक छोटा सा परीक्षण है।');
   });
 });
