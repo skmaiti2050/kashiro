@@ -7,9 +7,10 @@ import { CheckSession } from '@/engine/session';
 import { createLinter, type RulesLinter } from '@/engine/linter';
 import { createEnglishEngine } from '@/engine/englishEngine';
 import { notCheckedEngine } from '@/engine/notCheckedEngine';
-import type { EngineId, LanguageEngine } from '@/engine/languageEngine';
+import type { LanguageEngine } from '@/engine/languageEngine';
 import type { CheckOptions } from '@/engine/sessionTypes';
 import type { Paragraph } from '@/engine/types';
+import { devanagariEngines, fakeEngine } from '../fixtures/fakeEngines';
 
 let linter: RulesLinter;
 beforeAll(async () => {
@@ -57,18 +58,10 @@ describe('routing paragraphs to engines', () => {
   /** A fake Devanagari engine that records the paragraphs it is given and reports `unchecked` as not checked. */
   function fakeDevanagari(unchecked: number[] = []) {
     const seen: number[][] = [];
-    const engine: LanguageEngine = {
-      capabilities: { id: 'fake-hi' as EngineId, proofreads: true, variants: ['Standard'], hasCase: false },
-      check: async (paras) => {
-        seen.push(paras.map((p) => p.id));
-        return { found: [], uncheckedParagraphs: unchecked };
-      },
-      addWords: async () => {},
-    };
-    return { engine, seen };
+    return { engine: fakeEngine({ unchecked, seen }), seen };
   }
 
-  const withDevanagari = (engine: LanguageEngine) => ({ linter, scriptEngines: new Map([['Devanagari', engine]]) });
+  const withDevanagari = (engine: LanguageEngine) => ({ linter, scriptEngines: devanagariEngines(engine) });
   const engineIds = (s: CheckSession) => s.paragraphs().map((p) => s.engineOf(p.id)?.id);
 
   it('a mostly English document with a Devanagari engine registered: English checks, Hindi is not checked', async () => {
@@ -149,7 +142,7 @@ describe('routing paragraphs to engines', () => {
     const mostlyBengali = `${BENGALI} यह`;
     const s = await CheckSession.start(paragraphs([mostlyHindi, mostlyBengali]), opts, {
       linter,
-      scriptEngines: new Map([['Devanagari', engine]]),
+      scriptEngines: devanagariEngines(engine),
     });
     expect(seen).toEqual([[0]]);
     expect([0, 1].map((id) => s.engineOf(id)?.id)).toEqual(['fake-hi', 'none']);

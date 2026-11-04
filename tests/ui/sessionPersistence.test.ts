@@ -6,9 +6,9 @@ import { SessionController, type ControllerDeps, type Files, type OpenedFile } f
 import { SessionStore } from '@/ui/state/sessionStore';
 import { defaultSettings, type Settings } from '@/ui/state/settings';
 import { buildDocx } from '../fixtures/make_docx';
+import { devanagariEngines, fakeEngine } from '../fixtures/fakeEngines';
 import { memorySessionFiles } from '../fixtures/memorySessionFiles';
 import { english } from './english';
-import type { EngineId, LanguageEngine } from '@/engine/languageEngine';
 
 let linter: RulesLinter;
 beforeAll(async () => {
@@ -538,20 +538,17 @@ describe('saved reviews: a document another engine proofreads (#1 gates, final r
   const HINDI_FILE: OpenedFile = { name: 'hindi.txt', path: '/docs/hindi.txt', bytes: encode(HINDI_TEXT) };
 
   /** A Hindi engine that flags the space before "।" in every paragraph it checks. */
-  const fakeHindi: LanguageEngine = {
-    capabilities: { id: 'hi' as EngineId, proofreads: true, variants: ['Standard'], hasCase: false },
-    check: async (paras) => ({
-      found: paras.flatMap((p) => {
+  const fakeHindi = fakeEngine({
+    id: 'hi',
+    found: (paras) =>
+      paras.flatMap((p) => {
         const at = p.text.indexOf(' ।');
         if (at < 0) return [];
         const span = { start: at, end: at + 2 };
         return [{ id: `${p.id}:${at}:${at + 2}:Punctuation`, paraId: p.id, span, original: ' ।', replacements: ['।'], kind: 'Punctuation', message: 'fake', source: 'rules' as const }];
       }),
-      uncheckedParagraphs: [],
-    }),
-    addWords: async () => {},
-  };
-  const scriptEngines = new Map([['Devanagari', fakeHindi]]);
+  });
+  const scriptEngines = devanagariEngines(fakeHindi);
 
   it('Resume checks with the registered engine and restores the accepted fix in a Hindi paragraph', async () => {
     const first = run(memorySessionFiles(), { scriptEngines });

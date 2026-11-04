@@ -1,11 +1,11 @@
 /** A document the Hindi engine proofreads is worded as Hindi proofreading (#1 gates 2, 3, 7, 8). */
 import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest';
 import { fireEvent, screen, within } from '@testing-library/react';
-import type { EngineId, LanguageEngine } from '@/engine/languageEngine';
 import { CheckSession } from '@/engine/session';
 import { makeController, warmLinter } from './harness';
 import { installSpeech, LOCAL_VOICE, openAndWait, renderShell, reviewPanel } from './shell';
 import { english } from '../ui/english';
+import { devanagariEngines, fakeEngine } from '../fixtures/fakeEngines';
 
 vi.mock('@tauri-apps/api/window', async () => (await import('./platformMocks')).tauriWindow);
 vi.mock('@/ui/platform/files', async () => (await import('./platformMocks')).platformFiles);
@@ -15,17 +15,13 @@ vi.mock('@/ui/platform/settings', async () => (await import('./platformMocks')).
 beforeAll(warmLinter);
 
 /** A Hindi engine that finds nothing. */
-const fakeHindi: LanguageEngine = {
-  capabilities: { id: 'hi' as EngineId, proofreads: true, variants: ['Standard'], hasCase: false },
-  check: async () => ({ found: [], uncheckedParagraphs: [] }),
-  addWords: async () => {},
-};
+const fakeHindi = fakeEngine({ id: 'hi' });
 
 const HINDI = 'यह एक छोटा सा परीक्षण है। हम कल बाज़ार गए थे।';
 const MOSTLY_HINDI = `${HINDI}\n\n${HINDI}\n\n${HINDI}\n\nThe cat sat on the mat.`;
 
 async function openHindi() {
-  const { controller } = makeController({}, undefined, undefined, undefined, new Map([['Devanagari', fakeHindi]]));
+  const { controller } = makeController({}, undefined, undefined, undefined, { scriptEngines: devanagariEngines(fakeHindi) });
   renderShell(controller);
   await openAndWait(controller, () => controller.openText(MOSTLY_HINDI));
   return controller;
@@ -116,7 +112,7 @@ describe('read aloud on Hindi text', () => {
     const hindiVoice = { voiceURI: 'Kalpana', name: 'Microsoft Kalpana - Hindi (India)', lang: 'hi-IN', localService: true, default: false };
     const speech = installSpeech([LOCAL_VOICE, hindiVoice]);
     try {
-      const { controller } = makeController({}, undefined, undefined, undefined, new Map([['Devanagari', fakeHindi]]));
+      const { controller } = makeController({}, undefined, undefined, undefined, { scriptEngines: devanagariEngines(fakeHindi) });
       renderShell(controller);
       await openAndWait(controller, () => controller.openText(MOSTLY_HINDI));
       const bar = await within(reviewPanel()).findByRole('group', { name: 'Read aloud' });
@@ -130,7 +126,7 @@ describe('read aloud on Hindi text', () => {
     const hindiVoice = { voiceURI: 'Kalpana', name: 'Microsoft Kalpana - Hindi (India)', lang: 'hi-IN', localService: true, default: false };
     const speech = installSpeech([hindiVoice]);
     try {
-      const { controller } = makeController({}, undefined, undefined, undefined, new Map([['Devanagari', fakeHindi]]));
+      const { controller } = makeController({}, undefined, undefined, undefined, { scriptEngines: devanagariEngines(fakeHindi) });
       renderShell(controller);
       await openAndWait(controller, () => controller.openText(MOSTLY_HINDI));
       const bar = await within(reviewPanel()).findByRole('group', { name: 'Read aloud' });

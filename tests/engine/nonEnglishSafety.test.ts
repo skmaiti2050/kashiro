@@ -5,10 +5,10 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { CheckSession } from '@/engine/session';
 import { createLinter, type RulesLinter } from '@/engine/linter';
-import type { EngineId, LanguageEngine } from '@/engine/languageEngine';
 import type { CheckOptions } from '@/engine/sessionTypes';
 import { SIMPLE_FIXES_ID } from '@/engine/decisions';
 import type { Candidate, Paragraph, Span } from '@/engine/types';
+import { devanagariEngines, fakeEngine } from '../fixtures/fakeEngines';
 
 let linter: RulesLinter;
 beforeAll(async () => {
@@ -23,16 +23,7 @@ const HINDI = 'यह एक परीक्षण है।';
 /** MOSTLY_HINDI from languageEngine.test.ts, with `first` as paragraph 0 (the one the fake candidate is on). */
 const mostlyHindi = (first: Paragraph): Paragraph[] => [first, ...[ENGLISH, HINDI, HINDI].map((text, i) => ({ id: i + 1, text }))];
 
-/** A fake Devanagari engine that returns the given candidates. */
-function fakeDevanagari(found: Candidate[]): LanguageEngine {
-  return {
-    capabilities: { id: 'fake-hi' as EngineId, proofreads: true, variants: ['Standard'], hasCase: false },
-    check: async () => ({ found, uncheckedParagraphs: [] }),
-    addWords: async () => {},
-  };
-}
-
-const withDevanagari = (found: Candidate[]) => ({ linter, scriptEngines: new Map([['Devanagari', fakeDevanagari(found)]]) });
+const withDevanagari = (found: Candidate[]) => ({ linter, scriptEngines: devanagariEngines(fakeEngine({ found })) });
 
 function candidate(text: string, span: Span, replacement: string, kind: string, source: Candidate['source']): Candidate {
   return { id: `0:${span.start}:${span.end}:${kind}`, paraId: 0, span, original: text.slice(span.start, span.end), replacements: [replacement], kind, message: 'fake', source };
