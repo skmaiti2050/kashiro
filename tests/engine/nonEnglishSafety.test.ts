@@ -7,6 +7,7 @@ import { CheckSession } from '@/engine/session';
 import { createLinter, type RulesLinter } from '@/engine/linter';
 import type { EngineId, LanguageEngine } from '@/engine/languageEngine';
 import type { CheckOptions } from '@/engine/sessionTypes';
+import { SIMPLE_FIXES_ID } from '@/engine/decisions';
 import type { Candidate, Paragraph, Span } from '@/engine/types';
 
 let linter: RulesLinter;
@@ -85,6 +86,19 @@ describe('never damage in paragraphs another engine checks', () => {
     const s = await CheckSession.start(mostlyHindi({ id: 0, text }), opts, withDevanagari([c]));
     expect(s.engineOf(0)?.id).toBe('fake-hi');
     expect(s.tier(c.id)).toBe('hidden');
+  });
+
+  it("a user's 'safe' override for Formatting is capped in a Hindi paragraph: asked, not applied, not on the simple-fixes card", async () => {
+    const text = 'यह एक छोटा सा  परीक्षण है।';
+    const gap = text.indexOf('  ');
+    const c = candidate(text, { start: gap, end: gap + 2 }, ' ', 'Formatting', 'rules');
+    const s = await CheckSession.start(mostlyHindi({ id: 0, text }), { ...opts, tierOverrides: { Formatting: 'safe' } }, withDevanagari([c]));
+    expect(s.engineOf(0)?.id).toBe('fake-hi');
+    expect(s.tier(c.id)).toBe('review');
+    expect(outcomeOf(s, c.id)).toMatchObject({ status: 'pending', auto: false });
+    const { top, more } = s.decisions();
+    const card = [...top, ...more].find((d) => d.id === SIMPLE_FIXES_ID);
+    expect(card?.candidateIds ?? []).not.toContain(c.id);
   });
 
   it('a fix over an adapter-locked span in a Hindi paragraph touches locked text', async () => {
