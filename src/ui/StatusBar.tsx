@@ -1,8 +1,8 @@
-import { proofreadsEnglish } from './proofreadingLabels';
 import { useMemo } from 'react';
 import { countWords } from '@/engine/words';
 import type { MessageKey } from './i18n/catalogues';
 import { capabilities } from './platform/capabilities';
+import { proofreadsEnglish } from './proofreadingLabels';
 import { useT } from './i18n/useT';
 import type { ControllerState } from './state/sessionController';
 import { VARIANT_KEYS } from './Toolbar';

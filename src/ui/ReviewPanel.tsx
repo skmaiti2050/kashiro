@@ -161,7 +161,7 @@ export function ReviewPanel({ controller, state, onLocate, onShowParagraph, requ
     if (!commands) return;
     commands.current = {
       move,
-      canRead: (target) => readAloud !== null && session !== null && canReadAloud(readAloud, t.language, target),
+      canRead: (target) => readAloud !== null && session !== null && canReadAloud(readAloud, t.language, target, readText.current(target).language),
       read: (target) => readAloud && readAloudTarget(readAloud, t.language, readText.current, target),
     };
   });

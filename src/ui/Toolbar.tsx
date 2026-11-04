@@ -138,16 +138,16 @@ export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onDict
             <span>{session.mixedVariant ? t.t('toolbar.mixedSpelling') : t.t(proofreadingLabels(session).chip)}</span>
             {proofreadsEnglish(session) && (
               <select
-              value={variantOverride ?? ''}
-              onChange={(e) => controller.setVariant(e.target.value === '' ? null : (e.target.value as Variant))}
-            >
-              <option value="">{automaticVariantLabel(t, variantOverride, session.variant, session.variantFromFallback)}</option>
-              {VARIANTS.map((v) => (
-                <option key={v} value={v}>
-                  {t.t(VARIANT_KEYS[v])}
-                </option>
-              ))}
-            </select>
+                value={variantOverride ?? ''}
+                onChange={(e) => controller.setVariant(e.target.value === '' ? null : (e.target.value as Variant))}
+              >
+                <option value="">{automaticVariantLabel(t, variantOverride, session.variant, session.variantFromFallback)}</option>
+                {VARIANTS.map((v) => (
+                  <option key={v} value={v}>
+                    {t.t(VARIANT_KEYS[v])}
+                  </option>
+                ))}
+              </select>
             )}
           </label>
         )}

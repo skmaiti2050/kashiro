@@ -99,4 +99,21 @@ describe('read aloud on Hindi text', () => {
       speech.remove();
     }
   });
+  it('with only a Hindi voice installed, Sentence is enabled on a Hindi document and speaks with it', async () => {
+    const hindiVoice = { voiceURI: 'Kalpana', name: 'Microsoft Kalpana - Hindi (India)', lang: 'hi-IN', localService: true, default: false };
+    const speech = installSpeech([hindiVoice]);
+    try {
+      const { controller } = makeController({}, undefined, undefined, undefined, new Map([['Devanagari', fakeHindi]]));
+      renderShell(controller);
+      await openAndWait(controller, () => controller.openText(MOSTLY_HINDI));
+      const bar = await within(reviewPanel()).findByRole('group', { name: 'Read aloud' });
+      const sentence = within(bar).getByRole('button', { name: /Sentence/ }) as HTMLButtonElement;
+      expect(sentence.disabled).toBe(false);
+      expect(within(bar).queryByText(/English voice/)).toBeNull();
+      fireEvent.click(sentence);
+      expect(speech.spoken.map((s) => s.voice?.lang)).toEqual(['hi-IN']);
+    } finally {
+      speech.remove();
+    }
+  });
 });

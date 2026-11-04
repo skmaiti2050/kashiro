@@ -21,23 +21,29 @@ export const BUTTONS: { target: ReadTarget; label: MessageKey; keys: string }[] 
   { target: 'paragraph', label: 'read.paragraph', keys: 'Alt+P' },
 ];
 
-/** The sentence and paragraph are the English document; a card can also be read in the UI language. */
-export function canReadAloud(readAloud: ReadAloud, uiLanguage: string, target: ReadTarget): boolean {
-  return readAloud.speaks('en') || (target === 'suggestion' && readAloud.speaks(uiLanguage));
+/**
+ * A card ("suggestion") is read in English or the UI language; the sentence and paragraph in the language of the
+ * document's text (`textLanguage`, English unless the text is in another script).
+ */
+export function canReadAloud(readAloud: ReadAloud, uiLanguage: string, target: ReadTarget, textLanguage = 'en'): boolean {
+  if (target === 'suggestion') return readAloud.speaks('en') || readAloud.speaks(uiLanguage);
+  return readAloud.speaks(textLanguage);
 }
 
 /** Reads `target` aloud, when this PC has a voice for it: the bar's buttons and the command palette (F23 item 6). */
 export function readAloudTarget(readAloud: ReadAloud, uiLanguage: string, textFor: Props['textFor'], target: ReadTarget): void {
-  if (!canReadAloud(readAloud, uiLanguage, target)) return;
   const { text, language } = textFor(target);
+  if (!canReadAloud(readAloud, uiLanguage, target, language)) return;
   readAloud.read(text, language);
 }
 
 /** "Read: Sentence · Suggestion · Paragraph", with Alt+S / Alt+R / Alt+P from anywhere. */
 export function ReadAloudBar({ readAloud, textFor, keysEnabled }: Props) {
   const t = useT();
-  const english = readAloud.speaks('en');
-  const canRead = (target: ReadTarget) => canReadAloud(readAloud, t.language, target);
+  const sentenceLanguage = textFor('sentence').language;
+  // The note asks for an English voice, so it shows only for English text.
+  const needsEnglishVoice = sentenceLanguage === 'en' && !readAloud.speaks('en');
+  const canRead = (target: ReadTarget) => canReadAloud(readAloud, t.language, target, textFor(target).language);
   const read = (target: ReadTarget) => readAloudTarget(readAloud, t.language, textFor, target);
   const latest = useRef(read);
   useEffect(() => {
@@ -87,7 +93,7 @@ export function ReadAloudBar({ readAloud, textFor, keysEnabled }: Props) {
           </>
         )}
       </span>
-      {!english && <span className="hint read-aloud-note">{t.t('read.needsEnglishVoice')}</span>}
+      {needsEnglishVoice && <span className="hint read-aloud-note">{t.t('read.needsEnglishVoice')}</span>}
     </div>
   );
 }
