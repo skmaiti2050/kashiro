@@ -13,6 +13,7 @@ export const CARD_ACCEPT_METHODS = new Map([
   [OTHER_LANGUAGE_CARD_ID, { name: 'words in Indian languages card', method: 'acceptOtherLanguage' }],
 ]);
 
+/** CheckSession.decisions: see there. */
 export function rankDecisions(s: SessionState): { top: Decision[]; more: Decision[] } {
   const pending: Candidate[] = [];
   const tiers = new Map<string, Tier>();
@@ -74,23 +75,20 @@ function spellingFlagSpans(s: SessionState): Map<number, Span[]> {
   return out;
 }
 
-/** True when the candidate is pending on the names, terms or Indian-language card: answered with that card's method, never accept. */
+/** CheckSession.onWordCard: see there. */
 export function isOnWordCard(s: SessionState, candidateId: string): boolean {
   const { top, more } = rankDecisions(s);
   return [...top, ...more].some((d) => CARD_ACCEPT_METHODS.has(d.id) && d.candidateIds.includes(candidateId));
 }
 
-/**
- * Every ranked pending decision (top and more), excluding only candidates that cannot be applied
- * (inside an existing tracked change). The trust suite's review budget uses this stricter count,
- * so a long tail under "more" cannot pass by being capped out of view.
- */
+/** CheckSession.rankedDecisionCount: see there. */
 export function countRankedDecisions(s: SessionState): number {
   const { top, more } = rankDecisions(s);
   // The names card may hold tracked-change names too; it is blocked only when all of it is.
   return top.length + more.filter((d) => !d.candidateIds.every((id) => s.ledger.inTrackedChange.has(id))).length;
 }
 
+/** A decision id's members (see resolveDecision). */
 export function decisionMembers(s: SessionState, id: string): Candidate[] {
   return resolveDecision(s, id).members;
 }

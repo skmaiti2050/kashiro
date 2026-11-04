@@ -80,7 +80,7 @@ export function undoBatch(s: SessionState, batchId: string): void {
  * After the text changed: a rule fix inside an edit the user applied leaves the review (and one no longer covered
  * comes back), and so does a pending AI rewrite of a sentence that now reads differently.
  */
-export function withdrawOutdated(s: SessionState): void {
+function withdrawOutdated(s: SessionState): void {
   s.ledger.withdrawCovered();
   s.rewrites.withdrawStale();
 }
@@ -107,7 +107,7 @@ export function rejectDecision(s: SessionState, decisionId: string): void {
 
 /** CheckSession.undo: see there. */
 export function undo(s: SessionState, candidateId: string): void {
-  const status = s.ledger.status.get(candidateId); // was `s`: that name is now the state
+  const status = s.ledger.status.get(candidateId);
   if (status === 'applied') {
     s.batchOf.delete(candidateId);
     s.ledger.autoApplied.delete(candidateId);

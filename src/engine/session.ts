@@ -9,13 +9,12 @@ import { hasLatinLetter, uncheckedPassages, type UncheckedPassage } from './unch
 import { DEFAULT_DEPTH, type ReviewDepth } from './depth';
 import { countWords } from './words';
 import { DEFAULT_MODULES, type ModuleSwitches } from './modules';
-import { WORD_REWRITE_KINDS } from './wordFlags';
-import { dictionaryAccepts, dictionaryForm, storedForm } from './dictionaryWords';
 import { sentenceWithEdits } from './sentences';
 import type { GuardVerdict } from './llm/guard';
 import { HelperRewrites } from './sessionRewrites';
-import { countRankedDecisions, decisionMembers, isOnWordCard, rankDecisions, resolveDecision } from './sessionDecisions';
+import { countRankedDecisions, isOnWordCard, rankDecisions, resolveDecision } from './sessionDecisions';
 import { applyBatch, applyMembers, holdBackUndone, markUnplaceable, newBatchId, rejectDecision, undo, undoBatch } from './sessionEdits';
+import { acceptWordCard, addFlaggedWord, addWord } from './sessionDictionary';
 import { addCandidates, autoApply, holdBackChangedTokens } from './sessionIntake';
 import type { SessionState } from './sessionState';
 import {
@@ -324,13 +323,7 @@ export class CheckSession {
    * linter, rejects the decision's members, and rejects every other pending flag of the same word.
    */
   async addToDictionary(decisionId: string): Promise<void> {
-    const members = this.members(decisionId);
-    const first = members[0];
-    if (!WORD_REWRITE_KINDS.has(first.kind) || members.some((c) => c.original.toLowerCase() !== first.original.toLowerCase())) {
-      throw new Error(`${decisionId} is not a word flag (Spelling/Typo of one word)`);
-    }
-    // As the user wrote it, not as its first place happens to be (a sentence start's capital): F20 item 9b.
-    await this.addWord(dictionaryForm(members.map((c) => c.original)));
+    await addFlaggedWord(this.s, decisionId);
   }
 
   /**
@@ -339,12 +332,12 @@ export class CheckSession {
    * become their own per-word decisions so the user can fix them.
    */
   async acceptNames(keepAsTypos: string[]): Promise<void> {
-    await this.acceptCard('names', keepAsTypos);
+    await acceptWordCard(this.s, 'names', keepAsTypos);
   }
 
   /** Accepts the terms card (spec §5) the same way as acceptNames: terms join the dictionary, `keepAsTypos` split out. */
   async acceptTerms(keepAsTypos: string[]): Promise<void> {
-    await this.acceptCard('terms', keepAsTypos);
+    await acceptWordCard(this.s, 'terms', keepAsTypos);
   }
 
   /**
@@ -354,57 +347,14 @@ export class CheckSession {
    */
   async acceptOtherLanguage(keepAsTypos: string[], tickedLikelyTypos: string[] = []): Promise<void> {
     const ticked = new Set(tickedLikelyTypos.map((w) => w.toLowerCase()));
-    await this.acceptCard('otherLanguage', keepAsTypos, (card) =>
+    await acceptWordCard(this.s, 'otherLanguage', keepAsTypos, (card) =>
       (card.likelyTypos ?? []).map(([word]) => word).filter((word) => !ticked.has(word)),
     );
   }
 
-  /** `alsoTypos`: words of the card that split out whatever the caller passed in `keepAsTypos`. */
-  private async acceptCard(
-    kind: 'names' | 'terms' | 'otherLanguage',
-    keepAsTypos: string[],
-    alsoTypos: (card: Decision) => string[] = () => [],
-  ): Promise<void> {
-    const { top, more } = this.decisions();
-    const card = [...top, ...more].find((d) => d.kind === kind);
-    if (!card) throw new Error(`there is no ${kind} card to accept: none of its words are pending`);
-    const typos = new Set([...keepAsTypos, ...alsoTypos(card)].map((w) => w.toLowerCase()));
-    const spellings = new Map<string, string[]>(); // lowercased → every spelling on the card, in order
-    for (const id of card.candidateIds) {
-      const original = this.s.cands.get(id)!.original;
-      spellings.set(original.toLowerCase(), [...(spellings.get(original.toLowerCase()) ?? []), original]);
-    }
-    for (const [lower, written] of spellings) {
-      if (typos.has(lower)) this.s.typoWords.add(lower);
-      else await this.addWord(dictionaryForm(written));
-    }
-  }
-
-  /**
-   * Adds `word` to the linter and rejects every Spelling/Typo flag the entry accepts (dictionaryAccepts) that is
-   * pending, or withdrawn under an edit the user applied (else undoing that edit would bring it back as a card: final
-   * F14 review M-10). A fix of the word the user applied is taken back, as its Undo would: the next check no longer
-   * flags the word, so it would drop the fix without a word (M-12, F20 item 9a). So is a fix the user accepted and an
-   * AI rewrite was then made over, with the same log entry (#11); the rewrite stays, since it holds the text it replaced.
-   */
-  private async addWord(written: string): Promise<void> {
-    const word = storedForm(written); // "Cutover" is stored as "cutover" (Task F29)
-    for (const engine of this.s.engines) await engine.addWords([word]);
-    this.s.added.push(word);
-    const reason = `"${word}" added to dictionary`;
-    for (const c of this.s.cands.values()) {
-      if (!WORD_REWRITE_KINDS.has(c.kind) || !dictionaryAccepts(word, c.original)) continue;
-      const status = this.s.ledger.status.get(c.id);
-      if (status === 'applied' && !this.s.ledger.autoApplied.has(c.id)) this.undo(c.id);
-      else if (status !== 'pending' && !this.s.ledger.isCovered(c.id) && this.s.ledger.appliedOver(c.id) === undefined) continue;
-      this.s.userRejected.add(c.id);
-      this.s.ledger.record(c.id, 'rejected', false, reason);
-    }
-  }
-
   /** A word typed into the Dictionary panel (F22 item 1): added as addToDictionary adds a flagged word. */
   async addTypedWord(word: string): Promise<void> {
-    await this.addWord(word);
+    await addWord(this.s, word);
   }
 
   /** Words added with addToDictionary, addTypedWord or by accepting a card, in order. */
@@ -458,14 +408,6 @@ export class CheckSession {
 
   // ---- internals -----------------------------------------------------------
 
-  private members(decisionId: string): Candidate[] {
-    return decisionMembers(this.s, decisionId);
-  }
-
-  /**
-   * A decision id → its members; a pending candidate's id → that candidate alone, with the decision that
-   * holds it as `ownerId`, so accepting one member of a card still meets the card's guard (review #4, C2).
-   */
   private resolve(id: string): { ownerId: string; members: Candidate[] } {
     return resolveDecision(this.s, id);
   }
