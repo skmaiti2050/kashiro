@@ -1,13 +1,13 @@
 import type { Decision } from './decisions';
 import { dictionaryAccepts, dictionaryForm, storedForm } from './dictionaryWords';
-import { decisionMembers, rankDecisions } from './sessionDecisions';
+import { rankDecisions, resolveDecision } from './sessionDecisions';
 import { undo } from './sessionEdits';
 import type { SessionState } from './sessionState';
 import { WORD_REWRITE_KINDS } from './wordFlags';
 
 /** CheckSession.addToDictionary: see there. */
 export async function addFlaggedWord(s: SessionState, decisionId: string): Promise<void> {
-  const members = decisionMembers(s, decisionId);
+  const members = resolveDecision(s, decisionId).members;
   const first = members[0];
   if (!WORD_REWRITE_KINDS.has(first.kind) || members.some((c) => c.original.toLowerCase() !== first.original.toLowerCase())) {
     throw new Error(`${decisionId} is not a word flag (Spelling/Typo of one word)`);

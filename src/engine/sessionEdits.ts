@@ -1,7 +1,7 @@
 import { SIMPLE_FIXES_ID } from './decisions';
 import { doubledWord } from './wordFlags';
 import { holdBack } from './sessionIntake';
-import { CARD_ACCEPT_METHODS, decisionMembers, resolveDecision } from './sessionDecisions';
+import { CARD_ACCEPT_METHODS, resolveDecision } from './sessionDecisions';
 import { TRACKED_CHANGE_REASON, UNDONE_BEFORE_REASON } from './sessionTypes';
 import type { SessionState } from './sessionState';
 import type { Candidate } from './types';
@@ -99,7 +99,7 @@ function coversRestoredInvisible(s: SessionState, c: Candidate): boolean {
 
 /** CheckSession.reject: see there. */
 export function rejectDecision(s: SessionState, decisionId: string): void {
-  for (const c of decisionMembers(s, decisionId)) {
+  for (const c of resolveDecision(s, decisionId).members) {
     s.userRejected.add(c.id);
     s.ledger.record(c.id, 'rejected', false);
   }

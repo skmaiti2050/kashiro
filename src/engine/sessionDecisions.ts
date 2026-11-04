@@ -88,11 +88,6 @@ export function countRankedDecisions(s: SessionState): number {
   return top.length + more.filter((d) => !d.candidateIds.every((id) => s.ledger.inTrackedChange.has(id))).length;
 }
 
-/** A decision id's members (see resolveDecision). */
-export function decisionMembers(s: SessionState, id: string): Candidate[] {
-  return resolveDecision(s, id).members;
-}
-
 /**
  * A decision id → its members; a pending candidate's id → that candidate alone, with the decision that
  * holds it as `ownerId`, so accepting one member of a card still meets the card's guard (review #4, C2).
