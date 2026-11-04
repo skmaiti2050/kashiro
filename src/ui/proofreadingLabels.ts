@@ -68,3 +68,9 @@ export function proofreadingLabels(session: CheckSession | null): ProofreadingLa
   const id = session?.proofreadingEngines()[0]?.id;
   return (id && PROOFREADING_LABELS[id as keyof typeof PROOFREADING_LABELS]) || PROOFREADING_LABELS.en;
 }
+
+/**
+ * The spoken language (BCP-47) of each non-English script Kashiro can proofread or read aloud, by Unicode script
+ * name. A new language adds its row here (and its engine and labels above).
+ */
+export const SCRIPT_LANGUAGES: Readonly<Record<string, string>> = { Devanagari: 'hi', Bengali: 'bn' };
