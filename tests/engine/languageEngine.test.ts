@@ -96,6 +96,26 @@ describe('routing paragraphs to engines', () => {
     expect(s.uncheckedParagraphs()).toEqual([2]);
   });
 
+  it('a Hindi document checked by the Hindi engine has checked text', async () => {
+    const { engine } = fakeDevanagari();
+    const s = await CheckSession.start(paragraphs(MOSTLY_HINDI), opts, withDevanagari(engine));
+    expect(s.hasCheckedText()).toBe(true);
+  });
+
+  it('Latin words inside a checked Hindi paragraph are a not-checked passage', async () => {
+    const { engine } = fakeDevanagari();
+    const text = 'यह Kashiro का परीक्षण है';
+    const s = await CheckSession.start(paragraphs([text, HINDI, HINDI]), opts, withDevanagari(engine));
+    const start = text.indexOf('Kashiro');
+    expect(s.uncheckedPassages()).toEqual([{ paraId: 0, span: { start, end: start + 'Kashiro'.length }, kind: 'otherScript' }]);
+  });
+
+  it('a Hindi document with one English paragraph is not mostly unchecked', async () => {
+    const { engine } = fakeDevanagari();
+    const s = await CheckSession.start(paragraphs(MOSTLY_HINDI), opts, withDevanagari(engine));
+    expect(s.mostlyNotChecked()).toBe(false);
+  });
+
   it('the same document with nothing registered: English checks its paragraph, Hindi is not checked (as before)', async () => {
     const s = await CheckSession.start(paragraphs(MOSTLY_HINDI), opts, { linter });
     expect(engineIds(s)).toEqual(['none', 'en', 'none', 'none']);

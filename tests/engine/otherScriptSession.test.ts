@@ -21,6 +21,16 @@ const BENGALI = 'আমরা কাল বাজারে গিয়েছি
 const ENGLISH = 'We met on teh Monday.';
 const HINDI_WITH_JUNK = 'मैंने teh किताब‍ पढ़ी,  यह बहुत अच्छी थी';
 
+describe('mostlyNotChecked', () => {
+  it('is true when set-aside paragraphs hold more letters than the checked ones', async () => {
+    expect((await start([HINDI, HINDI, HINDI, ENGLISH])).mostlyNotChecked()).toBe(true);
+  });
+
+  it('is false for an English document', async () => {
+    expect((await start([ENGLISH, ENGLISH])).mostlyNotChecked()).toBe(false);
+  });
+});
+
 describe('a session sets aside paragraphs in another script', () => {
   it('exposes their ids, in document order', async () => {
     const s = await start([ENGLISH, HINDI, BENGALI]);
@@ -71,11 +81,11 @@ describe('a session sets aside paragraphs in another script', () => {
     expect(s.uncheckedPassages()).toEqual([]);
   });
 
-  it('hasEnglishText is false for emoji-only and digits-only documents, true with a Latin word', async () => {
-    expect((await start(['🎉🎉', ' '])).hasEnglishText()).toBe(false);
-    expect((await start(['2024 — 10:30!'])).hasEnglishText()).toBe(false);
-    expect((await start(['🎉 ok'])).hasEnglishText()).toBe(true);
-    expect((await start([HINDI])).hasEnglishText()).toBe(false);
+  it('hasCheckedText is false for emoji-only and digits-only documents, true with a Latin word', async () => {
+    expect((await start(['🎉🎉', ' '])).hasCheckedText()).toBe(false);
+    expect((await start(['2024 — 10:30!'])).hasCheckedText()).toBe(false);
+    expect((await start(['🎉 ok'])).hasCheckedText()).toBe(true);
+    expect((await start([HINDI])).hasCheckedText()).toBe(false);
   });
 
   it('does not mix up the paragraphs the linter threw on', async () => {

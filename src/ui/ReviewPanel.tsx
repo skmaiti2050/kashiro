@@ -203,11 +203,11 @@ export function ReviewPanel({ controller, state, onLocate, onShowParagraph, requ
   const otherScript = session.otherScriptParagraphs();
   const passages = session.uncheckedPassages().length;
   const places = uncheckedPlaces(session);
-  // hasEnglishText() is also false when everything was set aside, which the "mostly" case words first.
+  // hasCheckedText() is also false when everything was set aside, which the "mostly" case words first.
   const labels = proofreadingLabels(session);
   const doneLine = unchecked.mostly
     ? t.t(labels.only)
-    : !session.hasEnglishText() && otherScript.length === 0
+    : !session.hasCheckedText() && otherScript.length === 0
       ? t.t('panel.nothingToCheck')
       : places.length > 0
         ? t.t(labels.allClear)

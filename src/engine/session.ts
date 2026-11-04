@@ -5,7 +5,7 @@ import { checkTermMinRepeats, DEFAULT_TERM_MIN_REPEATS } from './terms';
 import type { TierContext } from './tiers';
 import { EditLedger } from './editLedger';
 import { prepareCheck } from './sessionSetup';
-import { hasLatinLetter, uncheckedPassages, type UncheckedPassage } from './uncheckedScripts';
+import { hasLetterOf, mostlyNotChecked, uncheckedPassages, type UncheckedPassage } from './uncheckedScripts';
 import { DEFAULT_DEPTH, type ReviewDepth } from './depth';
 import { countWords } from './words';
 import { DEFAULT_MODULES, type ModuleSwitches } from './modules';
@@ -46,9 +46,10 @@ export class CheckSession {
   private paragraphEngines = new Map<number, LanguageEngine>();
   /** The document's one proofreading engine (owner, 2026-11-02: never several at once). */
   private proofreader: LanguageEngine | null = null;
-  /** Text inside checked paragraphs that was not really checked (#29), and whether any Latin text was checked. */
+  /** Text inside checked paragraphs that was not really checked (#29), and whether any text of the proofread script was checked. */
   private passages: readonly UncheckedPassage[] = [];
-  private latinText = false;
+  private checkedText = false;
+  private mostlyUnchecked = false;
 
   private constructor(
     paras: Paragraph[],
@@ -124,10 +125,15 @@ export class CheckSession {
     // "Not checked" (#2a) is what no engine proofreads; English's #29 passages below skip every non-English paragraph.
     // The two sets differ once another engine proofreads a script.
     session.otherScript = paras.filter((p) => !engineOf(p).proofreads).map((p) => p.id);
-    // The foreign sentences were found in setup; passages only report them (checking is unchanged).
-    const setAside = new Set(paras.filter((p) => engineOf(p).id !== 'en').map((p) => p.id));
-    session.passages = uncheckedPassages(paras, setAside, ctx.foreignSentences ?? new Map());
-    session.latinText = paras.some((p) => !setAside.has(p.id) && hasLatinLetter(p.text));
+    // Passages and checked text follow the proofreader's script. Its set-aside paragraphs are those another engine
+    // checks (the not-checked one, or English in a document another engine proofreads).
+    const { proofreaderScript } = setup;
+    const setAside = new Set(paras.filter((p) => engineOf(p).id !== session.proofreader!.capabilities.id).map((p) => p.id));
+    // Foreign sentences were found in setup, by English only: for any other script there are none to report.
+    const foreign = proofreaderScript === 'Latin' ? (ctx.foreignSentences ?? new Map()) : new Map();
+    session.passages = uncheckedPassages(paras, setAside, foreign, proofreaderScript);
+    session.checkedText = paras.some((p) => !setAside.has(p.id) && hasLetterOf(p.text, proofreaderScript));
+    session.mostlyUnchecked = mostlyNotChecked(paras, setAside);
     addCandidates(session.s, found);
     autoApply(session.s);
     holdBackChangedTokens(session.s);
@@ -177,11 +183,16 @@ export class CheckSession {
   }
 
   /**
-   * False when no checked paragraph has a Latin letter (emoji, digits, other scripts only): nothing was checked.
+   * False when the checked paragraphs hold no letter of the proofread script: nothing was checked.
    * Also false when every paragraph was set aside, so callers check otherScriptParagraphs() first to word that case.
    */
-  hasEnglishText(): boolean {
-    return this.latinText;
+  hasCheckedText(): boolean {
+    return this.checkedText;
+  }
+
+  /** True when the set-aside paragraphs hold more letters than the checked ones: most of the document was not read. */
+  mostlyNotChecked(): boolean {
+    return this.mostlyUnchecked;
   }
 
   /** True once addRewrite recorded this sentence, whatever the helper answered. */

@@ -74,6 +74,17 @@ describe('never damage in paragraphs another engine checks', () => {
     const s = await CheckSession.start(mostlyHindi({ id: 0, text }), opts, withDevanagari([c]));
     expect(s.engineOf(0)?.id).toBe('fake-hi');
     expect(s.touchesLocked(c.id)).toBe(true);
+    expect(s.tier(c.id)).toBe('review');
+  });
+
+  it('a non-spelling suggestion over a command in a Hindi paragraph is hidden, as in English', async () => {
+    const text = 'यह एक छोटा सा परीक्षण है और इसे चलाने के लिए यह आदेश दें।\nsudo apt-get install foo';
+    const dash = text.indexOf('-');
+    const c = candidate(text, { start: dash, end: dash + 1 }, '–', 'Punctuation', 'rules');
+    expect(c.original).toBe('-');
+    const s = await CheckSession.start(mostlyHindi({ id: 0, text }), opts, withDevanagari([c]));
+    expect(s.engineOf(0)?.id).toBe('fake-hi');
+    expect(s.tier(c.id)).toBe('hidden');
   });
 
   it('a fix over an adapter-locked span in a Hindi paragraph touches locked text', async () => {

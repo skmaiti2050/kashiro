@@ -4,22 +4,66 @@ import type { Paragraph, Span } from './types';
 
 /** A letter of the script the checker reads (English): "a", "é". */
 const LATIN_LETTER = /\p{Script=Latin}/gu;
+
+/** The script English is written in, and so the default one checked. */
+const DEFAULT_SCRIPT = 'Latin';
+
+/** A letter or sign of the Unicode script `script` ('Devanagari': "क", "ि"); a name Unicode doesn't know is an error. */
+function buildScriptLetter(script: string, flags: string): RegExp {
+  try {
+    return new RegExp(`(?=[\\p{L}\\p{M}])\\p{Script=${script}}`, flags);
+  } catch {
+    throw new Error(`"${script}" is not a Unicode script name: use one such as "Devanagari" or "Bengali".`);
+  }
+}
+
+// Built once per script: these run on every paragraph, and the rules pass must stay fast.
+const scriptLetters = new Map<string, RegExp>();
+const anyScriptLetters = new Map<string, RegExp>();
+
+/** The global pattern for the letters of `script`, for counting. */
+function scriptLetter(script: string): RegExp {
+  let re = scriptLetters.get(script);
+  if (!re) scriptLetters.set(script, (re = buildScriptLetter(script, 'gu')));
+  return re;
+}
+
 /** The same, without `g`, so `.test` short-circuits and keeps no state. */
-const ANY_LATIN_LETTER = /\p{Script=Latin}/u;
-/**
- * A letter or sign of any other script, which the checker can't check yet: Hindi "क", Bengali "ো", Tamil "த",
- * Urdu "ب", Russian "д". Accents (Inherited), digits, punctuation and emoji (Common) are no language.
- */
-const OTHER_SCRIPT_LETTER = /(?![\p{Script=Latin}\p{Script=Inherited}\p{Script=Common}])[\p{L}\p{M}]/gu;
+function anyScriptLetter(script: string): RegExp {
+  let re = anyScriptLetters.get(script);
+  if (!re) anyScriptLetters.set(script, (re = buildScriptLetter(script, 'u')));
+  return re;
+}
+
+interface OtherScriptPatterns {
+  /** A letter or sign of any script but `ownScript`, which the checker can't check: Hindi "क" in English text. */
+  letter: RegExp;
+  /** A run of such words (#29): "नमस्ते", or "रामायण और महाभारत" as one. */
+  run: RegExp;
+}
+
+const otherScriptPatterns = new Map<string, OtherScriptPatterns>();
 
 /**
- * A run of other-script words (#29): "नमस्ते", or "रामायण और महाभारत" as one. A word is a letter that is not Latin, then
- * letters, marks and joiners; words are joined only by spaces/punctuation (never Latin letters or digits), so
- * "She said नमस्ते, ok" ends at "ते". Each separator needs 1+ characters, so the pattern cannot backtrack badly.
+ * The other-script patterns for a document proofread in `ownScript`. Accents (Inherited), digits, punctuation and
+ * emoji (Common) are no language. A word is a letter outside `ownScript`, then letters, marks and joiners; words are
+ * joined only by spaces/punctuation (never own-script letters or digits), so "She said नमस्ते, ok" ends at "ते".
+ * Each separator needs 1+ characters, so the pattern cannot backtrack badly.
  */
-// A joiner (ZWJ/ZWNJ) only inside a word, never alone: a stray one in English text is not a passage.
-const OTHER_SCRIPT_WORD = `${OTHER_SCRIPT_LETTER.source}(?:${OTHER_SCRIPT_LETTER.source}|[\\u200c\\u200d])*`;
-const OTHER_SCRIPT_RUN = new RegExp(`${OTHER_SCRIPT_WORD}(?:[\\s\\p{P}]+${OTHER_SCRIPT_WORD})*`, 'gu');
+function otherScriptOf(ownScript: string): OtherScriptPatterns {
+  const known = otherScriptPatterns.get(ownScript);
+  if (known) return known;
+  scriptLetter(ownScript); // an unknown script name throws here, with its actionable message
+  const letter = `(?![\\p{Script=${ownScript}}\\p{Script=Inherited}\\p{Script=Common}])[\\p{L}\\p{M}]`;
+  // A joiner (ZWJ/ZWNJ) only inside a word, never alone: a stray one in the text is not a passage.
+  const word = `${letter}(?:${letter}|[\\u200c\\u200d])*`;
+  const patterns = {
+    letter: new RegExp(letter, 'gu'),
+    run: new RegExp(`${word}(?:[\\s\\p{P}]+${word})*`, 'gu'),
+  };
+  otherScriptPatterns.set(ownScript, patterns);
+  return patterns;
+}
 
 /** A passage of a checked paragraph that Kashiro did not really check (#29). */
 export interface UncheckedPassage {
@@ -33,11 +77,11 @@ export interface UncheckedPassage {
 const SINGLE_NOTATION_LETTER = /^[\p{Script=Greek}\p{Script=Cyrillic}]\p{M}*$/u;
 
 /**
- * The runs of other-script words in `text`, in order, end-exclusive. Latin letters with accents (José, Müller),
- * digits, punctuation, emoji and a lone Greek or Cyrillic letter are never passages.
+ * The runs of words in `text` outside `ownScript` (the proofread script), in order, end-exclusive. Letters with accents
+ * (José, Müller), digits, punctuation, emoji and a lone Greek or Cyrillic letter are never passages.
  */
-export function otherScriptPassages(text: string): Span[] {
-  return [...text.matchAll(OTHER_SCRIPT_RUN)]
+export function otherScriptPassages(text: string, ownScript = DEFAULT_SCRIPT): Span[] {
+  return [...text.matchAll(otherScriptOf(ownScript).run)]
     .filter((m) => !SINGLE_NOTATION_LETTER.test(m[0]))
     .map((m) => ({ start: m.index, end: m.index + m[0].length }));
 }
@@ -58,13 +102,18 @@ function codeAndMathSpans(text: string): Span[] {
   );
 }
 
+/** True when `text` has a letter of the Unicode script `script` ("Latin", "Devanagari"). */
+export function hasLetterOf(text: string, script: string): boolean {
+  return anyScriptLetter(script).test(text);
+}
+
 /** True when `text` has any Latin letter: some English (or at least Latin-script) text was there to check. */
 export function hasLatinLetter(text: string): boolean {
-  return ANY_LATIN_LETTER.test(text);
+  return hasLetterOf(text, DEFAULT_SCRIPT);
 }
 
 /** The other-script runs left in `run` once `cuts` (sorted by start, may overlap) are cut out, trimmed of separators. */
-function outsideCuts(text: string, run: Span, cuts: readonly Span[]): Span[] {
+function outsideCuts(text: string, run: Span, cuts: readonly Span[], ownScript: string): Span[] {
   const pieces: Span[] = [];
   let from = run.start;
   for (const s of cuts) {
@@ -74,7 +123,7 @@ function outsideCuts(text: string, run: Span, cuts: readonly Span[]): Span[] {
   }
   if (from < run.end) pieces.push({ start: from, end: run.end });
   return pieces.flatMap((piece) =>
-    otherScriptPassages(text.slice(piece.start, piece.end)).map((r) => ({ start: piece.start + r.start, end: piece.start + r.end })),
+    otherScriptPassages(text.slice(piece.start, piece.end), ownScript).map((r) => ({ start: piece.start + r.start, end: piece.start + r.end })),
   );
 }
 
@@ -87,11 +136,14 @@ export const MIN_REPORTED_FOREIGN_WORDS = 3;
 /**
  * The passages the check did not read inside the paragraphs it did check: other-script runs plus the foreign
  * sentences setup already found, in document order. Set-aside paragraphs (#2a) are skipped, a block marker covers them.
+ * `ownScript` is the proofread script ('Latin' for English). Only English finds foreign sentences, so for any other
+ * script the caller passes an empty map.
  */
 export function uncheckedPassages(
   paras: readonly Paragraph[],
   setAside: ReadonlySet<number>,
   foreignSentences: ReadonlyMap<number, Span[]>,
+  ownScript = DEFAULT_SCRIPT,
 ): UncheckedPassage[] {
   return paras
     .filter((p) => !setAside.has(p.id))
@@ -102,7 +154,7 @@ export function uncheckedPassages(
       // A foreign sentence covers the runs inside it; what a run has outside it is still reported, so passages never overlap.
       // Code and math are cut out too: they are not language.
       const cuts = [...sentences, ...codeAndMathSpans(p.text)].sort((a, b) => a.start - b.start);
-      const runs = otherScriptPassages(p.text).flatMap((r) => outsideCuts(p.text, r, cuts));
+      const runs = otherScriptPassages(p.text, ownScript).flatMap((r) => outsideCuts(p.text, r, cuts, ownScript));
       return [
         ...runs.map((span) => ({ paraId: p.id, span, kind: 'otherScript' as const })),
         ...sentences.map((span) => ({ paraId: p.id, span, kind: 'otherLanguage' as const })),
@@ -122,16 +174,7 @@ const count = (text: string, letters: RegExp) => text.match(letters)?.length ?? 
 
 /** The ids of the paragraphs whose letters are mostly not Latin: the check sets them aside (#2a), in document order. */
 export function otherScriptParagraphIds(paras: readonly Paragraph[]): number[] {
-  return paras.filter((p) => count(p.text, OTHER_SCRIPT_LETTER) > count(p.text, LATIN_LETTER)).map((p) => p.id);
-}
-
-/** A letter or sign of the Unicode script `script` ('Devanagari': "क", "ि"); a name Unicode doesn't know is an error. */
-function scriptLetter(script: string): RegExp {
-  try {
-    return new RegExp(`(?=[\\p{L}\\p{M}])\\p{Script=${script}}`, 'gu');
-  } catch {
-    throw new Error(`"${script}" is not a Unicode script name: use one such as "Devanagari" or "Bengali".`);
-  }
+  return paras.filter((p) => count(p.text, otherScriptOf(DEFAULT_SCRIPT).letter) > count(p.text, LATIN_LETTER)).map((p) => p.id);
 }
 
 /**
@@ -140,7 +183,7 @@ function scriptLetter(script: string): RegExp {
  * when unlisted scripts outweigh it, so a mixed paragraph never goes to an engine for a script it is mostly not in.
  */
 export function dominantScript(text: string, scripts: Iterable<string>): string | undefined {
-  const letters = count(text, OTHER_SCRIPT_LETTER);
+  const letters = count(text, otherScriptOf(DEFAULT_SCRIPT).letter);
   let best: string | undefined;
   let bestCount = 0;
   let listed = 0;
@@ -177,10 +220,24 @@ export function uncheckedText(paras: readonly Paragraph[]): UncheckedText {
   let paragraphs = 0;
   for (const p of paras) {
     const l = count(p.text, LATIN_LETTER);
-    const o = count(p.text, OTHER_SCRIPT_LETTER);
+    const o = count(p.text, otherScriptOf(DEFAULT_SCRIPT).letter);
     latin += l;
     other += o;
     if (o > l) paragraphs++;
   }
   return { paragraphs, mostly: other > latin };
+}
+
+/** Any letter of any script: "a", "क". */
+const ANY_LETTER = /\p{L}/gu;
+
+/** True when the set-aside paragraphs hold more letters than the rest: most of the document was not checked. */
+export function mostlyNotChecked(paras: readonly Paragraph[], setAside: ReadonlySet<number>): boolean {
+  let aside = 0;
+  let checked = 0;
+  for (const p of paras) {
+    if (setAside.has(p.id)) aside += count(p.text, ANY_LETTER);
+    else checked += count(p.text, ANY_LETTER);
+  }
+  return aside > checked;
 }

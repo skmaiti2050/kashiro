@@ -7,6 +7,9 @@ import { dominantScript, majorityScript, otherScriptParagraphIds } from './unche
 import type { TierContext } from './tiers';
 import type { Paragraph } from './types';
 
+/** The Unicode script English is written in: the proofread script of every document no other engine proofreads. */
+const ENGLISH_SCRIPT = 'Latin';
+
 /**
  * One proofreading engine per document (owner, 2026-11-02): the engine registered for the script most of the
  * document is written in (majorityScript), else English. It checks the paragraphs in its language; every other
@@ -16,16 +19,17 @@ function routeParagraphs(
   paras: Paragraph[],
   english: LanguageEngine,
   scriptEngines: ReadonlyMap<string, LanguageEngine>,
-): { proofreader: LanguageEngine; paragraphEngines: Map<number, LanguageEngine> } {
+): { proofreader: LanguageEngine; proofreaderScript: string; paragraphEngines: Map<number, LanguageEngine> } {
   // A paragraph no engine proofreads gets no candidate of any kind (never damage).
   const setAside = new Set(otherScriptParagraphIds(paras));
   const script = scriptEngines.size > 0 ? majorityScript(paras.map((p) => p.text), scriptEngines.keys()) : undefined;
   const scriptEngine = script === undefined ? undefined : scriptEngines.get(script);
   if (!scriptEngine) {
-    return { proofreader: english, paragraphEngines: new Map(paras.map((p) => [p.id, setAside.has(p.id) ? notCheckedEngine : english])) };
+    return { proofreader: english, proofreaderScript: ENGLISH_SCRIPT, paragraphEngines: new Map(paras.map((p) => [p.id, setAside.has(p.id) ? notCheckedEngine : english])) };
   }
   const inScript = (p: Paragraph) => setAside.has(p.id) && dominantScript(p.text, scriptEngines.keys()) === script;
-  return { proofreader: scriptEngine, paragraphEngines: new Map(paras.map((p) => [p.id, inScript(p) ? scriptEngine : notCheckedEngine])) };
+  const paragraphEngines = new Map(paras.map((p) => [p.id, inScript(p) ? scriptEngine : notCheckedEngine]));
+  return { proofreader: scriptEngine, proofreaderScript: script!, paragraphEngines };
 }
 
 /**
@@ -44,10 +48,12 @@ export async function prepareCheck(
     engines: LanguageEngine[];
     /** The document's one proofreading engine. */
     proofreader: LanguageEngine;
+    /** The Unicode script the proofreader checks: 'Latin' for English, else the `scriptEngines` key that won. */
+    proofreaderScript: string;
   }
 > {
   const english = createEnglishEngine(deps.linter);
-  const { proofreader, paragraphEngines } = routeParagraphs(allParas, english, deps.scriptEngines ?? new Map());
+  const { proofreader, proofreaderScript, paragraphEngines } = routeParagraphs(allParas, english, deps.scriptEngines ?? new Map());
   const parasOf = (engine: LanguageEngine) => allParas.filter((p) => paragraphEngines.get(p.id) === engine);
   // English always runs, even with no paragraph of its own: the session's variant and tier context come from it.
   const fromEnglish = await english.check(parasOf(english), opts, deps.pause);
@@ -62,15 +68,21 @@ export async function prepareCheck(
   const uncheckedParagraphs = allParas.filter((p) => unchecked.has(p.id)).map((p) => p.id);
   const notEnglish = allParas.filter((p) => paragraphEngines.get(p.id) !== english);
   const ctx = withOtherEnginesLocked(fromEnglish.ctx, parasOf(english), notEnglish, opts);
-  return { ...fromEnglish, ctx, paragraphEngines, engines: [english, ...others], proofreader, found, uncheckedParagraphs };
+  return { ...fromEnglish, ctx, paragraphEngines, engines: [english, ...others], proofreader, proofreaderScript, found, uncheckedParagraphs };
 }
 
 /**
  * #1 gate 1: the paragraphs another engine checks get the same locked text as English ones (URLs, numbers, quotes,
- * commands, adapter locks), and tierOf caps their candidates at 'review' (englishParagraphs).
+ * commands, adapter locks), and tierOf caps their candidates at 'review' (englishParagraphs). Command text is protected
+ * the same way: tierOf hides every non-spelling flag on a surely-command and keeps maybe-commands from zero-click.
  */
 function withOtherEnginesLocked(ctx: TierContext, englishParas: Paragraph[], otherParas: Paragraph[], opts: CheckOptions): TierContext {
   const locked = new Map(ctx.locked);
-  for (const [id, spans] of findLockedText(otherParas, opts.language).locked) locked.set(id, spans);
-  return { ...ctx, locked, englishParagraphs: new Set(englishParas.map((p) => p.id)) };
+  const { locked: otherLocked, commands } = findLockedText(otherParas, opts.language);
+  for (const [id, spans] of otherLocked) locked.set(id, spans);
+  const commandSpans = new Map(ctx.commandSpans);
+  for (const [id, spans] of commands.surely) commandSpans.set(id, spans);
+  const maybeCommandSpans = new Map(ctx.maybeCommandSpans);
+  for (const [id, spans] of commands.maybe) maybeCommandSpans.set(id, spans);
+  return { ...ctx, locked, commandSpans, maybeCommandSpans, englishParagraphs: new Set(englishParas.map((p) => p.id)) };
 }
