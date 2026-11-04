@@ -7,6 +7,7 @@ import type { Candidate, Span, Tier, Variant } from './types';
 
 export interface CheckOptions {
   preset: PresetId;
+  /** `variant` and `fallbackVariant` are English's and are read only by the English engine. Each engine reads only its own options (#1). */
   /** When given, variant detection is skipped. */
   variant?: Variant;
   fallbackVariant: Variant;

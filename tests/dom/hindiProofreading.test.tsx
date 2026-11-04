@@ -1,9 +1,9 @@
 /** A document the Hindi engine proofreads is worded as Hindi proofreading (#1 gates 2, 3, 7, 8). */
 import { describe, it, expect, beforeAll, vi } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import type { EngineId, LanguageEngine } from '@/engine/languageEngine';
 import { makeController, warmLinter } from './harness';
-import { openAndWait, renderShell, reviewPanel } from './shell';
+import { installSpeech, LOCAL_VOICE, openAndWait, renderShell, reviewPanel } from './shell';
 import { english } from '../ui/english';
 
 vi.mock('@tauri-apps/api/window', async () => (await import('./platformMocks')).tauriWindow);
@@ -63,5 +63,40 @@ describe('an English document', () => {
     const panel = within(reviewPanel());
     expect(panel.getByText("1 paragraph isn't in English and was not checked.")).toBeTruthy();
     expect(screen.getByText('English proofreading')).toBeTruthy();
+  });
+});
+
+describe('English-only controls', () => {
+  const variantPicker = () => screen.queryByRole('combobox', { name: /English proofreading|Hindi proofreading/ });
+
+  it('a Hindi-proofread document hides the English variant picker and the status-bar variant', async () => {
+    await openHindi();
+    expect(variantPicker()).toBeNull();
+    expect(screen.queryByText(/English \(/)).toBeNull();
+  });
+
+  it('an English document still shows them', async () => {
+    const { controller } = makeController();
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText('The cat sat on the mat.'));
+    expect(variantPicker()).toBeTruthy();
+    expect(screen.getByText(/English \(/)).toBeTruthy();
+  });
+});
+
+describe('read aloud on Hindi text', () => {
+  it('Read sentence asks for a Hindi voice', async () => {
+    const hindiVoice = { voiceURI: 'Kalpana', name: 'Microsoft Kalpana - Hindi (India)', lang: 'hi-IN', localService: true, default: false };
+    const speech = installSpeech([LOCAL_VOICE, hindiVoice]);
+    try {
+      const { controller } = makeController({}, undefined, undefined, undefined, new Map([['Devanagari', fakeHindi]]));
+      renderShell(controller);
+      await openAndWait(controller, () => controller.openText(MOSTLY_HINDI));
+      const bar = await within(reviewPanel()).findByRole('group', { name: 'Read aloud' });
+      fireEvent.click(within(bar).getByRole('button', { name: /Sentence/ }));
+      expect(speech.spoken.map((s) => s.voice?.lang)).toEqual(['hi-IN']);
+    } finally {
+      speech.remove();
+    }
   });
 });

@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import type { Decision } from '@/engine/decisions';
 import type { Candidate } from '@/engine/types';
-import { localVoices, paragraphAt, sentenceAt, suggestionSpeech, voiceFor, type VoiceInfo } from '@/ui/state/readAloud';
+import { localVoices, paragraphAt, sentenceAt, suggestionSpeech, textLanguage, voiceFor, type VoiceInfo } from '@/ui/state/readAloud';
 import { en } from './english';
 
 const voice = (name: string, localService: boolean, extra: Partial<VoiceInfo> = {}): VoiceInfo => ({
@@ -161,5 +161,18 @@ describe('suggestionSpeech', () => {
   it('a word-list card reads its title, counted in the UI language', () => {
     const names = { id: 'names', kind: 'names', label: 'engine label', candidateIds: ['c1'] } as unknown as Decision;
     expect(speech(names, candidate({}))).toBe('Names and places. 1 name or place.');
+  });
+});
+
+describe('textLanguage', () => {
+  it('names the language of the script the text is mostly in', () => {
+    expect(textLanguage('यह एक वाक्य है।')).toBe('hi');
+    expect(textLanguage('এটি একটি বাক্য।')).toBe('bn');
+    expect(textLanguage('This is a sentence.')).toBe('en');
+  });
+
+  it('counts letters: Hindi with one Latin word is Hindi, and empty text is English', () => {
+    expect(textLanguage('Kashiro का परीक्षण')).toBe('hi');
+    expect(textLanguage('')).toBe('en');
   });
 });

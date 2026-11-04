@@ -8,7 +8,7 @@ import { MoreMenu, type MoreMenuItem } from './MoreMenu';
 import { capabilities } from './platform/capabilities';
 import { siblingPath } from './state/documentText';
 import { overwriteOffered } from './state/saveFlow';
-import { proofreadingLabels } from './proofreadingLabels';
+import { proofreadingLabels, proofreadsEnglish } from './proofreadingLabels';
 import { usePopup } from './usePopup';
 import { middleTruncate } from './state/windowTitle';
 import type { ControllerState, SessionController } from './state/sessionController';
@@ -136,7 +136,8 @@ export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onDict
         {session && (
           <label className={session.mixedVariant ? 'chip warn' : 'chip'} title={session.mixedVariant ? t.t('toolbar.mixedTitle') : undefined}>
             <span>{session.mixedVariant ? t.t('toolbar.mixedSpelling') : t.t(proofreadingLabels(session).chip)}</span>
-            <select
+            {proofreadsEnglish(session) && (
+              <select
               value={variantOverride ?? ''}
               onChange={(e) => controller.setVariant(e.target.value === '' ? null : (e.target.value as Variant))}
             >
@@ -147,6 +148,7 @@ export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onDict
                 </option>
               ))}
             </select>
+            )}
           </label>
         )}
 

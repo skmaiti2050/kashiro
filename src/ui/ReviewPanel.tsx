@@ -20,7 +20,7 @@ import { categoryCounts, categoryOfDecision, type Category } from './state/categ
 import { isWordCard } from './state/labels';
 import { uncheckedPlaces } from './state/unchecked';
 import { progressLabel, progressOf } from './state/progress';
-import { paragraphAt, sentenceAt, suggestionSpeech, type ReadTarget } from './state/readAloud';
+import { paragraphAt, sentenceAt, suggestionSpeech, textLanguage, type ReadTarget } from './state/readAloud';
 import { cursorAt, currentDecision, decisionWith, moveCursor, START } from './state/reviewCursor';
 import type { ReviewKeyAction } from './state/reviewKeys';
 import type { ControllerState, SessionController } from './state/sessionController';
@@ -200,9 +200,9 @@ export function ReviewPanel({ controller, state, onLocate, onShowParagraph, requ
   const otherScript = session.otherScriptParagraphs();
   const passages = session.uncheckedPassages().length;
   const places = uncheckedPlaces(session);
-  // hasCheckedText() is also false when everything was set aside, which the "mostly" case words first.
   const labels = proofreadingLabels(session);
-  // Never an all-clear for a document that is mostly text the engine set aside.
+  // Never an all-clear for a document that is mostly text the engine set aside. hasCheckedText() is also false
+  // when everything was set aside, which the "mostly" case words first.
   const doneLine = session.mostlyNotChecked()
     ? t.t(labels.only)
     : !session.hasCheckedText() && otherScript.length === 0
@@ -244,10 +244,11 @@ export function ReviewPanel({ controller, state, onLocate, onShowParagraph, requ
       const speaker = readAloud?.speaks(t.language) ? t : translatorFor('en');
       return { text: current ? suggestionSpeech(speaker, current, candidates) : '', language: speaker.language };
     }
-    // The document's own text is English.
+    // The document's text is read in its own script's language (card text keeps the rule above).
     const at = readCaret() ?? (first ? { text: paraText.get(first.paraId) ?? '', offset: first.span.start } : null);
     if (!at) return { text: '', language: 'en' };
-    return { text: target === 'sentence' ? sentenceAt(at.text, at.offset) : paragraphAt(at.text, at.offset), language: 'en' };
+    const text = target === 'sentence' ? sentenceAt(at.text, at.offset) : paragraphAt(at.text, at.offset);
+    return { text, language: textLanguage(text) };
   };
   readText.current = textFor;
 

@@ -1,3 +1,4 @@
+import { proofreadsEnglish } from './proofreadingLabels';
 import { useMemo } from 'react';
 import { countWords } from '@/engine/words';
 import type { MessageKey } from './i18n/catalogues';
@@ -33,7 +34,7 @@ export function StatusBar({ state }: { state: ControllerState }) {
       {document && (
         <>
           <span>{t.t('status.words', { count: words })}</span>
-          {session && <span>{t.t(variantKey(variantOverride !== null, session.variantFromFallback), { variant: t.t(VARIANT_KEYS[session.variant]) })}</span>}
+          {session && proofreadsEnglish(session) && <span>{t.t(variantKey(variantOverride !== null, session.variantFromFallback), { variant: t.t(VARIANT_KEYS[session.variant]) })}</span>}
           {/* Not a live region: it would speak after every typing pause (the panel heading announces progress). */}
           <span className={busy ? 'checking' : undefined}>{busy ? t.t('status.checking') : t.t('status.upToDate')}</span>
         </>

@@ -26,6 +26,19 @@ describe('mostlyNotChecked', () => {
     expect((await start([HINDI, HINDI, HINDI, ENGLISH])).mostlyNotChecked()).toBe(true);
   });
 
+  it.each([
+    ['Tamil', 'நாங்கள் நேற்று சந்தையில் ஒன்றாகச் சென்றோம்.'],
+    ['Urdu', 'ہم کل بازار گئے تھے اور بہت خوش تھے۔'],
+    ['Chinese', '我们昨天一起去了市场，买了很多新鲜的水果。'],
+  ])('is true for a document mostly in %s with one short English paragraph', async (_script, text) => {
+    expect((await start([text, text, 'We met.'])).mostlyNotChecked()).toBe(true);
+  });
+
+  it('is false for a long English paragraph holding a short Hindi quote', async () => {
+    const long = 'We met on Monday and talked about the plan for the quarter in some detail, then agreed that she said "यह एक परीक्षण है" was enough.';
+    expect((await start([long])).mostlyNotChecked()).toBe(false);
+  });
+
   it('is false for an English document', async () => {
     expect((await start([ENGLISH, ENGLISH])).mostlyNotChecked()).toBe(false);
   });

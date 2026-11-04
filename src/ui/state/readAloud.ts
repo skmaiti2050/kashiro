@@ -1,4 +1,5 @@
 import type { Decision } from '@/engine/decisions';
+import { dominantScript } from '@/engine/uncheckedScripts';
 import { sentenceSpans } from '@/engine/sentences';
 import type { Candidate } from '@/engine/types';
 import type { Translator } from '../i18n/translator';
@@ -38,6 +39,12 @@ export function voiceFor<V extends VoiceInfo>(voices: readonly V[], language: st
   const base = baseLanguage(language);
   const speaking = localVoices(voices).filter((v) => baseLanguage(v.lang) === base);
   return speaking.find((v) => v.voiceURI === voiceURI) ?? speaking.find((v) => v.default) ?? speaking[0] ?? null;
+}
+
+/** The language to read `text` in: Hindi or Bengali when that script has the most letters, else English. */
+export function textLanguage(text: string): 'en' | 'hi' | 'bn' {
+  const script = dominantScript(text, ['Devanagari', 'Bengali']);
+  return script === 'Devanagari' ? 'hi' : script === 'Bengali' ? 'bn' : 'en';
 }
 
 /** The line (a paragraph in the document view) around `offset`, as offsets into `text`. */

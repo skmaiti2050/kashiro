@@ -53,6 +53,12 @@ export const PROOFREADING_LABELS: Readonly<Record<Exclude<EngineId, 'none'>, Pro
   },
 };
 
+/** Whether the English-only controls (the variant picker and the status-bar variant) apply: true before a check. */
+export function proofreadsEnglish(session: CheckSession | null): boolean {
+  const id = session?.proofreadingEngines()[0]?.id;
+  return id === undefined || id === 'en';
+}
+
 /**
  * The labels for this check's proofreading engine (one per document); English before a check has run.
  * Never throws (it runs while rendering): a new engine id without a row is a compile error above, and at
