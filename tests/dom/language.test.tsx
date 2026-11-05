@@ -160,7 +160,7 @@ describe('app language', () => {
       }
     });
 
-    it('Settings says a Hindi or Bengali voice reads only the cards in that language', async () => {
+    it("Settings says Sentence and Paragraph are read in the text's language, suggestions in English or the app's", async () => {
       const speech = installSpeech([LOCAL_VOICE, HINDI_VOICE]);
       try {
         const { controller } = makeController();
@@ -169,6 +169,7 @@ describe('app language', () => {
         await screen.findByRole('group', { name: 'Read aloud' });
         chooseFromMore('Settings');
         expect(screen.getByRole('dialog').textContent).toContain(createTranslator('en', []).t('reading.voiceLanguageHint'));
+        expect(screen.getByRole('dialog').textContent).toContain("Sentence and Paragraph are read by a voice for the text's language");
       } finally {
         speech.remove();
       }

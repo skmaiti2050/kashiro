@@ -362,6 +362,9 @@ export function DocumentView({
       editor.destroy();
       view.current = null;
       caretReader.current = () => null;
+      // The next document's editor may take no focus (a read-only .docx), so it would never replace these.
+      sentCaretLanguages.current = null;
+      caretLanguagesChanged.current(null);
     };
     // Keyed on the document id, not its text: the editor's own edits flow out through editText.
   }, [doc?.id, controller]);

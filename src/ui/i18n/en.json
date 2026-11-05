@@ -464,7 +464,7 @@
   "reading.pitchValue": "{value, number, ::.0}",
   "reading.sample": "Play a sample",
   "reading.voiceNote": "Only voices installed on this PC are used, so your text is never sent anywhere.",
-  "reading.voiceLanguageHint": "The document is always read by an English voice. A Hindi or Bengali voice reads only the cards, when the app is in that language.",
+  "reading.voiceLanguageHint": "Sentence and Paragraph are read by a voice for the text's language (English, Hindi or Bengali). Suggestions are read in English or in the app's language.",
 
   "modules.legend": "Modules",
   "modules.perGoal": "Use different modules for the {goal} goal",
