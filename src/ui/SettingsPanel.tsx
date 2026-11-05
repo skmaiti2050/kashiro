@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { DEFAULT_DEPTH } from '@/engine/depth';
+import { ENGLISH_VARIANTS } from '@/engine/englishEngine';
 import { PRESETS } from '@/engine/presets';
 import type { CheckSession } from '@/engine/session';
-import { pickerVariants, proofreadingLabels } from './proofreadingLabels';
+import { proofreadingLabels } from './proofreadingLabels';
 import type { Variant } from '@/engine/types';
 import { DepthSlider } from './DepthSlider';
 import { Dialog } from './Dialog';
@@ -73,7 +74,7 @@ export function SettingsPanel({ controller, state, readAloud, onOpenDictionary, 
     <Dialog title={t.t('settings.title')} className="settings" onClose={onClose}>
       <Tabs label={t.t('settings.tabs')} tabs={SETTINGS_TABS.map((id) => ({ id, label: t.t(TAB_KEYS[id]) }))} selected={tab} onSelect={choose}>
         {tab === 'reading' && <ReadingSettings controller={controller} reading={settings.reading} readAloud={readAloud} />}
-        {tab === 'checking' && <CheckingSettings controller={controller} settings={settings} session={state.session} onOpenDictionary={onOpenDictionary} />}
+        {tab === 'checking' && <CheckingSettings controller={controller} settings={settings} onOpenDictionary={onOpenDictionary} />}
         {tab === 'saving' && <SavingSettings controller={controller} settings={settings} />}
         {tab === 'modules' && (
           <ModulesSettings controller={controller} settings={settings} checkingModel={state.checkingModel} helperBackend={state.helperBackend} />
@@ -135,9 +136,8 @@ function SavingSettings({ controller, settings }: SectionProps) {
   );
 }
 
-function CheckingSettings({ controller, settings, session, onOpenDictionary }: SectionProps & { session: CheckSession | null; onOpenDictionary(): void }) {
+function CheckingSettings({ controller, settings, onOpenDictionary }: SectionProps & { onOpenDictionary(): void }) {
   const t = useT();
-  const variants = pickerVariants(session);
   const setAutoApply = (kind: string, on: boolean) => {
     const tierOverrides = { ...settings.tierOverrides };
     if (on) tierOverrides[kind] = 'safe';
@@ -146,18 +146,17 @@ function CheckingSettings({ controller, settings, session, onOpenDictionary }: S
   };
   return (
     <>
-      {variants.length > 0 && (
-        <label className="field">
-          <span>{t.t('settings.variant')}</span>
-          <select value={settings.fallbackVariant} onChange={(e) => controller.changeSettings({ fallbackVariant: e.target.value as Variant })}>
-            {variants.map((v) => (
-              <option key={v} value={v}>
-                {t.t(VARIANT_KEYS[v])}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
+      {/* The default for English text, so it stays whatever document is open (a Hindi one included). */}
+      <label className="field">
+        <span>{t.t('settings.variant')}</span>
+        <select value={settings.fallbackVariant} onChange={(e) => controller.changeSettings({ fallbackVariant: e.target.value as Variant })}>
+          {ENGLISH_VARIANTS.map((v) => (
+            <option key={v} value={v}>
+              {t.t(VARIANT_KEYS[v])}
+            </option>
+          ))}
+        </select>
+      </label>
 
       <fieldset>
         <legend>{t.t('settings.depth')}</legend>

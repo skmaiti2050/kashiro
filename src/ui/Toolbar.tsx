@@ -13,7 +13,6 @@ import { usePopup } from './usePopup';
 import { middleTruncate } from './state/windowTitle';
 import type { ControllerState, SessionController } from './state/sessionController';
 
-
 /** Each English variant's name in the UI language. */
 export const VARIANT_KEYS: Record<Variant, MessageKey> = {
   American: 'variant.American',

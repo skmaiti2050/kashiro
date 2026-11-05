@@ -4,13 +4,12 @@ import { CheckSession, type CheckOptions } from '../src/engine/session';
 import { exportReport } from '../src/engine/report';
 import { DEFAULT_MODULES } from '../src/engine/modules';
 import { createScriptEngines } from '../src/engine/scriptEngines';
+import { ENGLISH_VARIANTS } from '../src/engine/englishEngine';
 import { PRESETS, type PresetId } from '../src/engine/presets';
 import type { Variant } from '../src/engine/types';
 import { variantForLocale } from '../src/engine/localeVariant';
 import { adapterFor } from '../src/formats/registry';
 import type { SaveMode } from '../src/formats/types';
-
-const VARIANTS: Variant[] = ['American', 'British', 'Australian', 'Canadian', 'Indian'];
 
 /** Node's locale is the Windows regional format ("en-IN"); the app asks Windows for the same (os_locale). */
 function localeVariant(): Variant {
@@ -47,7 +46,7 @@ function parseArgs(argv: string[]): Args {
       a.mode = v;
     } else if (t === '--variant') {
       const v = value(i++, t);
-      if (!VARIANTS.includes(v as Variant)) throw new Error(`unknown variant: ${v}`);
+      if (!(ENGLISH_VARIANTS as readonly string[]).includes(v)) throw new Error(`unknown variant: ${v}`);
       a.variant = v as Variant;
     } else if (t === '--report') a.report = value(i++, t);
     else if (t === '--accept-all-rules') a.acceptAll = true;

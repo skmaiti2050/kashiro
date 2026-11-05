@@ -63,12 +63,14 @@ export const PROOFREADING_LABELS: Readonly<Record<Exclude<EngineId, 'none'>, Pro
 };
 
 /**
- * The spelling variants the variant picker, the status-bar variant and Settings offer: those the proofreading engine
- * names that Kashiro knows. Before a check, English's. An engine with none (Hindi) hides every variant control.
+ * The spelling variants the variant picker and the status-bar variant offer: those the proofreading engine names that
+ * Kashiro knows. Before a check, English's. An engine with none (Hindi) hides both. (Settings' default variant is
+ * English's always: it is the default for English text.)
  */
 export function pickerVariants(session: CheckSession | null): Variant[] {
   const engine = session?.proofreadingEngines()[0];
   if (!engine) return [...ENGLISH_VARIANTS];
+  // English's variants are the only ones with labels (VARIANT_KEYS) and Harper dialects, so they are the known set.
   return engine.variants.filter((v): v is Variant => (ENGLISH_VARIANTS as readonly string[]).includes(v));
 }
 

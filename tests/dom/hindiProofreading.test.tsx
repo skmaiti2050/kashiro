@@ -3,7 +3,7 @@ import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest';
 import { fireEvent, screen, within } from '@testing-library/react';
 import { CheckSession } from '@/engine/session';
 import { makeController, warmLinter } from './harness';
-import { installSpeech, LOCAL_VOICE, openAndWait, renderShell, reviewPanel } from './shell';
+import { installSpeech, LOCAL_VOICE, openAndWait, renderShell, reviewPanel, settingsTab } from './shell';
 import { english } from '../ui/english';
 import { devanagariEngines, fakeEngine } from '../fixtures/fakeEngines';
 
@@ -26,6 +26,27 @@ async function openHindi() {
   await openAndWait(controller, () => controller.openText(MOSTLY_HINDI));
   return controller;
 }
+
+/** Every session started from now on reports a mixed-spelling document (the flag is set once, at construction). */
+function forceMixedVariant() {
+  const start = CheckSession.start.bind(CheckSession);
+  vi.spyOn(CheckSession, 'start').mockImplementation(async (...args) => {
+    const session = await start(...args);
+    Object.defineProperty(session, 'mixedVariant', { value: true });
+    return session;
+  });
+}
+
+/** Opens Settings › Checking and returns its default-variant list, as shown. */
+function settingsVariants(): (string | null)[] {
+  fireEvent.keyDown(document.body, { key: ',', ctrlKey: true });
+  settingsTab('Checking');
+  const settings = screen.getByRole('dialog', { name: 'Settings' });
+  const select = within(settings).getByRole('combobox', { name: 'Default English variant' });
+  return within(select).getAllByRole('option').map((o) => o.textContent);
+}
+
+const FIVE_VARIANTS = ['American', 'British', 'Australian', 'Canadian', 'Indian'];
 
 describe('a document the Hindi engine proofreads', () => {
   it('the panel names Hindi', async () => {
@@ -72,15 +93,6 @@ describe('English-only controls', () => {
     expect(screen.queryByText(/English \(/)).toBeNull();
   });
 
-  /** Every session started from now on reports a mixed-spelling document (the flag is set once, at construction). */
-  const forceMixedVariant = () => {
-    const start = CheckSession.start.bind(CheckSession);
-    vi.spyOn(CheckSession, 'start').mockImplementation(async (...args) => {
-      const session = await start(...args);
-      Object.defineProperty(session, 'mixedVariant', { value: true });
-      return session;
-    });
-  };
   afterEach(() => vi.restoreAllMocks());
 
   it('the mixed-spelling chip is English spelling, so a Hindi-proofread document never shows it', async () => {
@@ -142,7 +154,10 @@ describe('read aloud on Hindi text', () => {
 });
 
 describe('the English-only controls (variant picker, status-bar variant, mixed-spelling chip)', () => {
+  afterEach(() => vi.restoreAllMocks());
+
   it('a Hindi-proofread document shows none of them', async () => {
+    forceMixedVariant();
     await openHindi();
     expect(screen.queryByRole('option', { name: 'British' })).toBeNull();
     expect(screen.queryByText(/ English( \(|$)/)).toBeNull();
@@ -154,7 +169,24 @@ describe('the English-only controls (variant picker, status-bar variant, mixed-s
     renderShell(controller);
     await openAndWait(controller, () => controller.openText('The cat sat on the mat.'));
     const picker = screen.getByRole('option', { name: 'British' }).closest('select')!;
-    expect(within(picker).getAllByRole('option').slice(1).map((o) => o.textContent)).toEqual(['American', 'British', 'Australian', 'Canadian', 'Indian']);
+    expect(within(picker).getAllByRole('option').slice(1).map((o) => o.textContent)).toEqual(FIVE_VARIANTS);
+    // The positive control for the status-bar pattern above.
+    expect(screen.getByText(/ English( \(|$)/)).toBeTruthy();
+  });
+});
+
+describe('Settings › Checking › Default English variant (the default for English text, whatever is open)', () => {
+  it('lists the five variants with an English document open', async () => {
+    const { controller } = makeController();
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText('The cat sat on the mat.'));
+    expect(settingsVariants()).toEqual(FIVE_VARIANTS);
+  });
+
+  it('lists the five variants while a Hindi-proofread document is open', async () => {
+    await openHindi();
+    expect(screen.getByText('Hindi proofreading')).toBeTruthy();
+    expect(settingsVariants()).toEqual(FIVE_VARIANTS);
   });
 });
 
