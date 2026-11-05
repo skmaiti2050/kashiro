@@ -1,13 +1,17 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { CheckSession } from '@/engine/session';
 import { SIMPLE_FIXES_ID } from '@/engine/decisions';
+import { sentenceSpans } from '@/engine/sentences';
 import { createLinter, type RulesLinter } from '@/engine/linter';
-import { firstRunBudget, pickSentences, rewriteBudget, sentenceAt } from '@/engine/llm/select';
+import { firstRunBudget, helperReads, pickSentences, rewriteBudget, sentenceAt } from '@/engine/llm/select';
 import type { Candidate, Paragraph, Span } from '@/engine/types';
+import { loadRomanisedModel } from '@/engine/romanised/classifier';
+import { devanagariEngines, fakeEngine } from '../../fixtures/fakeEngines';
 
 let linter: RulesLinter;
 beforeAll(async () => {
   linter = await createLinter('American');
+  await loadRomanisedModel();
 });
 
 const start = (paras: Paragraph[], preset: 'business' | 'script' = 'business') =>
@@ -149,5 +153,51 @@ describe('sentenceAt ("Improve this sentence")', () => {
     s.addRewrite(2, DOG, null);
     expect(sentenceAt(s, 2, DOG.start)?.span).toEqual(DOG);
     expect(sentenceAt(s, 9, 0)).toBeNull(); // no such paragraph
+  });
+});
+
+describe('only checked English goes to the helper', () => {
+  const sentenceStyleLints = (s: CheckSession) => {
+    const text = (id: number) => s.paragraphs().find((p) => p.id === id)!.text;
+    return s.paragraphs().flatMap((p) => sentenceSpans(text(p.id)).map((span) => lint(p.id, { start: span.start, end: span.start + 2 }, 'Style')));
+  };
+
+  it('a Devanagari-majority document: no Hindi sentence, and the set-aside English paragraph, go to the helper', async () => {
+    const paras = [
+      { id: 0, text: 'यह पहला वाक्य है। यह दूसरा वाक्य है।' },
+      { id: 1, text: 'यह तीसरा वाक्य है।' },
+      { id: 2, text: 'We met on Monday. It was late.' },
+    ];
+    const s = await CheckSession.start(
+      paras,
+      { preset: 'business', variant: 'American', fallbackVariant: 'American', language: 'plaintext', dictionary: [] },
+      { linter, scriptEngines: devanagariEngines(fakeEngine()) },
+    );
+    expect(s.engineOf(2)?.id).toBe('none');
+    s.addCandidates(sentenceStyleLints(s));
+    expect(pickSentences(s, 10)).toEqual([]);
+    expect(helperReads(s, 0, { start: 0, end: 5 })).toBe(false);
+    expect(helperReads(s, 2, { start: 0, end: 17 })).toBe(false);
+  });
+
+  it('a sentence holding other-script words is not picked; the English one beside it is', async () => {
+    const text = 'We met Ravi at the मंदिर gate. It was late.';
+    const s = await start([{ id: 0, text }]);
+    s.addCandidates(sentenceStyleLints(s));
+    expect(pickSentences(s, 10).map((p) => p.text)).toEqual(['It was late.']);
+  });
+
+  it('a reported foreign sentence is not picked; the English one beside it is', async () => {
+    const text = "It was late. C'est la vie, mon ami.";
+    const s = await start([{ id: 0, text }]);
+    expect(s.uncheckedPassages().map((u) => u.kind)).toEqual(['otherLanguage']);
+    s.addCandidates(sentenceStyleLints(s));
+    expect(pickSentences(s, 10).map((p) => p.text)).toEqual(['It was late.']);
+  });
+
+  it('helperReads is true for checked English and false for a paragraph not in the document', async () => {
+    const s = await start([{ id: 0, text: PARA0 }]);
+    expect(helperReads(s, 0, DOG)).toBe(true);
+    expect(helperReads(s, 9, { start: 0, end: 5 })).toBe(false);
   });
 });

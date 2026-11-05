@@ -640,6 +640,7 @@
   "ai.alreadySuggested": "An AI suggestion for this sentence is waiting for review.",
   "ai.noImprovement": "No improvement suggested for this sentence.",
   "ai.cantImprove": "This sentence can’t be sent to the AI helper safely: it has formatting, a tracked change, or a fix that runs past its end.",
+  "ai.notChecked": "The AI helper works only on English text the proofreader checked, and this sentence isn’t.",
   "ai.sentenceChanged": "The sentence changed while the AI helper worked, so its suggestion was dropped. Ask again if you like.",
   "ai.noRoom": "Your review already has {count, plural, one {# item} other {# items}}, as many as the review depth allows, so nothing was sent. Use “Check more sentences” to go on anyway.",
   "ai.alreadyDecided": "You already decided the AI suggestion for this sentence. Undo it in the change log to review it again.",

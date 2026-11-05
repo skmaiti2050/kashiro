@@ -156,6 +156,15 @@ describe('"Improve this sentence"', () => {
     await audit('no improvement');
   });
 
+  it('a sentence with other-script words is not sent: the panel says the helper reads only checked English', async () => {
+    const { controller, sent } = aiController(() => null);
+    await openText(controller, 'We met Ravi at the मंदिर gate. It was late.');
+    cursorIn('मंदिर');
+    fireEvent.click(within(screen.getByRole('toolbar')).getByRole('button', { name: 'Improve this sentence' }));
+    await waitFor(() => expect(within(aiGroup()).getByText('The AI helper works only on English text the proofreader checked, and this sentence isn’t.')).toBeTruthy());
+    expect(sent).toEqual([]);
+  });
+
   it('a review card offers it for its own sentence', async () => {
     const { controller, sent } = aiController(() => null);
     await openText(controller);

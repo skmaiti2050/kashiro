@@ -13,6 +13,16 @@ export interface PickedSentence {
   text: string;
 }
 
+/**
+ * True when the helper may read this part of a paragraph: English the proofreader checked. A set-aside or Hindi
+ * paragraph, or a sentence holding an unchecked passage (other-script words, a reported foreign sentence), is out.
+ * The 'en' id test is temporary: the engine-capabilities redesign replaces it.
+ */
+export function helperReads(session: CheckSession, paraId: number, span: Span): boolean {
+  if (session.engineOf(paraId)?.id !== 'en') return false;
+  return !session.uncheckedPassages().some((u) => u.paraId === paraId && overlaps(u.span, span));
+}
+
 /** Lint kinds that say a sentence reads awkwardly. */
 const AWKWARD_KINDS = new Set(['Readability', 'Style', 'WordOrder']);
 const LONG_SENTENCE_WORDS = 30;
@@ -60,7 +70,7 @@ export function pickSentences(session: CheckSession, budget: number): PickedSent
     const paraEdits = edits.filter((e) => e.paraId === p.id);
     const paraLints = lints.filter((c) => c.paraId === p.id);
     for (const span of sentenceSpans(p.text)) {
-      if (session.sentToHelper(p.id, span)) continue;
+      if (session.sentToHelper(p.id, span) || !helperReads(session, p.id, span)) continue;
       const score = scoreOf(p.text.slice(span.start, span.end), paraLints.filter((c) => overlaps(c.span, span)));
       if (score === 0) continue;
       const text = safeToRewrite(p, span, paraEdits);
@@ -77,7 +87,7 @@ export function pickSentences(session: CheckSession, budget: number): PickedSent
 /**
  * "Improve this sentence": the sentence of paragraph `paraId` at `offset` (a caret at a sentence's end, or in the
  * space after it, means that sentence), with its accepted edits applied. Null when there is none, or when a
- * whole-sentence replacement could damage it (as pickSentences skips). Sentences already sent are not skipped.
+ * whole-sentence replacement could damage it (as pickSentences skips). Sentences already sent are not skipped, and neither are ones the helper must not read: callers check `helperReads`.
  */
 export function sentenceAt(session: CheckSession, paraId: number, offset: number): PickedSentence | null {
   const p = session.paragraphs().find((x) => x.id === paraId);

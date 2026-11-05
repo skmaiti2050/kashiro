@@ -1,5 +1,5 @@
 import type { CheckSession } from '@/engine/session';
-import { pickSentences, sentenceAt, type PickedSentence } from '@/engine/llm/select';
+import { helperReads, pickSentences, sentenceAt, type PickedSentence } from '@/engine/llm/select';
 import { offerRewrite, runBudget } from '@/engine/llm/suggest';
 import { msg, type Message } from '../i18n/message';
 import { NO_AI, pendingSuggestions, type AiState } from './aiState';
@@ -81,6 +81,7 @@ export class AiSuggestions {
     if (!session || !this.available()) return;
     const sentence = sentenceAt(session, paraId, offset);
     if (!sentence) return this.tell(msg('ai.cantImprove'));
+    if (!helperReads(session, paraId, sentence.span)) return this.tell(msg('ai.notChecked'));
     if (pendingSuggestions(session).some((c) => c.id === rewriteId(sentence))) {
       this.showReady(rewriteId(sentence));
       this.host.announce(msg('ai.alreadySuggested'));
