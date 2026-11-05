@@ -2,8 +2,11 @@
 import { describe, it, expect } from 'vitest';
 import type { Decision } from '@/engine/decisions';
 import type { Candidate } from '@/engine/types';
+import { createScriptEngines } from '@/engine/scriptEngines';
+import { SCRIPT_LANGUAGES } from '@/ui/proofreadingLabels';
 import { caretLanguages, localVoices, paragraphAt, sentenceAt, suggestionSpeech, textLanguage, voiceFor, type VoiceInfo } from '@/ui/state/readAloud';
 import { en } from './english';
+import { fakeEngine } from '../fixtures/fakeEngines';
 
 const voice = (name: string, localService: boolean, extra: Partial<VoiceInfo> = {}): VoiceInfo => ({
   voiceURI: name,
@@ -185,5 +188,12 @@ describe('caretLanguages', () => {
   });
   it('an empty line is English', () => {
     expect(caretLanguages('', 0)).toEqual({ sentence: 'en', paragraph: 'en' });
+  });
+});
+
+describe('SCRIPT_LANGUAGES (the read-aloud voice table)', () => {
+  it('agrees with every engine own script and language', () => {
+    const engines = [...createScriptEngines().values(), fakeEngine()];
+    for (const { capabilities } of engines) expect(SCRIPT_LANGUAGES[capabilities.script ?? '']).toBe(capabilities.language);
   });
 });

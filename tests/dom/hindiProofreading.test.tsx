@@ -140,3 +140,34 @@ describe('read aloud on Hindi text', () => {
     }
   });
 });
+
+describe('the English-only controls (variant picker, status-bar variant, mixed-spelling chip)', () => {
+  it('a Hindi-proofread document shows none of them', async () => {
+    await openHindi();
+    expect(screen.queryByRole('option', { name: 'British' })).toBeNull();
+    expect(screen.queryByText(/ English( \(|$)/)).toBeNull();
+    expect(screen.queryByText('Mixed spelling')).toBeNull();
+  });
+
+  it('an English document lists exactly the five variants', async () => {
+    const { controller } = makeController();
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText('The cat sat on the mat.'));
+    const picker = screen.getByRole('option', { name: 'British' }).closest('select')!;
+    expect(within(picker).getAllByRole('option').slice(1).map((o) => o.textContent)).toEqual(['American', 'British', 'Australian', 'Canadian', 'Indian']);
+  });
+});
+
+describe('a Hindi-proofread document with no Hindi letters in the checked text', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('says "Nothing to check: no Hindi words" in the panel and the announcement', async () => {
+    const hindi = fakeEngine({ id: 'hi' }).capabilities;
+    vi.spyOn(CheckSession.prototype, 'proofreadingEngines').mockReturnValue([hindi]);
+    const { controller } = makeController();
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText('2024!\n\n(1) 3.5 - 7'));
+    expect(within(reviewPanel()).getByRole('heading', { name: 'Nothing to check: no Hindi words' })).toBeTruthy();
+    expect(english(controller.getState().announcement!.message)).toBe('Check finished: nothing to check, no Hindi words.');
+  });
+});

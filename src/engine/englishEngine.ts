@@ -28,7 +28,7 @@ export interface EnglishResult extends EngineResult {
 
 export type EnglishEngine = LanguageEngine<EnglishResult>;
 
-const ENGLISH_VARIANTS = ['American', 'British', 'Australian', 'Canadian', 'Indian'] as const satisfies readonly Variant[];
+export const ENGLISH_VARIANTS = ['American', 'British', 'Australian', 'Canadian', 'Indian'] as const satisfies readonly Variant[];
 
 const ENGLISH_CAPABILITIES: EngineCapabilities = {
   id: 'en',

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { DEFAULT_DEPTH } from '@/engine/depth';
 import { PRESETS } from '@/engine/presets';
 import type { CheckSession } from '@/engine/session';
-import { proofreadingLabels } from './proofreadingLabels';
+import { pickerVariants, proofreadingLabels } from './proofreadingLabels';
 import type { Variant } from '@/engine/types';
 import { DepthSlider } from './DepthSlider';
 import { Dialog } from './Dialog';
@@ -13,7 +13,7 @@ import { Tabs } from './Tabs';
 import { WebStorageSettings } from './WebStorageSettings';
 import { capabilities } from './platform/capabilities';
 import type { ReadAloud } from './useReadAloud';
-import { PRESET_KEYS, VARIANT_KEYS, VARIANTS } from './Toolbar';
+import { PRESET_KEYS, VARIANT_KEYS } from './Toolbar';
 import type { UiLocale } from './i18n/catalogues';
 import { LANGUAGE_NAMES, systemLanguage, UI_LANGUAGES, type UiLanguageSetting } from './i18n/locale';
 import { useT } from './i18n/useT';
@@ -73,7 +73,7 @@ export function SettingsPanel({ controller, state, readAloud, onOpenDictionary, 
     <Dialog title={t.t('settings.title')} className="settings" onClose={onClose}>
       <Tabs label={t.t('settings.tabs')} tabs={SETTINGS_TABS.map((id) => ({ id, label: t.t(TAB_KEYS[id]) }))} selected={tab} onSelect={choose}>
         {tab === 'reading' && <ReadingSettings controller={controller} reading={settings.reading} readAloud={readAloud} />}
-        {tab === 'checking' && <CheckingSettings controller={controller} settings={settings} onOpenDictionary={onOpenDictionary} />}
+        {tab === 'checking' && <CheckingSettings controller={controller} settings={settings} session={state.session} onOpenDictionary={onOpenDictionary} />}
         {tab === 'saving' && <SavingSettings controller={controller} settings={settings} />}
         {tab === 'modules' && (
           <ModulesSettings controller={controller} settings={settings} checkingModel={state.checkingModel} helperBackend={state.helperBackend} />
@@ -135,8 +135,9 @@ function SavingSettings({ controller, settings }: SectionProps) {
   );
 }
 
-function CheckingSettings({ controller, settings, onOpenDictionary }: SectionProps & { onOpenDictionary(): void }) {
+function CheckingSettings({ controller, settings, session, onOpenDictionary }: SectionProps & { session: CheckSession | null; onOpenDictionary(): void }) {
   const t = useT();
+  const variants = pickerVariants(session);
   const setAutoApply = (kind: string, on: boolean) => {
     const tierOverrides = { ...settings.tierOverrides };
     if (on) tierOverrides[kind] = 'safe';
@@ -145,16 +146,18 @@ function CheckingSettings({ controller, settings, onOpenDictionary }: SectionPro
   };
   return (
     <>
-      <label className="field">
-        <span>{t.t('settings.variant')}</span>
-        <select value={settings.fallbackVariant} onChange={(e) => controller.changeSettings({ fallbackVariant: e.target.value as Variant })}>
-          {VARIANTS.map((v) => (
-            <option key={v} value={v}>
-              {t.t(VARIANT_KEYS[v])}
-            </option>
-          ))}
-        </select>
-      </label>
+      {variants.length > 0 && (
+        <label className="field">
+          <span>{t.t('settings.variant')}</span>
+          <select value={settings.fallbackVariant} onChange={(e) => controller.changeSettings({ fallbackVariant: e.target.value as Variant })}>
+            {variants.map((v) => (
+              <option key={v} value={v}>
+                {t.t(VARIANT_KEYS[v])}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
 
       <fieldset>
         <legend>{t.t('settings.depth')}</legend>

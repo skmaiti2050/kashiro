@@ -466,7 +466,7 @@ export class SessionController {
           : setAside > 0
             ? labels.announceOnly
             : !session.hasCheckedText()
-              ? 'announce.nothingToCheck'
+              ? labels.announceNothing
               : 'announce.checked';
       const finished = withNotChecked(msg(checked, { count: session.rankedDecisionCount() }), session.uncheckedParagraphs().length);
       const announcement = before ? {} : { announcement: { message: finished, seq: ++this.announcements } };

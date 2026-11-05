@@ -8,12 +8,11 @@ import { MoreMenu, type MoreMenuItem } from './MoreMenu';
 import { capabilities } from './platform/capabilities';
 import { siblingPath } from './state/documentText';
 import { overwriteOffered } from './state/saveFlow';
-import { proofreadingLabels, proofreadsEnglish } from './proofreadingLabels';
+import { pickerVariants, proofreadingLabels } from './proofreadingLabels';
 import { usePopup } from './usePopup';
 import { middleTruncate } from './state/windowTitle';
 import type { ControllerState, SessionController } from './state/sessionController';
 
-export const VARIANTS: Variant[] = ['American', 'British', 'Australian', 'Canadian', 'Indian'];
 
 /** Each English variant's name in the UI language. */
 export const VARIANT_KEYS: Record<Variant, MessageKey> = {
@@ -84,7 +83,8 @@ export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onDict
   const t = useT();
   const { session, settings, variantOverride, document } = state;
   // Mixed American/British spelling is an English-spelling notion: a document another engine proofreads never shows it.
-  const mixedSpelling = !!session && proofreadsEnglish(session) && session.mixedVariant;
+  const variants = pickerVariants(session);
+  const mixedSpelling = !!session && variants.length > 0 && session.mixedVariant;
   // What Save will do: Overwrite left on in the settings means nothing where Save downloads.
   const overwrite = settings.overwrite && overwriteOffered();
   const moreItems: MoreMenuItem[] = [
@@ -138,13 +138,13 @@ export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onDict
         {session && (
           <label className={mixedSpelling ? 'chip warn' : 'chip'} title={mixedSpelling ? t.t('toolbar.mixedTitle') : undefined}>
             <span>{mixedSpelling ? t.t('toolbar.mixedSpelling') : t.t(proofreadingLabels(session).chip)}</span>
-            {proofreadsEnglish(session) && (
+            {variants.length > 0 && (
               <select
                 value={variantOverride ?? ''}
                 onChange={(e) => controller.setVariant(e.target.value === '' ? null : (e.target.value as Variant))}
               >
                 <option value="">{automaticVariantLabel(t, variantOverride, session.variant, session.variantFromFallback)}</option>
-                {VARIANTS.map((v) => (
+                {variants.map((v) => (
                   <option key={v} value={v}>
                     {t.t(VARIANT_KEYS[v])}
                   </option>

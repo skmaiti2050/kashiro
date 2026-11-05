@@ -1,5 +1,7 @@
 import type { EngineId } from '@/engine/languageEngine';
+import { ENGLISH_VARIANTS } from '@/engine/englishEngine';
 import type { CheckSession } from '@/engine/session';
+import type { Variant } from '@/engine/types';
 import type { MessageKey } from './i18n/catalogues';
 
 /** The interface wording that names the language Kashiro proofreads. */
@@ -20,6 +22,9 @@ export interface ProofreadingLabels {
   /** The completion announcements. */
   announceOnly: MessageKey;
   announcePassages: MessageKey;
+  /** The panel's heading and the announcement when the checked text holds no letter of the proofread script. */
+  nothingToCheck: MessageKey;
+  announceNothing: MessageKey;
 }
 
 /**
@@ -38,6 +43,8 @@ export const PROOFREADING_LABELS: Readonly<Record<Exclude<EngineId, 'none'>, Pro
     otherBoth: 'panel.paragraphsAndPassages',
     announceOnly: 'announce.checkedEnglishOnly',
     announcePassages: 'announce.checkedPassages',
+    nothingToCheck: 'panel.nothingToCheck',
+    announceNothing: 'announce.nothingToCheck',
   },
   hi: {
     chip: 'toolbar.hindi',
@@ -50,13 +57,19 @@ export const PROOFREADING_LABELS: Readonly<Record<Exclude<EngineId, 'none'>, Pro
     otherBoth: 'panel.paragraphsAndPassagesHindi',
     announceOnly: 'announce.checkedHindiOnly',
     announcePassages: 'announce.checkedPassagesHindi',
+    nothingToCheck: 'panel.nothingToCheckHindi',
+    announceNothing: 'announce.nothingToCheckHindi',
   },
 };
 
-/** Whether the English-only controls (the variant picker and the status-bar variant) apply: true before a check. */
-export function proofreadsEnglish(session: CheckSession | null): boolean {
-  const id = session?.proofreadingEngines()[0]?.id;
-  return id === undefined || id === 'en';
+/**
+ * The spelling variants the variant picker, the status-bar variant and Settings offer: those the proofreading engine
+ * names that Kashiro knows. Before a check, English's. An engine with none (Hindi) hides every variant control.
+ */
+export function pickerVariants(session: CheckSession | null): Variant[] {
+  const engine = session?.proofreadingEngines()[0];
+  if (!engine) return [...ENGLISH_VARIANTS];
+  return engine.variants.filter((v): v is Variant => (ENGLISH_VARIANTS as readonly string[]).includes(v));
 }
 
 /**
@@ -70,7 +83,8 @@ export function proofreadingLabels(session: CheckSession | null): ProofreadingLa
 }
 
 /**
- * The spoken language (BCP-47) of each non-English script Kashiro can proofread or read aloud, by Unicode script
- * name. A new language adds its row here (and its engine and labels above).
+ * The read-aloud voice table: the spoken language (BCP-47) of each non-English script Kashiro can proofread or read
+ * aloud, by Unicode script name. Each engine's capabilities `language` must match its script's row (readAloud.test).
+ * A new language adds its row here (and its engine and labels above).
  */
 export const SCRIPT_LANGUAGES: Readonly<Record<string, string>> = { Devanagari: 'hi', Bengali: 'bn' };

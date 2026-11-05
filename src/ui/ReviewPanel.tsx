@@ -208,7 +208,7 @@ export function ReviewPanel({ controller, state, onLocate, onShowParagraph, requ
   const doneLine = session.mostlyNotChecked()
     ? t.t(labels.only)
     : !session.hasCheckedText() && otherScript.length === 0
-      ? t.t('panel.nothingToCheck')
+      ? t.t(labels.nothingToCheck)
       : places.length > 0
         ? t.t(labels.allClear)
         : t.t('panel.allClear', { count: fixesApplied });
