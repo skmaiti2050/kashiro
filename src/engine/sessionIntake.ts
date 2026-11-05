@@ -22,8 +22,9 @@ export function addCandidates(s: SessionState, cs: Candidate[]): void {
       s.ledger.reasons.set(c.id, TRACKED_CHANGE_REASON);
       if (s.tiers.get(c.id) !== 'hidden') s.tiers.set(c.id, 'review');
     }
-    // Never damage: half a syllable or emoji can't be written back. Hygiene already keeps meaningful joiners itself.
-    if (c.source !== 'hygiene' && splitsCharacter(s.paras.get(c.paraId)!.text, c.span)) {
+    // Never damage: half a syllable or emoji can't be written back. Hygiene already keeps meaningful joiners itself;
+    // a hidden flag is never applied, so it stays hidden.
+    if (c.source !== 'hygiene' && s.tiers.get(c.id) !== 'hidden' && splitsCharacter(s.paras.get(c.paraId)!.text, c.span)) {
       s.tiers.set(c.id, 'review');
       s.unplaceable.set(c.id, SPLITS_CHARACTER_REASON);
       s.ledger.record(c.id, 'rejected', false, `unplaceable: ${SPLITS_CHARACTER_REASON}`);

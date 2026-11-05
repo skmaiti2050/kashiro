@@ -16,6 +16,10 @@ describe('reasonMessage', () => {
     expect(hi.format(reasonMessage('unplaceable: overlaps another edit'))).toBe('नहीं लगाया जा सका: किसी दूसरे बदलाव से टकराता है');
   });
 
+  it('the engine’s "split a character" reason has its own text', () => {
+    expect(reasonMessage('unplaceable: it would split a character')).toEqual({ key: 'reason.unplaceable', values: { reason: { key: 'unplaceable.splitsCharacter' } } });
+  });
+
   it('an unknown reason is shown as it is', () => {
     expect(hi.format(reasonMessage('something new'))).toBe('something new');
   });

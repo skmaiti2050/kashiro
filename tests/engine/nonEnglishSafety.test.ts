@@ -129,7 +129,7 @@ describe('no edit splits a character', () => {
   };
 
   it('a fix that ends before a combining accent is never applied, and is reported as unplaceable', async () => {
-    const text = 'We ate at the café today.';
+    const text = 'We ate at the cafe\u0301 today.';
     const at = text.indexOf('cafe');
     const c = candidate(text, { start: at, end: at + 4 }, 'café', 'Spelling', 'rules');
     expect(c.original).toBe('cafe');
@@ -140,7 +140,7 @@ describe('no edit splits a character', () => {
   });
 
   it('the guard is per candidate: a double-space fix in the same paragraph still applies', async () => {
-    const text = 'We  ate at the café today.';
+    const text = 'We  ate at the cafe\u0301 today.';
     const at = text.indexOf('cafe');
     const c = candidate(text, { start: at, end: at + 4 }, 'café', 'Spelling', 'rules');
     const s = await CheckSession.start([{ id: 0, text }], opts, { linter: linterAlsoFinding(c) });
@@ -150,10 +150,21 @@ describe('no edit splits a character', () => {
   });
 
   it('a stray joiner between Latin letters is still removed without a click (hygiene keeps meaningful ones itself)', async () => {
-    const s = await CheckSession.start([{ id: 0, text: 'ab‍cd' }], opts, { linter });
-    const zwj = s.outcomes().find((o) => o.candidate.source === 'hygiene' && o.candidate.original === '‍');
+    const s = await CheckSession.start([{ id: 0, text: 'ab\u200Dcd' }], opts, { linter });
+    const zwj = s.outcomes().find((o) => o.candidate.source === 'hygiene' && o.candidate.original === '\u200D');
     expect(zwj).toMatchObject({ status: 'applied', auto: true });
     expect(s.outputText(0)).toBe('abcd');
+  });
+
+  it('a hidden flag that would split a character stays hidden and is not reported as unplaceable', async () => {
+    const text = 'यह एक छोटा सा परीक्षण है और इसे चलाने के लिए यह आदेश दें।\nsudo apt-get install cafe\u0301-tools';
+    const at = text.indexOf('cafe');
+    const c = candidate(text, { start: at, end: at + 4 }, 'café', 'Punctuation', 'rules');
+    const s = await CheckSession.start(mostlyHindi({ id: 0, text }), opts, withDevanagari([c]));
+    expect(s.engineOf(0)?.id).toBe('fake-hi');
+    expect(s.tier(c.id)).toBe('hidden');
+    expect(outcomeOf(s, c.id).unplaceable).toBeUndefined();
+    expect(outcomeOf(s, c.id).status).not.toBe('rejected');
   });
 
   it('a fix in a Hindi paragraph that ends between a consonant and its vowel sign is unplaceable', async () => {

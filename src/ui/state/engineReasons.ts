@@ -1,3 +1,4 @@
+import { SPLITS_CHARACTER_REASON } from '@/engine/graphemes';
 import type { MessageKey } from '../i18n/catalogues';
 import { msg, type Message } from '../i18n/message';
 
@@ -28,6 +29,8 @@ const UNPLACEABLE: Record<string, MessageKey> = {
   'paragraph or span not found': 'unplaceable.textNotFound',
   // From the engine (session.ts RESTORED_INVISIBLE_REASON), not the formats.
   'it would delete an invisible character you restored': 'unplaceable.restoredInvisible',
+  // From the engine (graphemes.ts): an edit that would cut inside a character is never applied.
+  [SPLITS_CHARACTER_REASON]: 'unplaceable.splitsCharacter',
 };
 
 /** An unknown text (a newer format reason) is shown as it is, in English. */
