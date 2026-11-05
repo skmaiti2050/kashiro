@@ -7,6 +7,7 @@ import { CheckSession } from '@/engine/session';
 import { createLinter, type RulesLinter } from '@/engine/linter';
 import type { CheckOptions } from '@/engine/sessionTypes';
 import { SIMPLE_FIXES_ID } from '@/engine/decisions';
+import { SPLITS_CHARACTER_REASON } from '@/engine/graphemes';
 import type { Candidate, Paragraph, Span } from '@/engine/types';
 import { devanagariEngines, fakeEngine } from '../fixtures/fakeEngines';
 
@@ -107,5 +108,63 @@ describe('never damage in paragraphs another engine checks', () => {
     expect(fix).toBeDefined();
     expect(s.tier(fix!.candidate.id)).toBe('safe');
     expect(fix).toMatchObject({ status: 'applied', auto: true });
+  });
+});
+
+describe('no edit splits a character', () => {
+  /** The real linter, also finding `extra` (an injected candidate on paragraph 0). */
+  const linterAlsoFinding = (extra: Candidate): RulesLinter => ({
+    get variant() {
+      return linter.variant;
+    },
+    lintParagraphs: async (p, lang) => [...(await linter.lintParagraphs(p, lang)), extra],
+    lintSpelling: (p, v) => linter.lintSpelling(p, v),
+    addWords: (w) => linter.addWords(w),
+    setVariant: (v) => linter.setVariant(v),
+  });
+
+  const decidedIds = (s: CheckSession) => {
+    const { top, more } = s.decisions();
+    return [...top, ...more].flatMap((d) => d.candidateIds);
+  };
+
+  it('a fix that ends before a combining accent is never applied, and is reported as unplaceable', async () => {
+    const text = 'We ate at the café today.';
+    const at = text.indexOf('cafe');
+    const c = candidate(text, { start: at, end: at + 4 }, 'café', 'Spelling', 'rules');
+    expect(c.original).toBe('cafe');
+    const s = await CheckSession.start([{ id: 0, text }], opts, { linter: linterAlsoFinding(c) });
+    expect(outcomeOf(s, c.id)).toMatchObject({ status: 'rejected', unplaceable: SPLITS_CHARACTER_REASON, auto: false });
+    expect(s.outputText(0)).toBe(text);
+    expect(decidedIds(s)).not.toContain(c.id);
+  });
+
+  it('the guard is per candidate: a double-space fix in the same paragraph still applies', async () => {
+    const text = 'We  ate at the café today.';
+    const at = text.indexOf('cafe');
+    const c = candidate(text, { start: at, end: at + 4 }, 'café', 'Spelling', 'rules');
+    const s = await CheckSession.start([{ id: 0, text }], opts, { linter: linterAlsoFinding(c) });
+    expect(outcomeOf(s, c.id)).toMatchObject({ status: 'rejected', unplaceable: SPLITS_CHARACTER_REASON });
+    const gap = s.outcomes().find((o) => o.candidate.original === '  ' && o.candidate.source === 'rules');
+    expect(gap).toMatchObject({ status: 'applied', auto: true });
+  });
+
+  it('a stray joiner between Latin letters is still removed without a click (hygiene keeps meaningful ones itself)', async () => {
+    const s = await CheckSession.start([{ id: 0, text: 'ab‍cd' }], opts, { linter });
+    const zwj = s.outcomes().find((o) => o.candidate.source === 'hygiene' && o.candidate.original === '‍');
+    expect(zwj).toMatchObject({ status: 'applied', auto: true });
+    expect(s.outputText(0)).toBe('abcd');
+  });
+
+  it('a fix in a Hindi paragraph that ends between a consonant and its vowel sign is unplaceable', async () => {
+    const text = 'यह किताब बहुत अच्छी है।';
+    const at = text.indexOf('कि');
+    const c = candidate(text, { start: at, end: at + 1 }, 'ख', 'Punctuation', 'rules');
+    expect(c.original).toBe('क');
+    const s = await CheckSession.start(mostlyHindi({ id: 0, text }), opts, withDevanagari([c]));
+    expect(s.engineOf(0)?.id).toBe('fake-hi');
+    expect(outcomeOf(s, c.id)).toMatchObject({ status: 'rejected', unplaceable: SPLITS_CHARACTER_REASON, auto: false });
+    expect(s.outputText(0)).toBe(text);
+    expect(decidedIds(s)).not.toContain(c.id);
   });
 });

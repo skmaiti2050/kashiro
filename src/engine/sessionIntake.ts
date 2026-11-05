@@ -1,6 +1,7 @@
 import { isZeroClickChange } from './zeroClick';
 import { editsChangingTokens } from './tokenGuard';
 import { tierOf } from './tiers';
+import { splitsCharacter, SPLITS_CHARACTER_REASON } from './graphemes';
 import { byPosition, overlaps, TRACKED_CHANGE_REASON } from './sessionTypes';
 import type { SessionState } from './sessionState';
 import type { Candidate, Tier } from './types';
@@ -20,6 +21,12 @@ export function addCandidates(s: SessionState, cs: Candidate[]): void {
       s.ledger.inTrackedChange.add(c.id);
       s.ledger.reasons.set(c.id, TRACKED_CHANGE_REASON);
       if (s.tiers.get(c.id) !== 'hidden') s.tiers.set(c.id, 'review');
+    }
+    // Never damage: half a syllable or emoji can't be written back. Hygiene already keeps meaningful joiners itself.
+    if (c.source !== 'hygiene' && splitsCharacter(s.paras.get(c.paraId)!.text, c.span)) {
+      s.tiers.set(c.id, 'review');
+      s.unplaceable.set(c.id, SPLITS_CHARACTER_REASON);
+      s.ledger.record(c.id, 'rejected', false, `unplaceable: ${SPLITS_CHARACTER_REASON}`);
     }
   }
   s.ledger.withdrawCovered(); // one added inside an edit the user applied is never offered
