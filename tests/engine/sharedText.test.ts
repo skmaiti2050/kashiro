@@ -3,7 +3,6 @@ import { findSharedText } from '@/engine/sharedText';
 import { CheckSession } from '@/engine/session';
 import { createLinter, type RulesLinter } from '@/engine/linter';
 import type { CheckOptions } from '@/engine/sessionTypes';
-import { findLockedText } from '@/engine/lockedText';
 import type { Paragraph } from '@/engine/types';
 
 const ZERO_WIDTH_SPACE = String.fromCharCode(0x200b);
@@ -19,12 +18,14 @@ describe('findSharedText', () => {
     { id: 3, text: 'npm  run build\n```' },
   ];
 
-  it('locks what findLockedText finds over the whole document', () => {
+  it('locks the URL in the Hindi paragraph, and code fenced across two paragraphs in both of them', () => {
     const shared = findSharedText(DOCUMENT, 'markdown');
-    const whole = findLockedText(DOCUMENT, 'markdown');
-    expect(shared.locked).toEqual(whole.locked);
-    expect(shared.commands).toEqual(whole.commands);
     expect(shared.locked.get(1)).toContainEqual({ start: HINDI.indexOf('https'), end: HINDI.indexOf(' और') });
+    // Paragraph 3 alone has no opening fence: only a pass over the whole document knows its first line is code.
+    const continued = { start: 0, end: 'npm  run build'.length };
+    expect(shared.locked.get(3)).toEqual([continued]);
+    expect(shared.commands.surely.get(3)).toEqual([continued]);
+    expect(shared.locked.get(0)).toEqual([]);
   });
 
   it('finds the zero-width space in the Hindi paragraph', () => {

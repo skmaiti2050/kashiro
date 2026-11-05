@@ -268,16 +268,18 @@ function baseTier(c: Candidate, ctx: TierContext): Tier {
  */
 function layoutTier(c: Candidate): Tier {
   if (c.source === 'hygiene') return 'safe';
+  // Any rules fix of a space run to one ' ' passes here; isZeroClickChange makes the final call on where it sits.
   const collapsesSpaces = c.source === 'rules' && c.replacements.length === 1 && c.replacements[0] === ' ' && SPACE_RUN.test(c.original);
   return collapsesSpaces ? 'safe' : 'review';
 }
 
 /**
- * Risk tier for one candidate (spec §5). User overrides (by kind) win over the
- * fixed rules and the preset, but nothing becomes safe if it is LLM output, touches
+ * Risk tier for one candidate (spec §5). The base rules come from the paragraph engine's trust policy (baseTier for
+ * English, layoutTier otherwise). User overrides (by kind) win over them, but nothing becomes safe if it is LLM output, touches
  * a fact-locked span, lacks exactly one replacement, is a Spelling/Typo fix of a word starting
  * with a capital (names, acronyms) or more than one letter away (see isSlipFix), or is a word
- * of the document's variant, holds a digit ("y0u") or is a word in another language (isOtherLanguageWord).
+ * of the document's variant, holds a digit ("y0u") or is a word in another language (isOtherLanguageWord, English
+ * paragraphs only).
  * Spelling/Typo/Capitalization flags on code tokens
  * ("q2", "preventDefault", "src/ui") and respellings of stray single letters are always hidden, and so are
  * kinds the user dismissed as a rule (isIgnoredRule).

@@ -157,11 +157,9 @@ describe('never damage in paragraphs another engine checks', () => {
     const c = candidate(text, { start: at, end: at + 'और और'.length }, 'और', 'Repetition', 'rules');
     expect(c.original).toBe('और और');
     const s = await CheckSession.start(mostlyHindi({ id: 0, text }), { ...opts, tierOverrides: { Repetition: 'safe' } }, withDevanagari([c]));
-    expect(s.tier(c.id)).not.toBe('safe');
+    expect(s.tier(c.id)).toBe('review');
     expect(outcomeOf(s, c.id)).toMatchObject({ status: 'pending', auto: false });
-    const card = simpleFixes(s);
-    const ticked = (card?.candidateIds ?? []).filter((id) => !card?.startUnticked?.includes(id));
-    expect(ticked).not.toContain(c.id);
+    expect(simpleFixes(s)?.candidateIds ?? []).not.toContain(c.id);
   });
 
   it('English paragraphs keep zero-click fixes', async () => {
@@ -180,7 +178,7 @@ describe("the session's own layout fixes in paragraphs another engine checks", (
   const LONG_HINDI = 'हम कल सुबह बाज़ार गए और वहाँ से सब्ज़ियाँ लाए।';
 
   it('a double space and an invisible character in a Hindi paragraph are both removed without a click', async () => {
-    // Apart, so neither fix sits next to the other's change (nearInvisible asks about a fix beside one).
+    // Apart: a space run next to an invisible character is not between two words (zeroClick's NOT_A_WORD_EDGE).
     const text = `यह एक छोटा सा  परीक्षण है और यह बहु${BYTE_ORDER_MARK}त अच्छा है।`;
     const s = await CheckSession.start(mostlyHindi({ id: 0, text }), opts, withQuietDevanagari);
     expect(s.engineOf(0)?.id).toBe('fake-hi');

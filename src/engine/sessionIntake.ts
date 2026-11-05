@@ -54,7 +54,8 @@ function paragraphText(s: SessionState, paraId: number): string {
 function sessionTier(s: SessionState, c: Candidate): Tier {
   const tier = tierOf(c, s.ctx);
   if (tier !== 'safe') return tier;
-  // An engine not trusted with no-click fixes: its safe fixes wait on the card.
+  // An engine not trusted with no-click fixes: its safe fixes wait on the card. This skips the optedIn tagging below,
+  // which is fine: only the not-checked engine has zeroClick false, and it has no candidates.
   if (s.ctx.paragraphEngines?.get(c.paraId)?.trust.zeroClick === false) return 'batch';
   const p = s.paras.get(c.paraId)!;
   // Maybe-command text is never changed without a click either (Task F21c, review M-24).
