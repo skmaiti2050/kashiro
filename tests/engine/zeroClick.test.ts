@@ -102,6 +102,10 @@ describe('findAlignedParagraphs (F4 re-review 3, M-3)', () => {
     expect([...findAlignedParagraphs(paras('We went  home.', 'The hall was  full by ten.', 'It rained.', 'The end.  Next one.', 'The end.   Next one.'))]).toEqual([]);
   });
 
+  it('leaves Hindi sentences with a stray double space to the space rule, after a word or a danda', () => {
+    expect([...findAlignedParagraphs(paras('हम  घर गए।', 'सभा कक्ष  दस बजे भर गया।', 'बारिश हुई।', 'अंत।   अगला वाक्य।', 'पहला॥   दूसरा।'))]).toEqual([]);
+  });
+
   it.each([
     ['keys with a colon', ['Name:      Rahul Sharma', 'City:      Pune'], [0, 1]],
     ['lines ending with a full stop', ['Company     Acme Pvt. Ltd.', 'Address     12 MG Road, Pune.'], [0, 1]],
