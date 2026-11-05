@@ -106,6 +106,10 @@ describe('findAlignedParagraphs (F4 re-review 3, M-3)', () => {
     expect([...findAlignedParagraphs(paras('हम  घर गए।', 'सभा कक्ष  दस बजे भर गया।', 'बारिश हुई।', 'अंत।   अगला वाक्य।', 'पहला॥   दूसरा।'))]).toEqual([]);
   });
 
+  it('finds a Hindi key–value block laid out with spaces', () => {
+    expect([...findAlignedParagraphs(paras('नाम      राहुल', 'शहर      पुणे'))]).toEqual([0, 1]);
+  });
+
   it.each([
     ['keys with a colon', ['Name:      Rahul Sharma', 'City:      Pune'], [0, 1]],
     ['lines ending with a full stop', ['Company     Acme Pvt. Ltd.', 'Address     12 MG Road, Pune.'], [0, 1]],

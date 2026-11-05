@@ -1,6 +1,6 @@
 import { SIMPLE_FIXES_ID } from './decisions';
 import { doubledWord } from './wordFlags';
-import { holdBack } from './sessionIntake';
+import { holdBack, refuseCharacterSplit } from './sessionIntake';
 import { CARD_ACCEPT_METHODS, resolveDecision } from './sessionDecisions';
 import { TRACKED_CHANGE_REASON, UNDONE_BEFORE_REASON } from './sessionTypes';
 import type { SessionState } from './sessionState';
@@ -31,6 +31,8 @@ export function applyMembers(s: SessionState, decisionId: string, members: Candi
     );
   }
   for (const c of members) {
+    // Defence in depth: a hidden flag skipped the intake check, and nothing that cuts a character is ever written.
+    if (refuseCharacterSplit(s, c)) continue;
     if (s.ledger.inTrackedChange.has(c.id)) {
       s.ledger.record(c.id, 'pending', false, TRACKED_CHANGE_REASON);
       continue;

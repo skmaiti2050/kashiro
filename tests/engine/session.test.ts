@@ -187,6 +187,21 @@ describe('decisions, accept, undo', () => {
     }
   });
 
+  it('a candidate on a paragraph the session does not have is refused with a clear message', async () => {
+    const s = await startFixed([{ id: 0, text: TEH }]);
+    const stray: Candidate = {
+      id: 'llm:stray',
+      paraId: 7,
+      span: { start: 0, end: 1 },
+      original: 'I',
+      replacements: ['We'],
+      kind: 'Rewrite',
+      message: 'Rewrite',
+      source: 'llm',
+    };
+    expect(() => s.addCandidates([stray])).toThrow('unknown paragraph 7');
+  });
+
   it('top holds at most 10 decisions', async () => {
     const text =
       "We can't, won't, don't and doesn't. It isn't, they aren't, he wasn't, we weren't. " +

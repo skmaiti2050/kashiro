@@ -167,6 +167,28 @@ describe('no edit splits a character', () => {
     expect(outcomeOf(s, c.id).status).not.toBe('rejected');
   });
 
+  it('a double-space fix that would be applied without a click is not, when it ends inside an accented space', async () => {
+    // The second space carries a combining accent (" \u0301" is one character): collapsing "  " would cut it.
+    const text = 'We met  \u0301on Monday.';
+    const gap = text.indexOf('  ');
+    const c = candidate(text, { start: gap, end: gap + 2 }, ' ', 'Formatting', 'rules');
+    expect(c.original).toBe('  ');
+    const s = await CheckSession.start([{ id: 0, text }], opts, { linter: linterAlsoFinding(c) });
+    expect(outcomeOf(s, c.id)).toMatchObject({ status: 'rejected', unplaceable: SPLITS_CHARACTER_REASON, auto: false });
+    expect(s.outputText(0)).toBe(text);
+  });
+
+  it('a hidden flag that would split a character is not applied when accepted directly', async () => {
+    const text = 'यह एक छोटा सा परीक्षण है और इसे चलाने के लिए यह आदेश दें।\nsudo apt-get install cafe\u0301-tools';
+    const at = text.indexOf('cafe');
+    const c = candidate(text, { start: at, end: at + 4 }, 'café', 'Punctuation', 'rules');
+    const s = await CheckSession.start(mostlyHindi({ id: 0, text }), opts, withDevanagari([c]));
+    expect(s.tier(c.id)).toBe('hidden');
+    s.accept(c.id);
+    expect(outcomeOf(s, c.id)).toMatchObject({ status: 'rejected', unplaceable: SPLITS_CHARACTER_REASON, auto: false });
+    expect(s.outputText(0)).toBe(text);
+  });
+
   it('a fix in a Hindi paragraph that ends between a consonant and its vowel sign is unplaceable', async () => {
     const text = 'यह किताब बहुत अच्छी है।';
     const at = text.indexOf('कि');

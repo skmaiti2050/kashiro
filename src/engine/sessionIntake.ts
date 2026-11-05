@@ -22,15 +22,28 @@ export function addCandidates(s: SessionState, cs: Candidate[]): void {
       s.ledger.reasons.set(c.id, TRACKED_CHANGE_REASON);
       if (s.tiers.get(c.id) !== 'hidden') s.tiers.set(c.id, 'review');
     }
-    // Never damage: half a syllable or emoji can't be written back. Hygiene already keeps meaningful joiners itself;
-    // a hidden flag is never applied, so it stays hidden.
-    if (c.source !== 'hygiene' && s.tiers.get(c.id) !== 'hidden' && splitsCharacter(s.paras.get(c.paraId)!.text, c.span)) {
-      s.tiers.set(c.id, 'review');
-      s.unplaceable.set(c.id, SPLITS_CHARACTER_REASON);
-      s.ledger.record(c.id, 'rejected', false, `unplaceable: ${SPLITS_CHARACTER_REASON}`);
-    }
+    // A hidden flag is applied only when accepted directly, and applyMembers checks it then: it stays hidden.
+    if (s.tiers.get(c.id) !== 'hidden' && refuseCharacterSplit(s, c)) s.tiers.set(c.id, 'review');
   }
   s.ledger.withdrawCovered(); // one added inside an edit the user applied is never offered
+}
+
+/**
+ * Never damage: half a syllable or emoji can't be written back, so a candidate whose span cuts inside a character
+ * is recorded unplaceable (and true returned). Hygiene is exempt: it already keeps meaningful joiners itself.
+ * Checked when candidates arrive (addCandidates) and again when edits are applied (applyMembers).
+ */
+export function refuseCharacterSplit(s: SessionState, c: Candidate): boolean {
+  if (c.source === 'hygiene' || !splitsCharacter(paragraphText(s, c.paraId), c.span)) return false;
+  s.unplaceable.set(c.id, SPLITS_CHARACTER_REASON);
+  s.ledger.record(c.id, 'rejected', false, `unplaceable: ${SPLITS_CHARACTER_REASON}`);
+  return true;
+}
+
+function paragraphText(s: SessionState, paraId: number): string {
+  const p = s.paras.get(paraId);
+  if (!p) throw new Error(`unknown paragraph ${paraId}`);
+  return p.text;
 }
 
 /**
