@@ -91,13 +91,21 @@ export function pickSentences(session: CheckSession, budget: number): PickedSent
  */
 export function sentenceAt(session: CheckSession, paraId: number, offset: number): PickedSentence | null {
   const p = session.paragraphs().find((x) => x.id === paraId);
+  const span = sentenceSpanAt(session, paraId, offset);
+  if (!p || !span) return null;
+  const text = safeToRewrite(p, span, session.acceptedEdits().filter((e) => e.paraId === paraId));
+  return text === null ? null : { paraId, span, text };
+}
+
+/** The span of the sentence sentenceAt takes, even one it would refuse: so the caller can say why it was refused. */
+export function sentenceSpanAt(session: CheckSession, paraId: number, offset: number): Span | null {
+  const p = session.paragraphs().find((x) => x.id === paraId);
   if (!p) return null;
   const spans = sentenceSpans(p.text);
   let span = spans[0];
   if (!span) return null;
   for (const s of spans) if (s.start <= offset) span = s;
-  const text = safeToRewrite(p, span, session.acceptedEdits().filter((e) => e.paraId === paraId));
-  return text === null ? null : { paraId, span, text };
+  return span;
 }
 
 /**

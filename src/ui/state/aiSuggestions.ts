@@ -1,5 +1,5 @@
 import type { CheckSession } from '@/engine/session';
-import { helperReads, pickSentences, sentenceAt, type PickedSentence } from '@/engine/llm/select';
+import { helperReads, pickSentences, sentenceAt, sentenceSpanAt, type PickedSentence } from '@/engine/llm/select';
 import { offerRewrite, runBudget } from '@/engine/llm/suggest';
 import { msg, type Message } from '../i18n/message';
 import { NO_AI, pendingSuggestions, type AiState } from './aiState';
@@ -79,9 +79,11 @@ export class AiSuggestions {
   improveSentence(paraId: number, offset: number): void {
     const session = this.host.state().session;
     if (!session || !this.available()) return;
+    // Not English the proofreader checked comes first: formatting there too would otherwise say "can't send safely".
+    const span = sentenceSpanAt(session, paraId, offset);
+    if (span && !helperReads(session, paraId, span)) return this.tell(msg('ai.notChecked'));
     const sentence = sentenceAt(session, paraId, offset);
     if (!sentence) return this.tell(msg('ai.cantImprove'));
-    if (!helperReads(session, paraId, sentence.span)) return this.tell(msg('ai.notChecked'));
     if (pendingSuggestions(session).some((c) => c.id === rewriteId(sentence))) {
       this.showReady(rewriteId(sentence));
       this.host.announce(msg('ai.alreadySuggested'));

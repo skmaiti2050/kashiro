@@ -278,6 +278,16 @@ describe('"Improve this sentence"', () => {
     expect(announced(controller)).toMatch(/^This sentence can’t be sent to the AI helper safely/);
   });
 
+  it('a sentence with other-script words and formatting says the helper reads only checked English, not "can’t be sent safely"', async () => {
+    const helper = mockHelper();
+    const { controller } = makeController({ startHelper: helper.startHelper });
+    await controller.openText('We met Ravi at the **मंदिर** gate. It was late.');
+    improve(controller, 'We met');
+    await controller.ai.settled();
+    expect(helper.sent).toEqual([]);
+    expect(announced(controller)).toBe('The AI helper works only on English text the proofreader checked, and this sentence isn’t.');
+  });
+
   it('a sentence whose suggestion the user already accepted or rejected says so, instead of "No improvement suggested"', async () => {
     for (const decide of ['accept', 'reject'] as const) {
       const helper = mockHelper(() => WAS_REWRITE);
