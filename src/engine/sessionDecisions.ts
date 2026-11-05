@@ -38,6 +38,8 @@ export function rankDecisions(s: SessionState): { top: Decision[]; more: Decisio
     foreignSentences: s.ctx.foreignSentences,
     modules: { ...(s.ctx.modules ?? DEFAULT_MODULES) },
     onCommand: (c) => overlapsLocked(c, s.ctx.commandSpans?.get(c.paraId)),
+    // The romanised model is English's: another engine's flags never load it, so they must not reach it.
+    englishParagraph: (paraId) => (s.ctx.paragraphEngines?.get(paraId)?.language ?? 'en') === 'en',
     untickedOnCard: (fixes) => {
       const unknownWords = spellingFlagSpans(s);
       const commandText = new Map<number, Span[]>();

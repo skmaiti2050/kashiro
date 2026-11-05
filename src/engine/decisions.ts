@@ -186,6 +186,8 @@ interface DecisionOptions {
   untickedOnCard?: (fixes: Candidate[]) => string[];
   /** Candidates on command text: their spelling flags are single decisions, never a batch (Task F21, review M-17). */
   onCommand?: (c: Candidate) => boolean;
+  /** Paragraphs English checks (default all): only their flags can be words in Indian languages (romanised model). */
+  englishParagraph?: (paraId: number) => boolean;
 }
 
 /** Decisions grouped by batch key, in first-appearance order. */
@@ -246,6 +248,7 @@ export function buildDecisions(
     modules = DEFAULT_MODULES,
     untickedOnCard = () => [],
     onCommand = () => false,
+    englishParagraph = () => true,
   }: DecisionOptions = {},
 ): { safe: string[]; decisions: Decision[]; demoted: string[]; blocked: Decision[] } {
   const reviewFlags = cands.filter((c) => (tiers.get(c.id) ?? 'review') === 'review');
@@ -254,7 +257,7 @@ export function buildDecisions(
   // A term's capitalised uses ("Dosha" mid-sentence) join the terms card too: one word, one card.
   const isTermFlag = (c: Candidate) => WORD_REWRITE_KINDS.has(c.kind) && terms.has(c.original.toLowerCase());
   const otherLanguage = modules.otherLanguageCard
-    ? findOtherLanguageWords(reviewFlags, typoWords, new Set(terms.keys()), foreignSentences)
+    ? findOtherLanguageWords(reviewFlags.filter((c) => englishParagraph(c.paraId)), typoWords, new Set(terms.keys()), foreignSentences)
     : new Set<string>();
   const isOtherLanguageFlag = (c: Candidate) => WORD_REWRITE_KINDS.has(c.kind) && otherLanguage.has(c.original.toLowerCase());
   const safe: string[] = [];
