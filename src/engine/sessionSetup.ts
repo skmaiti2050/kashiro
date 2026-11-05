@@ -22,10 +22,11 @@ function routeParagraphs(
   const setAside = new Set(otherScriptParagraphIds(paras));
   const script = scriptEngines.size > 0 ? majorityScript(paras.map((p) => p.text), scriptEngines.keys()) : undefined;
   const scriptEngine = script === undefined ? undefined : scriptEngines.get(script);
-  if (!scriptEngine) {
+  const inScript = (p: Paragraph) => setAside.has(p.id) && dominantScript(p.text, scriptEngines.keys()) === script;
+  // Most letters in the script but no paragraph mostly in it (mixed paragraphs): the engine would check nothing.
+  if (!scriptEngine || !paras.some(inScript)) {
     return { proofreader: english, proofreaderScript: ENGLISH_SCRIPT, paragraphEngines: new Map(paras.map((p) => [p.id, setAside.has(p.id) ? notCheckedEngine : english])) };
   }
-  const inScript = (p: Paragraph) => setAside.has(p.id) && dominantScript(p.text, scriptEngines.keys()) === script;
   const paragraphEngines = new Map(paras.map((p) => [p.id, inScript(p) ? scriptEngine : notCheckedEngine]));
   return { proofreader: scriptEngine, proofreaderScript: script!, paragraphEngines };
 }
@@ -80,7 +81,8 @@ export async function prepareCheck(
     maybeCommandSpans: shared.commands.maybe,
     paragraphEngines: new Map([...paragraphEngines].map(([paraId, engine]) => [paraId, engine.capabilities])),
   };
-  return { ...fromEnglish, ctx, paragraphEngines, engines: [english, ...others], proofreader, proofreaderScript, found, uncheckedParagraphs, foreignSentences: proofreaderResult.foreignSentences ?? new Map() };
+  // foreignSentences after the spread: English's own would otherwise stand in for another proofreader's.
+  return { ...fromEnglish, ctx, paragraphEngines, engines: [english, ...others], proofreader, proofreaderScript, found, uncheckedParagraphs, foreignSentences: proofreaderResult?.foreignSentences ?? new Map() };
 }
 
 /**

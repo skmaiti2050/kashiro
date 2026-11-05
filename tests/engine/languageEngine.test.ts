@@ -7,6 +7,7 @@ import { CheckSession } from '@/engine/session';
 import { createLinter, type RulesLinter } from '@/engine/linter';
 import { createEnglishEngine } from '@/engine/englishEngine';
 import { notCheckedEngine } from '@/engine/notCheckedEngine';
+import { createScriptEngines } from '@/engine/scriptEngines';
 import type { LanguageEngine } from '@/engine/languageEngine';
 import type { CheckOptions } from '@/engine/sessionTypes';
 import { findSharedText } from '@/engine/sharedText';
@@ -54,6 +55,13 @@ describe('engine capabilities', () => {
 
   it('not-checked is never trusted with a no-click fix', () => {
     expect(notCheckedEngine.capabilities.trust.zeroClick).toBe(false);
+  });
+
+  it('every registered engine (and the test fake) is keyed by its own script', () => {
+    const registries = [createScriptEngines(), devanagariEngines(fakeEngine())];
+    for (const registry of registries) {
+      for (const [script, engine] of registry) expect(engine.capabilities.script).toBe(script);
+    }
   });
 });
 
@@ -173,5 +181,23 @@ describe('routing paragraphs to engines', () => {
     });
     expect(seen).toEqual([[0]]);
     expect([0, 1].map((id) => s.engineOf(id)?.id)).toEqual(['fake-hi', 'none']);
+  });
+
+  it('Devanagari has the most letters but no paragraph is mostly Devanagari: English proofreads, as with no engine', async () => {
+    const { engine, seen } = fakeDevanagari();
+    // Each mixed paragraph has a little more Bengali than Devanagari, so neither is the Devanagari engine's.
+    const mixed = `${HINDI} ${BENGALI}`;
+    const s = await CheckSession.start(paragraphs([ENGLISH, mixed, mixed]), opts, withDevanagari(engine));
+    expect(seen).toEqual([]);
+    expect(engineIds(s)).toEqual(['en', 'none', 'none']);
+    expect(s.proofreadingEngines().map((c) => c.id)).toEqual(['en']);
+    expect(s.candidates().map((c) => c.original)).toContain('teh');
+  });
+
+  it('a proofreading engine that reports no foreign sentences has no otherLanguage passage', async () => {
+    const { engine } = fakeDevanagari();
+    const s = await CheckSession.start(paragraphs(MOSTLY_HINDI), opts, withDevanagari(engine));
+    expect(s.proofreadingEngines().map((c) => c.id)).toEqual(['fake-hi']);
+    expect(s.uncheckedPassages().filter((p) => p.kind === 'otherLanguage')).toEqual([]);
   });
 });
