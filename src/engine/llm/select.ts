@@ -16,10 +16,10 @@ export interface PickedSentence {
 /**
  * True when the helper may read this part of a paragraph: English the proofreader checked. A set-aside or Hindi
  * paragraph, or a sentence holding an unchecked passage (other-script words, a reported foreign sentence), is out.
- * The 'en' id test is temporary: the engine-capabilities redesign replaces it.
+ * Decided by the engine's spoken language, not its id.
  */
 export function helperReads(session: CheckSession, paraId: number, span: Span): boolean {
-  if (session.engineOf(paraId)?.id !== 'en') return false;
+  if (session.engineOf(paraId)?.language !== 'en') return false;
   return !session.uncheckedPassages().some((u) => u.paraId === paraId && overlaps(u.span, span));
 }
 

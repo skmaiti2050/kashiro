@@ -200,4 +200,25 @@ describe('only checked English goes to the helper', () => {
     expect(helperReads(s, 0, DOG)).toBe(true);
     expect(helperReads(s, 9, { start: 0, end: 5 })).toBe(false);
   });
+
+  it('helperReads follows the engine language, not its id: a Hindi engine called fake-hi is not read', async () => {
+    const hindi = 'यह एक परीक्षण है।';
+    const s = await CheckSession.start(
+      [{ id: 0, text: hindi }, { id: 1, text: hindi }],
+      { preset: 'business', variant: 'American', fallbackVariant: 'American', language: 'plaintext', dictionary: [] },
+      { linter, scriptEngines: devanagariEngines(fakeEngine()) },
+    );
+    expect(s.engineOf(0)).toMatchObject({ id: 'fake-hi', language: 'hi' });
+    expect(helperReads(s, 0, { start: 0, end: hindi.length })).toBe(false);
+  });
+
+  it('helperReads is false for a Hindi engine even when its id is "en"', async () => {
+    const hindi = 'यह एक परीक्षण है।';
+    const s = await CheckSession.start(
+      [{ id: 0, text: hindi }, { id: 1, text: hindi }],
+      { preset: 'business', variant: 'American', fallbackVariant: 'American', language: 'plaintext', dictionary: [] },
+      { linter, scriptEngines: devanagariEngines(fakeEngine({ id: 'en' })) },
+    );
+    expect(helperReads(s, 0, { start: 0, end: hindi.length })).toBe(false);
+  });
 });

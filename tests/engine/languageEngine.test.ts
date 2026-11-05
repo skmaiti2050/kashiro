@@ -131,6 +131,16 @@ describe('routing paragraphs to engines', () => {
     expect(s.uncheckedPassages()).toEqual([{ paraId: 0, span: { start, end: start + 'Kashiro'.length }, kind: 'otherScript' }]);
   });
 
+  it('a foreign sentence the proofreading engine reports is an otherLanguage passage', async () => {
+    const sentence = 'Dogs bark at night.';
+    const text = `यह एक परीक्षण है। ${sentence} यह दूसरा वाक्य है।`;
+    const start = text.indexOf(sentence);
+    const span = { start, end: start + sentence.length };
+    const engine = fakeEngine({ foreignSentences: new Map([[0, [span]]]) });
+    const s = await CheckSession.start(paragraphs([text, HINDI, HINDI]), opts, withDevanagari(engine));
+    expect(s.uncheckedPassages()).toEqual([{ paraId: 0, span, kind: 'otherLanguage' }]);
+  });
+
   it('a Hindi document with one English paragraph is not mostly unchecked', async () => {
     const { engine } = fakeDevanagari();
     const s = await CheckSession.start(paragraphs(MOSTLY_HINDI), opts, withDevanagari(engine));

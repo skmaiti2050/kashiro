@@ -155,5 +155,5 @@ async function checkEnglish(
     romanisedSentences,
     listParagraphs: new Set(paras.filter((p) => p.listItem).map((p) => p.id)),
   };
-  return { variant, mixedVariant: mixed, variantFromFallback: fromFallback, ctx, found, uncheckedParagraphs };
+  return { variant, mixedVariant: mixed, variantFromFallback: fromFallback, ctx, found, uncheckedParagraphs, foreignSentences };
 }

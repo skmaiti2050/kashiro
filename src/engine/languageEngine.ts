@@ -1,6 +1,6 @@
 import type { CheckOptions } from './sessionTypes';
 import type { SharedText } from './sharedText';
-import type { Candidate, Paragraph } from './types';
+import type { Candidate, Paragraph, Span } from './types';
 
 /** Every engine the app has; a new engine adds its id here, and the UI's label table then needs a row. */
 export type EngineId = 'en' | 'hi' | 'none';
@@ -37,6 +37,8 @@ export interface EngineResult {
   found: Candidate[];
   /** Paragraph ids the engine could not check (the linter threw on them), in document order. */
   uncheckedParagraphs: number[];
+  /** Sentences mostly in another language than the engine's own, by paragraph id (#29); engines that cannot tell return none. */
+  foreignSentences?: Map<number, Span[]>;
 }
 
 /** One language's proofreading: checks the paragraphs routed to it, and learns the user's dictionary words. */

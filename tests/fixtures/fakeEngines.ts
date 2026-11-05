@@ -1,5 +1,5 @@
 import type { EngineId, LanguageEngine } from '@/engine/languageEngine';
-import type { Candidate, Paragraph } from '@/engine/types';
+import type { Candidate, Paragraph, Span } from '@/engine/types';
 
 interface FakeEngineOptions {
   /** The engine id; a test that asserts one passes it. */
@@ -10,10 +10,12 @@ interface FakeEngineOptions {
   unchecked?: number[];
   /** Pushed one list of paragraph ids per check, to see what the engine was given. */
   seen?: number[][];
+  /** The foreign sentences it reports, by paragraph id. */
+  foreignSentences?: Map<number, Span[]>;
 }
 
 /** A fake proofreading engine for a script Kashiro has no real engine for yet. */
-export function fakeEngine({ id = 'fake-hi', found = [], unchecked = [], seen }: FakeEngineOptions = {}): LanguageEngine {
+export function fakeEngine({ id = 'fake-hi', found = [], unchecked = [], seen, foreignSentences }: FakeEngineOptions = {}): LanguageEngine {
   return {
     capabilities: {
       id: id as EngineId,
@@ -26,7 +28,7 @@ export function fakeEngine({ id = 'fake-hi', found = [], unchecked = [], seen }:
     },
     check: async (paras) => {
       seen?.push(paras.map((p) => p.id));
-      return { found: typeof found === 'function' ? found(paras) : found, uncheckedParagraphs: unchecked };
+      return { found: typeof found === 'function' ? found(paras) : found, uncheckedParagraphs: unchecked, foreignSentences };
     },
     addWords: async () => {},
   };

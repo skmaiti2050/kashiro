@@ -6,7 +6,7 @@ import type { EngineResult, LanguageEngine } from './languageEngine';
 import { byPosition, type CheckOptions, type SessionDeps } from './sessionTypes';
 import { ENGLISH_SCRIPT, dominantScript, majorityScript, otherScriptParagraphIds } from './uncheckedScripts';
 import type { TierContext } from './tiers';
-import type { Candidate, Paragraph } from './types';
+import type { Candidate, Paragraph, Span } from './types';
 
 /**
  * One proofreading engine per document (owner, 2026-11-02): the engine registered for the script most of the
@@ -48,6 +48,8 @@ export async function prepareCheck(
     proofreader: LanguageEngine;
     /** The Unicode script the proofreader checks: 'Latin' for English, else the `scriptEngines` key that won. */
     proofreaderScript: string;
+    /** The proofreader's foreign sentences (mostly another language), by paragraph id. */
+    foreignSentences: Map<number, Span[]>;
   }
 > {
   const english = createEnglishEngine(deps.linter);
@@ -61,6 +63,7 @@ export async function prepareCheck(
   const others = [...new Set(paragraphEngines.values())].filter((engine) => engine !== english);
   const fromOthers: EngineResult[] = [];
   for (const engine of others) fromOthers.push(await engine.check(parasOf(engine), opts, shared, deps.pause));
+  const proofreaderResult = proofreader === english ? fromEnglish : fromOthers[others.indexOf(proofreader)];
 
   const fromEngines = [...fromEnglish.found, ...fromOthers.flatMap((r) => r.found)];
   // A stable sort, engines' candidates before the session's own: alone, English's keep the order they always had.
@@ -77,7 +80,7 @@ export async function prepareCheck(
     maybeCommandSpans: shared.commands.maybe,
     paragraphEngines: new Map([...paragraphEngines].map(([paraId, engine]) => [paraId, engine.capabilities])),
   };
-  return { ...fromEnglish, ctx, paragraphEngines, engines: [english, ...others], proofreader, proofreaderScript, found, uncheckedParagraphs };
+  return { ...fromEnglish, ctx, paragraphEngines, engines: [english, ...others], proofreader, proofreaderScript, found, uncheckedParagraphs, foreignSentences: proofreaderResult.foreignSentences ?? new Map() };
 }
 
 /**
