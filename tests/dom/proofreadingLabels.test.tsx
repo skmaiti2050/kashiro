@@ -24,7 +24,17 @@ afterEach(() => {
 
 /** Makes every session report one proofreading engine with this (test-only) id. */
 const reportEngine = (id: string) =>
-  vi.spyOn(CheckSession.prototype, 'proofreadingEngines').mockReturnValue([{ id: id as EngineId, proofreads: true, variants: [], hasCase: true }]);
+  vi.spyOn(CheckSession.prototype, 'proofreadingEngines').mockReturnValue([
+    {
+      id: id as EngineId,
+      proofreads: true,
+      variants: [],
+      hasCase: true,
+      script: 'Latin',
+      language: 'en',
+      trust: { zeroClick: true, safeKinds: 'english', ticks: 'slipDoublings' },
+    },
+  ]);
 
 describe('proofreading labels', () => {
   it('before a check there is no session, and the labels are English', () => {

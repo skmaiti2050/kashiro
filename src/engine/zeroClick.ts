@@ -10,7 +10,7 @@ import type { Candidate, Paragraph, Span } from './types';
  */
 
 /** Two or more plain spaces: "  " in "went  home". */
-const SPACE_RUN = /^ {2,}$/;
+export const SPACE_RUN = /^ {2,}$/;
 /** Whitespace or an invisible character: a space run next to one is not between two words. */
 const NOT_A_WORD_EDGE = /[\s\p{Cf}\p{Default_Ignorable_Code_Point}]/u;
 const NOT_A_WORD_EDGE_AT_END = new RegExp(`${NOT_A_WORD_EDGE.source}$`, 'u');

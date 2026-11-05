@@ -1,6 +1,7 @@
 /**
- * #1 gate 1: a paragraph another engine checks gets the same never-damage locks as an English one, and nothing
- * there is applied without a click until that language has its own tier policy (gate 9).
+ * #1 gate 1: a paragraph another engine checks gets the same never-damage locks as an English one. Its engine's trust
+ * policy decides the rest: the fake Hindi engine gets the same no-click fixes as English (spaces, invisible
+ * characters), every other fix is asked, and nothing starts ticked.
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import { CheckSession } from '@/engine/session';
@@ -32,8 +33,13 @@ function candidate(text: string, span: Span, replacement: string, kind: string, 
 
 const outcomeOf = (s: CheckSession, id: string) => s.outcomes().find((o) => o.candidate.id === id)!;
 
+const simpleFixes = (s: CheckSession) => {
+  const { top, more } = s.decisions();
+  return [...top, ...more].find((d) => d.id === SIMPLE_FIXES_ID);
+};
+
 describe('never damage in paragraphs another engine checks', () => {
-  it('a whitespace fix in a Hindi paragraph is never applied without a click', async () => {
+  it('a whitespace fix in a Hindi paragraph is applied without a click, like English', async () => {
     // The gap comes after four words: after one to three, a line without a full stop reads as a key and a value
     // ("Total  500", findAlignedParagraphs), and that alone would keep the fix from being zero-click today.
     const text = 'यह एक छोटा सा  परीक्षण है।';
@@ -42,18 +48,18 @@ describe('never damage in paragraphs another engine checks', () => {
     expect(c.original).toBe('  ');
     const s = await CheckSession.start(mostlyHindi({ id: 0, text }), opts, withDevanagari([c]));
     expect(s.engineOf(0)?.id).toBe('fake-hi');
-    expect(s.tier(c.id)).toBe('review');
-    expect(outcomeOf(s, c.id)).toMatchObject({ status: 'pending', auto: false });
+    expect(s.tier(c.id)).toBe('safe');
+    expect(outcomeOf(s, c.id)).toMatchObject({ status: 'applied', auto: true });
   });
 
-  it('an invisible-character fix in a Hindi paragraph is never applied without a click', async () => {
+  it('an invisible-character fix in a Hindi paragraph is applied without a click, like English', async () => {
     const text = 'यह​एक परीक्षण है।';
     const c = candidate(text, { start: 2, end: 3 }, '', 'Invisible', 'hygiene');
     expect(c.original).toBe('​');
     const s = await CheckSession.start(mostlyHindi({ id: 0, text }), opts, withDevanagari([c]));
     expect(s.engineOf(0)?.id).toBe('fake-hi');
-    expect(s.tier(c.id)).toBe('review');
-    expect(outcomeOf(s, c.id)).toMatchObject({ status: 'pending', auto: false });
+    expect(s.tier(c.id)).toBe('safe');
+    expect(outcomeOf(s, c.id)).toMatchObject({ status: 'applied', auto: true });
   });
 
   it('a fix over a URL in a Hindi paragraph touches locked text', async () => {
@@ -80,17 +86,17 @@ describe('never damage in paragraphs another engine checks', () => {
     expect(s.tier(c.id)).toBe('hidden');
   });
 
-  it("a user's 'safe' override for Formatting is capped in a Hindi paragraph: asked, not applied, not on the simple-fixes card", async () => {
-    const text = 'यह एक छोटा सा  परीक्षण है।';
-    const gap = text.indexOf('  ');
-    const c = candidate(text, { start: gap, end: gap + 2 }, ' ', 'Formatting', 'rules');
+  it("a user's 'safe' override for Formatting puts a Hindi non-space fix on the card, unticked and not applied", async () => {
+    const text = 'यह एक परीक्षण है।।';
+    const at = text.indexOf('।।');
+    const c = candidate(text, { start: at, end: at + 2 }, '।', 'Formatting', 'rules');
     const s = await CheckSession.start(mostlyHindi({ id: 0, text }), { ...opts, tierOverrides: { Formatting: 'safe' } }, withDevanagari([c]));
     expect(s.engineOf(0)?.id).toBe('fake-hi');
-    expect(s.tier(c.id)).toBe('review');
+    expect(s.tier(c.id)).toBe('batch');
     expect(outcomeOf(s, c.id)).toMatchObject({ status: 'pending', auto: false });
-    const { top, more } = s.decisions();
-    const card = [...top, ...more].find((d) => d.id === SIMPLE_FIXES_ID);
-    expect(card?.candidateIds ?? []).not.toContain(c.id);
+    const card = simpleFixes(s);
+    expect(card?.candidateIds).toContain(c.id);
+    expect(card?.startUnticked).toContain(c.id);
   });
 
   it('a fix over an adapter-locked span in a Hindi paragraph touches locked text', async () => {
@@ -100,6 +106,62 @@ describe('never damage in paragraphs another engine checks', () => {
     expect(s.engineOf(0)?.id).toBe('fake-hi');
     expect(s.touchesLocked(c.id)).toBe(true);
     expect(s.tier(c.id)).toBe('review');
+  });
+
+  it('a spelling fix in a Hindi paragraph is asked, not on the simple-fixes card', async () => {
+    const text = 'यह एक परीक्षन है।';
+    const at = text.indexOf('परीक्षन');
+    const c = candidate(text, { start: at, end: at + 'परीक्षन'.length }, 'परीक्षण', 'Spelling', 'rules');
+    const s = await CheckSession.start(mostlyHindi({ id: 0, text }), opts, withDevanagari([c]));
+    expect(s.engineOf(0)?.id).toBe('fake-hi');
+    expect(s.tier(c.id)).toBe('review');
+    expect(outcomeOf(s, c.id)).toMatchObject({ status: 'pending', auto: false });
+    expect(simpleFixes(s)?.candidateIds ?? []).not.toContain(c.id);
+  });
+
+  it('a formatting fix in a Hindi paragraph that is not a space collapse is asked', async () => {
+    const text = 'यह एक परीक्षण है।।';
+    const at = text.indexOf('।।');
+    const c = candidate(text, { start: at, end: at + 2 }, '।', 'Formatting', 'rules');
+    const s = await CheckSession.start(mostlyHindi({ id: 0, text }), opts, withDevanagari([c]));
+    expect(s.tier(c.id)).toBe('review');
+    expect(outcomeOf(s, c.id)).toMatchObject({ status: 'pending', auto: false });
+  });
+
+  it("a user's 'safe' override for Spelling puts a Hindi fix on the card, unticked and not applied", async () => {
+    // Letters only, no vowel sign: a one-letter slip (isSlipFix), so tierOf reaches the language check.
+    const text = 'यह एक कमल है।';
+    const at = text.indexOf('कमल');
+    const c = candidate(text, { start: at, end: at + 'कमल'.length }, 'कमर', 'Spelling', 'rules');
+    const s = await CheckSession.start(mostlyHindi({ id: 0, text }), { ...opts, tierOverrides: { Spelling: 'safe' } }, withDevanagari([c]));
+    expect(s.tier(c.id)).toBe('batch');
+    expect(outcomeOf(s, c.id)).toMatchObject({ status: 'pending', auto: false });
+    const card = simpleFixes(s);
+    expect(card?.candidateIds).toContain(c.id);
+    expect(card?.startUnticked).toContain(c.id);
+  });
+
+  it('a Latin word fix in a Hindi paragraph never reaches the romanised-word check (English alone loads its model)', async () => {
+    const text = 'यह एक छोटा सा परीक्षण है और khub अच्छा है।';
+    const at = text.indexOf('khub');
+    const c = candidate(text, { start: at, end: at + 4 }, 'khud', 'Spelling', 'rules');
+    const s = await CheckSession.start(mostlyHindi({ id: 0, text }), { ...opts, tierOverrides: { Spelling: 'safe' } }, withDevanagari([c]));
+    expect(s.engineOf(0)?.id).toBe('fake-hi');
+    expect(s.tier(c.id)).toBe('batch');
+    expect(outcomeOf(s, c.id)).toMatchObject({ status: 'pending', auto: false });
+  });
+
+  it('a doubled word in a Hindi paragraph never starts ticked', async () => {
+    const text = 'मैं और और तुम कल बाज़ार गए थे।';
+    const at = text.indexOf('और और');
+    const c = candidate(text, { start: at, end: at + 'और और'.length }, 'और', 'Repetition', 'rules');
+    expect(c.original).toBe('और और');
+    const s = await CheckSession.start(mostlyHindi({ id: 0, text }), { ...opts, tierOverrides: { Repetition: 'safe' } }, withDevanagari([c]));
+    expect(s.tier(c.id)).not.toBe('safe');
+    expect(outcomeOf(s, c.id)).toMatchObject({ status: 'pending', auto: false });
+    const card = simpleFixes(s);
+    const ticked = (card?.candidateIds ?? []).filter((id) => !card?.startUnticked?.includes(id));
+    expect(ticked).not.toContain(c.id);
   });
 
   it('English paragraphs keep zero-click fixes', async () => {

@@ -27,17 +27,32 @@ const BENGALI = 'আমরা কাল বাজারে গিয়েছি
 const MIXED = [ENGLISH, HINDI, ENGLISH_2, BENGALI];
 
 describe('engine capabilities', () => {
-  it('English proofreads, has case and offers the five variants', () => {
+  it('English proofreads Latin, has case, offers the five variants and has the English trust policy', () => {
     expect(createEnglishEngine(linter).capabilities).toEqual({
       id: 'en',
       proofreads: true,
       variants: ['American', 'British', 'Australian', 'Canadian', 'Indian'],
       hasCase: true,
+      script: 'Latin',
+      language: 'en',
+      trust: { zeroClick: true, safeKinds: 'english', ticks: 'slipDoublings' },
     });
   });
 
-  it('not-checked proofreads nothing and has no variants or case', () => {
-    expect(notCheckedEngine.capabilities).toEqual({ id: 'none', proofreads: false, variants: [], hasCase: false });
+  it('not-checked proofreads nothing and has no script, language, variants or case', () => {
+    expect(notCheckedEngine.capabilities).toEqual({
+      id: 'none',
+      proofreads: false,
+      variants: [],
+      hasCase: false,
+      script: null,
+      language: null,
+      trust: { zeroClick: false, safeKinds: 'layoutOnly', ticks: 'none' },
+    });
+  });
+
+  it('not-checked is never trusted with a no-click fix', () => {
+    expect(notCheckedEngine.capabilities.trust.zeroClick).toBe(false);
   });
 });
 

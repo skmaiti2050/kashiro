@@ -1,4 +1,5 @@
 import type { Candidate, Span } from './types';
+import type { TrustPolicy } from './languageEngine';
 import { isClearProseSentence } from './clearProse';
 import { isSlipDoubling } from './tiers';
 import { doubledWord } from './wordFlags';
@@ -24,6 +25,8 @@ export interface TickContext {
   commandText(paraId: number): readonly Span[];
   /** The words of a paragraph with a spelling flag: a line starting with one isn't joined to the prose above it. */
   unknownWords(paraId: number): readonly Span[];
+  /** The tick list of the engine that checked a paragraph (its trust policy): 'none' ticks nothing there. */
+  ticks(paraId: number): TrustPolicy['ticks'];
 }
 
 /** The ids of `fixes` (the card's members) that start unticked, in card order. */
@@ -35,6 +38,7 @@ export function untickedByDefault(fixes: readonly Candidate[], ctx: TickContext)
 function startsTicked(c: Candidate, ctx: TickContext): boolean {
   const text = ctx.paraText.get(c.paraId);
   if (text === undefined || c.replacements.length !== 1 || ctx.optedIn(c) || isLetterPair(c)) return false;
+  if (ctx.ticks(c.paraId) === 'none') return false;
   if (text.slice(c.span.start, c.span.end) !== c.original || !isSlipDoubling(c, text)) return false;
   if (followsMentionWord(text, c.span)) return false;
   // Only in a clear prose sentence (Task F21d, owner decision 2026-10-29): elsewhere it may be command text.

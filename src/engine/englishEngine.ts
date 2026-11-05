@@ -35,6 +35,9 @@ const ENGLISH_CAPABILITIES: EngineCapabilities = {
   proofreads: true,
   variants: ENGLISH_VARIANTS,
   hasCase: true,
+  script: 'Latin',
+  language: 'en',
+  trust: { zeroClick: true, safeKinds: 'english', ticks: 'slipDoublings' },
 };
 
 /** Words already added to a reused linter, so a second session does not add them again. */

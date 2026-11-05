@@ -54,6 +54,8 @@ function paragraphText(s: SessionState, paraId: number): string {
 function sessionTier(s: SessionState, c: Candidate): Tier {
   const tier = tierOf(c, s.ctx);
   if (tier !== 'safe') return tier;
+  // An engine not trusted with no-click fixes: its safe fixes wait on the card.
+  if (s.ctx.paragraphEngines?.get(c.paraId)?.trust.zeroClick === false) return 'batch';
   const p = s.paras.get(c.paraId)!;
   // Maybe-command text is never changed without a click either (Task F21c, review M-24).
   const untouched = [...(s.ctx.locked.get(c.paraId) ?? []), ...(s.ctx.maybeCommandSpans?.get(c.paraId) ?? [])];

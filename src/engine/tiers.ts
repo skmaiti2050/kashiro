@@ -16,6 +16,8 @@ import { isRomanisedIndic } from './romanised/classifier';
 import type { ModuleSwitches } from './modules';
 import { isListLabelFlag, lowersAcronym } from './listItems';
 import { isConfusableFlag } from './confusables';
+import { SPACE_RUN } from './zeroClick';
+import type { EngineCapabilities } from './languageEngine';
 
 // Public paths stay `engine/tiers`; the implementations live next to their own helpers.
 export { buildDecisions, foldsUnderMore, type Decision } from './decisions';
@@ -47,8 +49,8 @@ export interface TierContext {
   modules?: ModuleSwitches;
   /** Ids of list-item paragraphs (Paragraph.listItem): their first word is not a sentence start. */
   listParagraphs?: ReadonlySet<number>;
-  /** Ids of the paragraphs English checked. When set, a candidate on any other paragraph is at most 'review'. */
-  englishParagraphs?: ReadonlySet<number>;
+  /** paraId → the capabilities of the engine that checked it; its trust policy sets the tier. No entry: English. */
+  paragraphEngines?: ReadonlyMap<number, EngineCapabilities>;
 }
 
 // Repetition is not here: only isSlipDoubling's words are safe to undouble.
@@ -261,6 +263,16 @@ function baseTier(c: Candidate, ctx: TierContext): Tier {
 }
 
 /**
+ * The base tier for an engine trusted with layout fixes only: invisible characters and a run of spaces collapsed to
+ * one are safe (isZeroClickChange still checks they sit between two words); every other fix is asked.
+ */
+function layoutTier(c: Candidate): Tier {
+  if (c.source === 'hygiene') return 'safe';
+  const collapsesSpaces = c.source === 'rules' && c.replacements.length === 1 && c.replacements[0] === ' ' && SPACE_RUN.test(c.original);
+  return collapsesSpaces ? 'safe' : 'review';
+}
+
+/**
  * Risk tier for one candidate (spec §5). User overrides (by kind) win over the
  * fixed rules and the preset, but nothing becomes safe if it is LLM output, touches
  * a fact-locked span, lacks exactly one replacement, is a Spelling/Typo fix of a word starting
@@ -279,10 +291,11 @@ export function tierOf(c: Candidate, ctx: TierContext): Tier {
   if (paraText !== undefined && isListLabelFlag(c, paraText, ctx.listParagraphs?.has(c.paraId) ?? false)) return 'hidden';
   if (isIgnoredRule(c, ctx)) return 'hidden';
   const override = ctx.userTierOverrides?.[c.kind];
-  const tier = override ?? baseTier(c, ctx);
+  // The engine's trust policy picks the base rules (spec G2); every check below can only lower a tier, so it is shared.
+  const engine = ctx.paragraphEngines?.get(c.paraId);
+  const englishRules = engine === undefined || engine.trust.safeKinds === 'english';
+  const tier = override ?? (englishRules ? baseTier(c, ctx) : layoutTier(c));
   if (tier !== 'safe') return tier;
-  // #1 gate 1: a cap, not a tier, so 'hidden' stays hidden: no zero-click outside English until a Hindi tier policy (gate 9).
-  if (ctx.englishParagraphs && !ctx.englishParagraphs.has(c.paraId)) return 'review';
   // Whatever the overrides say: a grammatical doubling, a flag that removes or joins a doubled word ("to to's" →
   // "toto's"), or a flag an invisible character skews, is asked first.
   if ((c.kind === 'Repetition' || holdsDoubledWord(c, paraText)) && !isSlipDoubling(c, paraText)) return 'review';
@@ -293,7 +306,9 @@ export function tierOf(c: Candidate, ctx: TierContext): Tier {
   // Safety rests on the linter's own list: one it offered alone, not one the engine filtered or added to.
   if (c.replacements.length !== 1 || c.linterReplacements) return 'review';
   if (WORD_REWRITE_KINDS.has(c.kind) && (UPPER_START.test(c.original) || !isSlipFix(c))) return 'review';
-  if (WORD_REWRITE_KINDS.has(c.kind) && isOtherLanguageWord(c, ctx)) return 'review';
+  // The romanised model is English's alone (only English loads it; it throws when not loaded).
+  const isEnglish = engine === undefined || engine.language === 'en';
+  if (WORD_REWRITE_KINDS.has(c.kind) && isEnglish && isOtherLanguageWord(c, ctx)) return 'review';
   // "Mr. and Mrs. Rao": the linter reads the abbreviation's period as a sentence end.
   const text = ctx.paraText?.get(c.paraId);
   if (c.kind === 'Capitalization' && text !== undefined && followsAbbreviation(text, c.span.start)) return 'review';

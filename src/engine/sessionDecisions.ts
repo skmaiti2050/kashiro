@@ -53,6 +53,7 @@ export function rankDecisions(s: SessionState): { top: Decision[]; more: Decisio
           return spans;
         },
         unknownWords: (paraId) => unknownWords.get(paraId) ?? [],
+        ticks: (paraId) => s.ctx.paragraphEngines?.get(paraId)?.trust.ticks ?? 'slipDoublings',
       });
     },
   });

@@ -4,7 +4,17 @@ import type { Candidate, Paragraph } from './types';
 /** Every engine the app has; a new engine adds its id here, and the UI's label table then needs a row. */
 export type EngineId = 'en' | 'hi' | 'none';
 
-/** What an engine can do, for the UI to word its labels and pickers (#2b). */
+/** How far an engine's fixes are trusted (spec G2). Data only; the shared tier code switches on these values. */
+export interface TrustPolicy {
+  /** May a fix in this engine's paragraphs be applied without a click (isZeroClickChange still decides which). */
+  zeroClick: boolean;
+  /** 'english': today's baseTier rules. 'layoutOnly': safe only for hygiene and the shared double-space fix. */
+  safeKinds: 'english' | 'layoutOnly';
+  /** Which card fixes may start ticked: English's slip-doubling allowlist, or none. */
+  ticks: 'slipDoublings' | 'none';
+}
+
+/** What an engine can do, for the UI to word its labels and pickers (#2b), and how far its fixes are trusted. */
 export interface EngineCapabilities {
   /** 'en' for English, 'hi' for Hindi, 'none' for the not-checked engine; the UI maps it to a label (the engine names no UI key). */
   id: EngineId;
@@ -14,6 +24,11 @@ export interface EngineCapabilities {
   variants: readonly string[];
   /** Whether the script has upper and lower case. */
   hasCase: boolean;
+  /** The Unicode script it proofreads ('Latin', 'Devanagari'); null for the not-checked engine. */
+  script: string | null;
+  /** The spoken language, BCP-47 base ('en', 'hi'); null for the not-checked engine. */
+  language: string | null;
+  trust: TrustPolicy;
 }
 
 /** What every engine reports for the paragraphs it was given. */

@@ -15,7 +15,15 @@ interface FakeEngineOptions {
 /** A fake proofreading engine for a script Kashiro has no real engine for yet. */
 export function fakeEngine({ id = 'fake-hi', found = [], unchecked = [], seen }: FakeEngineOptions = {}): LanguageEngine {
   return {
-    capabilities: { id: id as EngineId, proofreads: true, variants: ['Standard'], hasCase: false },
+    capabilities: {
+      id: id as EngineId,
+      proofreads: true,
+      variants: [],
+      hasCase: false,
+      script: 'Devanagari',
+      language: 'hi',
+      trust: { zeroClick: true, safeKinds: 'layoutOnly', ticks: 'none' },
+    },
     check: async (paras) => {
       seen?.push(paras.map((p) => p.id));
       return { found: typeof found === 'function' ? found(paras) : found, uncheckedParagraphs: unchecked };

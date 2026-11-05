@@ -7,9 +7,10 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { CheckSession, type CheckOptions } from '@/engine/session';
 import { SIMPLE_FIXES_ID } from '@/engine/decisions';
+import { untickedByDefault, type TickContext } from '@/engine/defaultTicks';
 import { createLinter, type RulesLinter } from '@/engine/linter';
 import { markdownAdapter, plaintextAdapter } from '@/formats/text';
-import type { Paragraph } from '@/engine/types';
+import type { Candidate, Paragraph } from '@/engine/types';
 
 let linter: RulesLinter;
 beforeAll(async () => {
@@ -336,5 +337,26 @@ describe('legitimately doubled keywords are not repeated-word slips (#7)', () =>
   it('does not lock a long bracketed aside, so a typo inside it is still found', async () => {
     const s = await CheckSession.start([{ id: 0, text: 'He left [and then he went to the the shop on teh corner] quickly.' }], opts(), { linter });
     expect(doubledOffers(s)).toEqual(['the the']);
+  });
+});
+
+describe("an engine's tick list (trust policy, #1)", () => {
+  const text = 'We met the the team today.';
+  const at = text.indexOf('the the');
+  const slip: Candidate = { id: `0:${at}:${at + 7}:Repetition`, paraId: 0, span: { start: at, end: at + 7 }, original: 'the the', replacements: ['the'], kind: 'Repetition', message: 'Doubled word', source: 'rules' };
+  const tickContext = (ticks: TickContext['ticks']): TickContext => ({
+    paraText: new Map([[0, text]]),
+    optedIn: () => false,
+    commandText: () => [],
+    unknownWords: () => [],
+    ticks,
+  });
+
+  it("ticks a slip doubling where the engine's list is the slip doublings", () => {
+    expect(untickedByDefault([slip], tickContext(() => 'slipDoublings'))).toEqual([]);
+  });
+
+  it("ticks nothing where the engine's list is none", () => {
+    expect(untickedByDefault([slip], tickContext(() => 'none'))).toEqual([slip.id]);
   });
 });

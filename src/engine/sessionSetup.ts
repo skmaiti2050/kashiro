@@ -69,8 +69,9 @@ export async function prepareCheck(
 
 /**
  * #1 gate 1: the paragraphs another engine checks get the same locked text as English ones (URLs, numbers, quotes,
- * commands, adapter locks), and tierOf caps their candidates at 'review' (englishParagraphs). Command text is protected
- * the same way: tierOf hides every non-spelling flag on a surely-command and keeps maybe-commands from zero-click.
+ * commands, adapter locks), and tierOf tiers every paragraph by its engine's trust policy (paragraphEngines). Command
+ * text is protected the same way: tierOf hides every non-spelling flag on a surely-command and keeps maybe-commands
+ * from zero-click.
  */
 function withOtherEnginesLocked(
   ctx: TierContext,
@@ -82,12 +83,12 @@ function withOtherEnginesLocked(
   const otherParas = allParas.filter((p) => paragraphEngines.get(p.id) !== english);
   if (otherParas.length === 0) return ctx;
   const { locked, commands } = findLockedText(otherParas, opts.language);
-  const englishParagraphs = new Set(allParas.filter((p) => paragraphEngines.get(p.id) === english).map((p) => p.id));
+  const capabilities = new Map([...paragraphEngines].map(([paraId, engine]) => [paraId, engine.capabilities]));
   return {
     ...ctx,
     locked: new Map([...ctx.locked, ...locked]),
     commandSpans: new Map([...(ctx.commandSpans ?? []), ...commands.surely]),
     maybeCommandSpans: new Map([...(ctx.maybeCommandSpans ?? []), ...commands.maybe]),
-    englishParagraphs,
+    paragraphEngines: capabilities,
   };
 }
