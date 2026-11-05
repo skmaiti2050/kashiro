@@ -9,6 +9,11 @@ import { kindLabel } from './kindLabels';
 import { isWordCard, wordCardTitle } from './labels';
 import { explanation } from './plainMessages';
 
+/** A language code written in the UI language: "hi" in English is "Hindi". */
+export function languageName(uiLanguage: string, code: string): string {
+  return new Intl.DisplayNames([uiLanguage], { type: 'language' }).of(code) ?? code;
+}
+
 /** The fields of a SpeechSynthesisVoice the app reads (tests pass plain objects). */
 export interface VoiceInfo {
   voiceURI: string;

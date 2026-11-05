@@ -150,6 +150,9 @@ function ShellView({ controller, state }: { controller: SessionController; state
   const { readAloud, noOfflineVoice } = useReadAloud(state.settings.reading, state.document?.id ?? null);
   const caretReader = useRef<() => CaretText | null>(() => null);
   const [caretLanguages, setCaretLanguages] = useState<CaretLanguages | null>(null);
+  // Returning `prev` for an unchanged pair makes React skip the re-render: no re-render on every keystroke.
+  const updateCaretLanguages = (next: CaretLanguages | null) =>
+    setCaretLanguages((prev) => (prev?.sentence === next?.sentence && prev?.paragraph === next?.paragraph ? prev : next));
   const improveAtCaret = useRef<() => void>(() => {});
   const lookUpAtCaret = useRef<() => boolean>(() => false);
   /** Bumped by Ctrl+F outside the text and by the command palette: DocumentView opens Find (F23b). */
@@ -356,7 +359,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
           onSample={() => unlessUnsaved(() => void controller.openSample())}
           onOpenRecent={(review) => unlessUnsaved(() => void controller.reviews.openRecent(review))}
           caretReader={caretReader}
-          onCaretLanguages={setCaretLanguages}
+          onCaretLanguages={updateCaretLanguages}
           onLookUp={lookUpOn && !dialogOpen ? (word) => void lookup.open([word]) : null}
           aiOn={aiOn && !dialogOpen}
           improveAtCaret={improveAtCaret}

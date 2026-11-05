@@ -37,7 +37,10 @@ function looksLaidOut(text: string): boolean {
 
 /** A sentence's end at the end of a line: "home.", "done?", "होम।" (with a closing quote or bracket after it). */
 const ENDS_SENTENCE = /[.?!।॥]["”’)]*\s*$/u;
-/** A gap of three or more spaces after a word or a key's colon: "Name:   Rahul", "Company     Acme Pvt. Ltd."; not after a sentence end ("होम।   अगला"). */
+/**
+ * A gap of three or more spaces after a word or a key's colon: "Name:   Rahul", "Company     Acme Pvt. Ltd.";
+ * not after a sentence end ("होम।   अगला").
+ */
 const WIDE_GAP = /(?<=[^\s.?!;,।॥]) {3,}(?=\S)/;
 /** One to three words, then a gap of two or more spaces: "Total      500", "Date of birth:   1 May". */
 const SHORT_KEY_THEN_GAP = /^\S+(?: \S+){0,2} {2,}\S/;

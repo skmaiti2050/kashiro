@@ -4,6 +4,7 @@ import axe from 'axe-core';
 import { EditorView } from '@codemirror/view';
 import { act, fireEvent, screen, within } from '@testing-library/react';
 import { makeController, warmLinter } from './harness';
+import { languageName } from '@/ui/state/readAloud';
 import { createTranslator } from '@/ui/i18n/translator';
 import { chooseFromMore, installSpeech, LOCAL_VOICE, openAndWait, renderShell, settingsTab } from './shell';
 
@@ -127,7 +128,7 @@ describe('app language', () => {
         const bar = await screen.findByRole('group', { name: 'पढ़कर सुनाएँ' });
         const buttons = within(bar).getAllByRole('button');
         expect(buttons.map((b) => (b as HTMLButtonElement).disabled)).toEqual([true, false, true]);
-        const english = new Intl.DisplayNames(['hi'], { type: 'language' }).of('en') ?? 'en';
+        const english = languageName('hi', 'en');
         expect(bar.textContent).toContain(createTranslator('hi', []).t('read.needsVoice', { language: english }));
         const panel = screen.getByRole('complementary', { name: 'समीक्षा' });
         fireEvent.keyDown(panel, { key: 's', altKey: true });
@@ -153,7 +154,7 @@ describe('app language', () => {
           editor.focus();
           editor.dispatch({ selection: { anchor: 3 } });
         });
-        const hindi = new Intl.DisplayNames(['hi'], { type: 'language' }).of('hi') ?? 'hi';
+        const hindi = languageName('hi', 'hi');
         expect(bar.textContent).toContain(createTranslator('hi', []).t('read.needsVoice', { language: hindi }));
       } finally {
         speech.remove();

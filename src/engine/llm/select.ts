@@ -87,11 +87,12 @@ export function pickSentences(session: CheckSession, budget: number): PickedSent
 /**
  * "Improve this sentence": the sentence of paragraph `paraId` at `offset` (a caret at a sentence's end, or in the
  * space after it, means that sentence), with its accepted edits applied. Null when there is none, or when a
- * whole-sentence replacement could damage it (as pickSentences skips). Sentences already sent are not skipped, and neither are ones the helper must not read: callers check `helperReads`.
+ * whole-sentence replacement could damage it (as pickSentences skips). Sentences already sent are not skipped,
+ * and neither are ones the helper must not read: callers check `helperReads`.
  */
 export function sentenceAt(session: CheckSession, paraId: number, offset: number): PickedSentence | null {
   const p = session.paragraphs().find((x) => x.id === paraId);
-  const span = sentenceSpanAt(session, paraId, offset);
+  const span = p && spanAt(p, offset);
   if (!p || !span) return null;
   const text = safeToRewrite(p, span, session.acceptedEdits().filter((e) => e.paraId === paraId));
   return text === null ? null : { paraId, span, text };
@@ -100,7 +101,11 @@ export function sentenceAt(session: CheckSession, paraId: number, offset: number
 /** The span of the sentence sentenceAt takes, even one it would refuse: so the caller can say why it was refused. */
 export function sentenceSpanAt(session: CheckSession, paraId: number, offset: number): Span | null {
   const p = session.paragraphs().find((x) => x.id === paraId);
-  if (!p) return null;
+  return p ? spanAt(p, offset) : null;
+}
+
+/** The last sentence that starts at or before `offset` (the first one when the caret is before them all). */
+function spanAt(p: Paragraph, offset: number): Span | null {
   const spans = sentenceSpans(p.text);
   let span = spans[0];
   if (!span) return null;

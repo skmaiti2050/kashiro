@@ -270,8 +270,6 @@ export function DocumentView({
   const underlineClick = useRef(onUnderlineClick);
   const lookUp = useRef(onLookUp);
   const caretLanguagesChanged = useRef(onCaretLanguages);
-  /** The last languages sent, so a keystroke inside the same sentence language re-renders nothing. */
-  const sentCaretLanguages = useRef<CaretLanguages | null>(null);
   /** "Improve this sentence" at a position in the text; null while AI rewrites are off. Read by the editor's handlers. */
   const improve = useRef<((position: number | null) => void) | null>(null);
   useEffect(() => {
@@ -329,10 +327,7 @@ export function DocumentView({
               const head = update.state.selection.main.head;
               const line = update.state.doc.lineAt(head);
               const languages = update.view.hasFocus ? caretLanguages(line.text, head - line.from) : null;
-              const last = sentCaretLanguages.current;
-              if (languages?.sentence !== last?.sentence || languages?.paragraph !== last?.paragraph) {
-                caretLanguagesChanged.current(sentCaretLanguages.current = languages);
-              }
+              caretLanguagesChanged.current(languages);
             }
           }),
           EditorView.scrollMargins.of(() => SCROLL_MARGINS),
@@ -363,7 +358,6 @@ export function DocumentView({
       view.current = null;
       caretReader.current = () => null;
       // The next document's editor may take no focus (a read-only .docx), so it would never replace these.
-      sentCaretLanguages.current = null;
       caretLanguagesChanged.current(null);
     };
     // Keyed on the document id, not its text: the editor's own edits flow out through editText.

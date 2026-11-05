@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Kbd } from './Kbd';
 import type { MessageKey } from './i18n/catalogues';
 import { useT } from './i18n/useT';
-import type { ReadTarget } from './state/readAloud';
+import { languageName, type ReadTarget } from './state/readAloud';
 import { readAloudControlKey, readAloudKey } from './state/reviewKeys';
 import type { ReadAloud } from './useReadAloud';
 
@@ -46,6 +46,7 @@ export function ReadAloudBar({ readAloud, textFor, languageFor, keysEnabled }: P
   const canRead = new Map(BUTTONS.map((b) => [b.target, canReadAloud(readAloud, t.language, b.target, languageFor(b.target))]));
   const sentenceLanguage = languageFor('sentence');
   const needsVoice = !readAloud.speaks(sentenceLanguage);
+  const sentenceLanguageName = languageName(t.language, sentenceLanguage);
   const read = (target: ReadTarget) => readAloudTarget(readAloud, t.language, textFor, target);
   const latest = useRef(read);
   useEffect(() => {
@@ -95,7 +96,7 @@ export function ReadAloudBar({ readAloud, textFor, languageFor, keysEnabled }: P
           </>
         )}
       </span>
-      {needsVoice && <span className="hint read-aloud-note">{t.t('read.needsVoice', { language: new Intl.DisplayNames([t.language], { type: 'language' }).of(sentenceLanguage) ?? sentenceLanguage })}</span>}
+      {needsVoice && <span className="hint read-aloud-note">{t.t('read.needsVoice', { language: sentenceLanguageName })}</span>}
     </div>
   );
 }
