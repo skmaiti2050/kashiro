@@ -20,7 +20,7 @@ import { categoryCounts, categoryOfDecision, type Category } from './state/categ
 import { isWordCard } from './state/labels';
 import { uncheckedPlaces } from './state/unchecked';
 import { progressLabel, progressOf } from './state/progress';
-import { paragraphAt, sentenceAt, suggestionSpeech, textLanguage, type ReadTarget } from './state/readAloud';
+import { paragraphAt, sentenceAt, suggestionSpeech, textLanguage, type CaretLanguages, type ReadTarget } from './state/readAloud';
 import { cursorAt, currentDecision, decisionWith, moveCursor, START } from './state/reviewCursor';
 import type { ReviewKeyAction } from './state/reviewKeys';
 import type { ControllerState, SessionController } from './state/sessionController';
@@ -68,6 +68,8 @@ interface Props {
   noOfflineVoice?: boolean;
   /** The text at the cursor while the document has focus, else null (read the card's text instead). */
   readCaret(): CaretText | null;
+  /** The languages at the cursor, pushed as it moves (readCaret is only read on a re-render); null without focus. */
+  caretLanguages: CaretLanguages | null;
   /** "Look up" on a card; absent while word lookup is off. */
   onLookUp?: (words: string[]) => void;
   /** Folds the panel to a strip (F23 item 3); absent hides the button. */
@@ -86,7 +88,7 @@ export interface PanelCommands {
 const reduceMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 
 /** The review queue: a progress header, one card at a time (Enter / Backspace / J / K), the rest under "More (N)". */
-export function ReviewPanel({ controller, state, onLocate, onShowParagraph, request, keysEnabled, onShowLog, onSave, readAloud, noOfflineVoice = false, readCaret, onLookUp, onCollapse, commands }: Props) {
+export function ReviewPanel({ controller, state, onLocate, onShowParagraph, request, keysEnabled, onShowLog, onSave, readAloud, noOfflineVoice = false, readCaret, caretLanguages, onLookUp, onCollapse, commands }: Props) {
   const t = useT();
   const [cursor, setCursor] = useState(START);
   /**
@@ -249,7 +251,7 @@ export function ReviewPanel({ controller, state, onLocate, onShowParagraph, requ
   /** Only the language, so the bar need not build a card's whole spoken text to learn it. */
   const languageFor = (target: ReadTarget): string => {
     if (target === 'suggestion') return cardSpeaker().language;
-    return textLanguage(documentTextFor(target));
+    return caretLanguages?.[target] ?? textLanguage(documentTextFor(target));
   };
   const textFor = (target: ReadTarget): { text: string; language: string } => {
     if (target === 'suggestion') {

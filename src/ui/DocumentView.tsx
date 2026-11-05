@@ -9,6 +9,7 @@ import { EmptyState } from './EmptyState';
 import { QuickFixPopover, type WordBox } from './QuickFixPopover';
 import { decisionWith } from './state/reviewCursor';
 import type { CaretText } from './ReviewPanel';
+import { caretLanguages, type CaretLanguages } from './state/readAloud';
 import { CATEGORIES } from './state/categories';
 import { highlightRanges, locateCandidate, paragraphAt, paragraphStart, toEditorPosition } from './state/highlights';
 import type { Translator } from './i18n/translator';
@@ -229,6 +230,8 @@ interface Props {
   onOpenRecent(review: RecentReview): void;
   /** Set to a reader of the text at the cursor while the text has focus (for "Read sentence"). */
   caretReader: MutableRefObject<() => CaretText | null>;
+  /** The languages of the sentence and paragraph at the caret (null without focus); read aloud follows them. */
+  onCaretLanguages(languages: CaretLanguages | null): void;
   /** Ctrl+D, and right-click → Look up in read-only text; null while word lookup is off or a dialog is open. */
   onLookUp: ((word: string) => void) | null;
   /** AI rewrites are on and no dialog is open: Ctrl+I and right-click → "Improve this sentence". */
@@ -253,6 +256,7 @@ export function DocumentView({
   onSample,
   onOpenRecent,
   caretReader,
+  onCaretLanguages,
   onLookUp,
   aiOn,
   improveAtCaret,
@@ -265,11 +269,15 @@ export function DocumentView({
   const labels = useRef(new Compartment());
   const underlineClick = useRef(onUnderlineClick);
   const lookUp = useRef(onLookUp);
+  const caretLanguagesChanged = useRef(onCaretLanguages);
+  /** The last languages sent, so a keystroke inside the same sentence language re-renders nothing. */
+  const sentCaretLanguages = useRef<CaretLanguages | null>(null);
   /** "Improve this sentence" at a position in the text; null while AI rewrites are off. Read by the editor's handlers. */
   const improve = useRef<((position: number | null) => void) | null>(null);
   useEffect(() => {
     underlineClick.current = onUnderlineClick;
     lookUp.current = onLookUp;
+    caretLanguagesChanged.current = onCaretLanguages;
     improve.current = aiOn ? improveAt : null;
     improveAtCaret.current = () => improveAt(view.current && caretPosition(view.current));
   });
@@ -318,6 +326,13 @@ export function DocumentView({
               const description = flag?.description ?? '';
               // Only when it changes: no re-render on every keystroke.
               if (description !== spokenFlag.current) setFlagAtCursor((spokenFlag.current = description));
+              const head = update.state.selection.main.head;
+              const line = update.state.doc.lineAt(head);
+              const languages = update.view.hasFocus ? caretLanguages(line.text, head - line.from) : null;
+              const last = sentCaretLanguages.current;
+              if (languages?.sentence !== last?.sentence || languages?.paragraph !== last?.paragraph) {
+                caretLanguagesChanged.current(sentCaretLanguages.current = languages);
+              }
             }
           }),
           EditorView.scrollMargins.of(() => SCROLL_MARGINS),

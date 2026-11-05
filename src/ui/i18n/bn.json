@@ -242,7 +242,7 @@
   "read.pause": "থামান",
   "read.resume": "আবার চালান",
   "read.stop": "বন্ধ করুন",
-  "read.needsEnglishVoice": "বাক্য আর অনুচ্ছেদ পড়ার জন্য এই PC-তে ইংরেজি ভয়েস দরকার।",
+  "read.needsVoice": "বাক্য আর অনুচ্ছেদ পড়ার জন্য এই PC-তে {language} ভয়েস দরকার।",
 
   "speech.card": "বাকি {left, number}টির মধ্যে কার্ড {position, number}। {speech}",
   "speech.wordCard": "{category}। {title}।",

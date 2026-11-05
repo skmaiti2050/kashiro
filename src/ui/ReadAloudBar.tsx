@@ -44,8 +44,8 @@ export function ReadAloudBar({ readAloud, textFor, languageFor, keysEnabled }: P
   const t = useT();
   // Each target's language once per render, for the buttons and the note.
   const canRead = new Map(BUTTONS.map((b) => [b.target, canReadAloud(readAloud, t.language, b.target, languageFor(b.target))]));
-  // The note asks for an English voice, so it shows only for English text.
-  const needsEnglishVoice = languageFor('sentence') === 'en' && !readAloud.speaks('en');
+  const sentenceLanguage = languageFor('sentence');
+  const needsVoice = !readAloud.speaks(sentenceLanguage);
   const read = (target: ReadTarget) => readAloudTarget(readAloud, t.language, textFor, target);
   const latest = useRef(read);
   useEffect(() => {
@@ -95,7 +95,7 @@ export function ReadAloudBar({ readAloud, textFor, languageFor, keysEnabled }: P
           </>
         )}
       </span>
-      {needsEnglishVoice && <span className="hint read-aloud-note">{t.t('read.needsEnglishVoice')}</span>}
+      {needsVoice && <span className="hint read-aloud-note">{t.t('read.needsVoice', { language: new Intl.DisplayNames([t.language], { type: 'language' }).of(sentenceLanguage) ?? sentenceLanguage })}</span>}
     </div>
   );
 }

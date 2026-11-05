@@ -242,7 +242,7 @@
   "read.pause": "रोकें",
   "read.resume": "फिर से चलाएँ",
   "read.stop": "बंद करें",
-  "read.needsEnglishVoice": "वाक्य और पैराग्राफ़ पढ़ने के लिए इस PC पर अंग्रेज़ी आवाज़ चाहिए।",
+  "read.needsVoice": "वाक्य और पैराग्राफ़ पढ़ने के लिए इस PC पर {language} की आवाज़ चाहिए।",
 
   "speech.card": "बाक़ी {left, number} में से कार्ड {position, number}। {speech}",
   "speech.wordCard": "{category}। {title}।",

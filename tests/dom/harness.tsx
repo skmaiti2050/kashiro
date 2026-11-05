@@ -60,6 +60,7 @@ export function Panel({ controller, request = null, onLocate = () => {} }: Panel
       onSave={() => {}}
       readAloud={null}
       readCaret={() => null}
+      caretLanguages={null}
     />
   );
 }

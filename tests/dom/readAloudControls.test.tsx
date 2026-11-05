@@ -3,6 +3,7 @@
  * and it stops when another document opens.
  */
 import { describe, it, expect, beforeAll, vi } from 'vitest';
+import { EditorView } from '@codemirror/view';
 import { act, fireEvent, screen, within } from '@testing-library/react';
 import { makeController, warmLinter } from './harness';
 import { installSpeech, LOCAL_VOICE, openAndWait, renderShell, reviewPanel } from './shell';
@@ -77,6 +78,39 @@ describe('read aloud: pause, resume, stop', () => {
       await openAndWait(controller, () => controller.openText('Another text to check.'));
       expect(speech.synth.cancelled).toBeGreaterThan(stops);
       expect(screen.queryByRole('button', { name: /Stop/ })).toBeNull();
+    } finally {
+      speech.remove();
+    }
+  });
+});
+
+describe('read aloud follows the caret', () => {
+  it('Sentence and Paragraph follow the language at the caret, and the note names the missing voice', async () => {
+    const speech = installSpeech([LOCAL_VOICE]);
+    try {
+      const { controller } = makeController();
+      renderShell(controller);
+      const text = 'We went home.\nयह एक परीक्षण है।';
+      await openAndWait(controller, () => controller.openText(text));
+      const bar = await within(reviewPanel()).findByRole('group', { name: 'Read aloud' });
+      const editor = EditorView.findFromDOM(document.querySelector<HTMLElement>('.cm-editor')!)!;
+      const disabled = () => ['Sentence', 'Paragraph'].map((name) => within(bar).getByRole('button', { name: new RegExp(name) }).hasAttribute('disabled'));
+      const note = 'Sentence and Paragraph need a voice for Hindi on this PC.';
+
+      act(() => {
+        editor.focus();
+        editor.dispatch({ selection: { anchor: 3 } });
+      });
+      expect(disabled()).toEqual([false, false]);
+      expect(bar.textContent).not.toContain('need a voice');
+
+      act(() => editor.dispatch({ selection: { anchor: text.indexOf('परीक्षण') } }));
+      expect(disabled()).toEqual([true, true]);
+      expect(bar.textContent).toContain(note);
+
+      act(() => editor.dispatch({ selection: { anchor: 3 } }));
+      expect(disabled()).toEqual([false, false]);
+      expect(bar.textContent).not.toContain('need a voice');
     } finally {
       speech.remove();
     }

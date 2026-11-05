@@ -11,6 +11,7 @@ import { DocumentView, type DocumentFocus, type ParagraphRequest } from './Docum
 import { GoogleDocsHelp } from './GoogleDocsHelp';
 import { LookupPanel } from './LookupPanel';
 import { ResumeDialog } from './ResumeDialog';
+import type { CaretLanguages } from './state/readAloud';
 import { ReviewPanel, type CardRequest, type CaretText, type PanelCommands } from './ReviewPanel';
 import { SettingsPanel, type SettingsTab } from './SettingsPanel';
 import { ShortcutsSheet } from './ShortcutsSheet';
@@ -148,6 +149,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
   const { lookup, state: lookupState } = useWordLookup(controller);
   const { readAloud, noOfflineVoice } = useReadAloud(state.settings.reading, state.document?.id ?? null);
   const caretReader = useRef<() => CaretText | null>(() => null);
+  const [caretLanguages, setCaretLanguages] = useState<CaretLanguages | null>(null);
   const improveAtCaret = useRef<() => void>(() => {});
   const lookUpAtCaret = useRef<() => boolean>(() => false);
   /** Bumped by Ctrl+F outside the text and by the command palette: DocumentView opens Find (F23b). */
@@ -354,6 +356,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
           onSample={() => unlessUnsaved(() => void controller.openSample())}
           onOpenRecent={(review) => unlessUnsaved(() => void controller.reviews.openRecent(review))}
           caretReader={caretReader}
+          onCaretLanguages={setCaretLanguages}
           onLookUp={lookUpOn && !dialogOpen ? (word) => void lookup.open([word]) : null}
           aiOn={aiOn && !dialogOpen}
           improveAtCaret={improveAtCaret}
@@ -385,6 +388,7 @@ function ShellView({ controller, state }: { controller: SessionController; state
               readAloud={readAloud}
               noOfflineVoice={capabilities.web && noOfflineVoice}
               readCaret={() => caretReader.current()}
+              caretLanguages={caretLanguages}
               onLookUp={lookUpOn ? (words) => void lookup.open(words) : undefined}
               onCollapse={() => split.setCollapsed(true)}
               commands={panelCommands}

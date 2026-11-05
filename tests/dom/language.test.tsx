@@ -1,6 +1,7 @@
 // Interface language (Task L1): switching at runtime, the page's lang, and axe in Hindi.
 import { describe, it, expect, beforeAll, vi } from 'vitest';
 import axe from 'axe-core';
+import { EditorView } from '@codemirror/view';
 import { act, fireEvent, screen, within } from '@testing-library/react';
 import { makeController, warmLinter } from './harness';
 import { createTranslator } from '@/ui/i18n/translator';
@@ -126,13 +127,34 @@ describe('app language', () => {
         const bar = await screen.findByRole('group', { name: 'पढ़कर सुनाएँ' });
         const buttons = within(bar).getAllByRole('button');
         expect(buttons.map((b) => (b as HTMLButtonElement).disabled)).toEqual([true, false, true]);
-        expect(bar.textContent).toContain(createTranslator('hi', []).t('read.needsEnglishVoice'));
+        const english = new Intl.DisplayNames(['hi'], { type: 'language' }).of('en') ?? 'en';
+        expect(bar.textContent).toContain(createTranslator('hi', []).t('read.needsVoice', { language: english }));
         const panel = screen.getByRole('complementary', { name: 'समीक्षा' });
         fireEvent.keyDown(panel, { key: 's', altKey: true });
         expect(speech.spoken).toEqual([]);
         fireEvent.keyDown(panel, { key: 'r', altKey: true });
         expect(speech.spoken.map((s) => s.voice)).toEqual([HINDI_VOICE]);
         expect(speech.spoken[0].text).toMatch(DEVANAGARI);
+      } finally {
+        speech.remove();
+      }
+    });
+
+    it('Hindi UI, English voice only, Hindi text at the caret: the note names Hindi in Hindi', async () => {
+      const speech = installSpeech([LOCAL_VOICE]);
+      try {
+        const { controller } = makeController({ uiLanguage: 'hi' });
+        renderShell(controller);
+        const text = 'यह एक परीक्षण है।';
+        await openAndWait(controller, () => controller.openText(text));
+        const bar = await screen.findByRole('group', { name: 'पढ़कर सुनाएँ' });
+        const editor = EditorView.findFromDOM(document.querySelector<HTMLElement>('.cm-editor')!)!;
+        act(() => {
+          editor.focus();
+          editor.dispatch({ selection: { anchor: 3 } });
+        });
+        const hindi = new Intl.DisplayNames(['hi'], { type: 'language' }).of('hi') ?? 'hi';
+        expect(bar.textContent).toContain(createTranslator('hi', []).t('read.needsVoice', { language: hindi }));
       } finally {
         speech.remove();
       }

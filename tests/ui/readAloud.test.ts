@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import type { Decision } from '@/engine/decisions';
 import type { Candidate } from '@/engine/types';
-import { localVoices, paragraphAt, sentenceAt, suggestionSpeech, textLanguage, voiceFor, type VoiceInfo } from '@/ui/state/readAloud';
+import { caretLanguages, localVoices, paragraphAt, sentenceAt, suggestionSpeech, textLanguage, voiceFor, type VoiceInfo } from '@/ui/state/readAloud';
 import { en } from './english';
 
 const voice = (name: string, localService: boolean, extra: Partial<VoiceInfo> = {}): VoiceInfo => ({
@@ -174,5 +174,16 @@ describe('textLanguage', () => {
   it('counts letters: Hindi with one Latin word is Hindi, and empty text is English', () => {
     expect(textLanguage('Kashiro का परीक्षण')).toBe('hi');
     expect(textLanguage('')).toBe('en');
+  });
+});
+
+describe('caretLanguages', () => {
+  const line = 'We met. यह एक परीक्षण है।';
+  it('the sentence at the caret and the whole paragraph can differ in language', () => {
+    expect(caretLanguages(line, 2)).toEqual({ sentence: 'en', paragraph: 'hi' });
+    expect(caretLanguages(line, 12)).toEqual({ sentence: 'hi', paragraph: 'hi' });
+  });
+  it('an empty line is English', () => {
+    expect(caretLanguages('', 0)).toEqual({ sentence: 'en', paragraph: 'en' });
   });
 });

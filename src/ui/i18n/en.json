@@ -241,7 +241,7 @@
   "read.pause": "Pause",
   "read.resume": "Resume",
   "read.stop": "Stop",
-  "read.needsEnglishVoice": "Sentence and Paragraph need an English voice on this PC.",
+  "read.needsVoice": "Sentence and Paragraph need a voice for {language} on this PC.",
 
   "speech.card": "Card {position, number} of {left, number} left. {speech}",
   "speech.wordCard": "{category}. {title}.",

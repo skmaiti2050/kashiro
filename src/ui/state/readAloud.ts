@@ -87,3 +87,14 @@ export function suggestionSpeech(t: Translator, decision: Decision, candidates: 
   if (decision.kind === 'batch') change = t.t('speech.inPlaces', { change, count: decision.candidateIds.length });
   return t.t('speech.fix', { category, kind: kindLabel(t, first.kind), change, explanation: t.format(explanation(first)) });
 }
+
+/** The languages of the sentence and of the paragraph at the caret, which decide what read aloud can do there. */
+export interface CaretLanguages {
+  sentence: string;
+  paragraph: string;
+}
+
+/** The languages at `at` (an offset into `line`, one paragraph): a paragraph can mix scripts, so they may differ. */
+export function caretLanguages(line: string, at: number): CaretLanguages {
+  return { sentence: textLanguage(sentenceAt(line, at)), paragraph: textLanguage(line.trim()) };
+}
