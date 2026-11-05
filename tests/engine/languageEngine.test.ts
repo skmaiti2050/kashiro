@@ -68,7 +68,7 @@ describe('engine capabilities', () => {
 describe('the not-checked engine', () => {
   it('returns no candidates and no unchecked paragraphs', async () => {
     const paras = paragraphs([HINDI, BENGALI]);
-    expect(await notCheckedEngine.check(paras, opts, findSharedText(paras, opts.language))).toEqual({ found: [], uncheckedParagraphs: [] });
+    expect(await notCheckedEngine.check(paras, opts, findSharedText(paras, opts.language, new Set()))).toEqual({ found: [], uncheckedParagraphs: [] });
   });
 });
 

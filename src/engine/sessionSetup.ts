@@ -56,9 +56,10 @@ export async function prepareCheck(
   const english = createEnglishEngine(deps.linter);
   const { proofreader, proofreaderScript, paragraphEngines } = routeParagraphs(allParas, english, deps.scriptEngines ?? new Map());
   const parasOf = (engine: LanguageEngine) => allParas.filter((p) => paragraphEngines.get(p.id) === engine);
-  // One lock pass for the whole document (#1 gate 1): every engine's paragraphs get the same locked text as English
-  // ones (URLs, numbers, quotes, commands, adapter locks).
-  const shared = findSharedText(allParas, opts.language);
+  // One lock pass before any engine runs (#1 gate 1): every engine's paragraphs get the same kinds of locked text as
+  // English ones (URLs, numbers, quotes, commands, adapter locks).
+  const englishIds = new Set(parasOf(english).map((p) => p.id));
+  const shared = findSharedText(allParas, opts.language, englishIds);
   // English always runs, even with no paragraph of its own: the session's variant and tier context come from it.
   const fromEnglish = await english.check(parasOf(english), opts, shared, deps.pause);
   const others = [...new Set(paragraphEngines.values())].filter((engine) => engine !== english);

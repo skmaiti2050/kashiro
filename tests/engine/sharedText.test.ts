@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { findSharedText } from '@/engine/sharedText';
+import { findLockedText } from '@/engine/lockedText';
 import { CheckSession } from '@/engine/session';
 import { createLinter, type RulesLinter } from '@/engine/linter';
 import type { CheckOptions } from '@/engine/sessionTypes';
@@ -18,8 +19,11 @@ describe('findSharedText', () => {
     { id: 3, text: 'npm  run build\n```' },
   ];
 
+  // The English engine checks paragraphs 0, 2 and 3; the Hindi one is set aside.
+  const ENGLISH_IDS = new Set([0, 2, 3]);
+
   it('locks the URL in the Hindi paragraph, and code fenced across two paragraphs in both of them', () => {
-    const shared = findSharedText(DOCUMENT, 'markdown');
+    const shared = findSharedText(DOCUMENT, 'markdown', ENGLISH_IDS);
     expect(shared.locked.get(1)).toContainEqual({ start: HINDI.indexOf('https'), end: HINDI.indexOf(' और') });
     // Paragraph 3 alone has no opening fence: only a pass over the whole document knows its first line is code.
     const continued = { start: 0, end: 'npm  run build'.length };
@@ -29,10 +33,54 @@ describe('findSharedText', () => {
   });
 
   it('finds the zero-width space in the Hindi paragraph', () => {
-    const shared = findSharedText(DOCUMENT, 'markdown');
+    const shared = findSharedText(DOCUMENT, 'markdown', ENGLISH_IDS);
     const at = HINDI.indexOf(ZERO_WIDTH_SPACE);
     expect(shared.invisible.get(1)!.map((c) => [c.id, c.replacements])).toEqual([[`1:${at}:${at + 1}:Invisible`, ['']]]);
     expect(shared.invisible.get(0)).toEqual([]);
+  });
+});
+
+describe('English locks read only English paragraphs (owner 2026-11-06)', () => {
+  const opts: CheckOptions = { preset: 'business', variant: 'Indian', fallbackVariant: 'Indian', language: 'markdown', dictionary: [] };
+
+  it('a set-aside paragraph between a continued command and its next line does not break the continuation', () => {
+    const paras: Paragraph[] = [
+      { id: 0, text: 'run.sh \\' },
+      { id: 1, text: 'Привет мир' },
+      { id: 2, text: 'deploy --all' },
+    ];
+    const shared = findSharedText(paras, opts.language, new Set([0, 2]));
+    const continued = { start: 0, end: 'deploy --all'.length };
+    expect(shared.locked.get(2)).toContainEqual(continued);
+    expect(shared.commands.surely.get(2)).toContainEqual(continued);
+  });
+
+  it('the session locks the continued line too, so its double space is hidden and never fixed', async () => {
+    const linter = await createLinter('Indian');
+    const paras: Paragraph[] = [
+      { id: 0, text: 'run.sh \\' },
+      { id: 1, text: 'Привет мир, как дела сегодня?' },
+      { id: 2, text: 'deploy  --all' },
+    ];
+    const s = await CheckSession.start(paras, opts, { linter });
+    expect(s.tier('2:6:8:Formatting')).toBe('hidden');
+    expect(s.outputText(2)).toBe('deploy  --all');
+  });
+
+  it('a set-aside paragraph inside an English fenced block: same locks as an English-only reading', () => {
+    const english: Paragraph[] = [
+      { id: 0, text: 'Run these commands:\n```\nnpm  install kashiro' },
+      { id: 2, text: 'npm  run build\n```\nThen open the app.' },
+    ];
+    const setAside: Paragraph = { id: 1, text: 'Привет мир' };
+    const shared = findSharedText([english[0], setAside, english[1]], opts.language, new Set([0, 2]));
+    const englishOnly = findLockedText(english, opts.language);
+    for (const p of english) {
+      expect(shared.locked.get(p.id)).toEqual(englishOnly.locked.get(p.id));
+      expect(shared.commands.surely.get(p.id)).toEqual(englishOnly.commands.surely.get(p.id));
+      expect(shared.commands.maybe.get(p.id)).toEqual(englishOnly.commands.maybe.get(p.id));
+    }
+    expect(shared.locked.get(1)).toEqual(findLockedText([setAside], opts.language).locked.get(1));
   });
 });
 
