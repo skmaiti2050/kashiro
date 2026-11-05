@@ -63,15 +63,15 @@ export async function prepareCheck(
   // English always runs, even with no paragraph of its own: the session's variant and tier context come from it.
   const fromEnglish = await english.check(parasOf(english), opts, shared, deps.pause);
   const others = [...new Set(paragraphEngines.values())].filter((engine) => engine !== english);
-  const fromOthers: EngineResult[] = [];
-  for (const engine of others) fromOthers.push(await engine.check(parasOf(engine), opts, shared, deps.pause));
-  const proofreaderResult = proofreader === english ? fromEnglish : fromOthers[others.indexOf(proofreader)];
+  const results = new Map<LanguageEngine, EngineResult>([[english, fromEnglish]]);
+  for (const engine of others) results.set(engine, await engine.check(parasOf(engine), opts, shared, deps.pause));
+  const proofreaderResult = results.get(proofreader);
 
-  const fromEngines = [...fromEnglish.found, ...fromOthers.flatMap((r) => r.found)];
+  const fromEngines = [...results.values()].flatMap((r) => r.found);
   // A stable sort, engines' candidates before the session's own: alone, English's keep the order they always had.
   const found = [...fromEngines, ...layoutFixes(allParas, paragraphEngines, shared, fromEngines)].sort(byPosition);
   // Every engine's unchecked paragraphs, in document order.
-  const unchecked = new Set([fromEnglish, ...fromOthers].flatMap((r) => r.uncheckedParagraphs));
+  const unchecked = new Set([...results.values()].flatMap((r) => r.uncheckedParagraphs));
   const uncheckedParagraphs = allParas.filter((p) => unchecked.has(p.id)).map((p) => p.id);
   // tierOf tiers every paragraph by its engine's trust policy, and hides every non-spelling flag on a surely-command
   // and keeps maybe-commands from zero-click, whichever engine checked it.
@@ -97,12 +97,14 @@ function layoutFixes(
   shared: SharedText,
   fromEngines: readonly Candidate[],
 ): Candidate[] {
-  const reported = new Set(fromEngines.map((c) => c.id));
-  const fixes = allParas.flatMap((p) => {
+  const fixes: Candidate[] = [];
+  for (const p of allParas) {
     const { proofreads, language } = paragraphEngines.get(p.id)!.capabilities;
-    if (!proofreads) return [];
-    const spaces = language === 'en' ? [] : findDoubleSpaces(p, shared.locked.get(p.id));
-    return [...shared.invisible.get(p.id)!, ...spaces];
-  });
+    if (!proofreads) continue;
+    fixes.push(...shared.invisible.get(p.id)!);
+    if (language !== 'en') fixes.push(...findDoubleSpaces(p, shared.locked.get(p.id)));
+  }
+  if (fixes.length === 0) return [];
+  const reported = new Set(fromEngines.map((c) => c.id));
   return fixes.filter((c) => !reported.has(c.id));
 }

@@ -117,6 +117,24 @@ describe('English-only controls', () => {
     expect(variantPicker()).toBeTruthy();
     expect(screen.getByText(/English \(/)).toBeTruthy();
   });
+
+  it('a Hindi-proofread document shows none of them', async () => {
+    forceMixedVariant();
+    await openHindi();
+    expect(screen.queryByRole('option', { name: 'British' })).toBeNull();
+    expect(screen.queryByText(/ English( \(|$)/)).toBeNull();
+    expect(screen.queryByText('Mixed spelling')).toBeNull();
+  });
+
+  it('an English document lists exactly the five variants', async () => {
+    const { controller } = makeController();
+    renderShell(controller);
+    await openAndWait(controller, () => controller.openText('The cat sat on the mat.'));
+    const picker = screen.getByRole('option', { name: 'British' }).closest('select')!;
+    expect(within(picker).getAllByRole('option').slice(1).map((o) => o.textContent)).toEqual(FIVE_VARIANTS);
+    // The positive control for the status-bar pattern above.
+    expect(screen.getByText(/ English( \(|$)/)).toBeTruthy();
+  });
 });
 
 describe('read aloud on Hindi text', () => {
@@ -150,28 +168,6 @@ describe('read aloud on Hindi text', () => {
     } finally {
       speech.remove();
     }
-  });
-});
-
-describe('the English-only controls (variant picker, status-bar variant, mixed-spelling chip)', () => {
-  afterEach(() => vi.restoreAllMocks());
-
-  it('a Hindi-proofread document shows none of them', async () => {
-    forceMixedVariant();
-    await openHindi();
-    expect(screen.queryByRole('option', { name: 'British' })).toBeNull();
-    expect(screen.queryByText(/ English( \(|$)/)).toBeNull();
-    expect(screen.queryByText('Mixed spelling')).toBeNull();
-  });
-
-  it('an English document lists exactly the five variants', async () => {
-    const { controller } = makeController();
-    renderShell(controller);
-    await openAndWait(controller, () => controller.openText('The cat sat on the mat.'));
-    const picker = screen.getByRole('option', { name: 'British' }).closest('select')!;
-    expect(within(picker).getAllByRole('option').slice(1).map((o) => o.textContent)).toEqual(FIVE_VARIANTS);
-    // The positive control for the status-bar pattern above.
-    expect(screen.getByText(/ English( \(|$)/)).toBeTruthy();
   });
 });
 

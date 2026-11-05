@@ -3,6 +3,7 @@ import { buildDecisions, foldsUnderMore, NAMES_CARD_ID, OTHER_LANGUAGE_CARD_ID, 
 import { untickedByDefault } from './defaultTicks';
 import { upFrontCount } from './depth';
 import { DEFAULT_MODULES } from './modules';
+import { isEnglishParagraph, ticksOf } from './tiers';
 import type { SessionState } from './sessionState';
 import type { Candidate, Span, Tier } from './types';
 
@@ -39,7 +40,7 @@ export function rankDecisions(s: SessionState): { top: Decision[]; more: Decisio
     modules: { ...(s.ctx.modules ?? DEFAULT_MODULES) },
     onCommand: (c) => overlapsLocked(c, s.ctx.commandSpans?.get(c.paraId)),
     // The romanised model is English's: another engine's flags never load it, so they must not reach it.
-    englishParagraph: (paraId) => (s.ctx.paragraphEngines?.get(paraId)?.language ?? 'en') === 'en',
+    englishParagraph: (paraId) => isEnglishParagraph(s.ctx, paraId),
     untickedOnCard: (fixes) => {
       const unknownWords = spellingFlagSpans(s);
       const commandText = new Map<number, Span[]>();
@@ -55,7 +56,7 @@ export function rankDecisions(s: SessionState): { top: Decision[]; more: Decisio
           return spans;
         },
         unknownWords: (paraId) => unknownWords.get(paraId) ?? [],
-        ticks: (paraId) => s.ctx.paragraphEngines?.get(paraId)?.trust.ticks ?? 'slipDoublings',
+        ticks: (paraId) => ticksOf(s.ctx, paraId),
       });
     },
   });

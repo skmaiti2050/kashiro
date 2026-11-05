@@ -17,7 +17,7 @@ import type { ModuleSwitches } from './modules';
 import { isListLabelFlag, lowersAcronym } from './listItems';
 import { isConfusableFlag } from './confusables';
 import { SPACE_RUN } from './zeroClick';
-import type { EngineCapabilities } from './languageEngine';
+import type { EngineCapabilities, TrustPolicy } from './languageEngine';
 
 // Public paths stay `engine/tiers`; the implementations live next to their own helpers.
 export { buildDecisions, foldsUnderMore, type Decision } from './decisions';
@@ -51,6 +51,16 @@ export interface TierContext {
   listParagraphs?: ReadonlySet<number>;
   /** paraId → the capabilities of the engine that checked it; its trust policy sets the tier. No entry: English. */
   paragraphEngines?: ReadonlyMap<number, EngineCapabilities>;
+}
+
+/** No entry means English: the engine a paragraph was checked by (an unrouted paragraph is an English one). */
+export function isEnglishParagraph(ctx: TierContext, paraId: number): boolean {
+  return (ctx.paragraphEngines?.get(paraId)?.language ?? 'en') === 'en';
+}
+
+/** Which zero-click doublings the paragraph's engine trusts; no entry means English's. */
+export function ticksOf(ctx: TierContext, paraId: number): TrustPolicy['ticks'] {
+  return ctx.paragraphEngines?.get(paraId)?.trust.ticks ?? 'slipDoublings';
 }
 
 // Repetition is not here: only isSlipDoubling's words are safe to undouble.
@@ -309,8 +319,7 @@ export function tierOf(c: Candidate, ctx: TierContext): Tier {
   if (c.replacements.length !== 1 || c.linterReplacements) return 'review';
   if (WORD_REWRITE_KINDS.has(c.kind) && (UPPER_START.test(c.original) || !isSlipFix(c))) return 'review';
   // The romanised model is English's alone (only English loads it; it throws when not loaded).
-  const isEnglish = engine === undefined || engine.language === 'en';
-  if (WORD_REWRITE_KINDS.has(c.kind) && isEnglish && isOtherLanguageWord(c, ctx)) return 'review';
+  if (WORD_REWRITE_KINDS.has(c.kind) && isEnglishParagraph(ctx, c.paraId) && isOtherLanguageWord(c, ctx)) return 'review';
   // "Mr. and Mrs. Rao": the linter reads the abbreviation's period as a sentence end.
   const text = ctx.paraText?.get(c.paraId);
   if (c.kind === 'Capitalization' && text !== undefined && followsAbbreviation(text, c.span.start)) return 'review';

@@ -30,6 +30,10 @@ export type EnglishEngine = LanguageEngine<EnglishResult>;
 
 export const ENGLISH_VARIANTS = ['American', 'British', 'Australian', 'Canadian', 'Indian'] as const satisfies readonly Variant[];
 
+export function isVariant(v: string): v is Variant {
+  return (ENGLISH_VARIANTS as readonly string[]).includes(v);
+}
+
 const ENGLISH_CAPABILITIES: EngineCapabilities = {
   id: 'en',
   proofreads: true,

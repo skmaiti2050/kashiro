@@ -4,7 +4,7 @@ import { CheckSession, type CheckOptions } from '../src/engine/session';
 import { exportReport } from '../src/engine/report';
 import { DEFAULT_MODULES } from '../src/engine/modules';
 import { createScriptEngines } from '../src/engine/scriptEngines';
-import { ENGLISH_VARIANTS } from '../src/engine/englishEngine';
+import { isVariant } from '../src/engine/englishEngine';
 import { PRESETS, type PresetId } from '../src/engine/presets';
 import type { Variant } from '../src/engine/types';
 import { variantForLocale } from '../src/engine/localeVariant';
@@ -46,8 +46,8 @@ function parseArgs(argv: string[]): Args {
       a.mode = v;
     } else if (t === '--variant') {
       const v = value(i++, t);
-      if (!(ENGLISH_VARIANTS as readonly string[]).includes(v)) throw new Error(`unknown variant: ${v}`);
-      a.variant = v as Variant;
+      if (!isVariant(v)) throw new Error(`unknown variant: ${v}`);
+      a.variant = v;
     } else if (t === '--report') a.report = value(i++, t);
     else if (t === '--accept-all-rules') a.acceptAll = true;
     else if (t.startsWith('--')) throw new Error(`unknown option: ${t}`);

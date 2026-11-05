@@ -17,6 +17,15 @@ beforeAll(async () => {
 const start = (paras: Paragraph[], preset: 'business' | 'script' = 'business') =>
   CheckSession.start(paras, { preset, variant: 'American', fallbackVariant: 'American', language: 'plaintext', dictionary: [] }, { linter });
 
+const HINDI = 'यह एक परीक्षण है।';
+/** A two-paragraph Hindi document checked by the given fake engine. */
+const startHindi = (engine: ReturnType<typeof fakeEngine>) =>
+  CheckSession.start(
+    [{ id: 0, text: HINDI }, { id: 1, text: HINDI }],
+    { preset: 'business', variant: 'American', fallbackVariant: 'American', language: 'plaintext', dictionary: [] },
+    { linter, scriptEngines: devanagariEngines(engine) },
+  );
+
 let seq = 0;
 /** A rules lint injected on `span`, so the ranking does not depend on what Harper flags. */
 const lint = (paraId: number, span: Span, kind: string): Candidate => ({
@@ -202,23 +211,13 @@ describe('only checked English goes to the helper', () => {
   });
 
   it('helperReads follows the engine language, not its id: a Hindi engine called fake-hi is not read', async () => {
-    const hindi = 'यह एक परीक्षण है।';
-    const s = await CheckSession.start(
-      [{ id: 0, text: hindi }, { id: 1, text: hindi }],
-      { preset: 'business', variant: 'American', fallbackVariant: 'American', language: 'plaintext', dictionary: [] },
-      { linter, scriptEngines: devanagariEngines(fakeEngine()) },
-    );
+    const s = await startHindi(fakeEngine());
     expect(s.engineOf(0)).toMatchObject({ id: 'fake-hi', language: 'hi' });
-    expect(helperReads(s, 0, { start: 0, end: hindi.length })).toBe(false);
+    expect(helperReads(s, 0, { start: 0, end: HINDI.length })).toBe(false);
   });
 
   it('helperReads is false for a Hindi engine even when its id is "en"', async () => {
-    const hindi = 'यह एक परीक्षण है।';
-    const s = await CheckSession.start(
-      [{ id: 0, text: hindi }, { id: 1, text: hindi }],
-      { preset: 'business', variant: 'American', fallbackVariant: 'American', language: 'plaintext', dictionary: [] },
-      { linter, scriptEngines: devanagariEngines(fakeEngine({ id: 'en' })) },
-    );
-    expect(helperReads(s, 0, { start: 0, end: hindi.length })).toBe(false);
+    const s = await startHindi(fakeEngine({ id: 'en' }));
+    expect(helperReads(s, 0, { start: 0, end: HINDI.length })).toBe(false);
   });
 });

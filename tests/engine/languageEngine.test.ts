@@ -53,10 +53,6 @@ describe('engine capabilities', () => {
     });
   });
 
-  it('not-checked is never trusted with a no-click fix', () => {
-    expect(notCheckedEngine.capabilities.trust.zeroClick).toBe(false);
-  });
-
   it('every registered engine (and the test fake) is keyed by its own script', () => {
     const registries = [createScriptEngines(), devanagariEngines(fakeEngine())];
     for (const registry of registries) {

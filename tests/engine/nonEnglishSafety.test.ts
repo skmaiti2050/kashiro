@@ -31,6 +31,10 @@ function candidate(text: string, span: Span, replacement: string, kind: string, 
   return { id: `0:${span.start}:${span.end}:${kind}`, paraId: 0, span, original: text.slice(span.start, span.end), replacements: [replacement], kind, message: 'fake', source };
 }
 
+/** Starts a session whose paragraph 0 is `text` (Hindi-majority document) with the fake Hindi engine reporting `c`. */
+const startWith = (text: string, c: Candidate, overrides?: CheckOptions['tierOverrides'], extra: Partial<Paragraph> = {}) =>
+  CheckSession.start(mostlyHindi({ id: 0, text, ...extra }), overrides ? { ...opts, tierOverrides: overrides } : opts, withDevanagari([c]));
+
 const outcomeOf = (s: CheckSession, id: string) => s.outcomes().find((o) => o.candidate.id === id)!;
 
 const simpleFixes = (s: CheckSession) => {
@@ -46,7 +50,7 @@ describe('never damage in paragraphs another engine checks', () => {
     const gap = text.indexOf('  ');
     const c = candidate(text, { start: gap, end: gap + 2 }, ' ', 'Formatting', 'rules');
     expect(c.original).toBe('  ');
-    const s = await CheckSession.start(mostlyHindi({ id: 0, text }), opts, withDevanagari([c]));
+    const s = await startWith(text, c);
     expect(s.engineOf(0)?.id).toBe('fake-hi');
     expect(s.tier(c.id)).toBe('safe');
     expect(outcomeOf(s, c.id)).toMatchObject({ status: 'applied', auto: true });
@@ -56,7 +60,7 @@ describe('never damage in paragraphs another engine checks', () => {
     const text = 'यह​एक परीक्षण है।';
     const c = candidate(text, { start: 2, end: 3 }, '', 'Invisible', 'hygiene');
     expect(c.original).toBe('​');
-    const s = await CheckSession.start(mostlyHindi({ id: 0, text }), opts, withDevanagari([c]));
+    const s = await startWith(text, c);
     expect(s.engineOf(0)?.id).toBe('fake-hi');
     expect(s.tier(c.id)).toBe('safe');
     expect(outcomeOf(s, c.id)).toMatchObject({ status: 'applied', auto: true });
@@ -65,12 +69,11 @@ describe('never damage in paragraphs another engine checks', () => {
   it('a fix over a URL in a Hindi paragraph touches locked text', async () => {
     // Enough Hindi around the URL that the paragraph and the document stay mostly Devanagari (the fake engine's).
     const text = 'कृपया अपना फ़ॉर्म भरने के लिए इस पते पर जाएँ https://example.com और फिर उसे जमा करें।';
-    // A punctuation fix, not a spelling one: a word fix would reach the romanised-word check in tierOf, which needs a
-    // model only English loads (see the task report).
+    // A punctuation fix, not a spelling one: the point here is the URL lock, not the word checks.
     const dot = text.indexOf('.com');
     const c = candidate(text, { start: dot, end: dot + 1 }, '. ', 'Punctuation', 'rules');
     expect(c.original).toBe('.');
-    const s = await CheckSession.start(mostlyHindi({ id: 0, text }), opts, withDevanagari([c]));
+    const s = await startWith(text, c);
     expect(s.engineOf(0)?.id).toBe('fake-hi');
     expect(s.touchesLocked(c.id)).toBe(true);
     expect(s.tier(c.id)).toBe('review');
@@ -81,7 +84,7 @@ describe('never damage in paragraphs another engine checks', () => {
     const dash = text.indexOf('-');
     const c = candidate(text, { start: dash, end: dash + 1 }, '–', 'Punctuation', 'rules');
     expect(c.original).toBe('-');
-    const s = await CheckSession.start(mostlyHindi({ id: 0, text }), opts, withDevanagari([c]));
+    const s = await startWith(text, c);
     expect(s.engineOf(0)?.id).toBe('fake-hi');
     expect(s.tier(c.id)).toBe('hidden');
   });
@@ -90,7 +93,7 @@ describe('never damage in paragraphs another engine checks', () => {
     const text = 'यह एक परीक्षण है।।';
     const at = text.indexOf('।।');
     const c = candidate(text, { start: at, end: at + 2 }, '।', 'Formatting', 'rules');
-    const s = await CheckSession.start(mostlyHindi({ id: 0, text }), { ...opts, tierOverrides: { Formatting: 'safe' } }, withDevanagari([c]));
+    const s = await startWith(text, c, { Formatting: 'safe' });
     expect(s.engineOf(0)?.id).toBe('fake-hi');
     expect(s.tier(c.id)).toBe('batch');
     expect(outcomeOf(s, c.id)).toMatchObject({ status: 'pending', auto: false });
@@ -102,7 +105,7 @@ describe('never damage in paragraphs another engine checks', () => {
   it('a fix over an adapter-locked span in a Hindi paragraph touches locked text', async () => {
     const text = 'यह  एक परीक्षण है।';
     const c = candidate(text, { start: 2, end: 4 }, ' ', 'Formatting', 'rules');
-    const s = await CheckSession.start(mostlyHindi({ id: 0, text, locked: [{ start: 0, end: 6 }] }), opts, withDevanagari([c]));
+    const s = await startWith(text, c, undefined, { locked: [{ start: 0, end: 6 }] });
     expect(s.engineOf(0)?.id).toBe('fake-hi');
     expect(s.touchesLocked(c.id)).toBe(true);
     expect(s.tier(c.id)).toBe('review');
@@ -112,7 +115,7 @@ describe('never damage in paragraphs another engine checks', () => {
     const text = 'यह एक परीक्षन है।';
     const at = text.indexOf('परीक्षन');
     const c = candidate(text, { start: at, end: at + 'परीक्षन'.length }, 'परीक्षण', 'Spelling', 'rules');
-    const s = await CheckSession.start(mostlyHindi({ id: 0, text }), opts, withDevanagari([c]));
+    const s = await startWith(text, c);
     expect(s.engineOf(0)?.id).toBe('fake-hi');
     expect(s.tier(c.id)).toBe('review');
     expect(outcomeOf(s, c.id)).toMatchObject({ status: 'pending', auto: false });
@@ -123,7 +126,7 @@ describe('never damage in paragraphs another engine checks', () => {
     const text = 'यह एक परीक्षण है।।';
     const at = text.indexOf('।।');
     const c = candidate(text, { start: at, end: at + 2 }, '।', 'Formatting', 'rules');
-    const s = await CheckSession.start(mostlyHindi({ id: 0, text }), opts, withDevanagari([c]));
+    const s = await startWith(text, c);
     expect(s.tier(c.id)).toBe('review');
     expect(outcomeOf(s, c.id)).toMatchObject({ status: 'pending', auto: false });
   });
@@ -133,7 +136,7 @@ describe('never damage in paragraphs another engine checks', () => {
     const text = 'यह एक कमल है।';
     const at = text.indexOf('कमल');
     const c = candidate(text, { start: at, end: at + 'कमल'.length }, 'कमर', 'Spelling', 'rules');
-    const s = await CheckSession.start(mostlyHindi({ id: 0, text }), { ...opts, tierOverrides: { Spelling: 'safe' } }, withDevanagari([c]));
+    const s = await startWith(text, c, { Spelling: 'safe' });
     expect(s.tier(c.id)).toBe('batch');
     expect(outcomeOf(s, c.id)).toMatchObject({ status: 'pending', auto: false });
     const card = simpleFixes(s);
@@ -145,7 +148,7 @@ describe('never damage in paragraphs another engine checks', () => {
     const text = 'यह एक छोटा सा परीक्षण है और khub अच्छा है।';
     const at = text.indexOf('khub');
     const c = candidate(text, { start: at, end: at + 4 }, 'khud', 'Spelling', 'rules');
-    const s = await CheckSession.start(mostlyHindi({ id: 0, text }), { ...opts, tierOverrides: { Spelling: 'safe' } }, withDevanagari([c]));
+    const s = await startWith(text, c, { Spelling: 'safe' });
     expect(s.engineOf(0)?.id).toBe('fake-hi');
     expect(s.tier(c.id)).toBe('batch');
     expect(outcomeOf(s, c.id)).toMatchObject({ status: 'pending', auto: false });
@@ -156,7 +159,7 @@ describe('never damage in paragraphs another engine checks', () => {
     const at = text.indexOf('और और');
     const c = candidate(text, { start: at, end: at + 'और और'.length }, 'और', 'Repetition', 'rules');
     expect(c.original).toBe('और और');
-    const s = await CheckSession.start(mostlyHindi({ id: 0, text }), { ...opts, tierOverrides: { Repetition: 'safe' } }, withDevanagari([c]));
+    const s = await startWith(text, c, { Repetition: 'safe' });
     expect(s.tier(c.id)).toBe('review');
     expect(outcomeOf(s, c.id)).toMatchObject({ status: 'pending', auto: false });
     expect(simpleFixes(s)?.candidateIds ?? []).not.toContain(c.id);
@@ -265,7 +268,7 @@ describe('no edit splits a character', () => {
     const text = 'यह एक छोटा सा परीक्षण है और इसे चलाने के लिए यह आदेश दें।\nsudo apt-get install cafe\u0301-tools';
     const at = text.indexOf('cafe');
     const c = candidate(text, { start: at, end: at + 4 }, 'café', 'Punctuation', 'rules');
-    const s = await CheckSession.start(mostlyHindi({ id: 0, text }), opts, withDevanagari([c]));
+    const s = await startWith(text, c);
     expect(s.engineOf(0)?.id).toBe('fake-hi');
     expect(s.tier(c.id)).toBe('hidden');
     expect(outcomeOf(s, c.id).unplaceable).toBeUndefined();
@@ -287,7 +290,7 @@ describe('no edit splits a character', () => {
     const text = 'यह एक छोटा सा परीक्षण है और इसे चलाने के लिए यह आदेश दें।\nsudo apt-get install cafe\u0301-tools';
     const at = text.indexOf('cafe');
     const c = candidate(text, { start: at, end: at + 4 }, 'café', 'Punctuation', 'rules');
-    const s = await CheckSession.start(mostlyHindi({ id: 0, text }), opts, withDevanagari([c]));
+    const s = await startWith(text, c);
     expect(s.tier(c.id)).toBe('hidden');
     s.accept(c.id);
     expect(outcomeOf(s, c.id)).toMatchObject({ status: 'rejected', unplaceable: SPLITS_CHARACTER_REASON, auto: false });
@@ -299,7 +302,7 @@ describe('no edit splits a character', () => {
     const at = text.indexOf('कि');
     const c = candidate(text, { start: at, end: at + 1 }, 'ख', 'Punctuation', 'rules');
     expect(c.original).toBe('क');
-    const s = await CheckSession.start(mostlyHindi({ id: 0, text }), opts, withDevanagari([c]));
+    const s = await startWith(text, c);
     expect(s.engineOf(0)?.id).toBe('fake-hi');
     expect(outcomeOf(s, c.id)).toMatchObject({ status: 'rejected', unplaceable: SPLITS_CHARACTER_REASON, auto: false });
     expect(s.outputText(0)).toBe(text);

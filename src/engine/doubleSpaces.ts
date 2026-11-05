@@ -1,3 +1,4 @@
+import { overlaps } from './sessionTypes';
 import type { Candidate, Paragraph, Span } from './types';
 
 /** Two or more plain spaces between two non-space characters: "  " in "यह  परीक्षण". */
@@ -12,7 +13,7 @@ export function findDoubleSpaces(p: Paragraph, locked: readonly Span[] | undefin
   const out: Candidate[] = [];
   for (const m of p.text.matchAll(SPACES_BETWEEN_WORDS)) {
     const span = { start: m.index, end: m.index + m[0].length };
-    if (locked?.some((s) => span.start < s.end && s.start < span.end)) continue;
+    if (locked?.some((s) => overlaps(span, s))) continue;
     out.push({
       id: `${p.id}:${span.start}:${span.end}:Formatting`,
       paraId: p.id,

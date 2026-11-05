@@ -1,5 +1,5 @@
 import type { EngineId } from '@/engine/languageEngine';
-import { ENGLISH_VARIANTS } from '@/engine/englishEngine';
+import { ENGLISH_VARIANTS, isVariant } from '@/engine/englishEngine';
 import type { CheckSession } from '@/engine/session';
 import type { Variant } from '@/engine/types';
 import type { MessageKey } from './i18n/catalogues';
@@ -71,7 +71,12 @@ export function pickerVariants(session: CheckSession | null): Variant[] {
   const engine = session?.proofreadingEngines()[0];
   if (!engine) return [...ENGLISH_VARIANTS];
   // English's variants are the only ones with labels (VARIANT_KEYS) and Harper dialects, so they are the known set.
-  return engine.variants.filter((v): v is Variant => (ENGLISH_VARIANTS as readonly string[]).includes(v));
+  return engine.variants.filter(isVariant);
+}
+
+/** Whether the variant picker and the status-bar variant are shown: the proofreading engine names a variant. */
+export function hasVariantPicker(session: CheckSession | null): boolean {
+  return pickerVariants(session).length > 0;
 }
 
 /**

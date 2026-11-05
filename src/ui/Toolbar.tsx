@@ -8,7 +8,7 @@ import { MoreMenu, type MoreMenuItem } from './MoreMenu';
 import { capabilities } from './platform/capabilities';
 import { siblingPath } from './state/documentText';
 import { overwriteOffered } from './state/saveFlow';
-import { pickerVariants, proofreadingLabels } from './proofreadingLabels';
+import { hasVariantPicker, pickerVariants, proofreadingLabels } from './proofreadingLabels';
 import { usePopup } from './usePopup';
 import { middleTruncate } from './state/windowTitle';
 import type { ControllerState, SessionController } from './state/sessionController';
@@ -83,7 +83,7 @@ export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onDict
   const { session, settings, variantOverride, document } = state;
   // Mixed American/British spelling is an English-spelling notion: a document another engine proofreads never shows it.
   const variants = pickerVariants(session);
-  const mixedSpelling = !!session && variants.length > 0 && session.mixedVariant;
+  const mixedSpelling = !!session && hasVariantPicker(session) && session.mixedVariant;
   // What Save will do: Overwrite left on in the settings means nothing where Save downloads.
   const overwrite = settings.overwrite && overwriteOffered();
   const moreItems: MoreMenuItem[] = [
@@ -137,7 +137,7 @@ export function Toolbar({ controller, state, onOpen, onPaste, onSettings, onDict
         {session && (
           <label className={mixedSpelling ? 'chip warn' : 'chip'} title={mixedSpelling ? t.t('toolbar.mixedTitle') : undefined}>
             <span>{mixedSpelling ? t.t('toolbar.mixedSpelling') : t.t(proofreadingLabels(session).chip)}</span>
-            {variants.length > 0 && (
+            {hasVariantPicker(session) && (
               <select
                 value={variantOverride ?? ''}
                 onChange={(e) => controller.setVariant(e.target.value === '' ? null : (e.target.value as Variant))}

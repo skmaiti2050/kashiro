@@ -13,6 +13,8 @@ export interface SharedText {
   invisible: Map<number, Candidate[]>;
 }
 
+const mergeMaps = <V>(a: Map<number, V>, b: Map<number, V>) => new Map([...a, ...b]);
+
 /** Locks and invisible characters for every paragraph, so each engine gets the same ones instead of finding its own. */
 export function findSharedText(
   paras: Paragraph[],
@@ -22,10 +24,10 @@ export function findSharedText(
   // Owner 2026-11-06: English locks must match an English-only reading (command continuations and fences carry across lines).
   const english = findLockedText(paras.filter((p) => englishParagraphIds.has(p.id)), language);
   const others = findLockedText(paras.filter((p) => !englishParagraphIds.has(p.id)), language);
-  const locked = new Map([...english.locked, ...others.locked]);
+  const locked = mergeMaps(english.locked, others.locked);
   const commands = {
-    surely: new Map([...english.commands.surely, ...others.commands.surely]),
-    maybe: new Map([...english.commands.maybe, ...others.commands.maybe]),
+    surely: mergeMaps(english.commands.surely, others.commands.surely),
+    maybe: mergeMaps(english.commands.maybe, others.commands.maybe),
   };
   const invisible = new Map(paras.map((p) => [p.id, findInvisible(p, locked.get(p.id))]));
   return { locked, commands, invisible };
