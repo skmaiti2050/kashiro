@@ -1,4 +1,5 @@
 import type { CheckOptions } from './sessionTypes';
+import type { SharedText } from './sharedText';
 import type { Candidate, Paragraph } from './types';
 
 /** Every engine the app has; a new engine adds its id here, and the UI's label table then needs a row. */
@@ -41,7 +42,11 @@ export interface EngineResult {
 /** One language's proofreading: checks the paragraphs routed to it, and learns the user's dictionary words. */
 export interface LanguageEngine<Result extends EngineResult = EngineResult> {
   readonly capabilities: EngineCapabilities;
-  /** `pause` is SessionDeps.pause: called between chunks of a long check, and may throw to stop it. */
-  check(paras: Paragraph[], opts: CheckOptions, pause?: () => Promise<void>): Promise<Result>;
+  /**
+   * `shared`: the session's locks and invisible characters for the whole document (findSharedText); an engine uses
+   * them instead of finding its own. `pause` is SessionDeps.pause: called between chunks of a long check, and may
+   * throw to stop it.
+   */
+  check(paras: Paragraph[], opts: CheckOptions, shared: SharedText, pause?: () => Promise<void>): Promise<Result>;
   addWords(words: string[]): Promise<void>;
 }

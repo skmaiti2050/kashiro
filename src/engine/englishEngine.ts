@@ -1,7 +1,6 @@
 import { createLinter, type RulesLinter } from './linter';
 import { detectVariant } from './variant';
-import { findInvisible, visibleText, type VisibleText } from './hygiene';
-import { findLockedText } from './lockedText';
+import { visibleText, type VisibleText } from './hygiene';
 import { withoutCaseOnlyFixOnCommand } from './commands';
 import { withTechnicalWordRules } from './technicalWords';
 import { lintInChunks } from './chunks';
@@ -15,6 +14,7 @@ import { findForeignSentences, findRomanisedSentences, loadModelIfNeeded } from 
 import { byPosition, type CheckOptions } from './sessionTypes';
 import { findConfusables, replacesLinterFlag } from './confusables';
 import type { EngineCapabilities, EngineResult, LanguageEngine } from './languageEngine';
+import type { SharedText } from './sharedText';
 import type { TierContext } from './tiers';
 import type { Candidate, Paragraph, Variant } from './types';
 
@@ -78,10 +78,10 @@ export function createEnglishEngine(linter?: RulesLinter): EnglishEngine {
   let current = linter;
   return {
     capabilities: ENGLISH_CAPABILITIES,
-    async check(paras, opts, pause) {
+    async check(paras, opts, shared, pause) {
       current ??= await createLinter(opts.variant ?? opts.fallbackVariant, opts.dictionary);
       if (injected && opts.dictionary.length) await syncDictionary(current, opts.dictionary);
-      return checkEnglish(paras, opts, current, pause);
+      return checkEnglish(paras, opts, shared, current, pause);
     },
     async addWords(words) {
       if (!current) throw new Error('The English engine has no linter yet: run a check before adding words.');
@@ -93,13 +93,14 @@ export function createEnglishEngine(linter?: RulesLinter): EnglishEngine {
 async function checkEnglish(
   paras: Paragraph[],
   opts: CheckOptions,
+  shared: SharedText,
   linter: RulesLinter,
   pause: (() => Promise<void>) | undefined,
 ): Promise<EnglishResult> {
-  const { locked, commands } = findLockedText(paras, opts.language);
-  const { surely: commandSpans, maybe: maybeCommandSpans } = commands;
-  // The linter reads each paragraph without its invisible junk; its spans are mapped back below.
-  const invisible = new Map(paras.map((p) => [p.id, findInvisible(p, locked.get(p.id))]));
+  const { locked, invisible } = shared;
+  const { surely: commandSpans, maybe: maybeCommandSpans } = shared.commands;
+  // The linter reads each paragraph without its invisible junk; its spans are mapped back below. The session adds
+  // the invisible-character fixes themselves, for every engine's paragraphs.
   const visible = new Map(paras.map((p) => [p.id, visibleText(p, invisible.get(p.id)!)]));
   const asSeen = paras.map((p) => ({ ...p, text: visible.get(p.id)!.text }));
 
@@ -133,10 +134,7 @@ async function checkEnglish(
   const inDictionary = dictionaryMatcher(opts.dictionary);
   const found = linted.filter((c) => !confusables.some((x) => replacesLinterFlag(x, c)) && !(WORD_REWRITE_KINDS.has(c.kind) && inDictionary(c.original)));
   found.push(...confusables);
-  for (const p of paras) {
-    found.push(...invisible.get(p.id)!);
-    if (preset.extraRules.includes('contractions')) found.push(...findContractions(p, locked.get(p.id)));
-  }
+  if (preset.extraRules.includes('contractions')) found.push(...paras.flatMap((p) => findContractions(p, locked.get(p.id))));
   found.sort(byPosition);
   // The classifier also drives the never-auto-fix guard (a core protection), so it loads whatever the card switch says.
   await loadModelIfNeeded(found);

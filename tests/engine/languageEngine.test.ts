@@ -9,6 +9,7 @@ import { createEnglishEngine } from '@/engine/englishEngine';
 import { notCheckedEngine } from '@/engine/notCheckedEngine';
 import type { LanguageEngine } from '@/engine/languageEngine';
 import type { CheckOptions } from '@/engine/sessionTypes';
+import { findSharedText } from '@/engine/sharedText';
 import type { Paragraph } from '@/engine/types';
 import { devanagariEngines, fakeEngine } from '../fixtures/fakeEngines';
 
@@ -58,7 +59,8 @@ describe('engine capabilities', () => {
 
 describe('the not-checked engine', () => {
   it('returns no candidates and no unchecked paragraphs', async () => {
-    expect(await notCheckedEngine.check(paragraphs([HINDI, BENGALI]), opts)).toEqual({ found: [], uncheckedParagraphs: [] });
+    const paras = paragraphs([HINDI, BENGALI]);
+    expect(await notCheckedEngine.check(paras, opts, findSharedText(paras, opts.language))).toEqual({ found: [], uncheckedParagraphs: [] });
   });
 });
 

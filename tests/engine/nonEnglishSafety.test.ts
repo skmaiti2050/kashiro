@@ -173,6 +173,51 @@ describe('never damage in paragraphs another engine checks', () => {
   });
 });
 
+describe("the session's own layout fixes in paragraphs another engine checks", () => {
+  /** The fake Hindi engine finds nothing: every candidate here comes from the session's shared pass. */
+  const withQuietDevanagari = { linter, scriptEngines: devanagariEngines(fakeEngine()) };
+  const BYTE_ORDER_MARK = String.fromCharCode(0xfeff);
+  const LONG_HINDI = 'हम कल सुबह बाज़ार गए और वहाँ से सब्ज़ियाँ लाए।';
+
+  it('a double space and an invisible character in a Hindi paragraph are both removed without a click', async () => {
+    // Apart, so neither fix sits next to the other's change (nearInvisible asks about a fix beside one).
+    const text = `यह एक छोटा सा  परीक्षण है और यह बहु${BYTE_ORDER_MARK}त अच्छा है।`;
+    const s = await CheckSession.start(mostlyHindi({ id: 0, text }), opts, withQuietDevanagari);
+    expect(s.engineOf(0)?.id).toBe('fake-hi');
+    const own = s.outcomes().filter((o) => o.candidate.paraId === 0);
+    expect(own.map((o) => [o.candidate.source, o.candidate.kind, o.status, o.auto])).toEqual([
+      ['rules', 'Formatting', 'applied', true],
+      ['hygiene', 'Invisible', 'applied', true],
+    ]);
+    expect(s.outputText(0)).toBe('यह एक छोटा सा परीक्षण है और यह बहुत अच्छा है।');
+  });
+
+  it('a double space inside a quotation is left alone', async () => {
+    const text = 'उसने कहा "नमस्ते  दोस्त" और गया।';
+    const s = await CheckSession.start(mostlyHindi({ id: 0, text }), opts, withQuietDevanagari);
+    expect(s.engineOf(0)?.id).toBe('fake-hi');
+    expect(s.outcomes().filter((o) => o.candidate.paraId === 0 && o.status === 'applied')).toEqual([]);
+    expect(s.outputText(0)).toBe(text);
+  });
+
+  it('a key and a value lined up with spaces between two sentences are left alone', async () => {
+    const paras = [LONG_HINDI, 'नाम      राहुल', LONG_HINDI, HINDI].map((text, id) => ({ id, text }));
+    const s = await CheckSession.start(paras, opts, withQuietDevanagari);
+    expect(s.engineOf(1)?.id).toBe('fake-hi');
+    expect(s.outcomes().filter((o) => o.candidate.paraId === 1 && o.status === 'applied')).toEqual([]);
+    expect(s.outputText(1)).toBe('नाम      राहुल');
+  });
+
+  it('a set-aside English paragraph in a mostly Hindi document gets no candidate, not even for spaces', async () => {
+    const english = `We met  on Mon${BYTE_ORDER_MARK}day.`;
+    const paras = [LONG_HINDI, english, LONG_HINDI, HINDI].map((text, id) => ({ id, text }));
+    const s = await CheckSession.start(paras, opts, withQuietDevanagari);
+    expect(s.engineOf(1)?.id).toBe('none');
+    expect(s.outcomes().filter((o) => o.candidate.paraId === 1)).toEqual([]);
+    expect(s.outputText(1)).toBe(english);
+  });
+});
+
 describe('no edit splits a character', () => {
   /** The real linter, also finding `extra` (an injected candidate on paragraph 0). */
   const linterAlsoFinding = (extra: Candidate): RulesLinter => ({

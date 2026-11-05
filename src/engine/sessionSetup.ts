@@ -1,11 +1,12 @@
 import { createEnglishEngine, type EnglishResult } from './englishEngine';
-import { findLockedText } from './lockedText';
+import { findDoubleSpaces } from './doubleSpaces';
+import { findSharedText, type SharedText } from './sharedText';
 import { notCheckedEngine } from './notCheckedEngine';
 import type { EngineResult, LanguageEngine } from './languageEngine';
 import { byPosition, type CheckOptions, type SessionDeps } from './sessionTypes';
 import { ENGLISH_SCRIPT, dominantScript, majorityScript, otherScriptParagraphIds } from './uncheckedScripts';
 import type { TierContext } from './tiers';
-import type { Paragraph } from './types';
+import type { Candidate, Paragraph } from './types';
 
 /**
  * One proofreading engine per document (owner, 2026-11-02): the engine registered for the script most of the
@@ -52,43 +53,50 @@ export async function prepareCheck(
   const english = createEnglishEngine(deps.linter);
   const { proofreader, proofreaderScript, paragraphEngines } = routeParagraphs(allParas, english, deps.scriptEngines ?? new Map());
   const parasOf = (engine: LanguageEngine) => allParas.filter((p) => paragraphEngines.get(p.id) === engine);
+  // One lock pass for the whole document (#1 gate 1): every engine's paragraphs get the same locked text as English
+  // ones (URLs, numbers, quotes, commands, adapter locks).
+  const shared = findSharedText(allParas, opts.language);
   // English always runs, even with no paragraph of its own: the session's variant and tier context come from it.
-  const fromEnglish = await english.check(parasOf(english), opts, deps.pause);
+  const fromEnglish = await english.check(parasOf(english), opts, shared, deps.pause);
   const others = [...new Set(paragraphEngines.values())].filter((engine) => engine !== english);
   const fromOthers: EngineResult[] = [];
-  for (const engine of others) fromOthers.push(await engine.check(parasOf(engine), opts, deps.pause));
+  for (const engine of others) fromOthers.push(await engine.check(parasOf(engine), opts, shared, deps.pause));
 
-  // A stable sort: English's candidates are already in this order, so alone they stay exactly as they were.
-  const found = [...fromEnglish.found, ...fromOthers.flatMap((r) => r.found)].sort(byPosition);
+  const fromEngines = [...fromEnglish.found, ...fromOthers.flatMap((r) => r.found)];
+  // A stable sort, engines' candidates before the session's own: alone, English's keep the order they always had.
+  const found = [...fromEngines, ...layoutFixes(allParas, paragraphEngines, shared, fromEngines)].sort(byPosition);
   // Every engine's unchecked paragraphs, in document order.
   const unchecked = new Set([fromEnglish, ...fromOthers].flatMap((r) => r.uncheckedParagraphs));
   const uncheckedParagraphs = allParas.filter((p) => unchecked.has(p.id)).map((p) => p.id);
-  const ctx = withOtherEnginesLocked(fromEnglish.ctx, allParas, paragraphEngines, english, opts);
+  // tierOf tiers every paragraph by its engine's trust policy, and hides every non-spelling flag on a surely-command
+  // and keeps maybe-commands from zero-click, whichever engine checked it.
+  const ctx: TierContext = {
+    ...fromEnglish.ctx,
+    locked: shared.locked,
+    commandSpans: shared.commands.surely,
+    maybeCommandSpans: shared.commands.maybe,
+    paragraphEngines: new Map([...paragraphEngines].map(([paraId, engine]) => [paraId, engine.capabilities])),
+  };
   return { ...fromEnglish, ctx, paragraphEngines, engines: [english, ...others], proofreader, proofreaderScript, found, uncheckedParagraphs };
 }
 
 /**
- * #1 gate 1: the paragraphs another engine checks get the same locked text as English ones (URLs, numbers, quotes,
- * commands, adapter locks), and tierOf tiers every paragraph by its engine's trust policy (paragraphEngines). Command
- * text is protected the same way: tierOf hides every non-spelling flag on a surely-command and keeps maybe-commands
- * from zero-click.
+ * The fixes the session finds itself in every paragraph a proofreading engine checks (spec "Settled after the builder
+ * check"): invisible characters, and for engines other than English (which keeps Harper's) runs of spaces between
+ * words. Set-aside paragraphs get none (never damage). An engine that already reported the same fix keeps its own.
  */
-function withOtherEnginesLocked(
-  ctx: TierContext,
+function layoutFixes(
   allParas: Paragraph[],
   paragraphEngines: ReadonlyMap<number, LanguageEngine>,
-  english: LanguageEngine,
-  opts: CheckOptions,
-): TierContext {
-  const otherParas = allParas.filter((p) => paragraphEngines.get(p.id) !== english);
-  if (otherParas.length === 0) return ctx;
-  const { locked, commands } = findLockedText(otherParas, opts.language);
-  const capabilities = new Map([...paragraphEngines].map(([paraId, engine]) => [paraId, engine.capabilities]));
-  return {
-    ...ctx,
-    locked: new Map([...ctx.locked, ...locked]),
-    commandSpans: new Map([...(ctx.commandSpans ?? []), ...commands.surely]),
-    maybeCommandSpans: new Map([...(ctx.maybeCommandSpans ?? []), ...commands.maybe]),
-    paragraphEngines: capabilities,
-  };
+  shared: SharedText,
+  fromEngines: readonly Candidate[],
+): Candidate[] {
+  const reported = new Set(fromEngines.map((c) => c.id));
+  const fixes = allParas.flatMap((p) => {
+    const { proofreads, language } = paragraphEngines.get(p.id)!.capabilities;
+    if (!proofreads) return [];
+    const spaces = language === 'en' ? [] : findDoubleSpaces(p, shared.locked.get(p.id));
+    return [...shared.invisible.get(p.id)!, ...spaces];
+  });
+  return fixes.filter((c) => !reported.has(c.id));
 }

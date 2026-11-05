@@ -1,0 +1,117 @@
+import { describe, it, expect, beforeAll } from 'vitest';
+import { findSharedText } from '@/engine/sharedText';
+import { CheckSession } from '@/engine/session';
+import { createLinter, type RulesLinter } from '@/engine/linter';
+import type { CheckOptions } from '@/engine/sessionTypes';
+import { findLockedText } from '@/engine/lockedText';
+import type { Paragraph } from '@/engine/types';
+
+const ZERO_WIDTH_SPACE = String.fromCharCode(0x200b);
+const BYTE_ORDER_MARK = String.fromCharCode(0xfeff);
+
+describe('findSharedText', () => {
+  // English, Hindi with a URL and a zero-width space, and a fenced code block over two paragraphs.
+  const HINDI = `कृपया इस पते पर जाएँ https://example.com और${ZERO_WIDTH_SPACE}फिर फ़ॉर्म भरें।`;
+  const DOCUMENT: Paragraph[] = [
+    { id: 0, text: 'Run the installer first.' },
+    { id: 1, text: HINDI },
+    { id: 2, text: '```\nnpm  install kashiro' },
+    { id: 3, text: 'npm  run build\n```' },
+  ];
+
+  it('locks what findLockedText finds over the whole document', () => {
+    const shared = findSharedText(DOCUMENT, 'markdown');
+    const whole = findLockedText(DOCUMENT, 'markdown');
+    expect(shared.locked).toEqual(whole.locked);
+    expect(shared.commands).toEqual(whole.commands);
+    expect(shared.locked.get(1)).toContainEqual({ start: HINDI.indexOf('https'), end: HINDI.indexOf(' और') });
+  });
+
+  it('finds the zero-width space in the Hindi paragraph', () => {
+    const shared = findSharedText(DOCUMENT, 'markdown');
+    const at = HINDI.indexOf(ZERO_WIDTH_SPACE);
+    expect(shared.invisible.get(1)!.map((c) => [c.id, c.replacements])).toEqual([[`1:${at}:${at + 1}:Invisible`, ['']]]);
+    expect(shared.invisible.get(0)).toEqual([]);
+  });
+});
+
+describe('English output with the shared pass (review focus 4)', () => {
+  let linter: RulesLinter;
+  beforeAll(async () => {
+    linter = await createLinter('Indian');
+  });
+
+  const opts: CheckOptions = { preset: 'business', variant: 'Indian', fallbackVariant: 'Indian', language: 'markdown', dictionary: [] };
+
+  // A set-aside Bengali paragraph, a fenced code block over two paragraphs, a double space, a typo and invisible characters.
+  const DOCUMENT: Paragraph[] = [
+    { id: 0, text: `We met  on teh Monday to${ZERO_WIDTH_SPACE} review the plan.` },
+    { id: 1, text: 'আমরা কাল বাজারে  গিয়েছিলাম।' },
+    { id: 2, text: 'To set it up, run these commands:\n```\nnpm  install kashiro' },
+    { id: 3, text: 'npm run  build\n```' },
+    { id: 4, text: `Then open the${BYTE_ORDER_MARK} app and recieve the  report.` },
+  ];
+
+  it('gives the same candidates, tiers and outcomes as before', async () => {
+    const s = await CheckSession.start(DOCUMENT, opts, { linter });
+    const rows = s.outcomes().map((o) => [o.candidate.id, s.tier(o.candidate.id), o.status, o.auto]);
+    expect(rows).toMatchInlineSnapshot(`
+      [
+        [
+          "0:6:8:Formatting",
+          "safe",
+          "applied",
+          true,
+        ],
+        [
+          "0:11:14:Typo",
+          "batch",
+          "pending",
+          false,
+        ],
+        [
+          "0:24:25:Invisible",
+          "safe",
+          "applied",
+          true,
+        ],
+        [
+          "3:7:9:Formatting",
+          "hidden",
+          "pending",
+          false,
+        ],
+        [
+          "4:13:14:Invisible",
+          "safe",
+          "applied",
+          true,
+        ],
+        [
+          "4:23:30:Spelling",
+          "review",
+          "pending",
+          false,
+        ],
+        [
+          "4:34:36:Formatting",
+          "safe",
+          "applied",
+          true,
+        ],
+      ]
+    `);
+    expect(DOCUMENT.map((p) => s.outputText(p.id))).toMatchInlineSnapshot(`
+      [
+        "We met on teh Monday to review the plan.",
+        "আমরা কাল বাজারে  গিয়েছিলাম।",
+        "To set it up, run these commands:
+      \`\`\`
+      npm  install kashiro",
+        "npm run  build
+      \`\`\`",
+        "Then open the app and recieve the report.",
+      ]
+    `);
+  });
+});
